@@ -29,15 +29,20 @@
     border-bottom: 1px solid #e2e8f0 !important;
 }
 
-/* Specificity booster for table styling */
+#rajpura-alc-main-container .bs-table {
+    border-collapse: collapse !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
 #rajpura-alc-main-container .bs-table th {
     background-color: #f8fafc !important;
     color: #475569 !important;
     font-weight: 600 !important;
+    border: 1px solid #e2e8f0 !important;
 }
 
 #rajpura-alc-main-container .bs-table td {
-    border-bottom: 1px solid #f1f5f9 !important;
+    border: 1px solid #e2e8f0 !important;
 }
 
 /* Button overrides to ensure they don't inherit SharePoint button styles */
@@ -146,7 +151,7 @@
 #rajpura-alc-main-container .select2-container--default .select2-selection--single .select2-selection__arrow::before,
 #rajpura-alc-main-container .select2-container--default .select2-selection--single .select2-selection__arrow b {
     position: static !important;
-    margin-top: 20px !important;
+    margin-top: 40px !important;
     margin-left: 0 !important;
     display: inline-block !important;
 }

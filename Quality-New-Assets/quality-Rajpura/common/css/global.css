@@ -100,3 +100,14 @@
     margin: 0 !important;
     font-family: 'Outfit', 'Inter', sans-serif !important;
 }
+
+/* Highlight rows for logged-in user tasks */
+#rajpuraQualityDashboard table.bs-table tr.my-task-row td {
+    background-color: #fffbeb !important; /* Soft amber/gold highlight */
+    border-color: #fde68a !important;
+    font-weight: 500 !important;
+}
+
+#rajpuraQualityDashboard table.bs-table tr.my-task-row:hover td {
+    background-color: #fef3c7 !important; /* Slightly darker amber on hover */
+}

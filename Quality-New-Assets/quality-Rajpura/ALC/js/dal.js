@@ -318,12 +318,18 @@ const ALC_DAL = {
             : `${webServerRelativeUrl}/${libraryName}`;
 
         // 1. Get Request Digest (Form Digest)
-        const digestResponse = await $.ajax({
-            url: `${webUrl}/_api/contextinfo`,
-            method: "POST",
-            headers: { "Accept": "application/json; odata=verbose" }
-        });
-        const requestDigest = digestResponse.d.GetContextWebInformation.FormDigestValue;
+        let requestDigest = "";
+        const requestDigestEl = document.getElementById("__REQUESTDIGEST");
+        if (requestDigestEl && requestDigestEl.value) {
+            requestDigest = requestDigestEl.value;
+        } else {
+            const digestResponse = await $.ajax({
+                url: `${webUrl}/_api/contextinfo`,
+                method: "POST",
+                headers: { "Accept": "application/json; odata=verbose" }
+            });
+            requestDigest = digestResponse.d.GetContextWebInformation.FormDigestValue;
+        }
 
         // 2. Read file as ArrayBuffer
         const fileBuffer = await new Promise((resolve, reject) => {
@@ -333,7 +339,7 @@ const ALC_DAL = {
             reader.readAsArrayBuffer(fileObject);
         });
 
-        // 3. Generate unique filename (e.g. proof_20260803_134639.png)
+        // 3. Generate unique filename (e.g. proof_20260803_134639_CP-1.png)
         const dotIndex = fileObject.name.lastIndexOf(".");
         let baseName = fileObject.name;
         let extension = "";
@@ -344,7 +350,10 @@ const ALC_DAL = {
         // Clean special characters to avoid SharePoint upload issues
         baseName = baseName.replace(/[^a-zA-Z0-9_-]/g, "_");
         const timestamp = typeof moment !== 'undefined' ? moment().format("YYYYMMDD_HHmmss") : Date.now();
-        const uniqueFileName = `${baseName}_${timestamp}${extension}`;
+        const safeCheckpointId = checkpointId ? String(checkpointId).replace(/[^a-zA-Z0-9_-]/g, "_") : "";
+        const uniqueFileName = safeCheckpointId 
+            ? `${baseName}_${timestamp}_${safeCheckpointId}${extension}`
+            : `${baseName}_${timestamp}${extension}`;
 
         // 4. Upload File via GetFolderByServerRelativeUrl
         const fileAddUrl = `${webUrl}/_api/web/GetFolderByServerRelativeUrl('${serverRelativeUrl}')/Files/add(url='${uniqueFileName}', overwrite=true)?$expand=ListItemAllFields`;

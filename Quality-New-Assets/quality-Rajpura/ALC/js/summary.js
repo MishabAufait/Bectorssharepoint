@@ -133,29 +133,47 @@ const ALC_Summary = {
         const overallPercentRaw = totalMaxPoints > 0 ? (totalObtainedPoints / totalMaxPoints) * 100 : 0;
         const overallPercent = overallPercentRaw.toFixed(2);
         const scoreCircle = document.getElementById("sum-score-circle");
+        const scoreCard = scoreCircle ? scoreCircle.parentElement : null;
+        const isPassingScore = (parseFloat(overallPercent) >= 80);
         if (scoreCircle) {
             scoreCircle.innerText = `${overallPercent}%`;
-            if (parseFloat(overallPercent) >= 80) {
-                scoreCircle.style.backgroundColor = "#10b981"; // Green
+            if (isPassingScore) {
+                scoreCircle.style.backgroundColor = "#10b981";
                 scoreCircle.style.boxShadow = "0 4px 6px -1px rgba(16, 185, 129, 0.3)";
             } else {
-                scoreCircle.style.backgroundColor = "#ef4444"; // Red
+                scoreCircle.style.backgroundColor = "#ef4444";
                 scoreCircle.style.boxShadow = "0 4px 6px -1px rgba(239, 68, 68, 0.3)";
             }
         }
+
+        if (scoreCard) {
+            if (isPassingScore) {
+                scoreCard.style.borderColor = "#bbf7d0";
+                scoreCard.style.backgroundColor = "#f0fdf4";
+            } else {
+                scoreCard.style.borderColor = "#fecaca";
+                scoreCard.style.backgroundColor = "#fef2f2";
+            }
+        }
         
-        const isPass = (parseFloat(overallPercent) >= 100);
         const scoreDesc = document.getElementById("sum-score-desc");
         if (scoreDesc) {
             const status = this.session.cr3ea_processstatus || this.session.cr3ea_status || "";
-            if (status.includes("Pending Production")) {
+            if (status === "Closed - Expired") {
+                scoreDesc.innerText = `${isPassingScore ? "Success" : "Failed"} - Expired with ${overallPercent}% compliance score.`;
+                scoreDesc.style.color = isPassingScore ? "#047857" : "#b91c1c";
+            } else if (status.includes("Pending Production")) {
                 scoreDesc.innerText = `Pending Production Corrective Actions. Current Score: ${overallPercent}%`;
+                scoreDesc.style.color = isPassingScore ? "#047857" : "#b91c1c";
             } else if (status.includes("Pending Re-Verification")) {
                 scoreDesc.innerText = `Pending QA Re-Verification. Current Score: ${overallPercent}%`;
+                scoreDesc.style.color = isPassingScore ? "#047857" : "#b91c1c";
             } else if (status === "Completed") {
                 scoreDesc.innerText = `Excellent! 100% compliance cleared successfully.`;
+                scoreDesc.style.color = "#047857";
             } else {
                 scoreDesc.innerText = `Completed with ${overallPercent}% compliance score.`;
+                scoreDesc.style.color = isPassingScore ? "#047857" : "#b91c1c";
             }
         }
 
@@ -246,26 +264,76 @@ const ALC_Summary = {
                     }
                 }
 
-                // QA Remarks Column (preserves both initial defect and re-verification remarks)
+                // QA Remarks Column (preserves both initial defect and re-verification remarks, and extracts QA proof file)
                 const qaRemark = cp.cr3ea_defectremarks || "";
                 let qaRemarksHtml = '<span class="text-muted">-</span>';
                 
                 let qaDisplayText = "";
+                let qaFileBadge = "";
+                let initialPart = qaRemark;
+                let reverifyPart = "";
+
                 if (qaRemark.includes(" | Re-verified:")) {
                     const parts = qaRemark.split(" | Re-verified:");
-                    const initialPart = parts[0].trim();
-                    const reverifyPart = parts[1] ? parts[1].trim() : "";
-                    
-                    const showInitial = initialPart && !initialPart.startsWith("Action:");
-                    if (showInitial && reverifyPart) {
-                        qaDisplayText = `${initialPart} <br> <small class="text-success" style="font-weight: bold;">Re-verified: ${reverifyPart}</small>`;
-                    } else if (reverifyPart) {
-                        qaDisplayText = `<small class="text-success" style="font-weight: bold;">Re-verified: ${reverifyPart}</small>`;
-                    } else if (showInitial) {
-                        qaDisplayText = initialPart;
+                    initialPart = parts[0].trim();
+                    reverifyPart = parts[1] ? parts[1].trim() : "";
+                }
+
+                // Extract QA proof file if present in initial part
+                let qaFileName = "";
+                if (initialPart.toLowerCase().includes("file:")) {
+                    const idx = initialPart.toLowerCase().indexOf("file:");
+                    qaFileName = initialPart.substring(idx + 5).trim();
+                    let textPart = initialPart.substring(0, idx).trim();
+                    if (textPart.endsWith("|")) {
+                        textPart = textPart.substring(0, textPart.length - 1).trim();
                     }
-                } else if (qaRemark && !qaRemark.startsWith("Action:")) {
-                    qaDisplayText = qaRemark;
+                    initialPart = textPart;
+                }
+
+                if (!initialPart && qaFileName) {
+                    initialPart = "Image Proof Uploaded";
+                }
+
+                if (qaFileName) {
+                    const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
+                    const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${qaFileName}`;
+                    qaFileBadge = ` <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #1a73e8; font-weight: bold; font-size: 11px; margin-left: 5px;">View QA Proof</a>`;
+                }
+
+                // Extract QA re-verification proof file if present in reverify part
+                let reverifyDisplayText = "";
+                let reverifyFileBadge = "";
+                if (reverifyPart) {
+                    let cleanReverify = reverifyPart;
+                    let reverifyFileName = "";
+                    if (reverifyPart.toLowerCase().includes("file:")) {
+                        const idx = reverifyPart.toLowerCase().indexOf("file:");
+                        reverifyFileName = reverifyPart.substring(idx + 5).trim();
+                        let textPart = reverifyPart.substring(0, idx).trim();
+                        if (textPart.endsWith("|")) {
+                            textPart = textPart.substring(0, textPart.length - 1).trim();
+                        }
+                        cleanReverify = textPart;
+                    }
+                    if (!cleanReverify && reverifyFileName) {
+                        cleanReverify = "Image Proof Uploaded";
+                    }
+                    if (reverifyFileName) {
+                        const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
+                        const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${reverifyFileName}`;
+                        reverifyFileBadge = ` <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #2e7d32; font-weight: bold; font-size: 11px; margin-left: 5px;">View Re-verify Proof</a>`;
+                    }
+                    reverifyDisplayText = `<small class="text-success" style="font-weight: bold;">Re-verified: ${cleanReverify}${reverifyFileBadge}</small>`;
+                }
+
+                const showInitial = initialPart && !initialPart.startsWith("Action:");
+                if (showInitial && reverifyDisplayText) {
+                    qaDisplayText = `${initialPart}${qaFileBadge} <br> ${reverifyDisplayText}`;
+                } else if (reverifyDisplayText) {
+                    qaDisplayText = reverifyDisplayText;
+                } else if (showInitial) {
+                    qaDisplayText = `${initialPart}${qaFileBadge}`;
                 }
 
                 if (qaDisplayText) {

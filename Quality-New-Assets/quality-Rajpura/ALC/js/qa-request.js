@@ -139,7 +139,8 @@ const ALC_QARequest = {
             cr3ea_runningvariety: newProduct,
             cr3ea_assigned_qa: assignedQaEmail,
             cr3ea_request_time: requestTime,
-            cr3ea_escalation_contacts: escalationEmails.join(",")
+            cr3ea_escalation_contacts: escalationEmails.join(","),
+            cr3ea_islineclear: false // New request starts as Not Clear (No)
         };
 
         if (ALC_StateMachine.currentTourId) {
@@ -152,6 +153,41 @@ const ALC_QARequest = {
 
         try {
             ShowLoader();
+
+            // Validation: Check for ongoing uncleared sessions on this same line today
+            const sessions = await ALC_DAL.getActiveSessions();
+            const todayStr = moment().format("YYYY-MM-DD");
+            
+            const unclearedSession = sessions.find(s => {
+                if (ALC_StateMachine.currentTourId && s.cr3ea_prod_qualitytourid === ALC_StateMachine.currentTourId) {
+                    return false;
+                }
+                const isSameLine = s.cr3ea_lineno === line;
+                const isClearedVal = s.cr3ea_islineclear;
+                const status = s.cr3ea_processstatus || s.cr3ea_status || "";
+                const isCleared = isClearedVal === true || 
+                                  isClearedVal === "true" || 
+                                  isClearedVal === 1 || 
+                                  isClearedVal === "1" || 
+                                  isClearedVal === "Yes" || 
+                                  status === "Completed" || 
+                                  status === "Closed" || 
+                                  status === "Closed - Expired" || 
+                                  status === "Success";
+
+                const tourDate = s.cr3ea_tourstartdate || s.createdon;
+                const isToday = tourDate && (moment(tourDate).local().format("YYYY-MM-DD") === todayStr);
+
+                return isSameLine && !isCleared && isToday;
+            });
+
+            if (unclearedSession) {
+                HideLoader();
+                const tourTimeStr = unclearedSession.cr3ea_tourstartdate ? moment(unclearedSession.cr3ea_tourstartdate).format("hh:mm A") : "earlier";
+                alert(`Cannot start a new tour on ${line}. The previous tour on this line (started at ${tourTimeStr}) is still pending line clearance.`);
+                return;
+            }
+
             const session = await ALC_DAL.saveSession(headerData);
             HideLoader();
             

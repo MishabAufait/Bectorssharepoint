@@ -3,16 +3,47 @@ console.log("ALC Checklist script loaded");
 
 const ALC_Checklist = {
     checkpoints: [],
+    uploadedFiles: {},
+
+    // Handle file selection
+    onFileSelected: async function (input, index) {
+        const file = input.files[0];
+        if (!file) return;
+
+        const fileStatus = document.getElementById(`file-status-${index}`);
+        if (fileStatus) fileStatus.innerText = `Reading file: ${file.name}...`;
+
+        if (!file.type.startsWith("image/")) {
+            alert("Only image files are allowed.");
+            input.value = "";
+            if (fileStatus) fileStatus.innerText = "No image uploaded";
+            return;
+        }
+
+        this.uploadedFiles[index] = file;
+        if (fileStatus) fileStatus.innerHTML = `<span class="text-success">✔ ${file.name} ready</span>`;
+    },
 
     // Render Checklist
     renderChecklist: function () {
+        const trackerBanner = document.getElementById("checklist-tracker-banner");
+        if (trackerBanner) trackerBanner.style.display = "block";
+
         // Collect check rows from the DOM and initialize Select2 if needed
         const selectElements = document.querySelectorAll("#section-checklist-filling tbody select");
         selectElements.forEach(select => {
             if (window.jQuery && $.fn.select2) {
                 $(select).select2({ minimumResultsForSearch: -1, width: "100%" });
+                $(select).off("change.tracker").on("change.tracker", () => {
+                    this.updateTracker();
+                });
+            } else {
+                select.addEventListener("change", () => {
+                    this.updateTracker();
+                });
             }
         });
+        this.updateTracker();
     },
 
     loadSavedCheckpoints: async function () {
@@ -29,26 +60,44 @@ const ALC_Checklist = {
                     const selectEl = tds[2].querySelector("select");
                     const remarksEl = tds[3].querySelector("input");
 
-                    // Find matching saved checkpoint
-                    const cp = checkpoints.find(c => c.cr3ea_criteria === criteria);
-                    if (cp) {
-                        let selectVal = "Compliant (2)";
-                        if (cp.cr3ea_defectcategory) {
-                            selectVal = cp.cr3ea_defectcategory;
-                        } else if (cp.cr3ea_status === "Not Okay") {
-                            selectVal = "Non-Compliant (0)";
-                        }
+                     // Find matching saved checkpoint
+                     const cp = checkpoints.find(c => c.cr3ea_criteria === criteria);
+                     if (cp) {
+                         let selectVal = "Compliant (2)";
+                         if (cp.cr3ea_defectcategory) {
+                             selectVal = cp.cr3ea_defectcategory;
+                         } else if (cp.cr3ea_status === "Not Okay") {
+                             selectVal = "Non-Compliant (0)";
+                         }
+ 
+                         if (selectEl) {
+                             selectEl.value = selectVal;
+                             if (window.jQuery && $.fn.select2) {
+                                 $(selectEl).trigger('change');
+                             }
+                         }
+                         
+                         let cleanRemarks = cp.cr3ea_defectremarks || "";
+                         let fileLabel = "No image uploaded";
+                         if (cleanRemarks.includes("| File:")) {
+                             const parts = cleanRemarks.split("| File:");
+                             cleanRemarks = parts[0].trim();
+                             const fileName = parts[1] ? parts[1].trim() : "";
+                             if (fileName) {
+                                 fileLabel = `Uploaded: ${fileName}`;
+                             }
+                         }
 
-                        if (selectEl) {
-                            selectEl.value = selectVal;
-                            if (window.jQuery && $.fn.select2) {
-                                $(selectEl).trigger('change');
-                            }
-                        }
-                        if (remarksEl) {
-                            remarksEl.value = cp.cr3ea_defectremarks || "";
-                        }
-                    }
+                         if (remarksEl) {
+                             remarksEl.value = cleanRemarks;
+                         }
+
+                         // Show file label in 5th column
+                         const fileStatusEl = row.querySelector(".custom-file-upload small");
+                         if (fileStatusEl) {
+                             fileStatusEl.innerText = fileLabel;
+                         }
+                     }
                 }
             });
             HideLoader();
@@ -65,23 +114,39 @@ const ALC_Checklist = {
             let totalMaxScore = 0;
             let totalObtainedScore = 0;
             let hasDefects = false;
+            let isIncomplete = false;
+            let hasMissingMandatoryFile = false;
+            let missingFileIndex = -1;
             const scores = [];
 
-            rows.forEach(row => {
+            rows.forEach((row, idx) => {
                 const selectEl = row.querySelector("select");
                 const remarksEl = row.querySelector("input[type='text']");
                 if (selectEl) {
                     const scoreValue = selectEl.value;
+                    if (!scoreValue || scoreValue === "") {
+                        isIncomplete = true;
+                    }
                     let numericalScore = 2; // Default to Compliant (2)
+                    let isNonCompliant = false;
                     
                     if (scoreValue.includes("(0)") || scoreValue === "00" || scoreValue.includes("Non-Compliant")) {
                         numericalScore = 0;
                         hasDefects = true;
+                        isNonCompliant = true;
                     } else if (scoreValue.includes("(1)") || scoreValue === "01" || scoreValue.includes("Partial")) {
                         numericalScore = 1;
                         hasDefects = true;
                     } else if (scoreValue.includes("(2)") || scoreValue === "02" || scoreValue.includes("Compliant")) {
                         numericalScore = 2;
+                    }
+
+                    const file = this.uploadedFiles[idx];
+                    if (isNonCompliant && !file) {
+                        hasMissingMandatoryFile = true;
+                        if (missingFileIndex === -1) {
+                            missingFileIndex = idx + 1; // 1-based index
+                        }
                     }
 
                     totalObtainedScore += numericalScore;
@@ -94,6 +159,18 @@ const ALC_Checklist = {
                     });
                 }
             });
+
+            if (isIncomplete) {
+                alert("Please select compliance score for all checkpoints before submitting.");
+                resolve(null);
+                return;
+            }
+
+            if (hasMissingMandatoryFile) {
+                alert(`Uploading a proof image is mandatory for Non-Compliant checkpoint #${missingFileIndex}.`);
+                resolve(null);
+                return;
+            }
 
             const scorePercentRaw = totalMaxScore > 0 ? (totalObtainedScore / totalMaxScore) * 100 : 0;
             const scorePercent = scorePercentRaw.toFixed(2);
@@ -114,6 +191,7 @@ const ALC_Checklist = {
         }
 
         const evaluation = await this.calculateScore();
+        if (!evaluation) return;
         
         let isPass = (parseFloat(evaluation.percent) >= 80);
         let statusText = "Completed";
@@ -158,6 +236,34 @@ const ALC_Checklist = {
                         status = "Not Okay";
                     }
 
+                    // Upload QA Image if selected
+                    const file = this.uploadedFiles[i];
+                    let fileName = "";
+                    if (file) {
+                        try {
+                            const uploadedUrl = await ALC_DAL.uploadCorrectiveActionFile(
+                                file,
+                                ALC_StateMachine.currentTourId,
+                                areaName,
+                                `CP-${i}`,
+                                remarks
+                            );
+                            if (uploadedUrl) {
+                                fileName = uploadedUrl.substring(uploadedUrl.lastIndexOf("/") + 1);
+                            } else {
+                                fileName = file.name;
+                            }
+                        } catch (uploadError) {
+                            console.error(`Failed to upload QA file for row #${i + 1}:`, uploadError);
+                            alert(`File upload failed for checkpoint #${i + 1}. Storing without file.`);
+                        }
+                    }
+
+                    let remarksVal = remarks;
+                    if (fileName) {
+                        remarksVal = remarksVal ? `${remarksVal} | File: ${fileName}` : `File: ${fileName}`;
+                    }
+
                     // Save each checkpoint mapping to Dataverse Schema
                     await ALC_DAL.saveChecklistRow({
                         "cr3ea_qualitytourid": ALC_StateMachine.currentTourId,
@@ -167,7 +273,7 @@ const ALC_Checklist = {
                         "cr3ea_criteria": criteria,
                         "cr3ea_status": status,
                         "cr3ea_defectcategory": scoreText,
-                        "cr3ea_defectremarks": remarks
+                        "cr3ea_defectremarks": remarksVal
                     });
                 }
             }
@@ -179,13 +285,16 @@ const ALC_Checklist = {
 
             const dbStatusValue = statusText === "Success - Pending Production" ? "Failed - Pending Production" : statusText;
 
+            const isLineClearVal = (evaluation.percent >= 80 || ALC_StateMachine.isPreviousDay);
+
             const sessionUpdate = {
                 cr3ea_prod_qualitytourid: ALC_StateMachine.currentTourId,
                 cr3ea_status: dbStatusValue,
                 cr3ea_processstatus: statusText,
                 cr3ea_title: cleanBaseTitle,
                 cr3ea_overall_score: String(evaluation.percent),
-                cr3ea_checklist_result: !evaluation.hasDefects ? "Pass" : (ALC_StateMachine.isPreviousDay ? "Expired" : "Fail")
+                cr3ea_checklist_result: ALC_StateMachine.isPreviousDay ? "Expired" : (evaluation.percent >= 80 ? "Pass" : "Fail"),
+                cr3ea_islineclear: isLineClearVal
             };
             await ALC_DAL.saveSession(sessionUpdate);
 
@@ -211,6 +320,201 @@ const ALC_Checklist = {
         } catch (error) {
             HideLoader();
             alert("Error submitting ALC: " + error.message);
+        }
+    },
+
+    // Update Progress Tracker Banner dynamically
+    updateTracker: function () {
+        const rows = document.querySelectorAll("#section-checklist-filling tbody tr");
+        const totalCheckpoints = rows.length;
+        let filledCount = 0;
+        let compliantCount = 0;
+        let partialCount = 0;
+        let nonCompliantCount = 0;
+        let pendingCount = 0;
+        
+        let totalObtainedScore = 0;
+        const totalMaxScore = totalCheckpoints * 2; // Always out of full checklist size
+
+        rows.forEach(row => {
+            const selectEl = row.querySelector("select");
+            if (selectEl) {
+                const scoreValue = selectEl.value;
+                if (scoreValue) {
+                    filledCount++;
+                    let numericalScore = 2;
+                    if (scoreValue.includes("Non-Compliant") || scoreValue.includes("(0)") || scoreValue === "00") {
+                        numericalScore = 0;
+                        nonCompliantCount++;
+                    } else if (scoreValue.includes("Partial") || scoreValue.includes("(1)") || scoreValue === "01") {
+                        numericalScore = 1;
+                        partialCount++;
+                    } else {
+                        compliantCount++;
+                    }
+                    totalObtainedScore += numericalScore;
+                } else {
+                    pendingCount++;
+                }
+            }
+        });
+
+        // Compute estimated percentage
+        const progressPercent = totalCheckpoints > 0 ? Math.round((filledCount / totalCheckpoints) * 100) : 0;
+        const estimatedScorePercent = totalMaxScore > 0 ? ((totalObtainedScore / totalMaxScore) * 100).toFixed(2) : "0.00";
+        const isPass = parseFloat(estimatedScorePercent) >= 80;
+
+        // Update DOM elements
+        const summaryTextEl = document.getElementById("tracker-summary-text");
+        if (summaryTextEl) {
+            summaryTextEl.innerHTML = `<strong>${filledCount}</strong> of <strong>${totalCheckpoints}</strong> checkpoints filled (${progressPercent}%)`;
+        }
+
+        const progressBarEl = document.getElementById("tracker-progress-bar");
+        if (progressBarEl) {
+            progressBarEl.style.width = `${progressPercent}%`;
+            progressBarEl.setAttribute("aria-valuenow", progressPercent);
+        }
+
+        const estimatedScoreEl = document.getElementById("tracker-estimated-score");
+        if (estimatedScoreEl) {
+            estimatedScoreEl.innerText = `${estimatedScorePercent}%`;
+        }
+
+        const scoreBadgeEl = document.getElementById("tracker-score-badge");
+        if (scoreBadgeEl) {
+            if (isPass) {
+                scoreBadgeEl.innerText = "Pass";
+                scoreBadgeEl.style.backgroundColor = "#dcfce7";
+                scoreBadgeEl.style.color = "#15803d";
+                scoreBadgeEl.style.borderColor = "#bbf7d0";
+            } else {
+                scoreBadgeEl.innerText = "Fail";
+                scoreBadgeEl.style.backgroundColor = "#fee2e2";
+                scoreBadgeEl.style.color = "#b91c1c";
+                scoreBadgeEl.style.borderColor = "#fecaca";
+            }
+        }
+
+        const countCompliantEl = document.getElementById("tracker-count-compliant");
+        if (countCompliantEl) countCompliantEl.innerText = compliantCount;
+
+        const countPartialEl = document.getElementById("tracker-count-partial");
+        if (countPartialEl) countPartialEl.innerText = partialCount;
+
+        const countNonCompliantEl = document.getElementById("tracker-count-noncompliant");
+        if (countNonCompliantEl) countNonCompliantEl.innerText = nonCompliantCount;
+
+        const countPendingEl = document.getElementById("tracker-count-pending");
+        if (countPendingEl) countPendingEl.innerText = pendingCount;
+    },
+
+    // Pause the active tour checklist
+    pauseTour: async function () {
+        if (!ALC_StateMachine.currentTourId) {
+            alert("No active session ID found.");
+            return;
+        }
+
+        const confirmPause = confirm("Are you sure you want to pause the tour? Your progress will be saved, and you can resume it later from the dashboard.");
+        if (!confirmPause) return;
+
+        try {
+            ShowLoader();
+
+            const rows = document.querySelectorAll("#section-checklist-filling tbody tr");
+            let areaName = "Unknown Area";
+
+            // Loop and save each filled checkpoint row sequentially
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                const cardHeader = row.closest(".bs-card")?.querySelector(".bs-card-title")?.innerText.trim();
+                if (cardHeader) areaName = cardHeader;
+
+                const tds = row.querySelectorAll("td");
+                if (tds.length >= 4) {
+                    const criteria = tds[1].innerText.trim();
+                    const selectEl = tds[2].querySelector("select");
+                    const remarksEl = tds[3].querySelector("input");
+                    
+                    const scoreText = selectEl ? selectEl.value : "";
+                    const remarks = remarksEl ? remarksEl.value.trim() : "";
+
+                    // If not selected/filled, skip saving to keep DB clean
+                    if (!scoreText) continue; 
+
+                    let status = "OK";
+                    if (scoreText.includes("(0)") || scoreText === "00" || scoreText.includes("Non-Compliant") ||
+                        scoreText.includes("(1)") || scoreText === "01" || scoreText.includes("Partial")) {
+                        status = "Not Okay";
+                    }
+
+                    // Upload QA Image if selected
+                    const file = this.uploadedFiles[i];
+                    let fileName = "";
+                    if (file) {
+                        try {
+                            const uploadedUrl = await ALC_DAL.uploadCorrectiveActionFile(
+                                file,
+                                ALC_StateMachine.currentTourId,
+                                areaName,
+                                `CP-${i}`,
+                                remarks
+                            );
+                            if (uploadedUrl) {
+                                fileName = uploadedUrl.substring(uploadedUrl.lastIndexOf("/") + 1);
+                            }
+                        } catch (uploadError) {
+                            console.error(`Failed to upload QA file for row #${i + 1} during pause:`, uploadError);
+                        }
+                    }
+
+                    // Build remarks string
+                    let remarksVal = remarks;
+                    if (fileName) {
+                        remarksVal = remarksVal ? `${remarksVal} | File: ${fileName}` : `File: ${fileName}`;
+                    } else {
+                        // Keep previously saved filename if already there
+                        const existingLabel = row.querySelector(".custom-file-upload small")?.innerText || "";
+                        if (existingLabel.startsWith("Uploaded: ")) {
+                            const prevFileName = existingLabel.replace("Uploaded: ", "").trim();
+                            remarksVal = remarksVal ? `${remarksVal} | File: ${prevFileName}` : `File: ${prevFileName}`;
+                        }
+                    }
+
+                    await ALC_DAL.saveChecklistRow({
+                        "cr3ea_qualitytourid": ALC_StateMachine.currentTourId,
+                        "cr3ea_area": areaName,
+                        "cr3ea_tourcycle": `Cycle-1`,
+                        "cr3ea_criteria": criteria,
+                        "cr3ea_status": status,
+                        "cr3ea_defectcategory": scoreText,
+                        "cr3ea_defectremarks": remarksVal
+                    });
+                }
+            }
+
+            // Save session status as "QA In Progress"
+            const session = ALC_StateMachine.currentSession || {};
+            const baseTitle = session.cr3ea_title || ("ALC_" + moment().format("MM-DD-YYYY_HH:mm"));
+            const cleanBaseTitle = baseTitle.split("||")[0].trim();
+
+            await ALC_DAL.saveSession({
+                cr3ea_prod_qualitytourid: ALC_StateMachine.currentTourId,
+                cr3ea_status: "QA In Progress",
+                cr3ea_processstatus: "QA In Progress",
+                cr3ea_title: cleanBaseTitle
+            });
+
+            HideLoader();
+            alert("Tour paused and progress saved successfully!");
+            
+            // Redirect to dashboard
+            window.location.href = window.location.pathname;
+        } catch (error) {
+            HideLoader();
+            console.error("Error pausing tour:", error);
+            alert("Failed to pause tour: " + error.message);
         }
     }
 };

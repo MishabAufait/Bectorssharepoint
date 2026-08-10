@@ -122,7 +122,12 @@
             
             <!-- Ongoing Clearances & Action Tracking Panel -->
             <div class="mb-4" style="margin-bottom: 25px;">
-                <h4 class="bec-fs-md mb-2" style="font-weight: bold; border-left: 4px solid #1a73e8; padding-left: 8px; color: #1a73e8; margin-bottom: 15px;">Ongoing Clearance Tours & Action Tracking</h4>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h4 class="bec-fs-md" style="font-weight: bold; border-left: 4px solid #1a73e8; padding-left: 8px; color: #1a73e8; margin: 0;">Ongoing Clearance Tours & Action Tracking</h4>
+                    <button type="button" id="btn-refresh-dashboard" onclick="ALC_Dashboard.loadAllTours()" class="bs-btn bs-btn-secondary" style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: 500; color: #475569; transition: all 0.1s ease;">
+                        🔄 Refresh
+                    </button>
+                </div>
                 <div class="table-responsive" style="overflow-x: auto;">
                     <table class="bs-table" border="1" style="border-collapse: collapse; width: 100%; min-width: 800px; text-align: center; font-size: 14px;">
                         <thead>

@@ -46,9 +46,10 @@ const ALC_CorrectiveAction = {
         tbody.innerHTML = "";
         
         const isReadOnlyState = ALC_StateMachine.isReadOnly || 
-                                (ALC_StateMachine.currentSession && 
-                                 (ALC_StateMachine.currentSession.cr3ea_status === "Closed - Expired" || 
-                                  ALC_StateMachine.currentSession.cr3ea_processstatus === "Closed - Expired"));
+                                ((ALC_StateMachine.currentSession && 
+                                  (ALC_StateMachine.currentSession.cr3ea_status === "Closed - Expired" || 
+                                   ALC_StateMachine.currentSession.cr3ea_processstatus === "Closed - Expired")) &&
+                                 !(ALC_StateMachine.isProductionUser || ALC_StateMachine.isProductUser));
 
         let renderedCount = 0;
         let userPendingCount = 0;
@@ -118,13 +119,45 @@ const ALC_CorrectiveAction = {
                 qaRemark = prefilledRemark;
             }
 
+            // Parse QA observation remarks and check if they attached a proof file
+            let qaRemarkHtml = "";
+            if (qaRemark) {
+                let cleanQaRemark = qaRemark;
+                let fileBadge = "";
+                let fileName = "";
+                if (qaRemark.toLowerCase().includes("file:")) {
+                    const idx = qaRemark.toLowerCase().indexOf("file:");
+                    fileName = qaRemark.substring(idx + 5).trim();
+                    let textPart = qaRemark.substring(0, idx).trim();
+                    if (textPart.endsWith("|")) {
+                        textPart = textPart.substring(0, textPart.length - 1).trim();
+                    }
+                    cleanQaRemark = textPart;
+                }
+
+                if (!cleanQaRemark && fileName) {
+                    cleanQaRemark = "Image Proof Uploaded";
+                }
+
+                if (fileName) {
+                    const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
+                    const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${fileName}`;
+                    fileBadge = `<a href="${fileUrl}" target="_blank" class="btn btn-xs btn-info" style="margin-left: 10px; padding: 2px 6px; font-size: 11px; text-decoration: none; color: #ffffff; background-color: #0284c7; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;"><i class="fa fa-paperclip"></i> View Image</a>`;
+                }
+
+                qaRemarkHtml = `<div style="margin-top: 6px; padding: 6px 10px; background: #fff5f5; border-left: 3px solid #ef4444; font-size: 12px; color: #991b1b; border-radius: 4px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                    <span><strong>QA Defect Observation:</strong> ${cleanQaRemark}</span>
+                    ${fileBadge}
+                </div>`;
+            }
+
             const row = document.createElement("tr");
             row.innerHTML = `
                 <td>${renderedCount}</td>
                 <td style="text-align: left;">
                     <strong>${cp.cr3ea_area}</strong><br>
                     <span class="text-secondary">${cp.cr3ea_criteria}</span>
-                    ${qaRemark ? `<div style="margin-top: 6px; padding: 6px 10px; background: #fff5f5; border-left: 3px solid #ef4444; font-size: 12px; color: #991b1b; border-radius: 4px;"><strong>QA Defect Observation:</strong> ${qaRemark}</div>` : ""}
+                    ${qaRemarkHtml}
                 </td>
                 <td><span class="badge badge-danger">${cp.cr3ea_defectcategory}</span></td>
                 <td>
@@ -133,7 +166,7 @@ const ALC_CorrectiveAction = {
                 <td>
                     <div class="custom-file-upload">
                         <input type="file" class="form-control-file file-upload-input" data-index="${index}" onchange="ALC_CorrectiveAction.onFileSelected(this, ${index})" ${disabledAttr}>
-                        <small id="file-status-${index}" class="form-text text-muted">${fileLabel}</small>
+                        <small id="prod-file-status-${index}" class="form-text text-muted">${fileLabel}</small>
                     </div>
                 </td>
             `;
@@ -159,7 +192,7 @@ const ALC_CorrectiveAction = {
         const file = input.files[0];
         if (!file) return;
 
-        const fileStatus = document.getElementById(`file-status-${index}`);
+        const fileStatus = document.getElementById(`prod-file-status-${index}`);
         if (fileStatus) fileStatus.innerText = `Reading file: ${file.name}...`;
 
         // Check if image format
@@ -332,16 +365,7 @@ const ALC_CorrectiveAction = {
                 return isFailed && !prodRemark.trim();
             });
 
-            if (stillPendingActions) {
-                console.log("Some failed areas are still pending actions. Saving current actions but NOT transitioning session status.");
-                alert("Corrective actions saved for your area! The tour will remain in the 'Action Plan' state until all other failed areas submit their actions.");
-                HideLoader();
-                // Reload and refresh inputs to show saved values in disabled mode
-                await this.loadFailedItems();
-                return;
-            }
-
-            // All checkpoints resolved! Transition Tour Session status
+            // Transition Tour Session status to Pending Re-Verification (we transition immediately so QA can re-verify submitted areas)
             const isExpired = ALC_StateMachine.isPreviousDay || 
                               (ALC_StateMachine.currentSession && 
                                (ALC_StateMachine.currentSession.cr3ea_status === "Closed - Expired" || 
@@ -366,13 +390,18 @@ const ALC_CorrectiveAction = {
                 correctiveSubmitBtn.disabled = false;
             }
             
+            let alertMsg = "All corrective actions submitted successfully. Assigning back to QA for re-verification.";
+            if (stillPendingActions) {
+                alertMsg = "Corrective actions submitted for your area! Some areas are still pending, but the tour is now assigned back to QA for partial re-verification.";
+            }
+
             if (isExpired) {
                 alert("Corrective actions submitted successfully! Since this session is from a previous day, it remains Closed as Expired.");
                 ALC_StateMachine.isReadOnly = true;
                 ALC_StateMachine.transitionTo(ALC_STATES.SUMMARY);
                 await ALC_Summary.init(ALC_StateMachine.currentTourId);
             } else {
-                alert("All corrective actions submitted successfully. Assigning back to QA for re-verification.");
+                alert(alertMsg);
                 ALC_StateMachine.isReadOnly = true;
                 ALC_StateMachine.transitionTo(ALC_STATES.SUMMARY);
                 await ALC_Summary.init(ALC_StateMachine.currentTourId);

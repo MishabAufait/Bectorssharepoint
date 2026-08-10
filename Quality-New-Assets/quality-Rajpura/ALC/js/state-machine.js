@@ -112,9 +112,11 @@ const ALC_StateMachine = {
                 this.setFieldsDisabled("#section-checklist-filling", this.isReadOnly || !this.isQaUser || isChecklistExpired);
                 
                 const submitBtn = document.getElementById("submit-alc-btn");
+                const pauseBtn = document.getElementById("pause-alc-btn");
                 if (submitBtn) {
                     const isSubmitHidden = (this.isReadOnly || isChecklistExpired || !this.isQaUser);
                     submitBtn.style.display = isSubmitHidden ? "none" : "block";
+                    if (pauseBtn) pauseBtn.style.display = isSubmitHidden ? "none" : "block";
                     const wrapper = submitBtn.closest(".tour-cyle-btn-wrapper");
                     if (wrapper) {
                         wrapper.style.display = isSubmitHidden ? "none" : "flex";
@@ -137,12 +139,12 @@ const ALC_StateMachine = {
                                          (this.currentSession.cr3ea_status === "Closed - Expired" || 
                                           this.currentSession.cr3ea_processstatus === "Closed - Expired"));
 
-                // Allow Production and Product Incharge roles to perform corrective actions
+                // Allow Production and Product Incharge roles to perform corrective actions (even if expired)
                 const hasActionAccess = (this.isProductionUser || this.isProductUser);
-                this.setFieldsDisabled("#section-result-fail", this.isReadOnly || !hasActionAccess || isActionExpired);
+                this.setFieldsDisabled("#section-result-fail", this.isReadOnly || !hasActionAccess);
                 const correctiveSubmitBtn = document.getElementById("btn-submit-corrective-actions");
                 if (correctiveSubmitBtn) {
-                    const isCorrectiveHidden = (this.isReadOnly || isActionExpired || !hasActionAccess);
+                    const isCorrectiveHidden = (this.isReadOnly || !hasActionAccess);
                     correctiveSubmitBtn.style.display = isCorrectiveHidden ? "none" : "block";
                     const wrapper = correctiveSubmitBtn.closest(".tour-cyle-btn-wrapper");
                     if (wrapper) {

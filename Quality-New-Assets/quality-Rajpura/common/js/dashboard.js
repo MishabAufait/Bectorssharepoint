@@ -238,6 +238,11 @@ const ALC_Dashboard = {
 
     // Fetch all tours for Rajpura and split into active/ongoing and archives
     loadAllTours: async function () {
+        const refreshBtn = document.getElementById("btn-refresh-dashboard");
+        if (refreshBtn) {
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = "⌛ Refreshing...";
+        }
         try {
             const token = typeof getAccessToken === "function" ? await getAccessToken() : null;
             if (!token) throw new Error("No token");
@@ -403,6 +408,11 @@ const ALC_Dashboard = {
             ];
             ALC_Dashboard.renderOngoingList(mockOngoing);
             ALC_Dashboard.renderClosedList(mockClosed);
+        } finally {
+            if (refreshBtn) {
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = "🔄 Refresh";
+            }
         }
     },
 
@@ -515,29 +525,85 @@ const ALC_Dashboard = {
                 const qaExec = qaExecRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaExecRaw) : qaExecRaw;
                 const execs = `Prod: ${prodExec} | QA: ${qaExec}`;
                 
-                const status = t.cr3ea_processstatus || t.cr3ea_status || "Pending QA";
-                let badgeClass = "badge-warning";
-                if (status === "Failed - Pending Production") {
-                    badgeClass = "badge-error";
-                } else if (status === "Success - Pending Production" || status === "Success - Pending Re-Verification") {
-                    badgeClass = "badge-success";
-                } else if (status === "QA In Progress" || status === "Pending Re-Verification") {
-                    badgeClass = "badge-primary";
-                }
-
                 const pendingWith = ALC_Dashboard.getPendingWith(t);
 
                 // Resolve Score display or status comment if no score is available yet
                 let scoreDisplay = "-";
+                let scoreNum = null;
                 const computedScore = ALC_Dashboard.calculateScoreDynamically(t);
                 
                 if (computedScore !== null) {
+                    scoreNum = parseFloat(computedScore);
                     scoreDisplay = `<strong style="color: #0f172a; font-size: 15px;">${computedScore}%</strong>`;
                 } else if (t.cr3ea_overall_score !== undefined && t.cr3ea_overall_score !== null && String(t.cr3ea_overall_score).trim() !== "") {
                     // Fallback to Dataverse field if checkpoints couldn't be loaded (e.g. mock fallback)
-                    const scoreNum = parseFloat(t.cr3ea_overall_score);
+                    scoreNum = parseFloat(t.cr3ea_overall_score);
                     scoreDisplay = `<strong style="color: #0f172a; font-size: 15px;">${scoreNum.toFixed(2)}%</strong>`;
+                }
+
+                let status = t.cr3ea_processstatus || t.cr3ea_status || "Pending QA";
+                
+                // Dynamically resolve Success/Failed prefix based on score for pending states
+                if (scoreNum !== null) {
+                    const isSuccess = (scoreNum >= 80);
+                    if (status.includes("Pending Production")) {
+                        status = isSuccess ? "Success - Pending Production" : "Failed - Pending Production";
+                    } else if (status.includes("Pending Re-Verification") || status === "Pending Re-Verification") {
+                        status = isSuccess ? "Success - Pending Re-Verification" : "Failed - Pending Re-Verification";
+                    }
                 } else {
+                    // Fallback formatting if no score has been computed/uploaded yet
+                    if (status === "Pending Re-Verification") {
+                        status = "Failed - Pending Re-Verification";
+                    }
+                }
+
+                let badgeClass = "badge-warning";
+                
+                // Highlight row if task is for the logged-in user
+                const currentUserEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? _spPageContextInfo.userEmail.toLowerCase().trim() : "";
+                const currentUserName = (typeof EmployeeName !== 'undefined' && EmployeeName) ? EmployeeName.toLowerCase().trim() : 
+                                        ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? _spPageContextInfo.userDisplayName.toLowerCase().trim() : "");
+
+                let isMyTask = false;
+
+                // Match QA: if status is QA pending and current user matches QA executive email/name
+                const isQaStatus = (status === "Pending QA" || status === "QA In Progress" || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
+                if (isQaStatus) {
+                    const qaEmail = (t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
+                    if ((currentUserEmail && qaEmail && currentUserEmail === qaEmail) ||
+                        (currentUserName && qaEmail && currentUserName === qaEmail) ||
+                        (qaEmail && qaEmail.includes("@") && ALC_Dashboard.resolveQaNameFromEmail(qaEmail).toLowerCase().trim() === currentUserName)) {
+                        isMyTask = true;
+                    }
+                }
+
+                // Match Production: if status is Production pending and current user matches prod exec or area assignees
+                const isProdStatus = (status === "Failed - Pending Production" || status === "Success - Pending Production");
+                if (isProdStatus) {
+                    const prodExecName = (t.cr3ea_shiftexecutiveproduction || "").toLowerCase().trim();
+                    const assignees = ALC_Dashboard.getAreaAssigneesForFailedCheckpoints(t);
+                    const isAssigneeMatch = assignees && assignees.some(name => name.toLowerCase().trim() === currentUserName);
+                    if ((currentUserName && prodExecName && currentUserName === prodExecName) ||
+                        (currentUserEmail && prodExecName && currentUserEmail === prodExecName) ||
+                        isAssigneeMatch) {
+                        isMyTask = true;
+                    }
+                }
+
+                if (isMyTask) {
+                    tr.classList.add("my-task-row");
+                }
+                if (status === "Failed - Pending Production" || status === "Failed - Pending Re-Verification") {
+                    badgeClass = "badge-error";
+                } else if (status === "Success - Pending Production" || status === "Success - Pending Re-Verification") {
+                    badgeClass = "badge-success";
+                } else if (status === "QA In Progress") {
+                    badgeClass = "badge-primary";
+                }
+
+                // If score is not resolved, format text status in score column
+                if (scoreNum === null) {
                     if (status === "In Progress") {
                         scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Request Pending</span>`;
                     } else if (status === "Pending QA") {
@@ -566,18 +632,36 @@ const ALC_Dashboard = {
         });
     },
 
+    currentPage: 1,
+    pageSize: 10,
+    closedList: [],
+
     // Render Archives table
     renderClosedList: function (list) {
         const tbody = document.getElementById("rajpura-cycles-tbody");
         if (!tbody) return;
 
+        this.closedList = list || [];
+        this.currentPage = 1;
+
+        this.renderClosedListPaged();
+    },
+
+    renderClosedListPaged: function () {
+        const tbody = document.getElementById("rajpura-cycles-tbody");
+        if (!tbody) return;
+
         tbody.innerHTML = "";
-        if (list.length === 0) {
+        if (this.closedList.length === 0) {
             tbody.innerHTML = `<tr><td colspan="7" class="text-center py-3 text-secondary">No closed/completed tour archives.</td></tr>`;
             return;
         }
 
-        list.forEach(t => {
+        const start = (this.currentPage - 1) * this.pageSize;
+        const end = start + this.pageSize;
+        const pageItems = this.closedList.slice(start, end);
+
+        pageItems.forEach(t => {
             try {
                 const tr = document.createElement("tr");
                 tr.style.cursor = "pointer";
@@ -621,7 +705,14 @@ const ALC_Dashboard = {
                 }
                 let badgeClass = "badge-success";
                 if (status === "Closed - Expired") {
-                    badgeClass = "badge-error";
+                    const scoreVal = t.cr3ea_overall_score ? parseFloat(t.cr3ea_overall_score) : 0;
+                    if (scoreVal >= 80) {
+                        status = "Success - Expired";
+                        badgeClass = "badge-success";
+                    } else {
+                        status = "Failed - Expired";
+                        badgeClass = "badge-error";
+                    }
                 } else if (status === "Closed") {
                     badgeClass = "badge-secondary";
                 } else if (status === "Success") {
@@ -642,6 +733,76 @@ const ALC_Dashboard = {
                 console.error("Error rendering closed row: ", err, t);
             }
         });
+
+        // Render pagination controls
+        const tableResponsive = tbody.closest(".table-responsive");
+        if (!tableResponsive) return;
+
+        let pagerContainer = document.getElementById("rajpura-closed-pager");
+        if (!pagerContainer) {
+            pagerContainer = document.createElement("div");
+            pagerContainer.id = "rajpura-closed-pager";
+            pagerContainer.style.display = "flex";
+            pagerContainer.style.justifyContent = "center";
+            pagerContainer.style.alignItems = "center";
+            pagerContainer.style.gap = "8px";
+            pagerContainer.style.marginTop = "15px";
+            pagerContainer.style.marginBottom = "15px";
+            tableResponsive.parentNode.insertBefore(pagerContainer, tableResponsive.nextSibling);
+        }
+
+        pagerContainer.innerHTML = "";
+
+        const totalItems = this.closedList.length;
+        const totalPages = Math.ceil(totalItems / this.pageSize);
+
+        if (totalPages <= 1) {
+            pagerContainer.style.display = "none";
+            return;
+        } else {
+            pagerContainer.style.display = "flex";
+        }
+
+        // Previous Button
+        const prevBtn = document.createElement("button");
+        prevBtn.type = "button";
+        prevBtn.className = "bs-btn bs-btn-secondary";
+        prevBtn.style.padding = "6px 12px";
+        prevBtn.style.fontSize = "13px";
+        prevBtn.innerText = "Previous";
+        prevBtn.disabled = this.currentPage === 1;
+        prevBtn.onclick = () => {
+            if (this.currentPage > 1) {
+                this.currentPage--;
+                this.renderClosedListPaged();
+            }
+        };
+        pagerContainer.appendChild(prevBtn);
+
+        // Page info text
+        const pageInfo = document.createElement("span");
+        pageInfo.style.fontSize = "13px";
+        pageInfo.style.fontWeight = "600";
+        pageInfo.style.color = "#475569";
+        pageInfo.style.margin = "0 10px";
+        pageInfo.innerText = `Page ${this.currentPage} of ${totalPages} (Total: ${totalItems})`;
+        pagerContainer.appendChild(pageInfo);
+
+        // Next Button
+        const nextBtn = document.createElement("button");
+        nextBtn.type = "button";
+        nextBtn.className = "bs-btn bs-btn-secondary";
+        nextBtn.style.padding = "6px 12px";
+        nextBtn.style.fontSize = "13px";
+        nextBtn.innerText = "Next";
+        nextBtn.disabled = this.currentPage === totalPages;
+        nextBtn.onclick = () => {
+            if (this.currentPage < totalPages) {
+                this.currentPage++;
+                this.renderClosedListPaged();
+            }
+        };
+        pagerContainer.appendChild(nextBtn);
     },
 
     // Fetch SharePoint configurations for the plant
