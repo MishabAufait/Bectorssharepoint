@@ -225,6 +225,16 @@ const ALC_QARequest = {
             }
 
             const session = await ALC_DAL.saveSession(headerData);
+            
+            // Trigger Power Automate notification
+            try {
+                if (typeof ALC_Notification !== "undefined") {
+                    await ALC_Notification.sendSubmitRequest(session, assignedQaEmail, escalationEmails);
+                }
+            } catch (err) {
+                console.error("Failed to trigger submit ALC notification:", err);
+            }
+
             HideLoader();
             alert("Request submitted to QA successfully!");
             const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)

@@ -384,6 +384,16 @@ const ALC_CorrectiveAction = {
             console.log("Saving quality tour status updates:", sessionUpdate);
             await ALC_DAL.saveSession(sessionUpdate);
 
+            // Trigger Power Automate notification
+            try {
+                if (typeof ALC_Notification !== "undefined") {
+                    const fullSession = Object.assign({}, ALC_StateMachine.currentSession, sessionUpdate);
+                    await ALC_Notification.sendResubmitRequest(fullSession, stillPendingActions);
+                }
+            } catch (err) {
+                console.error("Failed to trigger resubmit re-verification notification:", err);
+            }
+
             HideLoader();
             this.isSubmitting = false;
             if (correctiveSubmitBtn) {

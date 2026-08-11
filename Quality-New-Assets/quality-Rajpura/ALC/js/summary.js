@@ -83,7 +83,25 @@ const ALC_Summary = {
                 }
             }
         });
-        document.getElementById("sum-area-incharges-list").innerText = areaInchargeMap.length > 0 ? areaInchargeMap.join(" | ") : "No specific area incharges configured.";
+        
+        const inchargesListEl = document.getElementById("sum-area-incharges-list");
+        if (inchargesListEl) {
+            inchargesListEl.innerHTML = "";
+            if (areaInchargeMap.length > 0) {
+                areaInchargeMap.forEach(item => {
+                    const [areaName, names] = item.split(": ");
+                    const card = document.createElement("div");
+                    card.style.cssText = "background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #10b981; padding: 10px 12px; border-radius: 6px; display: flex; flex-direction: column; justify-content: center;";
+                    card.innerHTML = `
+                        <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b;">${areaName}</span>
+                        <span style="font-size: 13px; font-weight: bold; color: #1e293b; margin-top: 3px;">${names}</span>
+                    `;
+                    inchargesListEl.appendChild(card);
+                });
+            } else {
+                inchargesListEl.innerHTML = `<div style="grid-column: 1 / -1; background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 6px; color: #64748b; font-size: 13px; text-align: center;">No specific area incharges configured.</div>`;
+            }
+        }
 
         // 3. Count conducted tours on the same line today
         let toursCountToday = 1;
@@ -202,158 +220,226 @@ const ALC_Summary = {
         // 6. Perform Repeatability Analysis (Last 5 tours on this line)
         await this.renderRepeatabilityAnalysis();
 
-        // 7. Render Detailed Checkpoints Table
-        const checkpointsTbody = document.getElementById("sum-checkpoints-tbody");
-        if (checkpointsTbody) {
-            checkpointsTbody.innerHTML = "";
-            const sortedCheckpoints = [...this.checkpoints].sort((a, b) => {
-                const areaA = a.cr3ea_area || "";
-                const areaB = b.cr3ea_area || "";
-                return areaA.localeCompare(areaB);
-            });
-            sortedCheckpoints.forEach((cp, index) => {
-                const tr = document.createElement("tr");
-                
-                // QA Initial Score Badge
-                const initialScoreText = cp.cr3ea_defectcategory || "Okay (2)";
-                const isFailed = initialScoreText.includes("(0)") || 
-                                 initialScoreText.includes("(1)") || 
-                                 initialScoreText.includes("Non-Compliant") || 
-                                 initialScoreText.includes("Partial") ||
-                                 initialScoreText === "00" ||
-                                 initialScoreText === "01";
-                const initialBadge = !isFailed 
-                    ? `<span class="badge badge-success">${initialScoreText}</span>` 
-                    : `<span class="badge badge-error">${initialScoreText}</span>`;
-
-                // Corrective Actions Column
-                let actionsTakenHtml = '<span class="text-muted">-</span>';
-                let prodRemark = cp.cr3ea_productionremarks || "";
-                
-                // Fallback to checking cr3ea_defectremarks if it starts with legacy "Action:"
-                if (!prodRemark) {
-                    const defectRemarks = cp.cr3ea_defectremarks || "";
-                    if (defectRemarks.startsWith("Action:")) {
-                        prodRemark = defectRemarks;
-                    }
-                }
-
-                if (prodRemark) {
-                    // Strip re-verification suffix if present in legacy remark
-                    if (prodRemark.includes(" | Re-verified:")) {
-                        prodRemark = prodRemark.split(" | Re-verified:")[0].trim();
-                    }
-
-                    let textPart = prodRemark;
-                    if (prodRemark.startsWith("Action: ")) {
-                        textPart = prodRemark.replace("Action: ", "");
-                    }
-                    let fileName = "";
-                    if (textPart.includes("| File:")) {
-                        const parts = textPart.split("| File:");
-                        textPart = parts[0].trim();
-                        fileName = parts[1] ? parts[1].trim() : "";
-                    }
-
-                    if (fileName) {
-                        const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-                        const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${fileName}`;
-                        actionsTakenHtml = `${textPart} <br> <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #1a73e8; font-weight: bold; font-size: 11px;">View Proof</a>`;
+        // 7. Render Detailed Checkpoints Table Grouped by Area Blocks
+        const blocksContainer = document.getElementById("sum-checkpoints-blocks-container");
+        if (blocksContainer) {
+            blocksContainer.innerHTML = "";
+            
+            // Map configs for quick Area Incharge lookups
+            const areaIncharges = {};
+            this.checkpoints.forEach(cp => {
+                const areaName = cp.cr3ea_area || "General";
+                if (!areaIncharges[areaName]) {
+                    const configRow = this.configs.find(c => 
+                        c.ConfigType === "Product User" && 
+                        c.Area && 
+                        (c.Area.toLowerCase().includes(areaName.toLowerCase().trim()) || 
+                         areaName.toLowerCase().trim().includes(c.Area.toLowerCase()))
+                    );
+                    if (configRow && configRow.AssignedUser && configRow.AssignedUser.results) {
+                        areaIncharges[areaName] = configRow.AssignedUser.results.map(u => u.Title).join(", ");
                     } else {
-                        actionsTakenHtml = textPart;
+                        areaIncharges[areaName] = "N/A";
                     }
                 }
+            });
 
-                // QA Remarks Column (preserves both initial defect and re-verification remarks, and extracts QA proof file)
-                const qaRemark = cp.cr3ea_defectremarks || "";
-                let qaRemarksHtml = '<span class="text-muted">-</span>';
+            // Group checkpoints by area
+            const checkpointsByArea = {};
+            this.checkpoints.forEach(cp => {
+                const area = cp.cr3ea_area || "General";
+                if (!checkpointsByArea[area]) {
+                    checkpointsByArea[area] = [];
+                }
+                checkpointsByArea[area].push(cp);
+            });
+
+            // Render each area as a Card Block
+            Object.keys(checkpointsByArea).sort().forEach(areaName => {
+                const cps = checkpointsByArea[areaName];
+                const inchargeNames = areaIncharges[areaName] || "N/A";
                 
-                let qaDisplayText = "";
-                let qaFileBadge = "";
+                const card = document.createElement("div");
+                card.style.cssText = "margin-bottom: 25px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);";
                 
-                // Split by re-verified segments to support multiple verification cycles
-                const parts = qaRemark.split(" | Re-verified:");
-                let initialPart = parts[0] ? parts[0].trim() : "";
-                const reverifyParts = parts.slice(1).map(p => p.trim());
-
-                // Extract QA proof file if present in initial part
-                let qaFileName = "";
-                if (initialPart.toLowerCase().includes("file:")) {
-                    const idx = initialPart.toLowerCase().indexOf("file:");
-                    qaFileName = initialPart.substring(idx + 5).trim();
-                    let textPart = initialPart.substring(0, idx).trim();
-                    if (textPart.endsWith("|")) {
-                        textPart = textPart.substring(0, textPart.length - 1).trim();
-                    }
-                    initialPart = textPart;
-                }
-
-                if (!initialPart && qaFileName) {
-                    initialPart = "Image Proof Uploaded";
-                }
-
-                if (qaFileName) {
-                    const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-                    const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${qaFileName}`;
-                    qaFileBadge = ` <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #1a73e8; font-weight: bold; font-size: 11px; margin-left: 5px;">View QA Proof</a>`;
-                }
-
-                // Parse and format each re-verification cycle segment
-                let reverifyDisplayText = "";
-                if (reverifyParts.length > 0) {
-                    const formattedParts = reverifyParts.map(part => {
-                        let cleanReverify = part;
-                        let reverifyFileName = "";
-                        
-                        if (part.toLowerCase().includes("file:")) {
-                            const idx = part.toLowerCase().indexOf("file:");
-                            reverifyFileName = part.substring(idx + 5).trim();
-                            let textPart = part.substring(0, idx).trim();
-                            if (textPart.endsWith("|")) {
-                                textPart = textPart.substring(0, textPart.length - 1).trim();
-                            }
-                            cleanReverify = textPart;
-                        }
-                        
-                        if (!cleanReverify && reverifyFileName) {
-                            cleanReverify = "Image Proof Uploaded";
-                        }
-                        
-                        let badgeHtml = "";
-                        if (reverifyFileName) {
-                            const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-                            const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${reverifyFileName}`;
-                            badgeHtml = ` <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #2e7d32; font-weight: bold; font-size: 11px; margin-left: 5px;">View Re-verify Proof</a>`;
-                        }
-                        
-                        return `<small class="text-success" style="font-weight: bold; display: block; margin-top: 4px;">Re-verified: ${cleanReverify}${badgeHtml}</small>`;
-                    });
-                    
-                    reverifyDisplayText = formattedParts.join("");
-                }
-
-                const showInitial = initialPart && !initialPart.startsWith("Action:");
-                if (showInitial && reverifyDisplayText) {
-                    qaDisplayText = `${initialPart}${qaFileBadge} ${reverifyDisplayText}`;
-                } else if (reverifyDisplayText) {
-                    qaDisplayText = reverifyDisplayText;
-                } else if (showInitial) {
-                    qaDisplayText = `${initialPart}${qaFileBadge}`;
-                }
-
-                if (qaDisplayText) {
-                    qaRemarksHtml = `<span>${qaDisplayText}</span>`;
-                }
-
-                tr.innerHTML = `
-                    <td style="padding: 10px;">${index + 1}</td>
-                    <td style="padding: 10px; font-weight: bold; text-align: left;">${cp.cr3ea_area}</td>
-                    <td style="padding: 10px; text-align: left;">${cp.cr3ea_criteria}</td>
-                    <td style="padding: 10px;">${initialBadge}</td>
-                    <td style="padding: 10px; text-align: left; font-size: 12px;">${actionsTakenHtml}</td>
-                    <td style="padding: 10px; text-align: left; font-size: 12px;">${qaRemarksHtml}</td>
+                // Card Header (Flex Layout with Title and Team Name)
+                const header = document.createElement("div");
+                header.style.cssText = "background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;";
+                header.innerHTML = `
+                    <h5 style="margin: 0; font-weight: bold; color: #1e293b; font-size: 14px;">${areaName}</h5>
+                    <div style="font-size: 11px; color: #047857; background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 4px; font-weight: 600;">
+                        Incharge: ${inchargeNames}
+                    </div>
                 `;
-                checkpointsTbody.appendChild(tr);
+                card.appendChild(header);
+                
+                // Card Body
+                const body = document.createElement("div");
+                body.style.cssText = "overflow-x: auto;";
+                
+                const table = document.createElement("table");
+                table.className = "bs-table";
+                table.border = "1";
+                table.style.cssText = "width: 100%; border-collapse: collapse; text-align: center; font-size: 13px; border: none;";
+                
+                table.innerHTML = `
+                    <thead>
+                        <tr style="background-color: #fcfdfe; font-weight: 600; border-bottom: 1px solid #e2e8f0;">
+                            <th style="width: 5%; padding: 8px 10px;">Sr No.</th>
+                            <th style="width: 45%; padding: 8px 10px; text-align: left;">Checkpoint Details</th>
+                            <th style="width: 15%; padding: 8px 10px;">QA Initial Score</th>
+                            <th style="width: 20%; padding: 8px 10px; text-align: left;">Corrective Actions Taken</th>
+                            <th style="width: 15%; padding: 8px 10px; text-align: left;">QA Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                `;
+                
+                const tbody = table.querySelector("tbody");
+                
+                cps.forEach((cp, idx) => {
+                    const tr = document.createElement("tr");
+                    tr.style.borderBottom = "1px solid #f1f5f9";
+                    
+                    // QA Initial Score Badge
+                    const initialScoreText = cp.cr3ea_defectcategory || "Okay (2)";
+                    const isFailed = initialScoreText.includes("(0)") || 
+                                     initialScoreText.includes("(1)") || 
+                                     initialScoreText.includes("Non-Compliant") || 
+                                     initialScoreText.includes("Partial") ||
+                                     initialScoreText === "00" ||
+                                     initialScoreText === "01";
+                    const initialBadge = !isFailed 
+                        ? `<span class="badge badge-success" style="font-size: 11px;">${initialScoreText}</span>` 
+                        : `<span class="badge badge-error" style="font-size: 11px;">${initialScoreText}</span>`;
+
+                    // Corrective Actions Column
+                    let actionsTakenHtml = '<span class="text-muted">-</span>';
+                    let prodRemark = cp.cr3ea_productionremarks || "";
+                    
+                    if (!prodRemark) {
+                        const defectRemarks = cp.cr3ea_defectremarks || "";
+                        if (defectRemarks.startsWith("Action:")) {
+                            prodRemark = defectRemarks;
+                        }
+                    }
+
+                    if (prodRemark) {
+                        if (prodRemark.includes(" | Re-verified:")) {
+                            prodRemark = prodRemark.split(" | Re-verified:")[0].trim();
+                        }
+
+                        let textPart = prodRemark;
+                        if (prodRemark.startsWith("Action: ")) {
+                            textPart = prodRemark.replace("Action: ", "");
+                        }
+                        let fileName = "";
+                        if (textPart.includes("| File:")) {
+                            const parts = textPart.split("| File:");
+                            textPart = parts[0].trim();
+                            fileName = parts[1] ? parts[1].trim() : "";
+                        }
+
+                        if (fileName) {
+                            const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
+                            const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${fileName}`;
+                            actionsTakenHtml = `${textPart} <br> <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #1a73e8; font-weight: bold; font-size: 11px;">View Proof</a>`;
+                        } else {
+                            actionsTakenHtml = textPart;
+                        }
+                    }
+
+                    // QA Remarks Column
+                    const qaRemark = cp.cr3ea_defectremarks || "";
+                    let qaRemarksHtml = '<span class="text-muted">-</span>';
+                    
+                    let qaDisplayText = "";
+                    let qaFileBadge = "";
+                    
+                    const parts = qaRemark.split(" | Re-verified:");
+                    let initialPart = parts[0] ? parts[0].trim() : "";
+                    const reverifyParts = parts.slice(1).map(p => p.trim());
+
+                    let qaFileName = "";
+                    if (initialPart.toLowerCase().includes("file:")) {
+                        const idx = initialPart.toLowerCase().indexOf("file:");
+                        qaFileName = initialPart.substring(idx + 5).trim();
+                        let textPart = initialPart.substring(0, idx).trim();
+                        if (textPart.endsWith("|")) {
+                            textPart = textPart.substring(0, textPart.length - 1).trim();
+                        }
+                        initialPart = textPart;
+                    }
+
+                    if (!initialPart && qaFileName) {
+                        initialPart = "Image Proof Uploaded";
+                    }
+
+                    if (qaFileName) {
+                        const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
+                        const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${qaFileName}`;
+                        qaFileBadge = ` <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #1a73e8; font-weight: bold; font-size: 11px; margin-left: 5px;">View QA Proof</a>`;
+                    }
+
+                    let reverifyDisplayText = "";
+                    if (reverifyParts.length > 0) {
+                        const formattedParts = reverifyParts.map(part => {
+                            let cleanReverify = part;
+                            let reverifyFileName = "";
+                            
+                            if (part.toLowerCase().includes("file:")) {
+                                const idx = part.toLowerCase().indexOf("file:");
+                                reverifyFileName = part.substring(idx + 5).trim();
+                                let textPart = part.substring(0, idx).trim();
+                                if (textPart.endsWith("|")) {
+                                    textPart = textPart.substring(0, textPart.length - 1).trim();
+                                }
+                                cleanReverify = textPart;
+                            }
+                            
+                            if (!cleanReverify && reverifyFileName) {
+                                cleanReverify = "Image Proof Uploaded";
+                            }
+                            
+                            let badgeHtml = "";
+                            if (reverifyFileName) {
+                                const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
+                                const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${reverifyFileName}`;
+                                badgeHtml = ` <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #2e7d32; font-weight: bold; font-size: 11px; margin-left: 5px;">View Re-verify Proof</a>`;
+                            }
+                            
+                            return `<small class="text-success" style="font-weight: bold; display: block; margin-top: 4px;">Re-verified: ${cleanReverify}${badgeHtml}</small>`;
+                        });
+                        
+                        reverifyDisplayText = formattedParts.join("");
+                    }
+
+                    const showInitial = initialPart && !initialPart.startsWith("Action:");
+                    if (showInitial && reverifyDisplayText) {
+                        qaDisplayText = `${initialPart}${qaFileBadge} ${reverifyDisplayText}`;
+                    } else if (reverifyDisplayText) {
+                        qaDisplayText = reverifyDisplayText;
+                    } else if (showInitial) {
+                        qaDisplayText = `${initialPart}${qaFileBadge}`;
+                    }
+
+                    if (qaDisplayText) {
+                        qaRemarksHtml = `<span>${qaDisplayText}</span>`;
+                    }
+
+                    tr.innerHTML = `
+                        <td style="padding: 10px;">${idx + 1}</td>
+                        <td style="padding: 10px; text-align: left;">${cp.cr3ea_criteria}</td>
+                        <td style="padding: 10px;">${initialBadge}</td>
+                        <td style="padding: 10px; text-align: left; font-size: 12px;">${actionsTakenHtml}</td>
+                        <td style="padding: 10px; text-align: left; font-size: 12px;">${qaRemarksHtml}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                
+                body.appendChild(table);
+                card.appendChild(body);
+                blocksContainer.appendChild(card);
             });
         }
     },

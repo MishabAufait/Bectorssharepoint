@@ -314,6 +314,22 @@ const ALC_ReVerification = {
             };
             await ALC_DAL.saveSession(sessionUpdate);
 
+            // Trigger Power Automate notification
+            try {
+                if (typeof ALC_Notification !== "undefined") {
+                    const fullSession = Object.assign({}, ALC_StateMachine.currentSession, sessionUpdate);
+                    const isPass = (sessionUpdate.cr3ea_checklist_result === "Pass");
+                    await ALC_Notification.sendReverificationComplete(
+                        fullSession, 
+                        overallPercent, 
+                        sessionUpdate.cr3ea_checklist_result, 
+                        isPass
+                    );
+                }
+            } catch (err) {
+                console.error("Failed to trigger re-verification complete notification:", err);
+            }
+
             HideLoader();
 
             if (ALC_StateMachine.isPreviousDay) {

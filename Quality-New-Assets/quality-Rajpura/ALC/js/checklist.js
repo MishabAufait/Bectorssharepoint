@@ -351,6 +351,29 @@ const ALC_Checklist = {
             };
             await ALC_DAL.saveSession(sessionUpdate);
 
+            // Trigger Power Automate notification
+            try {
+                if (typeof ALC_Notification !== "undefined") {
+                    let activeConfigs = [];
+                    try {
+                        activeConfigs = await ALC_DAL.getConfig();
+                    } catch (configErr) {
+                        console.warn("Failed to fetch configs for email resolution:", configErr);
+                    }
+                    const fullSession = Object.assign({}, ALC_StateMachine.currentSession, sessionUpdate);
+                    const isPass = (sessionUpdate.cr3ea_checklist_result === "Pass");
+                    await ALC_Notification.sendVerificationComplete(
+                        fullSession, 
+                        evaluation.percent, 
+                        sessionUpdate.cr3ea_checklist_result, 
+                        isPass, 
+                        activeConfigs
+                    );
+                }
+            } catch (err) {
+                console.error("Failed to trigger initial verification complete notification:", err);
+            }
+
             HideLoader();
 
             // Notify user with Alert

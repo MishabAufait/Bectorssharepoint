@@ -981,9 +981,12 @@
                                     </div>
                                 </div>
 
-                                <!-- Dynamic Mapped Area Incharge Names Banner -->
-                                <div id="sum-area-incharges-banner" style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px 18px; border-radius: 6px; margin-bottom: 25px; font-size: 13px; color: #166534;">
-                                    <strong>Area Incharges Involved:</strong> <span id="sum-area-incharges-list">--</span>
+                                <!-- Dynamic Mapped Area Incharges Section -->
+                                <div id="sum-area-incharges-banner" style="margin-bottom: 25px;">
+                                    <h4 style="font-weight: bold; color: #1e293b; margin-bottom: 12px; font-size: 15px;">Area Incharges Involved</h4>
+                                    <div id="sum-area-incharges-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;">
+                                        <!-- Populated dynamically with cards -->
+                                    </div>
                                 </div>
 
                                 <!-- Overall Score & Day Conduct Stats Row -->
@@ -1060,25 +1063,11 @@
                                     </div>
                                 </div>
 
-                                <!-- Detailed Checkpoint-wise Log Table -->
+                                <!-- Detailed Checkpoint-wise Log grouped by Area -->
                                 <div>
-                                    <h4 style="font-weight: bold; color: #1e293b; margin-bottom: 12px; font-size: 15px;">Detailed Checkpoint Log</h4>
-                                    <div style="overflow-x: auto;">
-                                        <table class="bs-table" border="1" style="width: 100%; border-collapse: collapse; text-align: center; font-size: 13px;">
-                                            <thead>
-                                                <tr style="background-color: #f8fafc; font-weight: 600;">
-                                                    <th style="width: 5%; padding: 10px;">Sr No.</th>
-                                                    <th style="width: 20%; padding: 10px;">Area Name</th>
-                                                    <th style="width: 25%; padding: 10px;">Checkpoint Details</th>
-                                                    <th style="width: 12%; padding: 10px;">QA Initial Score</th>
-                                                    <th style="width: 20%; padding: 10px;">Corrective Actions Taken</th>
-                                                    <th style="width: 18%; padding: 10px;">QA Remarks</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="sum-checkpoints-tbody">
-                                                <!-- Populated dynamically -->
-                                            </tbody>
-                                        </table>
+                                    <h4 style="font-weight: bold; color: #1e293b; margin-bottom: 15px; font-size: 15px;">Detailed Checkpoint Log</h4>
+                                    <div id="sum-checkpoints-blocks-container">
+                                        <!-- Dynamically generated Area Blocks -->
                                     </div>
                                 </div>
                             </div>
@@ -1100,14 +1089,15 @@
     <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/CommonJS/Common.js"></script>
 
     <!-- App Modules -->
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=1.5"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/dal.js?v=1.5"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/state-machine.js?v=1.5"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/qa-request.js?v=1.5"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/checklist.js?v=1.5"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/corrective-action.js?v=1.5"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/re-verify.js?v=1.5"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/summary.js?v=1.5"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/main.js?v=1.5"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=1.6"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/notification.js?v=1.6"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/dal.js?v=1.6"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/state-machine.js?v=1.6"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/qa-request.js?v=1.6"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/checklist.js?v=1.6"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/corrective-action.js?v=1.6"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/re-verify.js?v=1.6"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/summary.js?v=1.6"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/main.js?v=1.6"></script>
 </body>
 </html>
