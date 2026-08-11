@@ -579,6 +579,16 @@ const ALC_Main = {
                 await ALC_QARequest.init();
             }
         } else {
+            // User does not have action on in-progress tour
+            if (status === "QA In Progress") {
+                alert("This tour is currently paused for QA evaluation. Access is restricted to the assigned QA Executive.");
+                const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                    ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                    : "/sites/Mrs_Bectors_PTMS/Pages/Home.aspx";
+                window.location.href = homeUrl;
+                return;
+            }
+
             // User does not have action - show summary page in read-only
             console.log(`User has no action on in-progress tour with status: ${status}. Showing read-only Summary Page.`);
             ALC_StateMachine.isReadOnly = true;

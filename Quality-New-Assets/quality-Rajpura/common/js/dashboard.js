@@ -569,11 +569,6 @@ const ALC_Dashboard = {
         list.forEach(t => {
             try {
                 const tr = document.createElement("tr");
-                tr.style.cursor = "pointer";
-                tr.title = "Click to open tour clearance form";
-                tr.onclick = function () {
-                    window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/AreaLine.aspx?TourId=${t.cr3ea_prod_qualitytourid}`;
-                };
 
                 const date = ALC_Dashboard.parseDate(t.cr3ea_tourstartdate);
                 const titleVal = t.cr3ea_title || "";
@@ -789,6 +784,25 @@ const ALC_Dashboard = {
                     <td><span class="badge badge-fill ${badgeClass}">${displayStatus}</span></td>
                     <td style="font-weight: 500; color: #1e293b;">${pendingWith}</td>
                 `;
+
+                // Restrict clicking on paused tours ("QA In Progress") to the assigned QA Executive only
+                let isClickable = true;
+                if (status === "QA In Progress" && !isMyTask) {
+                    isClickable = false;
+                }
+
+                if (isClickable) {
+                    tr.style.cursor = "pointer";
+                    tr.title = "Click to open tour clearance form";
+                    tr.onclick = function () {
+                        window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/AreaLine.aspx?TourId=${t.cr3ea_prod_qualitytourid}`;
+                    };
+                } else {
+                    tr.style.cursor = "default";
+                    tr.title = "This tour is paused by QA and is only accessible to the assigned QA Executive.";
+                    tr.onclick = null;
+                }
+
                 tbody.appendChild(tr);
             } catch (err) {
                 console.error("Error rendering ongoing row: ", err, t);
