@@ -224,7 +224,8 @@ const ALC_DAL = {
             "OData-Version": "4.0"
         };
 
-        const filter = `?$filter=cr3ea_qualitytourid eq '${tourId}'`;
+        const cleanTourId = tourId ? String(tourId).replace(/[{}]/g, "").trim().toLowerCase() : "";
+        const filter = `?$filter=cr3ea_qualitytourid eq '${cleanTourId}'`;
         const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}${filter}`;
 
         const response = await this.fetchWithToken(url, {
@@ -270,8 +271,7 @@ const ALC_DAL = {
             "OData-Version": "4.0"
         };
 
-        // Retrieve the latest 50 tours so we don't miss active ones while displaying today's completed/closed tours
-        const filter = `?$filter=cr3ea_plantid eq '14'&$orderby=cr3ea_tourstartdate desc&$top=50`;
+        const filter = `?$filter=cr3ea_plantid eq '${QualityRajpura_Config.PLANT_ID}'&$orderby=cr3ea_tourstartdate desc&$top=50`;
         const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}${filter}`;
 
         const response = await this.fetchWithToken(url, {

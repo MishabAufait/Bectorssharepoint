@@ -22,7 +22,7 @@ const ALC_Dashboard = {
             const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
             const listName = "Quality-Rajpura";
             
-            let query = "?$select=Id,Title,AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id&$expand=AssignedUser&$filter=Plant eq 'Rajpura'";
+            let query = "?$select=Id,Title,AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id,EscalationManager/Title,EscalationManager/EMail,EscalationManager/Id&$expand=AssignedUser,EscalationManager&$filter=Plant eq 'Rajpura'";
             let url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
             let response;
             let isFallback = false;
@@ -32,7 +32,7 @@ const ALC_Dashboard = {
                 if (!response.ok) throw new Error();
             } catch (e) {
                 isFallback = true;
-                query = "?$select=Id,Title,Assigned_x0020_User/Title,Assigned_x0020_User/EMail,Assigned_x0020_User/Id&$expand=Assigned_x0020_User&$filter=Plant eq 'Rajpura'";
+                query = "?$select=Id,Title,Assigned_x0020_User/Title,Assigned_x0020_User/EMail,Assigned_x0020_User/Id,Escalation_x0020_Manager/Title,Escalation_x0020_Manager/EMail,Escalation_x0020_Manager/Id&$expand=Assigned_x0020_User,Escalation_x0020_Manager&$filter=Plant eq 'Rajpura'";
                 url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
                 response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
             }
@@ -50,8 +50,21 @@ const ALC_Dashboard = {
                             assignedUserNormalized = { results: [rawUser] };
                         }
                     }
+
+                    const rawManager = isFallback ? item.Escalation_x0020_Manager : item.EscalationManager;
+                    let escalationManagerNormalized = { results: [] };
+                    if (rawManager) {
+                        if (rawManager.results && Array.isArray(rawManager.results)) {
+                            escalationManagerNormalized = rawManager;
+                        } else if (rawManager.Title || rawManager.EMail) {
+                            escalationManagerNormalized = { results: [rawManager] };
+                        }
+                    }
+
                     return {
-                        AssignedUser: assignedUserNormalized
+                        Title: item.Title,
+                        AssignedUser: assignedUserNormalized,
+                        EscalationManager: escalationManagerNormalized
                     };
                 });
             }
@@ -122,8 +135,8 @@ const ALC_Dashboard = {
             const dropdownEl = document.getElementById("DepartmentDropDownId");
             const deptId = (dropdownEl && dropdownEl.value !== "All") ? dropdownEl.value.toString() : (typeof userDepratmentId !== 'undefined' ? userDepratmentId.toString() : "");
 
-            const isQualityDept = (deptId === "80" || deptId === "81" || deptId === "135");
-            const isRajpura = (plant === "Rajpura" || pId === "14" || isQualityDept);
+            const isQualityDept = QualityRajpura_Config.QUALITY_DEPT_IDS.includes(deptId);
+            const isRajpura = (plant === QualityRajpura_Config.PLANT_NAME || pId === QualityRajpura_Config.PLANT_ID || isQualityDept);
 
             console.log(`Evaluating Dashboard: Plant=${plant}, SelectedDept=${deptId}, isRajpura=${isRajpura}, isQualityDept=${isQualityDept}`);
 
@@ -250,8 +263,7 @@ const ALC_Dashboard = {
             const apiVersion = "9.2";
             const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
             
-            // Query latest 100 tours from quality tours
-            const filter = "?$filter=cr3ea_plantid eq '14'&$orderby=cr3ea_tourstartdate desc&$top=100";
+            const filter = `?$filter=cr3ea_plantid eq '${QualityRajpura_Config.PLANT_ID}'&$orderby=cr3ea_tourstartdate desc&$top=100`;
             const url = `${baseApiUrl}/api/data/v${apiVersion}/cr3ea_prod_qualitytours${filter}`;
 
             let response = await fetch(url, {
@@ -303,8 +315,28 @@ const ALC_Dashboard = {
 
             // Calculate KPIs
             const totalTours = list.length;
-            const passTours = list.filter(t => t.cr3ea_checklist_result === "Pass" || t.cr3ea_checklist_result === "PASS").length;
-            const successRate = totalTours > 0 ? Math.round((passTours / totalTours) * 100) : 0;
+            
+            // Lines On Hold: count of ongoing clearance tours where Is Line Clear is not clear
+            const linesOnHold = list.filter(t => {
+                const titleVal = t.cr3ea_title || "";
+                const cleanTitle = titleVal.split("||")[0].trim();
+                const form = cleanTitle.split('_')[0] || "Area Line Clearance";
+                const isAlc = form.toLowerCase().includes("line") || form.toLowerCase().includes("alc") || form.toLowerCase().includes("clearance");
+                if (!isAlc) return false;
+                
+                const status = t.cr3ea_processstatus || t.cr3ea_status || "In Progress";
+                const isTerminal = status === "Completed" || status === "Closed" || status === "Closed - Expired" || status === "Success" || status === "Success - Expired";
+                if (isTerminal) return false;
+                
+                const isClearedVal = t.cr3ea_islineclear;
+                const isCleared = isClearedVal === true || 
+                                  isClearedVal === "true" || 
+                                  isClearedVal === 1 || 
+                                  isClearedVal === "1" || 
+                                  isClearedVal === "Yes";
+                return !isCleared;
+            }).length;
+
             const pendingReVerify = list.filter(t => 
                 t.cr3ea_status === "Pending Re-Verification" || 
                 t.cr3ea_processstatus === "Pending Re-Verification" ||
@@ -312,7 +344,6 @@ const ALC_Dashboard = {
                 t.cr3ea_processstatus === "Success - Pending Re-Verification"
             ).length;
             
-            // Open deviations count equals tours failed or success but pending corrective actions
             const openDevs = list.filter(t => 
                 t.cr3ea_status === "Failed - Pending Production" || 
                 t.cr3ea_processstatus === "Failed - Pending Production" ||
@@ -324,7 +355,7 @@ const ALC_Dashboard = {
             if (kpiTotal) kpiTotal.innerText = totalTours;
 
             const kpiSuccess = document.getElementById("kpi-success-rate");
-            if (kpiSuccess) kpiSuccess.innerText = `${successRate}%`;
+            if (kpiSuccess) kpiSuccess.innerText = linesOnHold;
 
             const kpiOpen = document.getElementById("kpi-open-deviations");
             if (kpiOpen) kpiOpen.innerText = openDevs;
@@ -418,12 +449,28 @@ const ALC_Dashboard = {
 
     // Resolve Pending With Name dynamically based on status
     getPendingWith: function (t) {
-        const status = t.cr3ea_processstatus || t.cr3ea_status || "Pending QA";
+        let status = t.cr3ea_processstatus || t.cr3ea_status || "Pending QA";
         const prodName = t.cr3ea_shiftexecutiveproduction || "Production Team";
         const qaNameRaw = t.cr3ea_tourby || "QA Team";
         const qaName = qaNameRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaNameRaw) : qaNameRaw;
 
+        const requestTimeString = t.cr3ea_request_time || t.cr3ea_tourstartdate || t.createdon;
+        if (status === "Pending QA" && requestTimeString) {
+            const reqTime = new Date(requestTimeString).getTime();
+            const now = new Date().getTime();
+            if (!isNaN(reqTime) && (now - reqTime > 5 * 60 * 1000)) {
+                // Only escalate if it is from today (not expired/previous day)
+                const tourDateLocal = moment(requestTimeString).local().format("YYYY-MM-DD");
+                const todayLocal = moment().format("YYYY-MM-DD");
+                if (tourDateLocal === todayLocal) {
+                    status = "Escalated";
+                }
+            }
+        }
+
         switch (status) {
+            case "Escalated":
+                return `Escalation Manager`;
             case "Pending QA":
                 return `QA Incharge (${qaName})`;
             case "QA In Progress":
@@ -438,6 +485,11 @@ const ALC_Dashboard = {
                 return `Production Exec (${prodName})`;
             case "Pending Re-Verification":
             case "Success - Pending Re-Verification":
+            case "Failed - Pending Re-Verification":
+                const pendingProds = ALC_Dashboard.getAreaAssigneesForFailedCheckpoints(t);
+                if (pendingProds && pendingProds.length > 0) {
+                    return `QA Executive (${qaName}) & Production Exec (${pendingProds.join(", ")})`;
+                }
                 return `QA Executive (${qaName})`;
             default:
                 return "Production Team";
@@ -447,18 +499,24 @@ const ALC_Dashboard = {
     // Parse non-standard and standard date formats safely using moment
     parseDate: function (dateStr) {
         if (!dateStr) return "N/A";
-        // Parse custom format "DD-MM-YYYY HH:mm:ss" or default ISO formats
+        // Parse custom format or default ISO formats
         const m = moment(dateStr, [
-            "DD-MM-YYYY HH:mm:ss",
-            "DD-MM-YYYY hh:mm A",
+            "YYYY-MM-DDTHH:mm:ssZ",
+            "YYYY-MM-DDTHH:mm:ss.SSSZ",
+            "YYYY-MM-DD HH:mm:ss",
+            "YYYY-MM-DD",
+            "MM-DD-YYYY HH:mm:ss",
+            "MM-DD-YYYY hh:mm A",
+            "MM-DD-YYYY",
             "M/D/YYYY h:mm A",
             "M/D/YYYY hh:mm A",
+            "MM/DD/YYYY hh:mm A",
+            "DD-MM-YYYY HH:mm:ss",
+            "DD-MM-YYYY hh:mm A",
+            "DD-MM-YYYY",
             "D/M/YYYY h:mm A",
             "D/M/YYYY hh:mm A",
-            "MM/DD/YYYY hh:mm A",
-            "DD/MM/YYYY hh:mm A",
-            "YYYY-MM-DDTHH:mm:ssZ",
-            "YYYY-MM-DDTHH:mm:ss.SSSZ"
+            "DD/MM/YYYY hh:mm A"
         ], true); // strict parsing
         
         if (m.isValid()) {
@@ -474,19 +532,22 @@ const ALC_Dashboard = {
     parseDateMoment: function (dateStr) {
         if (!dateStr) return null;
         const m = moment(dateStr, [
-            "DD-MM-YYYY HH:mm:ss",
-            "DD-MM-YYYY hh:mm A",
-            "M/D/YYYY h:mm A",
-            "M/D/YYYY hh:mm A",
-            "D/M/YYYY h:mm A",
-            "D/M/YYYY hh:mm A",
-            "MM/DD/YYYY hh:mm A",
-            "DD/MM/YYYY hh:mm A",
             "YYYY-MM-DDTHH:mm:ssZ",
             "YYYY-MM-DDTHH:mm:ss.SSSZ",
             "YYYY-MM-DD HH:mm:ss",
+            "YYYY-MM-DD",
+            "MM-DD-YYYY HH:mm:ss",
+            "MM-DD-YYYY hh:mm A",
             "MM-DD-YYYY",
-            "DD-MM-YYYY"
+            "M/D/YYYY h:mm A",
+            "M/D/YYYY hh:mm A",
+            "MM/DD/YYYY hh:mm A",
+            "DD-MM-YYYY HH:mm:ss",
+            "DD-MM-YYYY hh:mm A",
+            "DD-MM-YYYY",
+            "D/M/YYYY h:mm A",
+            "D/M/YYYY hh:mm A",
+            "DD/MM/YYYY hh:mm A"
         ], true); // strict parsing
         
         if (m.isValid()) return m;
@@ -523,7 +584,7 @@ const ALC_Dashboard = {
                 const prodExec = t.cr3ea_shiftexecutiveproduction || "N/A";
                 const qaExecRaw = t.cr3ea_tourby || "N/A";
                 const qaExec = qaExecRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaExecRaw) : qaExecRaw;
-                const execs = `Prod: ${prodExec} | QA: ${qaExec}`;
+                const execs = `Shift: ${prodExec} | QA: ${qaExec}`;
                 
                 const pendingWith = ALC_Dashboard.getPendingWith(t);
 
@@ -543,6 +604,23 @@ const ALC_Dashboard = {
 
                 let status = t.cr3ea_processstatus || t.cr3ea_status || "Pending QA";
                 
+                // Check if tour is escalated (status is "Pending QA" and elapsed time is > 5 minutes)
+                let isEscalated = false;
+                const requestTimeString = t.cr3ea_request_time || t.cr3ea_tourstartdate || t.createdon;
+                if (status === "Pending QA" && requestTimeString) {
+                    const reqTime = new Date(requestTimeString).getTime();
+                    const now = new Date().getTime();
+                    if (!isNaN(reqTime) && (now - reqTime > 5 * 60 * 1000)) {
+                        // Only escalate if it is from today (not expired/previous day)
+                        const tourDateLocal = moment(requestTimeString).local().format("YYYY-MM-DD");
+                        const todayLocal = moment().format("YYYY-MM-DD");
+                        if (tourDateLocal === todayLocal) {
+                            isEscalated = true;
+                            status = "Escalated";
+                        }
+                    }
+                }
+
                 // Dynamically resolve Success/Failed prefix based on score for pending states
                 if (scoreNum !== null) {
                     const isSuccess = (scoreNum >= 80);
@@ -571,35 +649,91 @@ const ALC_Dashboard = {
                 const isQaStatus = (status === "Pending QA" || status === "QA In Progress" || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
                 if (isQaStatus) {
                     const qaEmail = (t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
-                    if ((currentUserEmail && qaEmail && currentUserEmail === qaEmail) ||
-                        (currentUserName && qaEmail && currentUserName === qaEmail) ||
-                        (qaEmail && qaEmail.includes("@") && ALC_Dashboard.resolveQaNameFromEmail(qaEmail).toLowerCase().trim() === currentUserName)) {
+                    const qaResolvedName = qaEmail.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaEmail).toLowerCase().trim() : qaEmail;
+                    if ((currentUserEmail && qaEmail && (currentUserEmail === qaEmail || currentUserEmail.includes(qaEmail))) ||
+                        (currentUserName && qaEmail && (currentUserName === qaEmail || currentUserName.includes(qaEmail) || qaEmail.includes(currentUserName))) ||
+                        (currentUserName && qaResolvedName && (currentUserName === qaResolvedName || currentUserName.includes(qaResolvedName) || qaResolvedName.includes(currentUserName)))) {
                         isMyTask = true;
                     }
                 }
 
-                // Match Production: if status is Production pending and current user matches prod exec or area assignees
+                // Match Escalation Manager: if status is Escalated and current user matches any escalation contacts
+                const escalationContactsStr = t.cr3ea_escalation_contacts || "";
+                const escalationEmails = escalationContactsStr.toLowerCase().split(",").map(e => e.trim());
+                
+                // Also resolve from config row matching QA email (since Escalation Manager is multiperson select)
+                const qaEmailVal = (t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
+                if (qaEmailVal && ALC_Dashboard.qaList) {
+                    const matchConfig = ALC_Dashboard.qaList.find(c => 
+                        c.AssignedUser && c.AssignedUser.results && 
+                        c.AssignedUser.results.some(u => u.EMail && u.EMail.toLowerCase().trim() === qaEmailVal)
+                    );
+                    if (matchConfig && matchConfig.EscalationManager && matchConfig.EscalationManager.results) {
+                        matchConfig.EscalationManager.results.forEach(m => {
+                            if (m.EMail) {
+                                const emailLower = m.EMail.toLowerCase().trim();
+                                if (!escalationEmails.includes(emailLower)) {
+                                    escalationEmails.push(emailLower);
+                                }
+                            }
+                        });
+                    }
+                }
+
+                const isUserEscalationManager = currentUserEmail && escalationEmails.includes(currentUserEmail);
+                const isUserEscalationManagerByName = currentUserName && escalationEmails.some(email => email.includes(currentUserName));
+
+                const isEscalatedForMe = isEscalated && (isUserEscalationManager || isUserEscalationManagerByName);
+
+                // Match Production: if status is Production pending OR if we are in Re-Verification state but there are still pending checkpoints without remarks
                 const isProdStatus = (status === "Failed - Pending Production" || status === "Success - Pending Production");
-                if (isProdStatus) {
+                const isReverifyStatus = (status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
+                
+                if (isProdStatus || isReverifyStatus) {
                     const prodExecName = (t.cr3ea_shiftexecutiveproduction || "").toLowerCase().trim();
                     const assignees = ALC_Dashboard.getAreaAssigneesForFailedCheckpoints(t);
-                    const isAssigneeMatch = assignees && assignees.some(name => name.toLowerCase().trim() === currentUserName);
-                    if ((currentUserName && prodExecName && currentUserName === prodExecName) ||
-                        (currentUserEmail && prodExecName && currentUserEmail === prodExecName) ||
-                        isAssigneeMatch) {
-                        isMyTask = true;
+                    
+                    const isUserProdExec = (currentUserName && prodExecName && (prodExecName === currentUserName || prodExecName.includes(currentUserName) || currentUserName.includes(prodExecName))) ||
+                                           (currentUserEmail && prodExecName && currentUserEmail.includes(prodExecName.replace(/\s+/g, ".")));
+                                           
+                    const isAssigneeMatch = assignees && assignees.some(name => {
+                        const cleanName = name.toLowerCase().trim();
+                        return cleanName === currentUserName || 
+                               (currentUserName && (cleanName.includes(currentUserName) || currentUserName.includes(cleanName))) ||
+                               (currentUserEmail && currentUserEmail.includes(cleanName.replace(/\s+/g, ".")));
+                    });
+                    
+                    if (isProdStatus) {
+                        // In Pending Production status, it is always a task for the overall Production Exec.
+                        // For Area Owners, it is a task if they have pending checkpoints, or if assignees list couldn't be resolved (as a fallback).
+                        const hasNoPendingForThisAreaOwner = assignees && assignees.length > 0 && !isAssigneeMatch;
+                        if (isUserProdExec || !hasNoPendingForThisAreaOwner) {
+                            isMyTask = true;
+                        }
+                    } else if (isReverifyStatus) {
+                        // In Re-Verification status, it is only a task for Production if there are still checkpoints pending actions
+                        const hasPendingProdCheckpoints = assignees && assignees.length > 0;
+                        if (hasPendingProdCheckpoints && (isUserProdExec || isAssigneeMatch)) {
+                            isMyTask = true;
+                        }
                     }
                 }
 
                 if (isMyTask) {
                     tr.classList.add("my-task-row");
                 }
-                if (status === "Failed - Pending Production" || status === "Failed - Pending Re-Verification") {
+
+                if (isEscalatedForMe) {
+                    tr.classList.add("escalated-task-row");
+                    tr.title = "CRITICAL: This tour has escalated! Click to view details.";
+                }
+
+                if (status === "Failed - Pending Production" || status === "Failed - Pending Re-Verification" || status === "Escalated") {
                     badgeClass = "badge-error";
                 } else if (status === "Success - Pending Production" || status === "Success - Pending Re-Verification") {
                     badgeClass = "badge-success";
                 } else if (status === "QA In Progress") {
-                    badgeClass = "badge-primary";
+                    badgeClass = "badge-warning";
                 }
 
                 // If score is not resolved, format text status in score column
@@ -608,11 +742,40 @@ const ALC_Dashboard = {
                         scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Request Pending</span>`;
                     } else if (status === "Pending QA") {
                         scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Awaiting QA Accept</span>`;
+                    } else if (status === "Escalated") {
+                        scoreDisplay = `<span class="text-danger font-weight-bold" style="font-size: 12px;">ESCALATED</span>`;
                     } else if (status === "QA In Progress") {
                         scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Evaluation Pending</span>`;
                     } else {
                         scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">N/A</span>`;
                     }
+                }
+
+                // Evaluate Is Line Clear
+                let clearBadgeHtml = "-";
+                const isAlcTour = (form.toLowerCase().includes("line") || form.toLowerCase().includes("alc") || form.toLowerCase().includes("clearance"));
+                if (isAlcTour) {
+                    const isClearedVal = t.cr3ea_islineclear;
+                    const isCleared = isClearedVal === true || 
+                                      isClearedVal === "true" || 
+                                      isClearedVal === 1 || 
+                                      isClearedVal === "1" || 
+                                      isClearedVal === "Yes" || 
+                                      status === "Completed" || 
+                                      status === "Closed" || 
+                                      status === "Closed - Expired" || 
+                                      status === "Success";
+
+                    clearBadgeHtml = isCleared 
+                        ? '<span class="badge badge-success" style="background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Yes</span>' 
+                        : '<span class="badge badge-error" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">No</span>';
+                }
+
+                let displayStatus = status;
+                if (displayStatus.includes("Pending Production")) {
+                    displayStatus = displayStatus.replace("Pending Production", "Pending Observation");
+                } else if (displayStatus === "QA In Progress") {
+                    displayStatus = "QA In Progress (Paused)";
                 }
 
                 tr.innerHTML = `
@@ -622,7 +785,8 @@ const ALC_Dashboard = {
                     <td>${shift}</td>
                     <td style="text-align: left;">${execs}</td>
                     <td>${scoreDisplay}</td>
-                    <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
+                    <td>${clearBadgeHtml}</td>
+                    <td><span class="badge badge-fill ${badgeClass}">${displayStatus}</span></td>
                     <td style="font-weight: 500; color: #1e293b;">${pendingWith}</td>
                 `;
                 tbody.appendChild(tr);
@@ -679,7 +843,7 @@ const ALC_Dashboard = {
                 const prodExec = t.cr3ea_shiftexecutiveproduction || "N/A";
                 const qaExecRaw = t.cr3ea_tourby || "N/A";
                 const qaExec = qaExecRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaExecRaw) : qaExecRaw;
-                const execs = `Prod: ${prodExec} | QA: ${qaExec}`;
+                const execs = `Shift: ${prodExec} | QA: ${qaExec}`;
                 
                 let score = (t.cr3ea_overall_score !== undefined && t.cr3ea_overall_score !== null) ? `${t.cr3ea_overall_score}%` : "N/A";
                 let result = t.cr3ea_checklist_result || "N/A";
@@ -719,6 +883,27 @@ const ALC_Dashboard = {
                     badgeClass = "badge-success";
                 }
 
+                // Evaluate Is Line Clear
+                let clearBadgeHtml = "-";
+                const isAlcTour = (form.toLowerCase().includes("line") || form.toLowerCase().includes("alc") || form.toLowerCase().includes("clearance"));
+                if (isAlcTour) {
+                    const isClearedVal = t.cr3ea_islineclear;
+                    const isCleared = isClearedVal === true || 
+                                      isClearedVal === "true" || 
+                                      isClearedVal === 1 || 
+                                      isClearedVal === "1" || 
+                                      isClearedVal === "Yes" || 
+                                      status === "Completed" || 
+                                      status === "Closed" || 
+                                      status === "Closed - Expired" || 
+                                      status === "Success" || 
+                                      status === "Success - Expired";
+
+                    clearBadgeHtml = isCleared 
+                        ? '<span class="badge badge-success" style="background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Yes</span>' 
+                        : '<span class="badge badge-error" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">No</span>';
+                }
+
                 tr.innerHTML = `
                     <td>${date}</td>
                     <td><strong>${form}</strong></td>
@@ -726,6 +911,7 @@ const ALC_Dashboard = {
                     <td>${shift}</td>
                     <td style="text-align: left;">${execs}</td>
                     <td><strong>${score}</strong></td>
+                    <td>${clearBadgeHtml}</td>
                     <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
                 `;
                 tbody.appendChild(tr);
@@ -927,6 +1113,11 @@ const ALC_Dashboard = {
 
     // Dynamically calculate score from fetched checkpoints (identical to Summary page logic)
     calculateScoreDynamically: function (t) {
+        const status = t.cr3ea_processstatus || t.cr3ea_status || "";
+        if (status === "QA In Progress" || status === "Pending QA" || status === "In Progress" || status === "Escalated") {
+            return null;
+        }
+
         if (!t.checkpoints || t.checkpoints.length === 0) {
             return null;
         }

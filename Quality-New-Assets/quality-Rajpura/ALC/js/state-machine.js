@@ -86,6 +86,14 @@ const ALC_StateMachine = {
             case ALC_STATES.INIT_PRODUCTION:
                 this.showElement("#section-production-init");
                 this.setFieldsDisabled("#section-production-init", this.isReadOnly);
+                const submitReqBtn = document.getElementById("btn-submit-request");
+                if (submitReqBtn) {
+                    submitReqBtn.style.display = this.isReadOnly ? "none" : "block";
+                    const wrapper = submitReqBtn.closest(".tour-cyle-btn-wrapper");
+                    if (wrapper) {
+                        wrapper.style.display = this.isReadOnly ? "none" : "flex";
+                    }
+                }
                 break;
 
             case ALC_STATES.PENDING_QA_ACCEPTANCE:
@@ -100,7 +108,7 @@ const ALC_StateMachine = {
                 }
                 break;
 
-            case ALC_STATES.QA_CHECKLIST:
+            case ALC_STATES.QA_CHECKLIST: {
                 this.showElement("#section-checklist-filling");
                 
                 const isChecklistExpired = this.isPreviousDay || 
@@ -127,12 +135,13 @@ const ALC_StateMachine = {
                     banner.style.display = "block";
                 }
                 break;
+            }
 
             case ALC_STATES.COMPLETED_PASS:
                 this.showElement("#section-result-pass");
                 break;
 
-            case ALC_STATES.PRODUCTION_ACTION:
+            case ALC_STATES.PRODUCTION_ACTION: {
                 this.showElement("#section-result-fail");
                 const isActionExpired = this.isPreviousDay || 
                                         (this.currentSession && 
@@ -156,13 +165,20 @@ const ALC_StateMachine = {
                     banner.style.display = "block";
                 }
                 break;
+            }
 
-            case ALC_STATES.QA_REVERIFYING:
+            case ALC_STATES.QA_REVERIFYING: {
                 this.showElement("#section-reverification");
+                
+                // Hide production corrective action logging section for QA users since they use the re-verification table
+                if (!this.isQaUser) {
+                    this.showElement("#section-result-fail");
+                }
+
                 const isReverifyExpired = this.isPreviousDay || 
-                                          (this.currentSession && 
-                                           (this.currentSession.cr3ea_status === "Closed - Expired" || 
-                                            this.currentSession.cr3ea_processstatus === "Closed - Expired"));
+                                           (this.currentSession && 
+                                            (this.currentSession.cr3ea_status === "Closed - Expired" || 
+                                             this.currentSession.cr3ea_processstatus === "Closed - Expired"));
 
                 // Disable inputs if read-only, not QA, or expired
                 this.setFieldsDisabled("#section-reverification", this.isReadOnly || !this.isQaUser || isReverifyExpired);
@@ -176,11 +192,27 @@ const ALC_StateMachine = {
                         wrapper.style.display = isReverifyHidden ? "none" : "flex";
                     }
                 }
+
+                // Let Production/Product Incharge edit corrective actions if they have pending actions
+                const hasActionAccess = (this.isProductionUser || this.isProductUser);
+                this.setFieldsDisabled("#section-result-fail", this.isReadOnly || !hasActionAccess);
+                
+                const correctiveSubmitBtn = document.getElementById("btn-submit-corrective-actions");
+                if (correctiveSubmitBtn) {
+                    const isCorrectiveHidden = (this.isReadOnly || !hasActionAccess);
+                    correctiveSubmitBtn.style.display = isCorrectiveHidden ? "none" : "block";
+                    const wrapper2 = correctiveSubmitBtn.closest(".tour-cyle-btn-wrapper");
+                    if (wrapper2) {
+                        wrapper2.style.display = isCorrectiveHidden ? "none" : "flex";
+                    }
+                }
+
                 // Show warning banner if session is previous day or expired
                 if (isReverifyExpired && banner) {
                     banner.style.display = "block";
                 }
                 break;
+            }
 
             case ALC_STATES.SUMMARY:
                 this.showElement("#section-tour-summary");

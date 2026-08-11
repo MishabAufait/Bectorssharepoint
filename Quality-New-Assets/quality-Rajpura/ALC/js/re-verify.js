@@ -151,7 +151,7 @@ const ALC_ReVerification = {
 
         for (let i = 0; i < this.failedCheckpoints.length; i++) {
             const selectEl = document.querySelector(`.reverify-score-select[data-index='${i}']`);
-            if (selectEl) {
+            if (selectEl && !selectEl.disabled) {
                 const val = selectEl.value;
                 if (!val) {
                     isIncomplete = true;
@@ -226,13 +226,10 @@ const ALC_ReVerification = {
                 }
 
                 let baseRemark = cp.cr3ea_defectremarks || "";
-                if (baseRemark.includes(" | Re-verified:")) {
-                    baseRemark = baseRemark.split(" | Re-verified:")[0].trim();
-                }
 
                 let reverifyVal = remarks;
                 if (fileName) {
-                    reverifyVal = reverifyVal ? `${reverifyVal} | File: ${fileName}` : `File: ${fileName}`;
+                    reverifyVal = reverifyVal ? `${reverifyVal} | File: ${fileName}` : ` | File: ${fileName}`;
                 }
 
                 const finalRemarks = reverifyVal 
@@ -373,7 +370,7 @@ const ALC_ReVerification = {
             // If it is in the failed checkpoints list and is being edited, override with the dropdown value
             if (failedIndex !== -1 && reverifyDropdowns.length > 0) {
                 const liveVal = dropdownScores[failedIndex];
-                if (liveVal !== undefined) {
+                if (liveVal !== undefined && liveVal !== "") {
                     scoreValue = liveVal;
                 }
             }

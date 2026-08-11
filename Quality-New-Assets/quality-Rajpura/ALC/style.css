@@ -107,7 +107,22 @@
 }
 
 /* Inputs and Select element styling overrides */
-#rajpura-alc-main-container select,
+#rajpura-alc-main-container select {
+    border: 1px solid #cbd5e1 !important;
+    padding: 10px 36px 10px 14px !important;
+    font-size: 14px !important;
+    height: 42px !important;
+    background-color: #ffffff !important;
+    color: #1e293b !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+}
+
+#rajpura-alc-main-container select::-ms-expand {
+    display: none !important;
+}
+
 #rajpura-alc-main-container input[type=text],
 #rajpura-alc-main-container textarea {
     border: 1px solid #cbd5e1 !important;
@@ -148,12 +163,16 @@
     width: 20px !important;
 }
 
-#rajpura-alc-main-container .select2-container--default .select2-selection--single .select2-selection__arrow::before,
-#rajpura-alc-main-container .select2-container--default .select2-selection--single .select2-selection__arrow b {
-    position: static !important;
-    margin-top: 40px !important;
+#rajpura-alc-main-container .select2-container--default .select2-selection--single .select2-selection__arrow::before {
+    position: relative !important;
+    top: 20px !important;
+    margin-top: 0 !important;
     margin-left: 0 !important;
     display: inline-block !important;
+}
+
+#rajpura-alc-main-container .select2-container--default .select2-selection--single .select2-selection__arrow b {
+    display: none !important;
 }
 
 /* Alert banner styling overrides */

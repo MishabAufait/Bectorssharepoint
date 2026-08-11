@@ -519,6 +519,22 @@ async function SaveDepartmentDataItem() {
 
 /*Create Quality Tour */
 async function SaveQualityDataItem() {
+  const tourSelect = document.getElementById("tourSelect");
+  const ProductValue = tourSelect ? tourSelect.value : "";
+  if ((ProductValue === 'Area Line Clearance Checklist' || ProductValue === 'ALC') && 
+      (typeof Plantid !== 'undefined' && Plantid == QualityRajpura_Config.PLANT_ID)) {
+    const shiftSelect = document.getElementById("shiftSelect");
+    if (shiftSelect) {
+      localStorage.setItem("shiftValue", shiftSelect.options[shiftSelect.selectedIndex].text);
+    }
+    let newUrl = "/sites/Mrs_Bectors_PTMS/Pages/ALC.aspx?action=new";
+    if (ProductValue === 'ALC') {
+      newUrl = "/sites/Mrs_Bectors_PTMS/Pages/AreaLine.aspx?action=new";
+    }
+    window.location.href = newUrl;
+    return;
+  }
+
   const shiftSelect = document.getElementById("shiftSelect");
   const selectedText = shiftSelect.options[shiftSelect.selectedIndex].text;
 

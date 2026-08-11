@@ -47,9 +47,9 @@ const ALC_Main = {
 
         // 4. State routing based on session existence and status
         if (!this.currentTourId) {
-            // Dashboard Mode
-            ALC_StateMachine.init(this.userRole, ALC_STATES.SESSION_DASHBOARD, null);
-            await this.renderDashboardQueue();
+            // Direct to Checklist Information form
+            ALC_StateMachine.init(this.userRole, ALC_STATES.INIT_PRODUCTION, null);
+            await ALC_QARequest.init();
         } else {
             // Existing session mode (resume state)
             await this.resumeSessionState();
@@ -123,7 +123,8 @@ const ALC_Main = {
 
             console.log(`Current User Role Resolved to: ${this.userRole}`);
 
-            // Populate visual diagnostics banner
+            // Populate visual diagnostics banner (commented out)
+            /*
             const diagBanner = document.getElementById("diagnostic-role-banner");
             if (diagBanner) {
                 diagBanner.style.display = "block";
@@ -142,6 +143,7 @@ const ALC_Main = {
                     diagAreas.innerText = areas.length > 0 ? areas.join(", ") : "None";
                 }
             }
+            */
         } catch (error) {
             console.error("Error identifying user role, defaulting to Production:", error);
             this.userRole = ALC_ROLES.PRODUCTION;
@@ -167,20 +169,25 @@ const ALC_Main = {
                 const valA = a.cr3ea_tourstartdate || a.createdon || "";
                 const valB = b.cr3ea_tourstartdate || b.createdon || "";
                 const formats = [
-                    "DD-MM-YYYY HH:mm:ss",
-                    "DD-MM-YYYY hh:mm A",
-                    "M/D/YYYY h:mm A",
-                    "M/D/YYYY hh:mm A",
-                    "D/M/YYYY h:mm A",
-                    "D/M/YYYY hh:mm A",
-                    "MM/DD/YYYY hh:mm A",
-                    "DD/MM/YYYY hh:mm A",
                     "YYYY-MM-DDTHH:mm:ssZ",
                     "YYYY-MM-DDTHH:mm:ss.SSSZ",
-                    "YYYY-MM-DD HH:mm:ss"
+                    "YYYY-MM-DD HH:mm:ss",
+                    "YYYY-MM-DD",
+                    "MM-DD-YYYY HH:mm:ss",
+                    "MM-DD-YYYY hh:mm A",
+                    "MM-DD-YYYY",
+                    "M/D/YYYY h:mm A",
+                    "M/D/YYYY hh:mm A",
+                    "MM/DD/YYYY hh:mm A",
+                    "DD-MM-YYYY HH:mm:ss",
+                    "DD-MM-YYYY hh:mm A",
+                    "DD-MM-YYYY",
+                    "D/M/YYYY h:mm A",
+                    "D/M/YYYY hh:mm A",
+                    "DD/MM/YYYY hh:mm A"
                 ];
-                const timeA = moment(valA, formats);
-                const timeB = moment(valB, formats);
+                const timeA = moment(valA, formats, true);
+                const timeB = moment(valB, formats, true);
                 const msA = timeA.isValid() ? timeA.valueOf() : 0;
                 const msB = timeB.isValid() ? timeB.valueOf() : 0;
                 return msB - msA;
@@ -437,6 +444,50 @@ const ALC_Main = {
         if (status === "Pending QA") {
             const hasAcceptAction = ALC_StateMachine.isQaUser;
             ALC_StateMachine.isReadOnly = !hasAcceptAction;
+            
+            // Check if current user is an escalation manager for this tour
+            const currentUserEmail = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userEmail : "";
+            const currentUserName = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : "";
+            const escalationContactsStr = session.cr3ea_escalation_contacts || "";
+            const escalationEmails = escalationContactsStr.toLowerCase().split(",").map(e => e.trim());
+            
+            // Also resolve from config row matching QA email (since Escalation Manager is multiperson select)
+            const qaEmailVal = (session.cr3ea_assigned_qa || session.cr3ea_tourby || "").toLowerCase().trim();
+            try {
+                const configList = await ALC_DAL.getConfig();
+                if (qaEmailVal && configList) {
+                    const matchConfig = configList.find(c => 
+                        c.AssignedUser && c.AssignedUser.results && 
+                        c.AssignedUser.results.some(u => u.EMail && u.EMail.toLowerCase().trim() === qaEmailVal)
+                    );
+                    if (matchConfig && matchConfig.EscalationManager && matchConfig.EscalationManager.results) {
+                        matchConfig.EscalationManager.results.forEach(m => {
+                            if (m.EMail) {
+                                const emailLower = m.EMail.toLowerCase().trim();
+                                if (!escalationEmails.includes(emailLower)) {
+                                    escalationEmails.push(emailLower);
+                                }
+                            }
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to fetch config list for main.js escalation check:", e);
+            }
+            
+            const isUserEscalationManager = currentUserEmail && escalationEmails.includes(currentUserEmail.toLowerCase().trim());
+            const isUserEscalationManagerByName = currentUserName && escalationEmails.some(email => email.includes(currentUserName.toLowerCase().trim()));
+            
+            const isEscalationManagerForThisTour = isUserEscalationManager || isUserEscalationManagerByName;
+            
+            // If the user is the escalation manager, override routing to show the request details in read-only mode
+            if (isEscalationManagerForThisTour) {
+                ALC_StateMachine.isReadOnly = true;
+                ALC_StateMachine.init(this.userRole, ALC_STATES.INIT_PRODUCTION, this.currentTourId);
+                await ALC_QARequest.init();
+                return;
+            }
+            
             ALC_StateMachine.init(this.userRole, ALC_STATES.PENDING_QA_ACCEPTANCE, this.currentTourId);
             ALC_QARequest.startTimer(ALC_QARequest.requestTimeResolved || session.cr3ea_tourstartdate || session.cr3ea_request_time, session.cr3ea_tourby);
             return;
@@ -464,7 +515,9 @@ const ALC_Main = {
                 pendingMsg = `Pending with: Production Team for Corrective Actions`;
             }
         } else if (status === "Pending Re-Verification" || status === "Success - Pending Re-Verification") {
-            if (ALC_StateMachine.isQaUser) {
+            const isProdOrProduct = (ALC_StateMachine.isProductionUser || ALC_StateMachine.isProductUser);
+            const hasPendingProd = isProdOrProduct && this.hasPendingProductionActions(checkpoints, ALC_StateMachine.isProductionUser, ALC_StateMachine.isProductUser, ALC_StateMachine.userAreas);
+            if (ALC_StateMachine.isQaUser || hasPendingProd) {
                 hasAction = true;
             } else {
                 pendingMsg = `Pending with: QA Executive for Re-Verification`;
@@ -506,7 +559,6 @@ const ALC_Main = {
                 ALC_QARequest.startTimer(ALC_QARequest.requestTimeResolved || session.cr3ea_tourstartdate || session.cr3ea_request_time, session.cr3ea_tourby);
             } else if (status === "QA In Progress") {
                 ALC_StateMachine.init(this.userRole, ALC_STATES.QA_CHECKLIST, this.currentTourId);
-                ALC_Checklist.renderChecklist();
             } else if (status === "Failed - Pending Production" || status === "Success - Pending Production") {
                 ALC_StateMachine.init(this.userRole, ALC_STATES.PRODUCTION_ACTION, this.currentTourId);
                 await ALC_CorrectiveAction.loadFailedItems();
@@ -519,6 +571,7 @@ const ALC_Main = {
                     await ALC_CorrectiveAction.loadFailedItems();
                 } else {
                     ALC_StateMachine.init(this.userRole, ALC_STATES.QA_REVERIFYING, this.currentTourId);
+                    await ALC_CorrectiveAction.loadFailedItems();
                     await ALC_ReVerification.loadReverificationItems();
                 }
             } else {
@@ -687,7 +740,7 @@ const ALC_Main = {
 };
 
 // Global state changed event listener
-window.onStateChanged = function (newState, role) {
+window.onStateChanged = async function (newState, role) {
     console.log(`UI State Changed: ${newState}`);
     
     // Automatically trigger loads when transitioning to action views
@@ -695,5 +748,8 @@ window.onStateChanged = function (newState, role) {
         ALC_CorrectiveAction.loadFailedItems();
     } else if (newState === ALC_STATES.QA_REVERIFYING) {
         ALC_ReVerification.loadReverificationItems();
+    } else if (newState === ALC_STATES.QA_CHECKLIST) {
+        ALC_Checklist.renderChecklist();
+        await ALC_Checklist.loadSavedCheckpoints();
     }
 };

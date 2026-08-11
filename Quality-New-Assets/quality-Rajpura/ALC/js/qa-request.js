@@ -87,6 +87,42 @@ const ALC_QARequest = {
             }
         });
 
+        // Set the selected value if a session is loaded
+        const currentSession = ALC_StateMachine.currentSession;
+        if (currentSession) {
+            const assignedQa = currentSession.cr3ea_assigned_qa || "";
+            const qaExecRaw = currentSession.cr3ea_tourby || currentSession.cr3ea_shiftexecutivequality || currentSession.cr3ea_assigned_qa || "";
+            let qaExec = qaExecRaw;
+            if (qaExecRaw && qaExecRaw.includes("@") && typeof ALC_StateMachine !== 'undefined' && typeof ALC_StateMachine.resolveQaNameFromEmail === 'function') {
+                qaExec = ALC_StateMachine.resolveQaNameFromEmail(qaExecRaw);
+            }
+
+            if (assignedQa) {
+                const lowerAssignedQa = assignedQa.toLowerCase().trim();
+                let foundOption = false;
+                for (let i = 0; i < qaSelect.options.length; i++) {
+                    const opt = qaSelect.options[i];
+                    const optEmail = opt.getAttribute("data-email") || "";
+                    if (optEmail.toLowerCase().trim() === lowerAssignedQa) {
+                        qaSelect.value = opt.value;
+                        foundOption = true;
+                        break;
+                    }
+                }
+                if (!foundOption && qaExec) {
+                    const lowerQaExec = qaExec.toLowerCase().trim();
+                    for (let i = 0; i < qaSelect.options.length; i++) {
+                        const opt = qaSelect.options[i];
+                        if (opt.text.toLowerCase().trim() === lowerQaExec || opt.value === assignedQa) {
+                            qaSelect.value = opt.value;
+                            foundOption = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
         // Initialize Select2 on ALL selects with .form-select class
         if (window.jQuery && $.fn.select2) {
             $('select.form-select').each(function () {
@@ -125,7 +161,7 @@ const ALC_QARequest = {
         const requestTime = new Date().toISOString();
 
         const headerData = {
-            cr3ea_plantid: "14", // Rajpura Plant Id
+            cr3ea_plantid: QualityRajpura_Config.PLANT_ID, // Rajpura Plant Id
             cr3ea_observedby: productionExecName,
             cr3ea_tourstartdate: requestTime,
             cr3ea_status: "Pending QA",
@@ -190,9 +226,11 @@ const ALC_QARequest = {
 
             const session = await ALC_DAL.saveSession(headerData);
             HideLoader();
-            
-            ALC_StateMachine.init(ALC_StateMachine.userRole, ALC_STATES.PENDING_QA_ACCEPTANCE, session.cr3ea_prod_qualitytourid);
-            this.startTimer(requestTime, assignedQaName);
+            alert("Request submitted to QA successfully!");
+            const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                : "/sites/Mrs_Bectors_PTMS/Pages/Home.aspx";
+            window.location.href = homeUrl;
         } catch (error) {
             HideLoader();
             alert("Failed to submit request: " + error.message);

@@ -270,14 +270,11 @@ const ALC_Summary = {
                 
                 let qaDisplayText = "";
                 let qaFileBadge = "";
-                let initialPart = qaRemark;
-                let reverifyPart = "";
-
-                if (qaRemark.includes(" | Re-verified:")) {
-                    const parts = qaRemark.split(" | Re-verified:");
-                    initialPart = parts[0].trim();
-                    reverifyPart = parts[1] ? parts[1].trim() : "";
-                }
+                
+                // Split by re-verified segments to support multiple verification cycles
+                const parts = qaRemark.split(" | Re-verified:");
+                let initialPart = parts[0] ? parts[0].trim() : "";
+                const reverifyParts = parts.slice(1).map(p => p.trim());
 
                 // Extract QA proof file if present in initial part
                 let qaFileName = "";
@@ -301,35 +298,43 @@ const ALC_Summary = {
                     qaFileBadge = ` <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #1a73e8; font-weight: bold; font-size: 11px; margin-left: 5px;">View QA Proof</a>`;
                 }
 
-                // Extract QA re-verification proof file if present in reverify part
+                // Parse and format each re-verification cycle segment
                 let reverifyDisplayText = "";
-                let reverifyFileBadge = "";
-                if (reverifyPart) {
-                    let cleanReverify = reverifyPart;
-                    let reverifyFileName = "";
-                    if (reverifyPart.toLowerCase().includes("file:")) {
-                        const idx = reverifyPart.toLowerCase().indexOf("file:");
-                        reverifyFileName = reverifyPart.substring(idx + 5).trim();
-                        let textPart = reverifyPart.substring(0, idx).trim();
-                        if (textPart.endsWith("|")) {
-                            textPart = textPart.substring(0, textPart.length - 1).trim();
+                if (reverifyParts.length > 0) {
+                    const formattedParts = reverifyParts.map(part => {
+                        let cleanReverify = part;
+                        let reverifyFileName = "";
+                        
+                        if (part.toLowerCase().includes("file:")) {
+                            const idx = part.toLowerCase().indexOf("file:");
+                            reverifyFileName = part.substring(idx + 5).trim();
+                            let textPart = part.substring(0, idx).trim();
+                            if (textPart.endsWith("|")) {
+                                textPart = textPart.substring(0, textPart.length - 1).trim();
+                            }
+                            cleanReverify = textPart;
                         }
-                        cleanReverify = textPart;
-                    }
-                    if (!cleanReverify && reverifyFileName) {
-                        cleanReverify = "Image Proof Uploaded";
-                    }
-                    if (reverifyFileName) {
-                        const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-                        const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${reverifyFileName}`;
-                        reverifyFileBadge = ` <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #2e7d32; font-weight: bold; font-size: 11px; margin-left: 5px;">View Re-verify Proof</a>`;
-                    }
-                    reverifyDisplayText = `<small class="text-success" style="font-weight: bold;">Re-verified: ${cleanReverify}${reverifyFileBadge}</small>`;
+                        
+                        if (!cleanReverify && reverifyFileName) {
+                            cleanReverify = "Image Proof Uploaded";
+                        }
+                        
+                        let badgeHtml = "";
+                        if (reverifyFileName) {
+                            const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
+                            const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${reverifyFileName}`;
+                            badgeHtml = ` <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #2e7d32; font-weight: bold; font-size: 11px; margin-left: 5px;">View Re-verify Proof</a>`;
+                        }
+                        
+                        return `<small class="text-success" style="font-weight: bold; display: block; margin-top: 4px;">Re-verified: ${cleanReverify}${badgeHtml}</small>`;
+                    });
+                    
+                    reverifyDisplayText = formattedParts.join("");
                 }
 
                 const showInitial = initialPart && !initialPart.startsWith("Action:");
                 if (showInitial && reverifyDisplayText) {
-                    qaDisplayText = `${initialPart}${qaFileBadge} <br> ${reverifyDisplayText}`;
+                    qaDisplayText = `${initialPart}${qaFileBadge} ${reverifyDisplayText}`;
                 } else if (reverifyDisplayText) {
                     qaDisplayText = reverifyDisplayText;
                 } else if (showInitial) {
@@ -380,7 +385,7 @@ const ALC_Summary = {
             if (AccessToken) headers["Authorization"] = `Bearer ${AccessToken}`;
 
             // Fetch last 15 tours to make sure we find at least 5 matching this line
-            const filter = `?$filter=cr3ea_plantid eq '14'&$orderby=cr3ea_tourstartdate desc&$top=15`;
+            const filter = `?$filter=cr3ea_plantid eq '${QualityRajpura_Config.PLANT_ID}'&$orderby=cr3ea_tourstartdate desc&$top=15`;
             const response = await fetch(`${baseApiUrl}/api/data/v${apiVersion}/${tableName}${filter}`, { headers: headers });
             if (!response.ok) return;
 
@@ -395,20 +400,25 @@ const ALC_Summary = {
                     const valA = a.cr3ea_tourstartdate || a.createdon || "";
                     const valB = b.cr3ea_tourstartdate || b.createdon || "";
                     const formats = [
-                        "DD-MM-YYYY HH:mm:ss",
-                        "DD-MM-YYYY hh:mm A",
-                        "M/D/YYYY h:mm A",
-                        "M/D/YYYY hh:mm A",
-                        "D/M/YYYY h:mm A",
-                        "D/M/YYYY hh:mm A",
-                        "MM/DD/YYYY hh:mm A",
-                        "DD/MM/YYYY hh:mm A",
                         "YYYY-MM-DDTHH:mm:ssZ",
                         "YYYY-MM-DDTHH:mm:ss.SSSZ",
-                        "YYYY-MM-DD HH:mm:ss"
+                        "YYYY-MM-DD HH:mm:ss",
+                        "YYYY-MM-DD",
+                        "MM-DD-YYYY HH:mm:ss",
+                        "MM-DD-YYYY hh:mm A",
+                        "MM-DD-YYYY",
+                        "M/D/YYYY h:mm A",
+                        "M/D/YYYY hh:mm A",
+                        "MM/DD/YYYY hh:mm A",
+                        "DD-MM-YYYY HH:mm:ss",
+                        "DD-MM-YYYY hh:mm A",
+                        "DD-MM-YYYY",
+                        "D/M/YYYY h:mm A",
+                        "D/M/YYYY hh:mm A",
+                        "DD/MM/YYYY hh:mm A"
                     ];
-                    const timeA = moment(valA, formats);
-                    const timeB = moment(valB, formats);
+                    const timeA = moment(valA, formats, true);
+                    const timeB = moment(valB, formats, true);
                     const msA = timeA.isValid() ? timeA.valueOf() : 0;
                     const msB = timeB.isValid() ? timeB.valueOf() : 0;
                     return msB - msA;

@@ -111,3 +111,42 @@
 #rajpuraQualityDashboard table.bs-table tr.my-task-row:hover td {
     background-color: #fef3c7 !important; /* Slightly darker amber on hover */
 }
+
+/* Highlight rows for escalated tasks */
+#rajpuraQualityDashboard table.bs-table tr.escalated-task-row td {
+    background-color: #fee2e2 !important; /* Soft red highlight */
+    border-color: #fecaca !important;
+    color: #991b1b !important;
+    font-weight: 500 !important;
+}
+
+#rajpuraQualityDashboard table.bs-table tr.escalated-task-row:hover td {
+    background-color: #fca5a5 !important; /* Slightly darker red on hover */
+}
+
+/* Style disabled inputs, selects, and textareas to look clearly read-only */
+input:disabled, 
+select:disabled, 
+textarea:disabled {
+    background-color: #f8fafc !important;
+    color: #64748b !important;
+    border: 1px solid #cbd5e1 !important;
+    cursor: not-allowed !important;
+}
+
+/* Style disabled Select2 components as flat read-only fields */
+.select2-container--disabled .select2-selection--single {
+    background-color: #f8fafc !important;
+    color: #64748b !important;
+    border: 1px solid #cbd5e1 !important;
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+}
+
+.select2-container--disabled .select2-selection__rendered {
+    color: #64748b !important;
+}
+
+.select2-container--disabled .select2-selection__arrow {
+    display: none !important; /* Hide dropdown arrow */
+}
