@@ -20,7 +20,7 @@
         <div id="loading-overlay" style="display: none; position: fixed; inset: 0; background: rgba(255, 255, 255, 0.6); z-index: 99999; pointer-events: auto;"></div>
 
         <!-- ========================================================
-             SCREEN 1: WELCOME SCREEN
+             SCREEN 1: WELCOME SCREEN (Bypassed but kept as layout fallback)
              ======================================================== -->
         <div id="screen-welcome" class="bs-fade-elem" style="display: none;">
             <div id="welcome-header-wrapper"></div>
@@ -589,9 +589,8 @@
                 script.src = "https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js";
                 script.onload = function() {
                     console.log("Select2 fallback loaded");
-                    // Rerun welcome screen selects
-                    if (typeof WelcomeScreen !== 'undefined' && WelcomeScreen.init) {
-                        WelcomeScreen.init();
+                    if (typeof ChecklistInformationScreen !== 'undefined' && ChecklistInformationScreen.init) {
+                        ChecklistInformationScreen.init();
                     }
                 };
                 document.body.appendChild(script);

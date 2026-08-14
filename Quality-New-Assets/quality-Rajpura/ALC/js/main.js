@@ -15,7 +15,10 @@ console.log("ALC Main Controller loaded");
     window.HideLoader = function () {
         if (typeof originalHideLoader === "function") originalHideLoader();
         const overlay = document.getElementById("loading-overlay");
-        if (overlay) overlay.style.display = "none";
+        if (overlay) {
+            overlay.style.display = "none";
+            overlay.innerHTML = ""; // Clear progress loader box
+        }
     };
 })();
 
@@ -35,6 +38,9 @@ const ALC_Main = {
     currentTourId: null,
 
     init: async function () {
+        // Save last visited dashboard category
+        localStorage.setItem("lastVisitedDashboard", "ALC");
+
         // 1. URL parameters check for TourId
         const urlParams = new URLSearchParams(window.location.search);
         this.currentTourId = urlParams.get('TourId');
@@ -61,32 +67,32 @@ const ALC_Main = {
         const currentUserName = typeof currentUser !== "undefined" ? currentUser : "";
         const currentUserLogin = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : "";
         const currentUserEmail = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userEmail : "";
-        
+
         try {
             const configs = await ALC_DAL.getConfig();
-            
+
             // Check if current user is listed under QA User config
-            const isQaUser = configs.some(c => 
-                c.ConfigType === "QA User" && 
-                c.AssignedUser && 
-                c.AssignedUser.results && 
+            const isQaUser = configs.some(c =>
+                c.ConfigType === "QA User" &&
+                c.AssignedUser &&
+                c.AssignedUser.results &&
                 c.AssignedUser.results.some(u => u.Title === currentUserName || u.Title === currentUserLogin || (u.EMail && u.EMail.toLowerCase() === currentUserEmail.toLowerCase()))
             );
 
             // Check if current user is listed under Product Incharge config
-            const isProductIncharge = configs.some(c => 
-                c.ConfigType === "Product User" && 
-                c.AssignedUser && 
-                c.AssignedUser.results && 
+            const isProductIncharge = configs.some(c =>
+                c.ConfigType === "Product User" &&
+                c.AssignedUser &&
+                c.AssignedUser.results &&
                 c.AssignedUser.results.some(u => u.Title === currentUserName || u.Title === currentUserLogin || (u.EMail && u.EMail.toLowerCase() === currentUserEmail.toLowerCase()))
             );
 
             // Always parse and assign areas the user owns if they match any Product User configurations
             const userAreas = configs
-                .filter(c => 
-                    c.ConfigType === "Product User" && 
-                    c.AssignedUser && 
-                    c.AssignedUser.results && 
+                .filter(c =>
+                    c.ConfigType === "Product User" &&
+                    c.AssignedUser &&
+                    c.AssignedUser.results &&
                     c.AssignedUser.results.some(u => u.Title === currentUserName || u.Title === currentUserLogin || (u.EMail && u.EMail.toLowerCase() === currentUserEmail.toLowerCase()))
                 )
                 .map(c => c.Area);
@@ -207,22 +213,22 @@ const ALC_Main = {
 
                 // Evaluate Is Line Clear (Check if true/Yes/1 OR terminal success/expired status)
                 const isClearedVal = session.cr3ea_islineclear;
-                const isCleared = isClearedVal === true || 
-                                  isClearedVal === "true" || 
-                                  isClearedVal === 1 || 
-                                  isClearedVal === "1" || 
-                                  isClearedVal === "Yes" || 
-                                  status === "Completed" || 
-                                  status === "Closed" || 
-                                  status === "Closed - Expired" || 
-                                  status === "Success";
+                const isCleared = isClearedVal === true ||
+                    isClearedVal === "true" ||
+                    isClearedVal === 1 ||
+                    isClearedVal === "1" ||
+                    isClearedVal === "Yes" ||
+                    status === "Completed" ||
+                    status === "Closed" ||
+                    status === "Closed - Expired" ||
+                    status === "Success";
 
-                const clearBadgeHtml = isCleared 
-                    ? '<span class="badge badge-success" style="background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Yes</span>' 
+                const clearBadgeHtml = isCleared
+                    ? '<span class="badge badge-success" style="background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Yes</span>'
                     : '<span class="badge badge-error" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">No</span>';
 
                 let actionBtnHtml = "";
-                const tourId = session.cr3ea_prod_qualitytourid;
+                const tourId = session.cr3ea_prod_rajpura_quality_tourid;
 
                 if (this.userRole === ALC_ROLES.QUALITY) {
                     if (status === "Pending QA") {
@@ -274,7 +280,7 @@ const ALC_Main = {
     resumeSessionState: async function () {
         const AccessToken = await ALC_DAL.getAccessToken();
         const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
-        const url = `${baseApiUrl}/api/data/v9.2/cr3ea_prod_qualitytours(${this.currentTourId})`;
+        const url = `${baseApiUrl}/api/data/v9.2/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`;
 
         const headers = { "Accept": "application/json" };
         if (AccessToken) headers["Authorization"] = `Bearer ${AccessToken}`;
@@ -285,7 +291,7 @@ const ALC_Main = {
 
             const session = await response.json();
             const status = session.cr3ea_processstatus || "In Progress";
-            
+
             console.log(`Resuming session ${this.currentTourId} with Dataverse status: ${status}`);
 
             // Store globally
@@ -297,7 +303,7 @@ const ALC_Main = {
                 const myEmail = (typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userEmail : "").toLowerCase().trim();
                 const myName1 = (typeof currentUser !== "undefined" ? currentUser : "").toLowerCase().trim();
                 const myName2 = (typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : "").toLowerCase().trim();
-                
+
                 let isAssignedQA = false;
 
                 if (assignedQAString) {
@@ -311,19 +317,19 @@ const ALC_Main = {
                     } else {
                         // Check SharePoint configurations to see if the assigned user matches the logged-in user
                         const configs = await ALC_DAL.getConfig();
-                        const matchedConfig = configs.find(c => 
-                            c.ConfigType === "QA User" && 
-                            c.AssignedUser && 
-                            c.AssignedUser.results && 
+                        const matchedConfig = configs.find(c =>
+                            c.ConfigType === "QA User" &&
+                            c.AssignedUser &&
+                            c.AssignedUser.results &&
                             c.AssignedUser.results.some(u => {
                                 const uTitle = (u.Title || "").toLowerCase().trim();
                                 const uEmail = (u.EMail || "").toLowerCase().trim();
-                                
+
                                 // Matches the assigned QA
                                 const matchesAssigned = (uTitle === assignedQAString || uEmail === assignedQAString || assignedQAString.includes(uTitle) || assignedQAString.includes(uEmail));
                                 // Matches the logged-in user
                                 const matchesMe = (uTitle === myName1 || uTitle === myName2 || (uEmail && uEmail === myEmail));
-                                
+
                                 return matchesAssigned && matchesMe;
                             })
                         );
@@ -355,9 +361,9 @@ const ALC_Main = {
                     const tourDateLocal = parsedDate.local().format("YYYY-MM-DD");
                     const todayLocal = moment().format("YYYY-MM-DD");
                     const isToday = (tourDateLocal === todayLocal);
-                    
+
                     console.log(`Same-day check: TourDateLocal=${tourDateLocal}, TodayLocal=${todayLocal}, isToday=${isToday}`);
-                    
+
                     ALC_StateMachine.isPreviousDay = !isToday;
                 }
             }
@@ -369,14 +375,14 @@ const ALC_Main = {
             await this.transitionByStatus(status, session);
         } catch (error) {
             console.warn("Failed to fetch session from Dataverse. Loading mock session fallback for testing/offline use:", error);
-            
+
             // Populate mock session for visual testing/offline execution
             const urlParams = new URLSearchParams(window.location.search);
             const mockStatus = urlParams.get('status') || "QA In Progress";
-            
+
             const mockSession = {
-                cr3ea_prod_qualitytoursid: this.currentTourId,
-                cr3ea_shiftexecutiveproduction: urlParams.get('exec') || "Mishab Muhammad",
+                cr3ea_prod_rajpura_quality_toursid: this.currentTourId,
+                cr3ea_shiftexecutiveproduction: urlParams.get('exec') || "Shift Executive User",
                 cr3ea_lineno: urlParams.get('line') || "Line 1",
                 cr3ea_shift: urlParams.get('shift') || "Shift 1",
                 cr3ea_previousrunningvariety: "Bectors Original",
@@ -411,7 +417,7 @@ const ALC_Main = {
         const currentUserName = (typeof currentUser !== "undefined" ? currentUser : "").trim().toLowerCase();
         const currentUserLogin = (typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : "").trim().toLowerCase();
         const shiftExecDb = (session && session.cr3ea_shiftexecutiveproduction ? session.cr3ea_shiftexecutiveproduction : "").trim().toLowerCase();
-        
+
         const isShiftExec = shiftExecDb && (
             shiftExecDb === currentUserName ||
             shiftExecDb === currentUserLogin
@@ -423,7 +429,7 @@ const ALC_Main = {
         } else {
             ALC_StateMachine.isProductionUser = false;
         }
-        
+
         // Define terminal statuses
         if (status === "Completed" || status === "Closed" || status === "Success") {
             ALC_StateMachine.isReadOnly = true;
@@ -444,20 +450,20 @@ const ALC_Main = {
         if (status === "Pending QA") {
             const hasAcceptAction = ALC_StateMachine.isQaUser;
             ALC_StateMachine.isReadOnly = !hasAcceptAction;
-            
+
             // Check if current user is an escalation manager for this tour
             const currentUserEmail = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userEmail : "";
             const currentUserName = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : "";
             const escalationContactsStr = session.cr3ea_escalation_contacts || "";
             const escalationEmails = escalationContactsStr.toLowerCase().split(",").map(e => e.trim());
-            
+
             // Also resolve from config row matching QA email (since Escalation Manager is multiperson select)
             const qaEmailVal = (session.cr3ea_assigned_qa || session.cr3ea_tourby || "").toLowerCase().trim();
             try {
                 const configList = await ALC_DAL.getConfig();
                 if (qaEmailVal && configList) {
-                    const matchConfig = configList.find(c => 
-                        c.AssignedUser && c.AssignedUser.results && 
+                    const matchConfig = configList.find(c =>
+                        c.AssignedUser && c.AssignedUser.results &&
                         c.AssignedUser.results.some(u => u.EMail && u.EMail.toLowerCase().trim() === qaEmailVal)
                     );
                     if (matchConfig && matchConfig.EscalationManager && matchConfig.EscalationManager.results) {
@@ -474,12 +480,12 @@ const ALC_Main = {
             } catch (e) {
                 console.error("Failed to fetch config list for main.js escalation check:", e);
             }
-            
+
             const isUserEscalationManager = currentUserEmail && escalationEmails.includes(currentUserEmail.toLowerCase().trim());
             const isUserEscalationManagerByName = currentUserName && escalationEmails.some(email => email.includes(currentUserName.toLowerCase().trim()));
-            
+
             const isEscalationManagerForThisTour = isUserEscalationManager || isUserEscalationManagerByName;
-            
+
             // If the user is the escalation manager, override routing to show the request details in read-only mode
             if (isEscalationManagerForThisTour) {
                 ALC_StateMachine.isReadOnly = true;
@@ -487,7 +493,7 @@ const ALC_Main = {
                 await ALC_QARequest.init();
                 return;
             }
-            
+
             ALC_StateMachine.init(this.userRole, ALC_STATES.PENDING_QA_ACCEPTANCE, this.currentTourId);
             ALC_QARequest.startTimer(ALC_QARequest.requestTimeResolved || session.cr3ea_tourstartdate || session.cr3ea_request_time, session.cr3ea_tourby);
             return;
@@ -526,15 +532,15 @@ const ALC_Main = {
 
         // Check if expired
         if (isExpired) {
-            const hasPending = checkpoints.some(c => 
-                (c.cr3ea_status === "Not Okay" || 
-                 (c.cr3ea_defectcategory && (
-                     c.cr3ea_defectcategory.includes("Non-Compliant") ||
-                     c.cr3ea_defectcategory.includes("Partial") ||
-                     c.cr3ea_defectcategory.includes("00") ||
-                     c.cr3ea_defectcategory.includes("01")
-                 ))) && 
-                 (!c.cr3ea_productionremarks && (!c.cr3ea_defectremarks || !c.cr3ea_defectremarks.trim().startsWith("Action:")))
+            const hasPending = checkpoints.some(c =>
+                (c.cr3ea_status === "Not Okay" ||
+                    (c.cr3ea_defectcategory && (
+                        c.cr3ea_defectcategory.includes("Non-Compliant") ||
+                        c.cr3ea_defectcategory.includes("Partial") ||
+                        c.cr3ea_defectcategory.includes("00") ||
+                        c.cr3ea_defectcategory.includes("01")
+                    ))) &&
+                (!c.cr3ea_productionremarks && (!c.cr3ea_defectremarks || !c.cr3ea_defectremarks.trim().startsWith("Action:")))
             );
 
             if ((ALC_StateMachine.isProductionUser || ALC_StateMachine.isProductUser) && hasPending) {
@@ -600,9 +606,9 @@ const ALC_Main = {
     // Helper to determine if production/product user has any pending actions
     hasPendingProductionActions: function (checkpoints, isProductionUser, isProductUser, userAreas) {
         const failedItems = checkpoints.filter(c => {
-            const isFailed = c.cr3ea_status === "Not Okay" || 
+            const isFailed = c.cr3ea_status === "Not Okay" ||
                 (c.cr3ea_defectcategory && (
-                    c.cr3ea_defectcategory.includes("00") || 
+                    c.cr3ea_defectcategory.includes("00") ||
                     c.cr3ea_defectcategory.includes("01") ||
                     c.cr3ea_defectcategory.includes("Non-Compliant") ||
                     c.cr3ea_defectcategory.includes("Partial")
@@ -616,10 +622,10 @@ const ALC_Main = {
         if (isProductUser) {
             const assignedAreas = userAreas || [];
             return failedItems.some(c => {
-                const hasAreaAccess = assignedAreas.some(area => 
-                    c.cr3ea_area && 
-                    (c.cr3ea_area.toLowerCase().includes(area.toLowerCase().trim()) || 
-                     area.toLowerCase().trim().includes(c.cr3ea_area.toLowerCase()))
+                const hasAreaAccess = assignedAreas.some(area =>
+                    c.cr3ea_area &&
+                    (c.cr3ea_area.toLowerCase().includes(area.toLowerCase().trim()) ||
+                        area.toLowerCase().trim().includes(c.cr3ea_area.toLowerCase()))
                 );
                 return hasAreaAccess;
             });
@@ -752,7 +758,7 @@ const ALC_Main = {
 // Global state changed event listener
 window.onStateChanged = async function (newState, role) {
     console.log(`UI State Changed: ${newState}`);
-    
+
     // Automatically trigger loads when transitioning to action views
     if (newState === ALC_STATES.PRODUCTION_ACTION) {
         ALC_CorrectiveAction.loadFailedItems();

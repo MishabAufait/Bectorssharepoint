@@ -4,19 +4,19 @@ console.log("ALC DAL loaded");
 const ALC_DAL = {
     getConfig: async function () {
         const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-        const listName = "Quality-Rajpura";
-        
+        const listName = QualityRajpura_Config.SHAREPOINT_LISTS.ALC;
+
         // Try first schema (no spaces in internal names)
         let query = "?$select=Id,Title,ConfigType,Region,Plant,Area," +
             "AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id," +
             "EscalationManager/Title,EscalationManager/EMail,EscalationManager/Id" +
             "&$expand=AssignedUser,EscalationManager" +
             "&$filter=Plant eq 'Rajpura'";
-        
+
         let url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
         let response;
         let isFallback = false;
-        
+
         try {
             response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
             if (!response.ok) throw new Error("Fallback needed");
@@ -35,15 +35,15 @@ const ALC_DAL = {
         if (!response.ok) {
             throw new Error(`Failed to fetch SharePoint config: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
         const results = data.d.results;
-        
+
         // Map keys so the consumer doesn't have to care about internal name differences
         return results.map(item => {
             const rawUser = isFallback ? item.Assigned_x0020_User : item.AssignedUser;
             const rawManager = isFallback ? item.Escalation_x0020_Manager : item.EscalationManager;
-            
+
             // Normalize AssignedUser to always have a 'results' array
             let assignedUserNormalized = { results: [] };
             if (rawUser) {
@@ -119,13 +119,13 @@ const ALC_DAL = {
         const AccessToken = await this.getAccessToken();
         if (!AccessToken) {
             console.warn("No token available. Simulating saveSession locally.");
-            return { cr3ea_prod_qualitytourid: "mock-session-id-" + Date.now() };
+            return { cr3ea_prod_rajpura_quality_tourid: "mock-session-id-" + Date.now() };
         }
 
         const apiVersion = "9.2";
-        const tableName = "cr3ea_prod_qualitytours"; // Reuse existing entity or define custom state columns
+        const tableName = QualityRajpura_Config.DATAVERSE_TABLES.ALC.PARENT; // Reuse existing entity or define custom state columns
         const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
-        
+
         const headers = {
             "Accept": "application/json",
             "Content-Type": "application/json; charset=utf-8",
@@ -137,8 +137,8 @@ const ALC_DAL = {
         let url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}`;
         let method = "POST";
 
-        if (sessionData.cr3ea_prod_qualitytourid) {
-            url += `(${sessionData.cr3ea_prod_qualitytourid})`;
+        if (sessionData.cr3ea_prod_rajpura_quality_tourid) {
+            url += `(${sessionData.cr3ea_prod_rajpura_quality_tourid})`;
             method = "PATCH";
         }
 
@@ -169,7 +169,7 @@ const ALC_DAL = {
         }
 
         const apiVersion = "9.2";
-        const tableName = "cr3ea_rajpura_alcses";
+        const tableName = QualityRajpura_Config.DATAVERSE_TABLES.ALC.CHILD;
         const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
 
         const headers = {
@@ -249,7 +249,7 @@ const ALC_DAL = {
             console.warn("No token available. Simulating getActiveSessions locally.");
             return [
                 {
-                    cr3ea_prod_qualitytourid: "mock-active-1",
+                    cr3ea_prod_rajpura_quality_tourid: "mock-active-1",
                     cr3ea_status: "Pending QA",
                     cr3ea_processstatus: "Pending QA",
                     cr3ea_shiftexecutiveproduction: "Akkib AM",
@@ -262,7 +262,7 @@ const ALC_DAL = {
         }
 
         const apiVersion = "9.2";
-        const tableName = "cr3ea_prod_qualitytours";
+        const tableName = "cr3ea_prod_rajpura_quality_tours";
         const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
 
         const headers = {
@@ -286,13 +286,13 @@ const ALC_DAL = {
 
         const data = await response.json();
         const results = data.value || [];
-        
+
         // Filter: Keep all active tours + today's completed/closed tours
         const todayStr = moment().format("YYYY-MM-DD");
         return results.filter(session => {
             const status = session.cr3ea_processstatus || session.cr3ea_status || "";
             const isActive = (status !== "Completed" && status !== "Closed" && status !== "Closed - Expired");
-            
+
             if (isActive) {
                 return true;
             } else {
@@ -310,11 +310,11 @@ const ALC_DAL = {
     uploadCorrectiveActionFile: async function (fileObject, tourId, areaName, checkpointId, actionRemarks) {
         const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
         const webServerRelativeUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webServerRelativeUrl : "";
-        const libraryName = "ALC_CorrectiveActions_Docs";
-        
+        const libraryName = QualityRajpura_Config.SHAREPOINT_DOCS.ALC_CORRECTIVE_ACTIONS;
+
         // Build proper server relative URL for folder
-        const serverRelativeUrl = webServerRelativeUrl === "/" 
-            ? `/${libraryName}` 
+        const serverRelativeUrl = webServerRelativeUrl === "/"
+            ? `/${libraryName}`
             : `${webServerRelativeUrl}/${libraryName}`;
 
         // 1. Get Request Digest (Form Digest)
@@ -351,7 +351,7 @@ const ALC_DAL = {
         baseName = baseName.replace(/[^a-zA-Z0-9_-]/g, "_");
         const timestamp = typeof moment !== 'undefined' ? moment().format("YYYYMMDD_HHmmss") : Date.now();
         const safeCheckpointId = checkpointId ? String(checkpointId).replace(/[^a-zA-Z0-9_-]/g, "_") : "";
-        const uniqueFileName = safeCheckpointId 
+        const uniqueFileName = safeCheckpointId
             ? `${baseName}_${timestamp}_${safeCheckpointId}${extension}`
             : `${baseName}_${timestamp}${extension}`;
 

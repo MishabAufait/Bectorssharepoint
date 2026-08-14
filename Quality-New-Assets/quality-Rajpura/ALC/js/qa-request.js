@@ -32,7 +32,7 @@ const ALC_QARequest = {
                 }
             ];
         }
-        
+
         // Populate current Date & Time values on initialization
         const todayDate = moment().format("DD/MM/YYYY");
         const todayTime = moment().format("hh:mm A");
@@ -127,7 +127,7 @@ const ALC_QARequest = {
         if (window.jQuery && $.fn.select2) {
             $('select.form-select').each(function () {
                 $(this).select2({
-                    dropdownParent: $(this).parent()
+                    dropdownParent: $(document.body)
                 });
             });
         }
@@ -180,7 +180,7 @@ const ALC_QARequest = {
         };
 
         if (ALC_StateMachine.currentTourId) {
-            headerData.cr3ea_prod_qualitytourid = ALC_StateMachine.currentTourId;
+            headerData.cr3ea_prod_rajpura_quality_tourid = ALC_StateMachine.currentTourId;
         }
 
         // Cache escalation details locally
@@ -193,23 +193,23 @@ const ALC_QARequest = {
             // Validation: Check for ongoing uncleared sessions on this same line today
             const sessions = await ALC_DAL.getActiveSessions();
             const todayStr = moment().format("YYYY-MM-DD");
-            
+
             const unclearedSession = sessions.find(s => {
-                if (ALC_StateMachine.currentTourId && s.cr3ea_prod_qualitytourid === ALC_StateMachine.currentTourId) {
+                if (ALC_StateMachine.currentTourId && s.cr3ea_prod_rajpura_quality_tourid === ALC_StateMachine.currentTourId) {
                     return false;
                 }
                 const isSameLine = s.cr3ea_lineno === line;
                 const isClearedVal = s.cr3ea_islineclear;
                 const status = s.cr3ea_processstatus || s.cr3ea_status || "";
-                const isCleared = isClearedVal === true || 
-                                  isClearedVal === "true" || 
-                                  isClearedVal === 1 || 
-                                  isClearedVal === "1" || 
-                                  isClearedVal === "Yes" || 
-                                  status === "Completed" || 
-                                  status === "Closed" || 
-                                  status === "Closed - Expired" || 
-                                  status === "Success";
+                const isCleared = isClearedVal === true ||
+                    isClearedVal === "true" ||
+                    isClearedVal === 1 ||
+                    isClearedVal === "1" ||
+                    isClearedVal === "Yes" ||
+                    status === "Completed" ||
+                    status === "Closed" ||
+                    status === "Closed - Expired" ||
+                    status === "Success";
 
                 const tourDate = s.cr3ea_tourstartdate || s.createdon;
                 const isToday = tourDate && (moment(tourDate).local().format("YYYY-MM-DD") === todayStr);
@@ -225,7 +225,7 @@ const ALC_QARequest = {
             }
 
             const session = await ALC_DAL.saveSession(headerData);
-            
+
             // Trigger Power Automate notification
             try {
                 if (typeof ALC_Notification !== "undefined") {
@@ -262,7 +262,7 @@ const ALC_QARequest = {
             if (remainingSeconds <= 0) {
                 clearInterval(this.timerInterval);
                 if (timerDisplay) timerDisplay.innerHTML = `<span class="text-danger font-weight-bold">Escalated to Next Level</span>`;
-                
+
                 await this.resolveEscalationContacts(qaName);
                 this.triggerEscalation();
             } else {
@@ -279,7 +279,7 @@ const ALC_QARequest = {
         if (this.escalationEmailsResolved && this.escalationEmailsResolved.length > 0) {
             return this.escalationEmailsResolved;
         }
-        
+
         try {
             const configList = await ALC_DAL.getConfig();
             const configRow = configList.find(c => c.Title === qaName || c.AssignedUser === qaName);
@@ -300,7 +300,7 @@ const ALC_QARequest = {
         if (escalationPanel) {
             escalationPanel.style.display = "block";
         }
-        
+
         // Custom visual notification state update
         if (typeof window.onEscalationTriggered === "function") {
             window.onEscalationTriggered();
@@ -331,7 +331,7 @@ const ALC_QARequest = {
         }
 
         const updateData = {
-            cr3ea_prod_qualitytourid: ALC_StateMachine.currentTourId,
+            cr3ea_prod_rajpura_quality_tourid: ALC_StateMachine.currentTourId,
             cr3ea_status: "QA In Progress",
             cr3ea_processstatus: "QA In Progress",
             cr3ea_tourby: qaEmail
@@ -341,9 +341,9 @@ const ALC_QARequest = {
             ShowLoader();
             await ALC_DAL.saveSession(updateData);
             HideLoader();
-            
+
             if (this.timerInterval) clearInterval(this.timerInterval);
-            
+
             // Advance state
             ALC_StateMachine.transitionTo(ALC_STATES.QA_CHECKLIST);
         } catch (error) {

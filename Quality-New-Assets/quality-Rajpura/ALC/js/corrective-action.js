@@ -13,12 +13,12 @@ const ALC_CorrectiveAction = {
             ShowLoader();
             // Fetch all checkpoints saved in Dataverse
             const checkpoints = await ALC_DAL.getCheckpoints(ALC_StateMachine.currentTourId);
-            
+
             // Filter failed items: score is "Partial" or "Non-Compliant" (0 or 1)
-            this.failedCheckpoints = checkpoints.filter(c => 
-                c.cr3ea_status === "Not Okay" || 
+            this.failedCheckpoints = checkpoints.filter(c =>
+                c.cr3ea_status === "Not Okay" ||
                 (c.cr3ea_defectcategory && (
-                    c.cr3ea_defectcategory.includes("00") || 
+                    c.cr3ea_defectcategory.includes("00") ||
                     c.cr3ea_defectcategory.includes("01") ||
                     c.cr3ea_defectcategory.includes("Non-Compliant") ||
                     c.cr3ea_defectcategory.includes("Partial")
@@ -44,12 +44,12 @@ const ALC_CorrectiveAction = {
         }
 
         tbody.innerHTML = "";
-        
-        const isReadOnlyState = ALC_StateMachine.isReadOnly || 
-                                ((ALC_StateMachine.currentSession && 
-                                  (ALC_StateMachine.currentSession.cr3ea_status === "Closed - Expired" || 
-                                   ALC_StateMachine.currentSession.cr3ea_processstatus === "Closed - Expired")) &&
-                                 !(ALC_StateMachine.isProductionUser || ALC_StateMachine.isProductUser));
+
+        const isReadOnlyState = ALC_StateMachine.isReadOnly ||
+            ((ALC_StateMachine.currentSession &&
+                (ALC_StateMachine.currentSession.cr3ea_status === "Closed - Expired" ||
+                    ALC_StateMachine.currentSession.cr3ea_processstatus === "Closed - Expired")) &&
+                !(ALC_StateMachine.isProductionUser || ALC_StateMachine.isProductUser));
 
         let renderedCount = 0;
         let userPendingCount = 0;
@@ -59,10 +59,10 @@ const ALC_CorrectiveAction = {
             let hasAreaAccess = false;
             if (!isReadOnlyState) {
                 const assignedAreas = ALC_StateMachine.userAreas || [];
-                hasAreaAccess = assignedAreas.some(area => 
-                    cp.cr3ea_area && 
-                    (cp.cr3ea_area.toLowerCase().includes(area.toLowerCase().trim()) || 
-                     area.toLowerCase().trim().includes(cp.cr3ea_area.toLowerCase()))
+                hasAreaAccess = assignedAreas.some(area =>
+                    cp.cr3ea_area &&
+                    (cp.cr3ea_area.toLowerCase().includes(area.toLowerCase().trim()) ||
+                        area.toLowerCase().trim().includes(cp.cr3ea_area.toLowerCase()))
                 );
             } else {
                 // If it is read-only (Closed or Completed), show all rows to everyone
@@ -84,7 +84,7 @@ const ALC_CorrectiveAction = {
                 prodRemark = prefilledRemark;
             }
             const isAlreadyResolved = !!prodRemark;
-            
+
             // Increment pending count if user has access to this checkpoint but hasn't resolved it yet
             if (hasAreaAccess && !isAlreadyResolved) {
                 userPendingCount++;
@@ -92,10 +92,10 @@ const ALC_CorrectiveAction = {
 
             // Allow editing if the user has access to this area
             const canEditRow = hasAreaAccess && !isAlreadyResolved;
-            
+
             const disabledAttr = canEditRow ? "" : "disabled";
             const readonlyAttr = canEditRow ? "" : "readonly";
-            
+
             // Format file status label if prefilled remarks show a file upload
             let fileLabel = "No image uploaded";
             if (prodRemark && prodRemark.includes("| File: ")) {
@@ -213,12 +213,12 @@ const ALC_CorrectiveAction = {
         console.log("ALC_CorrectiveAction.submitActions triggered!");
         console.log("StateMachine Tour ID:", ALC_StateMachine.currentTourId);
         console.log("Checklist Failed Checkpoints Count:", this.failedCheckpoints.length);
-        
+
         if (this.isSubmitting) {
             console.warn("Already submitting actions. Ignoring duplicate request.");
             return;
         }
-        
+
         const rows = document.querySelectorAll("#failed-checkpoints-body tr");
         console.log("DOM Rows Count in failed-checkpoints-body:", rows.length);
 
@@ -249,10 +249,10 @@ const ALC_CorrectiveAction = {
 
                 // Determine if the current user has access to edit this specific area
                 const assignedAreas = ALC_StateMachine.userAreas || [];
-                hasAreaAccess = assignedAreas.some(area => 
-                    cp.cr3ea_area && 
-                    (cp.cr3ea_area.toLowerCase().includes(area.toLowerCase().trim()) || 
-                     area.toLowerCase().trim().includes(cp.cr3ea_area.toLowerCase()))
+                hasAreaAccess = assignedAreas.some(area =>
+                    cp.cr3ea_area &&
+                    (cp.cr3ea_area.toLowerCase().includes(area.toLowerCase().trim()) ||
+                        area.toLowerCase().trim().includes(cp.cr3ea_area.toLowerCase()))
                 );
 
                 // If they don't have area access, or if the checkpoint has already been resolved previously, skip saving it.
@@ -280,10 +280,10 @@ const ALC_CorrectiveAction = {
                 }
 
                 // Mandatory image check for Non-Compliant checkpoints
-                const isNonCompliant = cp.cr3ea_defectcategory && 
-                    (cp.cr3ea_defectcategory.toLowerCase().includes("non-compliant") || 
-                     cp.cr3ea_defectcategory.includes("00") || 
-                     cp.cr3ea_defectcategory.includes("01"));
+                const isNonCompliant = cp.cr3ea_defectcategory &&
+                    (cp.cr3ea_defectcategory.toLowerCase().includes("non-compliant") ||
+                        cp.cr3ea_defectcategory.includes("00") ||
+                        cp.cr3ea_defectcategory.includes("01"));
 
                 const file = this.uploadedFiles[i];
                 const hasExistingFile = prefilledRemark.includes("| File:");
@@ -302,10 +302,10 @@ const ALC_CorrectiveAction = {
                 if (file) {
                     console.log(`Uploading proof file for row #${i + 1}: ${file.name}`);
                     uploadedUrl = await ALC_DAL.uploadCorrectiveActionFile(
-                        file, 
-                        ALC_StateMachine.currentTourId, 
-                        cp.cr3ea_area, 
-                        cp.cr3ea_rajpura_alcsid || `CP-${i}`, 
+                        file,
+                        ALC_StateMachine.currentTourId,
+                        cp.cr3ea_area,
+                        cp.cr3ea_rajpura_alcsid || `CP-${i}`,
                         actionTaken
                     );
                     // Parse the final unique filename (containing the timestamp) from the uploaded server relative URL
@@ -323,7 +323,7 @@ const ALC_CorrectiveAction = {
                 if (fileName) {
                     remarksVal += ` | File: ${fileName}`;
                 }
-                
+
                 // Truncate to 1000 chars (matching the new Dataverse column limit)
                 if (remarksVal.length > 1000) {
                     remarksVal = remarksVal.substring(0, 997) + "...";
@@ -348,9 +348,9 @@ const ALC_CorrectiveAction = {
             // Check if there are STILL any failed checkpoints without action remarks (both in Dataverse and our local list)
             const latestCheckpoints = await ALC_DAL.getCheckpoints(ALC_StateMachine.currentTourId);
             const stillPendingActions = latestCheckpoints.some(c => {
-                const isFailed = c.cr3ea_status === "Not Okay" || 
+                const isFailed = c.cr3ea_status === "Not Okay" ||
                     (c.cr3ea_defectcategory && (
-                        c.cr3ea_defectcategory.includes("00") || 
+                        c.cr3ea_defectcategory.includes("00") ||
                         c.cr3ea_defectcategory.includes("01") ||
                         c.cr3ea_defectcategory.includes("Non-Compliant") ||
                         c.cr3ea_defectcategory.includes("Partial")
@@ -366,18 +366,18 @@ const ALC_CorrectiveAction = {
             });
 
             // Transition Tour Session status to Pending Re-Verification (we transition immediately so QA can re-verify submitted areas)
-            const isExpired = ALC_StateMachine.isPreviousDay || 
-                              (ALC_StateMachine.currentSession && 
-                               (ALC_StateMachine.currentSession.cr3ea_status === "Closed - Expired" || 
-                                ALC_StateMachine.currentSession.cr3ea_processstatus === "Closed - Expired"));
+            const isExpired = ALC_StateMachine.isPreviousDay ||
+                (ALC_StateMachine.currentSession &&
+                    (ALC_StateMachine.currentSession.cr3ea_status === "Closed - Expired" ||
+                        ALC_StateMachine.currentSession.cr3ea_processstatus === "Closed - Expired"));
 
-            const isSuccessTour = ALC_StateMachine.currentSession && 
-                                  ALC_StateMachine.currentSession.cr3ea_processstatus === "Success - Pending Production";
+            const isSuccessTour = ALC_StateMachine.currentSession &&
+                ALC_StateMachine.currentSession.cr3ea_processstatus === "Success - Pending Production";
             const targetStatus = isExpired ? "Closed - Expired" : (isSuccessTour ? "Success - Pending Re-Verification" : "Pending Re-Verification");
             const dbStatusValue = targetStatus === "Success - Pending Re-Verification" ? "Pending Re-Verification" : targetStatus;
 
             const sessionUpdate = {
-                cr3ea_prod_qualitytourid: ALC_StateMachine.currentTourId,
+                cr3ea_prod_rajpura_quality_tourid: ALC_StateMachine.currentTourId,
                 cr3ea_status: dbStatusValue,
                 cr3ea_processstatus: targetStatus
             };
@@ -399,7 +399,7 @@ const ALC_CorrectiveAction = {
             if (correctiveSubmitBtn) {
                 correctiveSubmitBtn.disabled = false;
             }
-            
+
             let alertMsg = "All corrective actions submitted successfully. Assigning back to QA for re-verification.";
             if (stillPendingActions) {
                 alertMsg = "Corrective actions submitted for your area! Some areas are still pending, but the tour is now assigned back to QA for partial re-verification.";
@@ -425,7 +425,7 @@ const ALC_CorrectiveAction = {
                 btn.disabled = false;
             }
             console.error("Error inside submitActions:", error);
-            
+
             // Extract descriptive error message from jQuery jqXHR / standard Error objects
             let errMsg = error.message;
             if (!errMsg) {
