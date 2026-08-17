@@ -225,7 +225,7 @@ const ALC_DAL = {
         };
 
         const cleanTourId = tourId ? String(tourId).replace(/[{}]/g, "").trim().toLowerCase() : "";
-        const filter = `?$filter=cr3ea_qualitytourid eq '${cleanTourId}'`;
+        const filter = `?$filter=_cr3ea_qualitytourid_value eq '${cleanTourId}'`;
         const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}${filter}`;
 
         const response = await this.fetchWithToken(url, {

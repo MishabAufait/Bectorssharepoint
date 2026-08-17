@@ -19,7 +19,8 @@ const QualityRajpura_Config = {
 
     // SharePoint Document Libraries
     SHAREPOINT_DOCS: {
-        ALC_CORRECTIVE_ACTIONS: "ALC_CorrectiveActions_Docs"
+        ALC_CORRECTIVE_ACTIONS: "ALC_CorrectiveActions_Docs",
+        CCP_OPRP_CORRECTIVE_ACTIONS: "CCP_OPRP_CorrectiveActions_Docs"
     },
 
     // Dataverse Table Names categorized by form
@@ -46,7 +47,8 @@ const QualityRajpura_Config = {
         },
         CCP_OPRP_SIEVES_MAGNETS: {
             PARENT: "cr3ea_prod_rajpura_quality_tours",
-            CHILD: ""
+            CHILD_CCP: "cr3ea_prod_rajpura_ccpoprps",      // logical name: cr3ea_prod_rajpura_ccpoprp
+            CHILD_SIEVES: "cr3ea_prod_rajpura_sievesmagnetses" // logical name: cr3ea_prod_rajpura_sievesmagnets
         }
     }
 };

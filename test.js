@@ -1,17 +1,14 @@
 const columns = [
 
-  // =========================================================
-  // 1. FOOD SAFETY CHECKLIST TYPE
-  // =========================================================
   {
     "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
 
-    "SchemaName": "cr3ea_food_safety_checklisttype",
+    "SchemaName": "cr3ea_title",
 
     "DisplayName": {
       "LocalizedLabels": [
         {
-          "Label": "Food Safety Checklist Type",
+          "Label": "Title",
           "LanguageCode": 1033
         }
       ]
@@ -21,155 +18,12 @@ const columns = [
       "Value": "None"
     },
 
-    "MaxLength": 100
+    "MaxLength": 200
   },
 
-
-  // =========================================================
-  // 2. AREA / BLOCK
-  // =========================================================
   {
     "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
-
-    "SchemaName": "cr3ea_food_safety_area",
-
-    "DisplayName": {
-      "LocalizedLabels": [
-        {
-          "Label": "Area / Block",
-          "LanguageCode": 1033
-        }
-      ]
-    },
-
-    "RequiredLevel": {
-      "Value": "None"
-    },
-
-    "MaxLength": 100
-  },
-
-
-  // =========================================================
-  // 3. AREA INCHARGE
-  // =========================================================
-  {
-    "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
-
-    "SchemaName": "cr3ea_food_safety_areaincharge",
-
-    "DisplayName": {
-      "LocalizedLabels": [
-        {
-          "Label": "Area Incharge",
-          "LanguageCode": 1033
-        }
-      ]
-    },
-
-    "RequiredLevel": {
-      "Value": "None"
-    },
-
-    "MaxLength": 100
-  },
-
-
-  // =========================================================
-  // 4. SAMPLE SIZE
-  // =========================================================
-  {
-    "@odata.type": "Microsoft.Dynamics.CRM.IntegerAttributeMetadata",
-
-    "SchemaName": "cr3ea_food_safety_samplesize",
-
-    "DisplayName": {
-      "LocalizedLabels": [
-        {
-          "Label": "Sample Size",
-          "LanguageCode": 1033
-        }
-      ]
-    },
-
-    "RequiredLevel": {
-      "Value": "None"
-    },
-
-    "MinValue": 0,
-
-    "MaxValue": 2147483647,
-
-    "Format": "None"
-  },
-
-
-  // =========================================================
-  // 5. TOTAL POSSIBLE DEFECTS
-  // =========================================================
-  {
-    "@odata.type": "Microsoft.Dynamics.CRM.IntegerAttributeMetadata",
-
-    "SchemaName": "cr3ea_food_safety_totalpossibledefects",
-
-    "DisplayName": {
-      "LocalizedLabels": [
-        {
-          "Label": "Total Possible Defects",
-          "LanguageCode": 1033
-        }
-      ]
-    },
-
-    "RequiredLevel": {
-      "Value": "None"
-    },
-
-    "MinValue": 0,
-
-    "MaxValue": 2147483647,
-
-    "Format": "None"
-  },
-
-
-  // =========================================================
-  // 6. TOTAL DEFECTS
-  // =========================================================
-  {
-    "@odata.type": "Microsoft.Dynamics.CRM.IntegerAttributeMetadata",
-
-    "SchemaName": "cr3ea_food_safety_totaldefects",
-
-    "DisplayName": {
-      "LocalizedLabels": [
-        {
-          "Label": "Total Defects",
-          "LanguageCode": 1033
-        }
-      ]
-    },
-
-    "RequiredLevel": {
-      "Value": "None"
-    },
-
-    "MinValue": 0,
-
-    "MaxValue": 2147483647,
-
-    "Format": "None"
-  },
-
-
-  // =========================================================
-  // 7. CYCLE
-  // =========================================================
-  {
-    "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
-
-    "SchemaName": "cr3ea_food_safety_cycle",
-
+    "SchemaName": "cr3ea_cycle",
     "DisplayName": {
       "LocalizedLabels": [
         {
@@ -178,16 +32,81 @@ const columns = [
         }
       ]
     },
-
     "RequiredLevel": {
       "Value": "None"
     },
+    "MaxLength": 50
+  },
 
-    "MaxLength": 100
+  {
+    "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
+    "SchemaName": "cr3ea_criteria",
+    "DisplayName": {
+      "LocalizedLabels": [
+        {
+          "Label": "Criteria",
+          "LanguageCode": 1033
+        }
+      ]
+    },
+    "RequiredLevel": {
+      "Value": "None"
+    },
+    "MaxLength": 50
+  },
+
+  {
+    "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
+    "SchemaName": "cr3ea_description",
+    "DisplayName": {
+      "LocalizedLabels": [
+        {
+          "Label": "Description",
+          "LanguageCode": 1033
+        }
+      ]
+    },
+    "RequiredLevel": {
+      "Value": "None"
+    },
+    "MaxLength": 250
+  },
+
+  {
+    "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
+    "SchemaName": "cr3ea_defectremarks",
+    "DisplayName": {
+      "LocalizedLabels": [
+        {
+          "Label": "Defect Remarks",
+          "LanguageCode": 1033
+        }
+      ]
+    },
+    "RequiredLevel": {
+      "Value": "None"
+    },
+    "MaxLength": 1000
+  },
+
+  {
+    "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
+    "SchemaName": "cr3ea_frequency",
+    "DisplayName": {
+      "LocalizedLabels": [
+        {
+          "Label": "Frequency",
+          "LanguageCode": 1033
+        }
+      ]
+    },
+    "RequiredLevel": {
+      "Value": "None"
+    },
+    "MaxLength": 20
   }
 
 ];
-
 
 // =============================================================
 // DATAVERSE CONFIGURATION
@@ -195,12 +114,11 @@ const columns = [
 
 const baseUrl = "https://org487f0635.crm8.dynamics.com";
 
-const accessToken = "";
+const accessToken = ""
 
-
-// Existing table
+// New table logical name
 const tableLogicalName =
-  "cr3ea_prod_rajpura_quality_tour";
+  "cr3ea_prod_rajpura_sievesmagnets";
 
 
 // =============================================================

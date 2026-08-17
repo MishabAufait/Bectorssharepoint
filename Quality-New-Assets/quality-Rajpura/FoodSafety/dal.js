@@ -7,7 +7,7 @@ const FoodSafety_DAL = {
         const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
         const listName = QualityRajpura_Config.SHAREPOINT_LISTS.FOOD_SAFETY;
 
-        let query = "?$select=Id,Title," +
+        let query = "?$select=Id,Title,Plant,ChecklistType," +
             "QAExecutive/Title,QAExecutive/EMail,QAExecutive/Id," +
             "ProductionIncharge/Title,ProductionIncharge/EMail,ProductionIncharge/Id" +
             "&$expand=QAExecutive,ProductionIncharge";
@@ -48,6 +48,8 @@ const FoodSafety_DAL = {
             return {
                 Id: item.Id,
                 Title: item.Title,
+                Plant: item.Plant || "",
+                ChecklistType: item.ChecklistType || "",
                 QAExecutives: qaList,
                 ProductionIncharges: prodList
             };

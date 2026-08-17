@@ -47,54 +47,90 @@ const ChecklistInformationScreen = {
         this.handleTypeChange();
         this.handleSiteChange();
 
-        // 4. Fetch SharePoint config and populate QA Executive / Production Incharge dropdowns
+        // 4. Fetch SharePoint config and populate QA Executive / Production Incharge dropdowns dynamically
         try {
             const configItems = await FoodSafety_DAL.getConfig();
+
+            const updatePersonnelDropdowns = () => {
+                const selectedSite = document.getElementById("infoSiteSelect")?.value || "";
+                const selectedTypeFull = document.getElementById("infoChecklistTypeSelect")?.value || "";
+                
+                let mappedType = "PPE";
+                if (selectedTypeFull === "GMP Checklist") mappedType = "GMP";
+                else if (selectedTypeFull === "PCI Checklist") mappedType = "PCI";
+
+                const matchingConfigs = configItems.filter(c => {
+                    const matchPlant = c.Plant === selectedSite;
+                    const matchType = c.ChecklistType === mappedType;
+                    return matchPlant && matchType;
+                });
+
+                // Extract distinct QA Executives
+                const qaExecutives = [{ value: "", text: "Select QA Executive" }];
+                const qaEmails = new Set();
+                matchingConfigs.forEach(item => {
+                    if (item.QAExecutives && Array.isArray(item.QAExecutives)) {
+                        item.QAExecutives.forEach(user => {
+                            if (user && user.Title && !qaEmails.has(user.EMail)) {
+                                qaEmails.add(user.EMail);
+                                qaExecutives.push({
+                                    value: user.EMail,
+                                    text: user.Title
+                                });
+                            }
+                        });
+                    }
+                });
+
+                // Extract distinct Production Incharges
+                const prodIncharges = [{ value: "", text: "Select Production Incharge" }];
+                const prodEmails = new Set();
+                matchingConfigs.forEach(item => {
+                    if (item.ProductionIncharges && Array.isArray(item.ProductionIncharges)) {
+                        item.ProductionIncharges.forEach(user => {
+                            if (user && user.Title && !prodEmails.has(user.EMail)) {
+                                prodEmails.add(user.EMail);
+                                prodIncharges.push({
+                                    value: user.EMail,
+                                    text: user.Title
+                                });
+                            }
+                        });
+                    }
+                });
+
+                // Populate QA Executive Dropdown
+                DropdownComponent.populate("info-qa-exec-select", qaExecutives, FoodSafety_Main.state.qaExecutive);
+                DropdownComponent.init("info-qa-exec-select");
+
+                // Populate Production Incharge Dropdown
+                DropdownComponent.populate("info-prod-incharge-select", prodIncharges, FoodSafety_Main.state.productionIncharge);
+                DropdownComponent.init("info-prod-incharge-select");
+
+                validateStartButton();
+            };
+
+            // Validation logic for the Start Checklist button
+            const validateStartButton = () => {
+                const qaVal = document.getElementById("info-qa-exec-select")?.value || "";
+                const prodVal = document.getElementById("info-prod-incharge-select")?.value || "";
+                const btn = document.getElementById("info-start-checklist-btn");
+                if (btn) {
+                    btn.disabled = (!qaVal || !prodVal);
+                }
+            };
+
+            // Bind change hooks to trigger updates
+            $("#infoSiteSelect").off("change.pers").on("change.pers", updatePersonnelDropdowns);
+            $("#infoChecklistTypeSelect").off("change.pers").on("change.pers", updatePersonnelDropdowns);
             
-            // Extract distinct QA Executives
-            const qaExecutives = [];
-            const qaEmails = new Set();
-            configItems.forEach(item => {
-                if (item.QAExecutives && Array.isArray(item.QAExecutives)) {
-                    item.QAExecutives.forEach(user => {
-                        if (user && user.Title && !qaEmails.has(user.EMail)) {
-                            qaEmails.add(user.EMail);
-                            qaExecutives.push({
-                                value: user.EMail,
-                                text: user.Title
-                            });
-                        }
-                    });
-                }
-            });
+            $("#info-qa-exec-select, #info-prod-incharge-select").off("change.validation").on("change.validation", validateStartButton);
 
-            // Extract distinct Production Incharges
-            const prodIncharges = [];
-            const prodEmails = new Set();
-            configItems.forEach(item => {
-                if (item.ProductionIncharges && Array.isArray(item.ProductionIncharges)) {
-                    item.ProductionIncharges.forEach(user => {
-                        if (user && user.Title && !prodEmails.has(user.EMail)) {
-                            prodEmails.add(user.EMail);
-                            prodIncharges.push({
-                                value: user.EMail,
-                                text: user.Title
-                            });
-                        }
-                    });
-                }
-            });
-
-            // Populate QA Executive Dropdown
-            DropdownComponent.populate("info-qa-exec-select", qaExecutives, FoodSafety_Main.state.qaExecutive);
-            DropdownComponent.init("info-qa-exec-select");
-
-            // Populate Production Incharge Dropdown
-            DropdownComponent.populate("info-prod-incharge-select", prodIncharges, FoodSafety_Main.state.productionIncharge);
-            DropdownComponent.init("info-prod-incharge-select");
+            // Populate initially
+            updatePersonnelDropdowns();
             
         } catch (e) {
-            console.error("Error loading QA/Production config list", e);
+            console.error("Error loading QA/Production config list in Food Safety", e);
         }
 
         // 5. Render header component
