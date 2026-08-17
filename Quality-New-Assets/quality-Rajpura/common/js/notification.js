@@ -8,7 +8,7 @@ const ALC_Notification = {
     // Helper to send JSON payloads to Power Automate
     sendNotificationFlow: async function (payload) {
         console.log("ALC_Notification: Outgoing notification payload:", payload);
-        
+
         if (!ALC_NOTIFICATION_FLOW_URL || ALC_NOTIFICATION_FLOW_URL.includes("EXAMPLE_WORKFLOW_ID")) {
             console.warn("ALC_Notification: Power Automate flow URL is not configured. Outgoing payload logged above.");
             return;
@@ -79,7 +79,7 @@ const ALC_Notification = {
 
         const payload = {
             "Scenario": "SUBMIT_ALC_REQUEST",
-            "TourId": session.cr3ea_prod_qualitytourid || "N/A",
+            "TourId": session.cr3ea_prod_rajpura_quality_tourid || "N/A",
             "Line": line,
             "Shift": shift,
             "PrevProduct": session.cr3ea_previousrunningvariety || "N/A",
@@ -120,7 +120,7 @@ const ALC_Notification = {
 
         const payload = {
             "Scenario": "INITIAL_VERIFICATION_COMPLETE",
-            "TourId": session.cr3ea_prod_qualitytourid || "N/A",
+            "TourId": session.cr3ea_prod_rajpura_quality_tourid || "N/A",
             "Line": line,
             "Shift": shift,
             "PrevProduct": session.cr3ea_previousrunningvariety || "N/A",
@@ -148,7 +148,7 @@ const ALC_Notification = {
 
         const payload = {
             "Scenario": "RESUBMIT_REVERIFICATION_REQUEST",
-            "TourId": session.cr3ea_prod_qualitytourid || "N/A",
+            "TourId": session.cr3ea_prod_rajpura_quality_tourid || "N/A",
             "Line": line,
             "Shift": shift,
             "PrevProduct": session.cr3ea_previousrunningvariety || "N/A",
@@ -189,7 +189,7 @@ const ALC_Notification = {
 
         const payload = {
             "Scenario": "REVERIFICATION_COMPLETE",
-            "TourId": session.cr3ea_prod_qualitytourid || "N/A",
+            "TourId": session.cr3ea_prod_rajpura_quality_tourid || "N/A",
             "Line": line,
             "Shift": shift,
             "PrevProduct": session.cr3ea_previousrunningvariety || "N/A",

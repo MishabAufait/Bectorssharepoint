@@ -521,7 +521,12 @@ async function SaveDepartmentDataItem() {
 async function SaveQualityDataItem() {
   const tourSelect = document.getElementById("tourSelect");
   const ProductValue = tourSelect ? tourSelect.value : "";
-  if ((ProductValue === 'Area Line Clearance Checklist' || ProductValue === 'ALC') && 
+  if ((ProductValue === 'Area Line Clearance Checklist' || 
+       ProductValue === 'ALC' || 
+       ProductValue === 'Mixing And Baking' || 
+       ProductValue === 'Packaging Operations' || 
+       ProductValue === 'Food Safety' || 
+       ProductValue === 'CCP, OPRP, Sieves & Magnets') && 
       (typeof Plantid !== 'undefined' && Plantid == QualityRajpura_Config.PLANT_ID)) {
     const shiftSelect = document.getElementById("shiftSelect");
     if (shiftSelect) {
@@ -530,6 +535,14 @@ async function SaveQualityDataItem() {
     let newUrl = "/sites/Mrs_Bectors_PTMS/Pages/ALC.aspx?action=new";
     if (ProductValue === 'ALC') {
       newUrl = "/sites/Mrs_Bectors_PTMS/Pages/AreaLine.aspx?action=new";
+    } else if (ProductValue === 'Mixing And Baking') {
+      newUrl = "/sites/Mrs_Bectors_PTMS/Pages/MixingAndBaking.aspx?action=new";
+    } else if (ProductValue === 'Packaging Operations') {
+      newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Product-Operation.aspx?action=new";
+    } else if (ProductValue === 'CCP, OPRP, Sieves & Magnets') {
+      newUrl = "/sites/Mrs_Bectors_PTMS/Pages/CCP-OPRP.aspx?action=new";
+    } else if (ProductValue === 'Food Safety') {
+      newUrl = "/sites/Mrs_Bectors_PTMS/Pages/FoodSafety.aspx?action=new";
     }
     window.location.href = newUrl;
     return;
@@ -544,7 +557,8 @@ async function SaveQualityDataItem() {
   var TourByDTour = _spPageContextInfo.userId.toString();
   var TitleDTour = RoleName + '_' + moment().format('MM-DD-YYYY');
   var AccessToken = await getAccessToken();
-  var tableName = "cr3ea_prod_qualitytours";
+  var tableName = (ProductValue === 'Area Line Clearance Checklist' || ProductValue === 'ALC') && 
+      (typeof Plantid !== 'undefined' && Plantid == QualityRajpura_Config.PLANT_ID) ? QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR : "cr3ea_prod_qualitytours";
   var apiVersion = "9.2";
   var apiUrl = environmentUrl + "/api/data/v" + apiVersion + "/" + tableName;
 
@@ -715,16 +729,16 @@ function SaveQTourItemSuccess(ID) {
     newUrl = "/sites/Mrs_Bectors_PTMS/Pages/AreaLine.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Mixing And Baking') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Product-Operation.aspx?TourId=" + QualityTourId;
+    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/MixingAndBaking.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Packaging Operations') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/CCP-OPRP.aspx?TourId=" + QualityTourId;
+    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Product-Operation.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'CCP, OPRP, Sieves & Magnets') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/FoodSafety.aspx?TourId=" + QualityTourId;
+    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/CCP-OPRP.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Food Safety') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/MixingAndBaking.aspx?TourId=" + QualityTourId;
+    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/FoodSafety.aspx?TourId=" + QualityTourId;
   }
 
   window.location.href = newUrl;

@@ -2,25 +2,230 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>CCP, OPRP, Sieves & Magnets (Rajpura)</title>
-    <!-- Common Global CSS -->
-    <link rel="stylesheet" href="../common/css/global.css">
-    <!-- Component Specific CSS -->
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCP, OPRP & Sieves/Magnets Monitoring (Rajpura)</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Select2 & Tempus Dominus -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/gh/Eonasdan/tempus-dominus@v6-alpha1/dist/css/tempus-dominus.css" rel="stylesheet" crossorigin="anonymous">
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/css/main.min.css">
+    <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/css/home-page.min.css">
+    <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css">
+    <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/style.css">
 </head>
 <body>
-    <div class="bs-card">
-        <div class="bs-card-header">
-            <h1 class="bs-card-title">CCP, OPRP, Sieves & Magnets (Rajpura)</h1>
+    <div id="loading-overlay" style="display: none; position: fixed; inset: 0; background: rgba(255, 255, 255, 0.6); z-index: 99999; pointer-events: auto;"></div>
+
+    <div id="rajpuraQualityDashboard">
+        <main class="plan-tour-content">
+            <!-- 1. SETUP STARTUP FORM (Renders if parameter verification isn't prefilled on parent tour) -->
+            <div id="setup-form-container" class="bs-card" style="display: none; padding: 25px;">
+            <div class="bs-card-header" style="border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 20px;">
+                <h3 class="bs-card-title" style="font-size: 20px; font-weight: bold; color: #0f172a;">Initialize Quality Parameter Tour</h3>
+            </div>
+            <div class="bs-card-body">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Parameter Verification Type</label>
+                    <div class="select2-parent">
+                        <select id="setup-type" class="form-select">
+                            <option value="CCP & OPRP">CCP & OPRP</option>
+                            <option value="Sieves and Magnets">Sieves and Magnets</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Manufacturing Site</label>
+                    <div class="select2-parent">
+                        <select id="setup-site" class="form-select">
+                            <option value="Rajpura">Rajpura</option>
+                            <option value="Phillaur">Phillaur</option>
+                            <option value="Indore">Indore</option>
+                            <option value="Tahliwal">Tahliwal</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group" id="setup-line-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Line No</label>
+                    <div class="select2-parent">
+                        <select id="setup-line" class="form-select">
+                            <option value="Line-1">Line 1</option>
+                            <option value="Line-2">Line 2</option>
+                            <option value="Line-3">Line 3</option>
+                            <option value="Line-4">Line 4</option>
+                            <option value="Line-5">Line 5</option>
+                            <option value="Line-6">Line 6</option>
+                            <option value="Line-7">Line 7</option>
+                            <option value="Line-8">Line 8</option>
+                            <option value="FFS">FFS</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group" id="setup-product-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Product Variety</label>
+                    <div class="select2-parent">
+                        <select id="setup-product" class="form-select">
+                            <option value="Speciality Sauces">Speciality Sauces</option>
+                            <option value="Zesty Wasabi">Zesty Wasabi</option>
+                            <option value="Mayonnaise">Mayonnaise</option>
+                            <option value="Sandwich Spread">Sandwich Spread</option>
+                            <option value="Indian Chutneys">Indian Chutneys</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group" id="setup-freq-group" style="display: none; margin-bottom: 15px;">
+                    <label class="form-label">Sieve Check Frequency</label>
+                    <div class="select2-parent">
+                        <select id="setup-freq" class="form-select">
+                            <option value="4hrs">4-Hour Intervals</option>
+                            <option value="8hrs">Once a Shift (8-Hour Intervals)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Shift Executive (Production)</label>
+                    <div class="select2-parent">
+                        <select id="setup-prod" class="form-select"></select>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 25px;">
+                    <label class="form-label">QA Executive</label>
+                    <div class="select2-parent">
+                        <select id="setup-qa" class="form-select"></select>
+                    </div>
+                </div>
+
+                <button type="button" id="start-tour-btn" class="bs-btn bs-btn-primary w-100" style="padding: 12px; font-weight: 600;" onclick="CCP_OPRP_Main.startTour()" disabled>Start Quality Tour</button>
+            </div>
         </div>
-        <div class="bs-card-body">
-            <!-- Template for Rajpura CCP, OPRP, Sieves & Magnets form -->
+
+        <!-- 2. MAIN CHECKLIST CONTAINER -->
+        <div id="checklist-main-container" style="display: none;">
+            <div class="plan-tour-header">
+                <div class="tour-header-info-wrapper">
+                    <h3 class="tour-header-title">CCP, OPRP & Sieves/Magnets (Rajpura)</h3>
+                    <div class="tour-header-meta">
+                        <span class="badge" id="shiftBadge">Shift 1</span>
+                        <span class="tour-date" id="currentDay">--/--/----</span>
+                    </div>
+                    <div class="bs-menu-parent">
+                        <button type="button" class="bs-btn icon-btn bs-menu-opener">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
+                                <path d="M7.56043 9.00004C7.56043 9.79533 8.20514 10.44 9.00043 10.44C9.79572 10.44 10.4404 9.79533 10.4404 9.00004C10.4404 8.20475 9.79572 7.56004 9.00043 7.56004C8.20514 7.56004 7.56043 8.20475 7.56043 9.00004Z" fill="#0C0D10" />
+                                <path d="M7.56043 13.59C7.56043 14.3853 8.20514 15.03 9.00043 15.03C9.79572 15.03 10.4404 14.3853 10.4404 13.59C10.4404 12.7947 9.79572 12.15 9.00043 12.15C8.20514 12.15 7.56043 12.7947 7.56043 13.59Z" fill="#0C0D10" />
+                                <path d="M7.56043 4.41002C7.56043 5.20531 8.20514 5.85002 9.00043 5.85002C9.79572 5.85002 10.4404 5.20531 10.4404 4.41002C10.4404 3.61473 9.79572 2.97002 9.00043 2.97002C8.20514 2.97002 7.56043 3.61473 7.56043 4.41002Z" fill="#0C0D10" />
+                            </svg>
+                        </button>
+                        <div class="bs-menu">
+                            <button type="button" class="bs-btn bs-menu-btn shift-popup-opener" onclick="shiftpopupopener()">Change Shift</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cycle List wrapper -->
+            <div class="plan-tour-body">
+                <div class="tour-cycle-card-panel-lists">
+                    <!-- Cards will be populated dynamically -->
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+    <!-- Shift Selection Popup -->
+    <div id="shiftPopup" class="main-popup shift-popup">
+        <div class="popup-bg"></div>
+        <div class="popup-content">
+            <div class="popup-common-box">
+                <div class="popup-header">
+                    <h4 class="popup-header-title">Select your shift</h4>
+                    <button type="button" class="bs-btn popup-close-btn" onclick="shiftpopupcloser()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                            <path d="M11 1L1 11M1 1L11 11" stroke="#6D757E" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="popup-body">
+                    <div class="shift-popup-content-wrapper">
+                        <label class="form-label">Shift</label>
+                        <div class="select2-parent">
+                            <select id="shiftSelect" class="form-select">
+                                <option value="Shift-1">Shift 1</option>
+                                <option value="Shift-2">Shift 2</option>
+                                <option value="Shift-3">Shift 3</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="popup-footer">
+                    <button type="button" class="bs-btn bs-btn-outline-primary" onclick="shiftpopupcloser()">Cancel</button>
+                    <button type="button" class="bs-btn bs-btn-primary" onclick="shiftChange()">Done</button>
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js" integrity="sha384-eMNCOe7tC1doHpGoWe/6oMVemdAVTMs2xqW4mwXrXsW0L84Iytr2wi5v2QjrP/xp" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <!-- Project Config & Utility Scripts -->
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/CommonJS/CommonDAL.js"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/CommonJS/Common.js"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js"></script>
     
-    <!-- Common Global JS -->
-    <script src="../common/js/utils.js"></script>
-    <!-- Component Specific JS -->
-    <script src="script.js"></script>
+    <!-- Checklist Module Scripts -->
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/js/dal.js"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/js/main.js"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/js/checklist.js"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/js/workflow.js"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/script.js"></script>
+
+    <!-- Initializer helper popups -->
+    <script>
+        $(document).ready(function () {
+            $('#setup-type, #setup-site, #setup-line, #setup-product, #setup-freq, #shiftSelect').select2({
+                minimumResultsForSearch: -1,
+                dropdownAutoWidth: true,
+                width: '100%'
+            });
+            document.getElementById("currentDay").innerText = moment().format("DD/MM/YYYY");
+            
+            // Shift persistence
+            const activeShift = sessionStorage.getItem("shiftValue") || "Shift-1";
+            document.getElementById("shiftBadge").innerText = activeShift.replace("-", " ");
+            document.getElementById("shiftSelect").value = activeShift;
+            $('#shiftSelect').trigger('change');
+        });
+
+        function shiftpopupopener() {
+            document.getElementById("shiftPopup").classList.add("is-popup-active");
+        }
+        function shiftpopupcloser() {
+            document.getElementById("shiftPopup").classList.remove("is-popup-active");
+        }
+        function shiftChange() {
+            const shift = document.getElementById("shiftSelect").value;
+            sessionStorage.setItem("shiftValue", shift);
+            document.getElementById("shiftBadge").innerText = shift.replace("-", " ");
+            shiftpopupcloser();
+            window.location.reload();
+        }
+    </script>
 </body>
 </html>

@@ -32,7 +32,7 @@ const ALC_Summary = {
         // 1. Fetch current session details
         const AccessToken = await ALC_DAL.getAccessToken();
         const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
-        const url = `${baseApiUrl}/api/data/v9.2/cr3ea_prod_qualitytours(${this.currentTourId})`;
+        const url = `${baseApiUrl}/api/data/v9.2/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`;
         const headers = { "Accept": "application/json" };
         if (AccessToken) headers["Authorization"] = `Bearer ${AccessToken}`;
 
@@ -62,7 +62,7 @@ const ALC_Summary = {
         document.getElementById("sum-exec-qa").innerText = this.session.cr3ea_tourby || this.session.cr3ea_observedby || "N/A";
         document.getElementById("sum-date-time").innerText = dateStr;
         document.getElementById("sum-line-shift").innerText = `${this.session.cr3ea_lineno || "N/A"} / ${this.session.cr3ea_shift || "N/A"}`;
-        
+
         document.getElementById("sum-prev-variety").innerText = this.session.cr3ea_previousrunningvariety || "N/A";
         document.getElementById("sum-run-variety").innerText = this.session.cr3ea_runningvariety || "N/A";
 
@@ -70,11 +70,11 @@ const ALC_Summary = {
         const tourAreas = [...new Set(this.checkpoints.map(cp => cp.cr3ea_area).filter(Boolean))];
         const areaInchargeMap = [];
         tourAreas.forEach(areaName => {
-            const configRow = this.configs.find(c => 
-                c.ConfigType === "Product User" && 
-                c.Area && 
-                (c.Area.toLowerCase().includes(areaName.toLowerCase().trim()) || 
-                 areaName.toLowerCase().trim().includes(c.Area.toLowerCase()))
+            const configRow = this.configs.find(c =>
+                c.ConfigType === "Product User" &&
+                c.Area &&
+                (c.Area.toLowerCase().includes(areaName.toLowerCase().trim()) ||
+                    areaName.toLowerCase().trim().includes(c.Area.toLowerCase()))
             );
             if (configRow && configRow.AssignedUser && configRow.AssignedUser.results) {
                 const names = configRow.AssignedUser.results.map(u => u.Title).join(", ");
@@ -83,7 +83,7 @@ const ALC_Summary = {
                 }
             }
         });
-        
+
         const inchargesListEl = document.getElementById("sum-area-incharges-list");
         if (inchargesListEl) {
             inchargesListEl.innerHTML = "";
@@ -123,7 +123,7 @@ const ALC_Summary = {
         // 4. Calculate Scores
         let totalMaxPoints = this.checkpoints.length * 2;
         let totalObtainedPoints = 0;
-        
+
         // Mapped area scoring objects
         const areaStats = {};
 
@@ -137,13 +137,13 @@ const ALC_Summary = {
             // Get obtained score for this checkpoint
             let numericScore = 2; // Default is Okay (2)
             const scoreText = cp.cr3ea_defectcategory || "";
-            
+
             if (scoreText.includes("(0)") || scoreText === "00" || scoreText.includes("Non-Compliant")) {
                 numericScore = 0;
             } else if (scoreText.includes("(1)") || scoreText === "01" || scoreText.includes("Partial")) {
                 numericScore = 1;
             }
-            
+
             totalObtainedPoints += numericScore;
             areaStats[area].obtained += numericScore;
         });
@@ -173,7 +173,7 @@ const ALC_Summary = {
                 scoreCard.style.backgroundColor = "#fef2f2";
             }
         }
-        
+
         const scoreDesc = document.getElementById("sum-score-desc");
         if (scoreDesc) {
             const status = this.session.cr3ea_processstatus || this.session.cr3ea_status || "";
@@ -224,17 +224,17 @@ const ALC_Summary = {
         const blocksContainer = document.getElementById("sum-checkpoints-blocks-container");
         if (blocksContainer) {
             blocksContainer.innerHTML = "";
-            
+
             // Map configs for quick Area Incharge lookups
             const areaIncharges = {};
             this.checkpoints.forEach(cp => {
                 const areaName = cp.cr3ea_area || "General";
                 if (!areaIncharges[areaName]) {
-                    const configRow = this.configs.find(c => 
-                        c.ConfigType === "Product User" && 
-                        c.Area && 
-                        (c.Area.toLowerCase().includes(areaName.toLowerCase().trim()) || 
-                         areaName.toLowerCase().trim().includes(c.Area.toLowerCase()))
+                    const configRow = this.configs.find(c =>
+                        c.ConfigType === "Product User" &&
+                        c.Area &&
+                        (c.Area.toLowerCase().includes(areaName.toLowerCase().trim()) ||
+                            areaName.toLowerCase().trim().includes(c.Area.toLowerCase()))
                     );
                     if (configRow && configRow.AssignedUser && configRow.AssignedUser.results) {
                         areaIncharges[areaName] = configRow.AssignedUser.results.map(u => u.Title).join(", ");
@@ -258,10 +258,10 @@ const ALC_Summary = {
             Object.keys(checkpointsByArea).sort().forEach(areaName => {
                 const cps = checkpointsByArea[areaName];
                 const inchargeNames = areaIncharges[areaName] || "N/A";
-                
+
                 const card = document.createElement("div");
                 card.style.cssText = "margin-bottom: 25px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);";
-                
+
                 // Card Header (Flex Layout with Title and Team Name)
                 const header = document.createElement("div");
                 header.style.cssText = "background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;";
@@ -272,16 +272,16 @@ const ALC_Summary = {
                     </div>
                 `;
                 card.appendChild(header);
-                
+
                 // Card Body
                 const body = document.createElement("div");
                 body.style.cssText = "overflow-x: auto;";
-                
+
                 const table = document.createElement("table");
                 table.className = "bs-table";
                 table.border = "1";
                 table.style.cssText = "width: 100%; border-collapse: collapse; text-align: center; font-size: 13px; border: none;";
-                
+
                 table.innerHTML = `
                     <thead>
                         <tr style="background-color: #fcfdfe; font-weight: 600; border-bottom: 1px solid #e2e8f0;">
@@ -294,29 +294,29 @@ const ALC_Summary = {
                     </thead>
                     <tbody></tbody>
                 `;
-                
+
                 const tbody = table.querySelector("tbody");
-                
+
                 cps.forEach((cp, idx) => {
                     const tr = document.createElement("tr");
                     tr.style.borderBottom = "1px solid #f1f5f9";
-                    
+
                     // QA Initial Score Badge
                     const initialScoreText = cp.cr3ea_defectcategory || "Okay (2)";
-                    const isFailed = initialScoreText.includes("(0)") || 
-                                     initialScoreText.includes("(1)") || 
-                                     initialScoreText.includes("Non-Compliant") || 
-                                     initialScoreText.includes("Partial") ||
-                                     initialScoreText === "00" ||
-                                     initialScoreText === "01";
-                    const initialBadge = !isFailed 
-                        ? `<span class="badge badge-success" style="font-size: 11px;">${initialScoreText}</span>` 
+                    const isFailed = initialScoreText.includes("(0)") ||
+                        initialScoreText.includes("(1)") ||
+                        initialScoreText.includes("Non-Compliant") ||
+                        initialScoreText.includes("Partial") ||
+                        initialScoreText === "00" ||
+                        initialScoreText === "01";
+                    const initialBadge = !isFailed
+                        ? `<span class="badge badge-success" style="font-size: 11px;">${initialScoreText}</span>`
                         : `<span class="badge badge-error" style="font-size: 11px;">${initialScoreText}</span>`;
 
                     // Corrective Actions Column
                     let actionsTakenHtml = '<span class="text-muted">-</span>';
                     let prodRemark = cp.cr3ea_productionremarks || "";
-                    
+
                     if (!prodRemark) {
                         const defectRemarks = cp.cr3ea_defectremarks || "";
                         if (defectRemarks.startsWith("Action:")) {
@@ -352,10 +352,10 @@ const ALC_Summary = {
                     // QA Remarks Column
                     const qaRemark = cp.cr3ea_defectremarks || "";
                     let qaRemarksHtml = '<span class="text-muted">-</span>';
-                    
+
                     let qaDisplayText = "";
                     let qaFileBadge = "";
-                    
+
                     const parts = qaRemark.split(" | Re-verified:");
                     let initialPart = parts[0] ? parts[0].trim() : "";
                     const reverifyParts = parts.slice(1).map(p => p.trim());
@@ -386,7 +386,7 @@ const ALC_Summary = {
                         const formattedParts = reverifyParts.map(part => {
                             let cleanReverify = part;
                             let reverifyFileName = "";
-                            
+
                             if (part.toLowerCase().includes("file:")) {
                                 const idx = part.toLowerCase().indexOf("file:");
                                 reverifyFileName = part.substring(idx + 5).trim();
@@ -396,21 +396,21 @@ const ALC_Summary = {
                                 }
                                 cleanReverify = textPart;
                             }
-                            
+
                             if (!cleanReverify && reverifyFileName) {
                                 cleanReverify = "Image Proof Uploaded";
                             }
-                            
+
                             let badgeHtml = "";
                             if (reverifyFileName) {
                                 const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
                                 const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${reverifyFileName}`;
                                 badgeHtml = ` <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #2e7d32; font-weight: bold; font-size: 11px; margin-left: 5px;">View Re-verify Proof</a>`;
                             }
-                            
+
                             return `<small class="text-success" style="font-weight: bold; display: block; margin-top: 4px;">Re-verified: ${cleanReverify}${badgeHtml}</small>`;
                         });
-                        
+
                         reverifyDisplayText = formattedParts.join("");
                     }
 
@@ -436,7 +436,7 @@ const ALC_Summary = {
                     `;
                     tbody.appendChild(tr);
                 });
-                
+
                 body.appendChild(table);
                 card.appendChild(body);
                 blocksContainer.appendChild(card);
@@ -465,7 +465,7 @@ const ALC_Summary = {
             // Retrieve recent sessions on this line
             const AccessToken = await ALC_DAL.getAccessToken();
             const apiVersion = "9.2";
-            const tableName = "cr3ea_prod_qualitytours";
+            const tableName = "cr3ea_prod_rajpura_quality_tours";
             const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
             const headers = { "Accept": "application/json" };
             if (AccessToken) headers["Authorization"] = `Bearer ${AccessToken}`;
@@ -477,11 +477,11 @@ const ALC_Summary = {
 
             const data = await response.json();
             const tours = data.value || [];
-            
+
             // Filter tours matching current line (excluding current session)
             const lineName = this.session.cr3ea_lineno;
             const pastLineTours = tours
-                .filter(t => t.cr3ea_lineno === lineName && t.cr3ea_prod_qualitytourid !== this.currentTourId)
+                .filter(t => t.cr3ea_lineno === lineName && t.cr3ea_prod_rajpura_quality_tourid !== this.currentTourId)
                 .sort((a, b) => {
                     const valA = a.cr3ea_tourstartdate || a.createdon || "";
                     const valB = b.cr3ea_tourstartdate || b.createdon || "";
@@ -514,7 +514,7 @@ const ALC_Summary = {
             if (pastLineTours.length === 0) return;
 
             // Fetch checkpoints for these past tours in parallel
-            const fetchPromises = pastLineTours.map(t => ALC_DAL.getCheckpoints(t.cr3ea_prod_qualitytourid));
+            const fetchPromises = pastLineTours.map(t => ALC_DAL.getCheckpoints(t.cr3ea_prod_rajpura_quality_tourid));
             const pastCheckpointsLists = await Promise.all(fetchPromises);
 
             const recurringDeviations = [];

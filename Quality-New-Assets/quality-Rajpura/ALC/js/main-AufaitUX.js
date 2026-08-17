@@ -27,7 +27,7 @@ const ALC_Main = {
         // 3. Setup event listeners
         this.bindEvents();
 
-            // 4. State routing based on session existence and status
+        // 4. State routing based on session existence and status
         if (!this.currentTourId) {
             // New request mode (init for Production)
             ALC_StateMachine.init(this.userRole, ALC_STATES.INIT_PRODUCTION, null);
@@ -42,23 +42,23 @@ const ALC_Main = {
     identifyUserRole: async function () {
         const currentUserName = typeof currentUser !== "undefined" ? currentUser : "";
         const currentUserLogin = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : "";
-        
+
         try {
             const configs = await ALC_DAL.getConfig();
-            
+
             // Check if current user is listed under QA User config
-            const isQaUser = configs.some(c => 
-                c.ConfigType === "QA User" && 
-                c.AssignedUser && 
-                c.AssignedUser.results && 
+            const isQaUser = configs.some(c =>
+                c.ConfigType === "QA User" &&
+                c.AssignedUser &&
+                c.AssignedUser.results &&
                 c.AssignedUser.results.some(u => u.Title === currentUserName || u.Title === currentUserLogin)
             );
 
             // Check if current user is listed under Product Incharge config
-            const isProductIncharge = configs.some(c => 
-                c.ConfigType === "Product User" && 
-                c.AssignedUser && 
-                c.AssignedUser.results && 
+            const isProductIncharge = configs.some(c =>
+                c.ConfigType === "Product User" &&
+                c.AssignedUser &&
+                c.AssignedUser.results &&
                 c.AssignedUser.results.some(u => u.Title === currentUserName || u.Title === currentUserLogin)
             );
 
@@ -81,7 +81,7 @@ const ALC_Main = {
     resumeSessionState: async function () {
         const AccessToken = await ALC_DAL.getAccessToken();
         const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
-        const url = `${baseApiUrl}/api/data/v9.2/cr3ea_prod_qualitytours(${this.currentTourId})`;
+        const url = `${baseApiUrl}/api/data/v9.2/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`;
 
         const headers = { "Accept": "application/json" };
         if (AccessToken) headers["Authorization"] = `Bearer ${AccessToken}`;
@@ -92,7 +92,7 @@ const ALC_Main = {
 
             const session = await response.json();
             const status = session.cr3ea_status;
-            
+
             console.log(`Resuming session ${this.currentTourId} with Dataverse status: ${status}`);
 
             // Store globally
@@ -105,13 +105,13 @@ const ALC_Main = {
             await this.transitionByStatus(status, session);
         } catch (error) {
             console.warn("Failed to fetch session from Dataverse. Loading mock session fallback for testing/offline use:", error);
-            
+
             // Populate mock session for visual testing/offline execution
             const urlParams = new URLSearchParams(window.location.search);
             const mockStatus = urlParams.get('status') || "QA In Progress";
-            
+
             const mockSession = {
-                cr3ea_prod_qualitytoursid: this.currentTourId,
+                cr3ea_prod_rajpura_quality_toursid: this.currentTourId,
                 cr3ea_shiftexecutivename: urlParams.get('exec') || "Mishab Muhammad",
                 cr3ea_lineno: urlParams.get('line') || "Line 1",
                 cr3ea_shift: urlParams.get('shift') || "Shift 1",
@@ -220,7 +220,7 @@ const ALC_Main = {
 // Global state changed event listener
 window.onStateChanged = function (newState, role) {
     console.log(`UI State Changed: ${newState}`);
-    
+
     // Automatically trigger loads when transitioning to action views
     if (newState === ALC_STATES.PRODUCTION_ACTION) {
         ALC_CorrectiveAction.loadFailedItems();

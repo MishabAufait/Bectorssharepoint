@@ -16,17 +16,19 @@ $(document).ready(function () {
 
 const ALC_Dashboard = {
     qaList: [],
+    selectedCategory: localStorage.getItem("lastVisitedDashboard") || "ALC",
+    allToursRaw: [],
 
     loadConfig: async function () {
         try {
             const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
             const listName = "Quality-Rajpura";
-            
+
             let query = "?$select=Id,Title,AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id,EscalationManager/Title,EscalationManager/EMail,EscalationManager/Id&$expand=AssignedUser,EscalationManager&$filter=Plant eq 'Rajpura'";
             let url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
             let response;
             let isFallback = false;
-            
+
             try {
                 response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
                 if (!response.ok) throw new Error();
@@ -36,7 +38,7 @@ const ALC_Dashboard = {
                 url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
                 response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
             }
-            
+
             if (response && response.ok) {
                 const data = await response.json();
                 const results = data.d.results;
@@ -96,30 +98,40 @@ const ALC_Dashboard = {
         // Poll every 100ms for up to 10 seconds to wait for async WelcomeWebPart user variables to load
         let attempts = 0;
         const maxAttempts = 100;
-        
+
         const checkInterval = setInterval(async () => {
             const plant = typeof userPlantId !== 'undefined' ? userPlantId : "";
             const deptId = typeof userDepratmentId !== 'undefined' ? userDepratmentId.toString() : "";
             const pId = typeof Plantid !== 'undefined' ? Plantid.toString() : "";
-            
+
             attempts++;
-            
+
             if (plant !== "" || attempts >= maxAttempts) {
                 clearInterval(checkInterval);
                 console.log(`Resolved user details after ${attempts * 100}ms. Plant=${plant}, Dept=${deptId}`);
-                
+
                 // Load QA configurations
                 await ALC_Dashboard.loadConfig();
 
                 // Initial evaluation of dashboard state
                 await ALC_Dashboard.evaluateDashboardState();
-                
+
                 // Set up event listener on department dropdown changes to dynamically switch dashboards
                 const deptDropdown = document.getElementById("DepartmentDropDownId");
                 if (deptDropdown) {
                     $(deptDropdown).on("change", async () => {
                         console.log("Department dropdown changed to: " + deptDropdown.value);
                         await ALC_Dashboard.evaluateDashboardState();
+                    });
+                }
+
+                // Set up event listener on dashboard category dropdown selection changes
+                const categoryDropdown = document.getElementById("dashboardCategorySelect");
+                if (categoryDropdown) {
+                    $(categoryDropdown).off("change.cat").on("change.cat", () => {
+                        console.log("Dashboard category changed to: " + categoryDropdown.value);
+                        ALC_Dashboard.selectedCategory = categoryDropdown.value;
+                        ALC_Dashboard.applyCategoryFilter();
                     });
                 }
             }
@@ -130,7 +142,7 @@ const ALC_Dashboard = {
         try {
             const plant = typeof userPlantId !== 'undefined' ? userPlantId : "";
             const pId = typeof Plantid !== 'undefined' ? Plantid.toString() : "";
-            
+
             // Read selected department from dropdown if it is chosen, fallback to user's profile department
             const dropdownEl = document.getElementById("DepartmentDropDownId");
             const deptId = (dropdownEl && dropdownEl.value !== "All") ? dropdownEl.value.toString() : (typeof userDepratmentId !== 'undefined' ? userDepratmentId.toString() : "");
@@ -169,6 +181,18 @@ const ALC_Dashboard = {
             // 2. Show the Rajpura Dashboard wrapper
             $(dashboardEl).show();
 
+            // Bind category selector if present in DOM
+            const categoryDropdown = document.getElementById("dashboardCategorySelect");
+            if (categoryDropdown) {
+                $(categoryDropdown).off("change.cat").on("change.cat", () => {
+                    console.log("Dashboard category changed to: " + categoryDropdown.value);
+                    ALC_Dashboard.selectedCategory = categoryDropdown.value;
+                    ALC_Dashboard.applyCategoryFilter();
+                });
+                // Sync select state with category (triggers Select2 UI update)
+                $(categoryDropdown).val(ALC_Dashboard.selectedCategory).trigger("change");
+            }
+
             // 3. Load all tours and split them
             await ALC_Dashboard.loadAllTours();
         } catch (e) {
@@ -178,10 +202,10 @@ const ALC_Dashboard = {
 
     deactivateDashboard: function () {
         console.log("Deactivating Rajpura Common Quality Dashboard");
-        
+
         // 1. Hide the Rajpura Dashboard wrapper
         $('#rajpuraQualityDashboard').hide();
-        
+
         // 2. Restore visibility of default SharePoint dashboards
         $('#ShowObservation').show();
         $('#tblTourScores').show();
@@ -200,7 +224,7 @@ const ALC_Dashboard = {
 
             const apiVersion = "9.2";
             const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
-            const url = `${baseApiUrl}/api/data/v${apiVersion}/cr3ea_prod_qualitytours(${tourId})`;
+            const url = `${baseApiUrl}/api/data/v${apiVersion}/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${tourId})`;
 
             const body = {
                 cr3ea_status: "Closed - Expired",
@@ -262,9 +286,9 @@ const ALC_Dashboard = {
 
             const apiVersion = "9.2";
             const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
-            
-            const filter = `?$filter=cr3ea_plantid eq '${QualityRajpura_Config.PLANT_ID}'&$orderby=cr3ea_tourstartdate desc&$top=100`;
-            const url = `${baseApiUrl}/api/data/v${apiVersion}/cr3ea_prod_qualitytours${filter}`;
+
+            const filter = `?$filter=(cr3ea_plantid eq '${QualityRajpura_Config.PLANT_ID}' or cr3ea_plantid eq 'Rajpura')&$orderby=cr3ea_tourstartdate desc&$top=100`;
+            const url = `${baseApiUrl}/api/data/v${apiVersion}/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}${filter}`;
 
             let response = await fetch(url, {
                 headers: {
@@ -303,106 +327,176 @@ const ALC_Dashboard = {
             list.sort((a, b) => {
                 const valA = a.cr3ea_tourstartdate || a.createdon || "";
                 const valB = b.cr3ea_tourstartdate || b.createdon || "";
-                
+
                 const timeA = ALC_Dashboard.parseDateMoment(valA);
                 const timeB = ALC_Dashboard.parseDateMoment(valB);
-                
+
                 const msA = (timeA && timeA.isValid()) ? timeA.valueOf() : 0;
                 const msB = (timeB && timeB.isValid()) ? timeB.valueOf() : 0;
-                
+
                 return msB - msA;
             });
 
-            // Calculate KPIs
-            const totalTours = list.length;
+            ALC_Dashboard.allToursRaw = list;
+
+            // Trigger category filtering and rendering
+            await ALC_Dashboard.applyCategoryFilter();
+
+        } catch (error) {
+            console.warn("Failed to load Dataverse tours, loading mock data fallback:", error);
+
+            // Mock Fallback (contains both ALC and FoodSafety tours)
+            ALC_Dashboard.allToursRaw = [
+                { cr3ea_prod_rajpura_quality_tourid: "mock-1", cr3ea_tourstartdate: new Date().toISOString(), cr3ea_title: "Area Line Clearance", cr3ea_lineno: "Line 1", cr3ea_shift: "Shift 2", cr3ea_shiftexecutiveproduction: "John Doe", cr3ea_tourby: "David QA", cr3ea_status: "Pending QA", cr3ea_processstatus: "Pending QA" },
+                { cr3ea_prod_rajpura_quality_tourid: "mock-2", cr3ea_tourstartdate: new Date().toISOString(), cr3ea_title: "Area Line Clearance", cr3ea_lineno: "Line 2", cr3ea_shift: "Shift 1", cr3ea_shiftexecutiveproduction: "Alice Production", cr3ea_tourby: "Emily QA", cr3ea_status: "Failed - Pending Production", cr3ea_processstatus: "Failed - Pending Production" },
+                { cr3ea_prod_rajpura_quality_tourid: "mock-3", cr3ea_tourstartdate: new Date(Date.now() - 86400000).toISOString(), cr3ea_title: "Area Line Clearance", cr3ea_lineno: "Line 1", cr3ea_shift: "Shift 3", cr3ea_shiftexecutiveproduction: "John Doe", cr3ea_tourby: "David QA", cr3ea_overall_score: 100, cr3ea_checklist_result: "Pass", cr3ea_status: "Completed", cr3ea_processstatus: "Completed" },
+                // Mock Food Safety tours
+                { cr3ea_prod_rajpura_quality_tourid: "mock-fs-1", cr3ea_tourstartdate: new Date().toISOString(), cr3ea_title: "PPE_Rajpura_Line 1_13082026", cr3ea_food_safety_checklisttype: "PPE Checklist", cr3ea_lineno: "Line 1", cr3ea_shift: "Shift 2", cr3ea_shiftexecutiveproduction: "John Prod", cr3ea_assigned_qa: "David QA", cr3ea_status: "In Progress", cr3ea_processstatus: "In Progress", cr3ea_food_safety_cycle: "Cycle-1" },
+                { cr3ea_prod_rajpura_quality_tourid: "mock-fs-2", cr3ea_tourstartdate: new Date(Date.now() - 3600000).toISOString(), cr3ea_title: "GMP_Rajpura_Line 2_13082026", cr3ea_food_safety_checklisttype: "GMP Checklist", cr3ea_lineno: "Line 2", cr3ea_shift: "Shift 1", cr3ea_shiftexecutiveproduction: "Alice Incharge", cr3ea_assigned_qa: "David QA", cr3ea_overall_score: "85%", cr3ea_checklist_result: "Pass", cr3ea_status: "Submitted", cr3ea_processstatus: "Submitted", cr3ea_food_safety_cycle: "Cycle-2" }
+            ];
             
-            // Lines On Hold: count of ongoing clearance tours where Is Line Clear is not clear
-            const linesOnHold = list.filter(t => {
+            await ALC_Dashboard.applyCategoryFilter();
+        } finally {
+            if (refreshBtn) {
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = "🔄 Refresh";
+            }
+        }
+    },
+
+    applyCategoryFilter: async function () {
+        const isFS = this.selectedCategory === "FoodSafety";
+        const isCCP = this.selectedCategory === "CCP_OPRP_Sieves";
+        
+        // Filter raw list
+        const filteredList = this.allToursRaw.filter(t => {
+            const titleVal = String(t.cr3ea_title || "");
+            let cleanTitle = titleVal.split("||")[0].trim();
+            const isFSPrefix = cleanTitle.startsWith("FoodSafety_") || cleanTitle.startsWith("Food_Safety_");
+            if (isFSPrefix) {
+                cleanTitle = cleanTitle.replace("FoodSafety_", "").replace("Food_Safety_", "");
+            }
+            const isFSTitle = isFSPrefix || cleanTitle.startsWith("PPE_") || cleanTitle.startsWith("GMP_") || cleanTitle.startsWith("PCI_") || cleanTitle.toLowerCase().includes("checklist");
+            const hasFSField = t.cr3ea_food_safety_checklisttype;
+            const isFSItem = !!hasFSField || isFSTitle;
+            
+            const hasCCPField = t.cr3ea_ccp_oprp_sieves_parametertype;
+            const isCCPTitle = cleanTitle.startsWith("CCP_") || cleanTitle.startsWith("Sieves_") || cleanTitle.toLowerCase().includes("ccp") || cleanTitle.toLowerCase().includes("sieves");
+            const isCCPItem = !!hasCCPField || isCCPTitle;
+
+            if (isFS) {
+                return isFSItem;
+            } else if (isCCP) {
+                return isCCPItem;
+            } else {
+                return !isFSItem && !isCCPItem;
+            }
+        });
+
+        // Update headers & labels
+        this.updateKpiLabels();
+        this.updateTableHeaders();
+
+        // Calculate KPIs for filtered list
+        const totalTours = filteredList.length;
+        
+        let metric2 = 0; // Lines On Hold (ALC) or Failed (FS) or Overdue (CCP)
+        let metric3 = 0; // Open Observations (ALC) or In Progress (FS) or In Progress (CCP)
+        let metric4 = 0; // Open Re-verifications (ALC) or Passed (FS) or Completed (CCP)
+
+        const ongoingList = [];
+        const closedList = [];
+
+        for (const t of filteredList) {
+            let status = t.cr3ea_processstatus || t.cr3ea_status || "In Progress";
+            const isTerminal = status === "Completed" || status === "Closed" || status === "Closed - Expired" || status === "Success" || status === "Success - Expired" || status === "Submitted";
+            
+            if (isTerminal) {
+                closedList.push(t);
+                if (isFS) {
+                    if (t.cr3ea_checklist_result === "Pass") {
+                        metric4++;
+                    } else if (t.cr3ea_checklist_result === "Fail") {
+                        metric2++;
+                    }
+                } else if (isCCP) {
+                    metric4++; // Completed
+                }
+            } else {
+                ongoingList.push(t);
+                if (isFS) {
+                    metric3++; // In Progress
+                } else if (isCCP) {
+                    metric3++; // In Progress
+                    if (t.cr3ea_escalated === "Yes" || t.cr3ea_status === "Escalated") {
+                        metric2++; // Overdue / Escalated
+                    }
+                }
+            }
+        }
+
+        if (!isFS && !isCCP) {
+            // ALC KPIs calculations
+            metric2 = filteredList.filter(t => {
                 const titleVal = t.cr3ea_title || "";
                 const cleanTitle = titleVal.split("||")[0].trim();
                 const form = cleanTitle.split('_')[0] || "Area Line Clearance";
                 const isAlc = form.toLowerCase().includes("line") || form.toLowerCase().includes("alc") || form.toLowerCase().includes("clearance");
                 if (!isAlc) return false;
-                
+
                 const status = t.cr3ea_processstatus || t.cr3ea_status || "In Progress";
                 const isTerminal = status === "Completed" || status === "Closed" || status === "Closed - Expired" || status === "Success" || status === "Success - Expired";
                 if (isTerminal) return false;
-                
+
                 const isClearedVal = t.cr3ea_islineclear;
-                const isCleared = isClearedVal === true || 
-                                  isClearedVal === "true" || 
-                                  isClearedVal === 1 || 
-                                  isClearedVal === "1" || 
-                                  isClearedVal === "Yes";
+                const isCleared = isClearedVal === true ||
+                    isClearedVal === "true" ||
+                    isClearedVal === 1 ||
+                    isClearedVal === "1" ||
+                    isClearedVal === "Yes";
                 return !isCleared;
             }).length;
 
-            const pendingReVerify = list.filter(t => 
-                t.cr3ea_status === "Pending Re-Verification" || 
-                t.cr3ea_processstatus === "Pending Re-Verification" ||
-                t.cr3ea_status === "Success - Pending Re-Verification" ||
-                t.cr3ea_processstatus === "Success - Pending Re-Verification"
-            ).length;
-            
-            const openDevs = list.filter(t => 
-                t.cr3ea_status === "Failed - Pending Production" || 
+            metric3 = filteredList.filter(t =>
+                t.cr3ea_status === "Failed - Pending Production" ||
                 t.cr3ea_processstatus === "Failed - Pending Production" ||
                 t.cr3ea_status === "Success - Pending Production" ||
                 t.cr3ea_processstatus === "Success - Pending Production"
             ).length;
 
-            const kpiTotal = document.getElementById("kpi-total-tours");
-            if (kpiTotal) kpiTotal.innerText = totalTours;
+            metric4 = filteredList.filter(t =>
+                t.cr3ea_status === "Pending Re-Verification" ||
+                t.cr3ea_processstatus === "Pending Re-Verification" ||
+                t.cr3ea_status === "Success - Pending Re-Verification" ||
+                t.cr3ea_processstatus === "Success - Pending Re-Verification"
+            ).length;
+        }
 
-            const kpiSuccess = document.getElementById("kpi-success-rate");
-            if (kpiSuccess) kpiSuccess.innerText = linesOnHold;
+        // Set KPI numbers in HTML
+        const kpiTotal = document.getElementById("kpi-total-tours");
+        if (kpiTotal) kpiTotal.innerText = totalTours;
 
-            const kpiOpen = document.getElementById("kpi-open-deviations");
-            if (kpiOpen) kpiOpen.innerText = openDevs;
+        const kpiSuccess = document.getElementById("kpi-success-rate");
+        if (kpiSuccess) kpiSuccess.innerText = metric2;
 
-            const kpiPending = document.getElementById("kpi-pending-reverify");
-            if (kpiPending) kpiPending.innerText = pendingReVerify;
+        const kpiOpen = document.getElementById("kpi-open-deviations");
+        if (kpiOpen) kpiOpen.innerText = metric3;
 
-            // Separate lists into active/ongoing and completed archives
-            const ongoingList = [];
-            const closedList = [];
+        const kpiPending = document.getElementById("kpi-pending-reverify");
+        if (kpiPending) kpiPending.innerText = metric4;
 
-            for (const t of list) {
-                let status = t.cr3ea_processstatus || t.cr3ea_status || "In Progress";
-                
-                // Same-day check validation: if it is not completed/closed, check if it's from a previous day
-                if (status !== "Completed" && status !== "Closed" && status !== "Closed - Expired" && status !== "Success") {
-                    const creationTime = t.cr3ea_tourstartdate || t.createdon;
-                    if (creationTime) {
-                        const parsedDate = ALC_Dashboard.parseDateMoment(creationTime);
-                        if (parsedDate && parsedDate.isValid()) {
-                            const tourDateLocal = parsedDate.local().format("YYYY-MM-DD");
-                            const todayLocal = moment().format("YYYY-MM-DD");
-                            if (tourDateLocal !== todayLocal) {
-                                console.log(`Auto-expiring tour from previous day: ${t.cr3ea_prod_qualitytourid} (Started: ${tourDateLocal})`);
-                                await ALC_Dashboard.expireTour(t.cr3ea_prod_qualitytourid);
-                                t.cr3ea_status = "Closed - Expired";
-                                t.cr3ea_processstatus = "Closed - Expired";
-                                status = "Closed - Expired";
-                            }
-                        }
-                    }
-                }
-
-                if (status === "Completed" || status === "Closed" || status === "Closed - Expired" || status === "Success") {
-                    closedList.push(t);
-                } else {
-                    ongoingList.push(t);
-                }
-            }
-
-            // Fetch SharePoint configs and Dataverse checkpoints for ongoing tours
+        // Fetch checkpoints for ALC ongoing lists if needed
+        if (!isFS) {
             const toursNeedCheckpoints = ongoingList.filter(t => {
                 const status = t.cr3ea_processstatus || t.cr3ea_status || "";
                 return status !== "In Progress";
             });
 
             if (toursNeedCheckpoints.length > 0) {
+                const token = typeof getAccessToken === "function" ? await getAccessToken() : null;
+                const apiVersion = "9.2";
+                const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+                
                 let configs = [];
                 try {
                     configs = await ALC_Dashboard.fetchSharePointConfigs();
@@ -413,36 +507,103 @@ const ALC_Dashboard = {
 
                 const fetchCheckpointsPromises = toursNeedCheckpoints.map(async t => {
                     try {
-                        const checkpoints = await ALC_Dashboard.fetchCheckpointsDirect(t.cr3ea_prod_qualitytourid, token, baseApiUrl, apiVersion);
+                        const checkpoints = await ALC_Dashboard.fetchCheckpointsDirect(t.cr3ea_prod_rajpura_quality_tourid, token, baseApiUrl, apiVersion);
                         t.checkpoints = checkpoints || [];
                     } catch (e) {
-                        console.warn(`Failed to fetch checkpoints for tour ${t.cr3ea_prod_qualitytourid}:`, e);
+                        console.warn(`Failed to fetch checkpoints for tour ${t.cr3ea_prod_rajpura_quality_tourid}:`, e);
                         t.checkpoints = [];
                     }
                 });
                 await Promise.all(fetchCheckpointsPromises);
             }
+        }
 
-            ALC_Dashboard.renderOngoingList(ongoingList);
-            ALC_Dashboard.renderClosedList(closedList);
+        this.renderOngoingList(ongoingList);
+        this.renderClosedList(closedList);
+    },
 
-        } catch (error) {
-            console.warn("Failed to load Dataverse tours, loading mock data fallback:", error);
-            
-            // Mock Fallback
-            const mockOngoing = [
-                { cr3ea_prod_qualitytourid: "mock-1", cr3ea_tourstartdate: new Date().toISOString(), cr3ea_title: "Area Line Clearance", cr3ea_lineno: "Line 1", cr3ea_shift: "Shift 2", cr3ea_shiftexecutiveproduction: "John Doe", cr3ea_tourby: "David QA", cr3ea_status: "Pending QA", cr3ea_processstatus: "Pending QA" },
-                { cr3ea_prod_qualitytourid: "mock-2", cr3ea_tourstartdate: new Date().toISOString(), cr3ea_title: "Area Line Clearance", cr3ea_lineno: "Line 2", cr3ea_shift: "Shift 1", cr3ea_shiftexecutiveproduction: "Alice Production", cr3ea_tourby: "Emily QA", cr3ea_status: "Failed - Pending Production", cr3ea_processstatus: "Failed - Pending Production" }
-            ];
-            const mockClosed = [
-                { cr3ea_prod_qualitytourid: "mock-3", cr3ea_tourstartdate: new Date(Date.now() - 86400000).toISOString(), cr3ea_title: "Area Line Clearance", cr3ea_lineno: "Line 1", cr3ea_shift: "Shift 3", cr3ea_shiftexecutiveproduction: "John Doe", cr3ea_tourby: "David QA", cr3ea_overall_score: 100, cr3ea_checklist_result: "Pass", cr3ea_status: "Completed", cr3ea_processstatus: "Completed" }
-            ];
-            ALC_Dashboard.renderOngoingList(mockOngoing);
-            ALC_Dashboard.renderClosedList(mockClosed);
-        } finally {
-            if (refreshBtn) {
-                refreshBtn.disabled = false;
-                refreshBtn.innerHTML = "🔄 Refresh";
+    updateKpiLabels: function () {
+        const isFS = this.selectedCategory === "FoodSafety";
+        const isCCP = this.selectedCategory === "CCP_OPRP_Sieves";
+        
+        const label2 = document.getElementById("kpi-success-rate") ? document.getElementById("kpi-success-rate").previousElementSibling : null;
+        const label3 = document.getElementById("kpi-open-deviations") ? document.getElementById("kpi-open-deviations").previousElementSibling : null;
+        const label4 = document.getElementById("kpi-pending-reverify") ? document.getElementById("kpi-pending-reverify").previousElementSibling : null;
+        
+        if (isFS) {
+            if (label2) label2.innerText = "Failed Audits";
+            if (label3) label3.innerText = "In Progress";
+            if (label4) label4.innerText = "Passed Audits";
+        } else if (isCCP) {
+            if (label2) label2.innerText = "Overdue Tours";
+            if (label3) label3.innerText = "In Progress";
+            if (label4) label4.innerText = "Completed Tours";
+        } else {
+            if (label2) label2.innerText = "Lines On Hold";
+            if (label3) label3.innerText = "Open Observations";
+            if (label4) label4.innerText = "Open Re-verifications";
+        }
+    },
+
+    updateTableHeaders: function () {
+        const isFS = this.selectedCategory === "FoodSafety";
+        const isCCP = this.selectedCategory === "CCP_OPRP_Sieves";
+        const ongoingTable = document.getElementById("rajpura-ongoing-tbody") ? document.getElementById("rajpura-ongoing-tbody").closest("table") : null;
+        const closedTable = document.getElementById("rajpura-cycles-tbody") ? document.getElementById("rajpura-cycles-tbody").closest("table") : null;
+
+        if (isFS) {
+            if (ongoingTable) {
+                const headers = ongoingTable.querySelectorAll("thead th");
+                if (headers.length >= 9) {
+                    headers[1].innerText = "Checklist Type";
+                    headers[6].innerText = "Cycle";
+                    headers[7].innerText = "Status";
+                    headers[8].innerText = "QA / Incharge";
+                }
+            }
+            if (closedTable) {
+                const headers = closedTable.querySelectorAll("thead th");
+                if (headers.length >= 8) {
+                    headers[1].innerText = "Checklist Type";
+                    headers[6].innerText = "Cycle";
+                    headers[7].innerText = "Result";
+                }
+            }
+        } else if (isCCP) {
+            if (ongoingTable) {
+                const headers = ongoingTable.querySelectorAll("thead th");
+                if (headers.length >= 9) {
+                    headers[1].innerText = "Verification Type";
+                    headers[6].innerText = "Frequency / Product";
+                    headers[7].innerText = "Status";
+                    headers[8].innerText = "QA / Incharge";
+                }
+            }
+            if (closedTable) {
+                const headers = closedTable.querySelectorAll("thead th");
+                if (headers.length >= 8) {
+                    headers[1].innerText = "Verification Type";
+                    headers[6].innerText = "Frequency / Product";
+                    headers[7].innerText = "Result";
+                }
+            }
+        } else {
+            if (ongoingTable) {
+                const headers = ongoingTable.querySelectorAll("thead th");
+                if (headers.length >= 9) {
+                    headers[1].innerText = "Checklist Form";
+                    headers[6].innerText = "Is Line Clear";
+                    headers[7].innerText = "Status";
+                    headers[8].innerText = "Pending With";
+                }
+            }
+            if (closedTable) {
+                const headers = closedTable.querySelectorAll("thead th");
+                if (headers.length >= 8) {
+                    headers[1].innerText = "Checklist Form";
+                    headers[6].innerText = "Is Line Clear";
+                    headers[7].innerText = "Status / Result";
+                }
             }
         }
     },
@@ -518,11 +679,11 @@ const ALC_Dashboard = {
             "D/M/YYYY hh:mm A",
             "DD/MM/YYYY hh:mm A"
         ], true); // strict parsing
-        
+
         if (m.isValid()) {
             return m.format("DD-MM-YYYY hh:mm A");
         }
-        
+
         // Fallback to loose parsing
         const looseM = moment(dateStr);
         return looseM.isValid() ? looseM.format("DD-MM-YYYY hh:mm A") : dateStr;
@@ -549,9 +710,9 @@ const ALC_Dashboard = {
             "D/M/YYYY hh:mm A",
             "DD/MM/YYYY hh:mm A"
         ], true); // strict parsing
-        
+
         if (m.isValid()) return m;
-        
+
         const looseM = moment(dateStr);
         return looseM.isValid() ? looseM : null;
     },
@@ -562,250 +723,389 @@ const ALC_Dashboard = {
 
         tbody.innerHTML = "";
         if (list.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" class="text-center py-3 text-secondary">No ongoing clearance tours at the moment.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center py-3 text-secondary">No ongoing clearance tours at the moment.</td></tr>`;
             return;
         }
+
+        const isFS = this.selectedCategory === "FoodSafety";
+        const isCCP = this.selectedCategory === "CCP_OPRP_Sieves";
+        const currentUserEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? _spPageContextInfo.userEmail.toLowerCase().trim() : "";
+        const currentUserName = (typeof EmployeeName !== 'undefined' && EmployeeName) ? EmployeeName.toLowerCase().trim() :
+            ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? _spPageContextInfo.userDisplayName.toLowerCase().trim() : "");
 
         list.forEach(t => {
             try {
                 const tr = document.createElement("tr");
-
                 const date = ALC_Dashboard.parseDate(t.cr3ea_tourstartdate);
-                const titleVal = t.cr3ea_title || "";
-                const cleanTitle = titleVal.split("||")[0].trim();
-                const form = cleanTitle.split('_')[0] || "Area Line Clearance";
                 const line = t.cr3ea_lineno || "N/A";
                 const shift = t.cr3ea_shift || "N/A";
-                const prodExec = t.cr3ea_shiftexecutiveproduction || "N/A";
-                const qaExecRaw = t.cr3ea_tourby || "N/A";
-                const qaExec = qaExecRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaExecRaw) : qaExecRaw;
-                const execs = `Shift: ${prodExec} | QA: ${qaExec}`;
-                
-                const pendingWith = ALC_Dashboard.getPendingWith(t);
 
-                // Resolve Score display or status comment if no score is available yet
-                let scoreDisplay = "-";
-                let scoreNum = null;
-                const computedScore = ALC_Dashboard.calculateScoreDynamically(t);
-                
-                if (computedScore !== null) {
-                    scoreNum = parseFloat(computedScore);
-                    scoreDisplay = `<strong style="color: #0f172a; font-size: 15px;">${computedScore}%</strong>`;
-                } else if (t.cr3ea_overall_score !== undefined && t.cr3ea_overall_score !== null && String(t.cr3ea_overall_score).trim() !== "") {
-                    // Fallback to Dataverse field if checkpoints couldn't be loaded (e.g. mock fallback)
-                    scoreNum = parseFloat(t.cr3ea_overall_score);
-                    scoreDisplay = `<strong style="color: #0f172a; font-size: 15px;">${scoreNum.toFixed(2)}%</strong>`;
-                }
-
-                let status = t.cr3ea_processstatus || t.cr3ea_status || "Pending QA";
-                
-                // Check if tour is escalated (status is "Pending QA" and elapsed time is > 5 minutes)
-                let isEscalated = false;
-                const requestTimeString = t.cr3ea_request_time || t.cr3ea_tourstartdate || t.createdon;
-                if (status === "Pending QA" && requestTimeString) {
-                    const reqTime = new Date(requestTimeString).getTime();
-                    const now = new Date().getTime();
-                    if (!isNaN(reqTime) && (now - reqTime > 5 * 60 * 1000)) {
-                        // Only escalate if it is from today (not expired/previous day)
-                        const tourDateLocal = moment(requestTimeString).local().format("YYYY-MM-DD");
-                        const todayLocal = moment().format("YYYY-MM-DD");
-                        if (tourDateLocal === todayLocal) {
-                            isEscalated = true;
-                            status = "Escalated";
-                        }
+                if (isFS) {
+                    let form = t.cr3ea_food_safety_checklisttype;
+                    if (!form && t.cr3ea_title) {
+                        let cleanTitle = t.cr3ea_title.split("||")[0].trim();
+                        if (cleanTitle.startsWith("FoodSafety_")) cleanTitle = cleanTitle.replace("FoodSafety_", "");
+                        if (cleanTitle.startsWith("Food_Safety_")) cleanTitle = cleanTitle.replace("Food_Safety_", "");
+                        
+                        if (cleanTitle.startsWith("PPE_")) form = "PPE Checklist";
+                        else if (cleanTitle.startsWith("GMP_")) form = "GMP Checklist";
+                        else if (cleanTitle.startsWith("PCI_")) form = "PCI Checklist";
                     }
-                }
-
-                // Dynamically resolve Success/Failed prefix based on score for pending states
-                if (scoreNum !== null) {
-                    const isSuccess = (scoreNum >= 80);
-                    if (status.includes("Pending Production")) {
-                        status = isSuccess ? "Success - Pending Production" : "Failed - Pending Production";
-                    } else if (status.includes("Pending Re-Verification") || status === "Pending Re-Verification") {
-                        status = isSuccess ? "Success - Pending Re-Verification" : "Failed - Pending Re-Verification";
-                    }
-                } else {
-                    // Fallback formatting if no score has been computed/uploaded yet
-                    if (status === "Pending Re-Verification") {
-                        status = "Failed - Pending Re-Verification";
-                    }
-                }
-
-                let badgeClass = "badge-warning";
-                
-                // Highlight row if task is for the logged-in user
-                const currentUserEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? _spPageContextInfo.userEmail.toLowerCase().trim() : "";
-                const currentUserName = (typeof EmployeeName !== 'undefined' && EmployeeName) ? EmployeeName.toLowerCase().trim() : 
-                                        ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? _spPageContextInfo.userDisplayName.toLowerCase().trim() : "");
-
-                let isMyTask = false;
-
-                // Match QA: if status is QA pending and current user matches QA executive email/name
-                const isQaStatus = (status === "Pending QA" || status === "QA In Progress" || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
-                if (isQaStatus) {
-                    const qaEmail = (t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
-                    const qaResolvedName = qaEmail.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaEmail).toLowerCase().trim() : qaEmail;
-                    if ((currentUserEmail && qaEmail && (currentUserEmail === qaEmail || currentUserEmail.includes(qaEmail))) ||
-                        (currentUserName && qaEmail && (currentUserName === qaEmail || currentUserName.includes(qaEmail) || qaEmail.includes(currentUserName))) ||
-                        (currentUserName && qaResolvedName && (currentUserName === qaResolvedName || currentUserName.includes(qaResolvedName) || qaResolvedName.includes(currentUserName)))) {
-                        isMyTask = true;
-                    }
-                }
-
-                // Match Escalation Manager: if status is Escalated and current user matches any escalation contacts
-                const escalationContactsStr = t.cr3ea_escalation_contacts || "";
-                const escalationEmails = escalationContactsStr.toLowerCase().split(",").map(e => e.trim());
-                
-                // Also resolve from config row matching QA email (since Escalation Manager is multiperson select)
-                const qaEmailVal = (t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
-                if (qaEmailVal && ALC_Dashboard.qaList) {
-                    const matchConfig = ALC_Dashboard.qaList.find(c => 
-                        c.AssignedUser && c.AssignedUser.results && 
-                        c.AssignedUser.results.some(u => u.EMail && u.EMail.toLowerCase().trim() === qaEmailVal)
-                    );
-                    if (matchConfig && matchConfig.EscalationManager && matchConfig.EscalationManager.results) {
-                        matchConfig.EscalationManager.results.forEach(m => {
-                            if (m.EMail) {
-                                const emailLower = m.EMail.toLowerCase().trim();
-                                if (!escalationEmails.includes(emailLower)) {
-                                    escalationEmails.push(emailLower);
-                                }
-                            }
-                        });
-                    }
-                }
-
-                const isUserEscalationManager = currentUserEmail && escalationEmails.includes(currentUserEmail);
-                const isUserEscalationManagerByName = currentUserName && escalationEmails.some(email => email.includes(currentUserName));
-
-                const isEscalatedForMe = isEscalated && (isUserEscalationManager || isUserEscalationManagerByName);
-
-                // Match Production: if status is Production pending OR if we are in Re-Verification state but there are still pending checkpoints without remarks
-                const isProdStatus = (status === "Failed - Pending Production" || status === "Success - Pending Production");
-                const isReverifyStatus = (status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
-                
-                if (isProdStatus || isReverifyStatus) {
-                    const prodExecName = (t.cr3ea_shiftexecutiveproduction || "").toLowerCase().trim();
-                    const assignees = ALC_Dashboard.getAreaAssigneesForFailedCheckpoints(t);
+                    if (!form) form = "Food Safety Checklist";
+                    const qaName = t.cr3ea_assigned_qa || "N/A";
+                    const qaExec = qaName.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaName) : qaName;
+                    const prodInchargeRaw = t.cr3ea_shiftexecutiveproduction || "N/A";
+                    const prodIncharge = prodInchargeRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(prodInchargeRaw) : prodInchargeRaw;
+                    const execs = `QA: ${qaExec} | Prod: ${prodIncharge}`;
                     
-                    const isUserProdExec = (currentUserName && prodExecName && (prodExecName === currentUserName || prodExecName.includes(currentUserName) || currentUserName.includes(prodExecName))) ||
-                                           (currentUserEmail && prodExecName && currentUserEmail.includes(prodExecName.replace(/\s+/g, ".")));
-                                           
-                    const isAssigneeMatch = assignees && assignees.some(name => {
-                        const cleanName = name.toLowerCase().trim();
-                        return cleanName === currentUserName || 
-                               (currentUserName && (cleanName.includes(currentUserName) || currentUserName.includes(cleanName))) ||
-                               (currentUserEmail && currentUserEmail.includes(cleanName.replace(/\s+/g, ".")));
-                    });
+                    let scoreDisplay = "-";
+                    if (t.cr3ea_overall_score !== undefined && t.cr3ea_overall_score !== null) {
+                        scoreDisplay = `<strong style="color: #0f172a; font-size: 15px;">${t.cr3ea_overall_score}</strong>`;
+                    }
                     
-                    if (isProdStatus) {
-                        // In Pending Production status, it is always a task for the overall Production Exec.
-                        // For Area Owners, it is a task if they have pending checkpoints, or if assignees list couldn't be resolved (as a fallback).
-                        const hasNoPendingForThisAreaOwner = assignees && assignees.length > 0 && !isAssigneeMatch;
-                        if (isUserProdExec || !hasNoPendingForThisAreaOwner) {
-                            isMyTask = true;
-                        }
-                    } else if (isReverifyStatus) {
-                        // In Re-Verification status, it is only a task for Production if there are still checkpoints pending actions
-                        const hasPendingProdCheckpoints = assignees && assignees.length > 0;
-                        if (hasPendingProdCheckpoints && (isUserProdExec || isAssigneeMatch)) {
+                    const clearBadgeHtml = `<span class="badge badge-warning" style="background-color: #fef3c7; color: #d97706; border: 1px solid #fde68a; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">${t.cr3ea_food_safety_cycle || "Cycle-1"}</span>`;
+                    
+                    let status = t.cr3ea_status || "In Progress";
+                    let badgeClass = "badge-warning";
+                    if (status === "Submitted") badgeClass = "badge-success";
+                    
+                    const isProgress = (status.toLowerCase() === "in-progress" || status.toLowerCase() === "in progress" || status.toLowerCase() === "inprogress-paused");
+                    const pendingWith = isProgress ? `QA Executive (${qaExec})` : "Completed";
+ 
+                    tr.innerHTML = `
+                        <td>${date}</td>
+                        <td><strong>${form}</strong></td>
+                        <td>${line}</td>
+                        <td>${shift}</td>
+                        <td style="text-align: left;">${execs}</td>
+                        <td>${scoreDisplay}</td>
+                        <td>${clearBadgeHtml}</td>
+                        <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
+                        <td style="font-weight: 500; color: #1e293b;">${pendingWith}</td>
+                    `;
+                    
+                    let isMyTask = false;
+                    const isQaStatus = (status === "Pending QA" || status === "QA In Progress" || status === "In Progress" || status === "InProgress-paused" || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
+                    if (isQaStatus) {
+                        const qaEmail = (t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
+                        const qaResolvedName = qaEmail.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaEmail).toLowerCase().trim() : qaEmail;
+                        if ((currentUserEmail && qaEmail && (currentUserEmail === qaEmail || currentUserEmail.includes(qaEmail))) ||
+                            (currentUserName && qaEmail && (currentUserName === qaEmail || currentUserName.includes(qaEmail) || qaEmail.includes(currentUserName))) ||
+                            (currentUserName && qaResolvedName && (currentUserName === qaResolvedName || currentUserName.includes(qaResolvedName) || qaResolvedName.includes(currentUserName)))) {
                             isMyTask = true;
                         }
                     }
-                }
-
-                if (isMyTask) {
-                    tr.classList.add("my-task-row");
-                }
-
-                if (isEscalatedForMe) {
-                    tr.classList.add("escalated-task-row");
-                    tr.title = "CRITICAL: This tour has escalated! Click to view details.";
-                }
-
-                if (status === "Failed - Pending Production" || status === "Failed - Pending Re-Verification" || status === "Escalated") {
-                    badgeClass = "badge-error";
-                } else if (status === "Success - Pending Production" || status === "Success - Pending Re-Verification") {
-                    badgeClass = "badge-success";
-                } else if (status === "QA In Progress") {
-                    badgeClass = "badge-warning";
-                }
-
-                // If score is not resolved, format text status in score column
-                if (scoreNum === null) {
-                    if (status === "In Progress") {
-                        scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Request Pending</span>`;
-                    } else if (status === "Pending QA") {
-                        scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Awaiting QA Accept</span>`;
-                    } else if (status === "Escalated") {
-                        scoreDisplay = `<span class="text-danger font-weight-bold" style="font-size: 12px;">ESCALATED</span>`;
-                    } else if (status === "QA In Progress") {
-                        scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Evaluation Pending</span>`;
+ 
+                    if (isMyTask) {
+                        tr.classList.add("my-task-row");
+                    }
+ 
+                    let isClickable = true;
+                    if ((status === "In Progress" || status === "InProgress-paused") && !isMyTask) {
+                        isClickable = false;
+                    }
+ 
+                    if (isClickable) {
+                        tr.style.cursor = "pointer";
+                        tr.title = "Click to open Food Safety checklist";
+                        tr.onclick = function () {
+                            window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/FoodSafety.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                        };
                     } else {
-                        scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">N/A</span>`;
+                        tr.style.cursor = "default";
+                        tr.title = "This tour is in progress by another QA and is only accessible to the assigned QA Executive.";
+                        tr.onclick = null;
                     }
-                }
+                } else if (isCCP) {
+                    let form = t.cr3ea_ccp_oprp_sieves_parametertype;
+                    if (!form && t.cr3ea_title) {
+                        const cleanTitle = String(t.cr3ea_title).split("||")[0].trim();
+                        if (cleanTitle.includes("Sieves") || cleanTitle.includes("sieves")) form = "Sieves & Magnets";
+                        else form = "CCP & OPRP";
+                    }
+                    if (!form) form = "CCP, OPRP & Sieves";
 
-                // Evaluate Is Line Clear
-                let clearBadgeHtml = "-";
-                const isAlcTour = (form.toLowerCase().includes("line") || form.toLowerCase().includes("alc") || form.toLowerCase().includes("clearance"));
-                if (isAlcTour) {
-                    const isClearedVal = t.cr3ea_islineclear;
-                    const isCleared = isClearedVal === true || 
-                                      isClearedVal === "true" || 
-                                      isClearedVal === 1 || 
-                                      isClearedVal === "1" || 
-                                      isClearedVal === "Yes" || 
-                                      status === "Completed" || 
-                                      status === "Closed" || 
-                                      status === "Closed - Expired" || 
-                                      status === "Success";
+                    const qaName = t.cr3ea_assigned_qa || t.cr3ea_tourby || "N/A";
+                    const qaExec = (typeof qaName === "string" && qaName.includes("@")) ? ALC_Dashboard.resolveQaNameFromEmail(qaName) : qaName;
+                    const prodInchargeRaw = t.cr3ea_shiftexecutiveproduction || "N/A";
+                    const prodIncharge = (typeof prodInchargeRaw === "string" && prodInchargeRaw.includes("@")) ? ALC_Dashboard.resolveQaNameFromEmail(prodInchargeRaw) : prodInchargeRaw;
+                    const execs = `QA: ${qaExec} | Prod: ${prodIncharge}`;
+                    
+                    let scoreDisplay = "-";
+                    if (t.cr3ea_overall_score !== undefined && t.cr3ea_overall_score !== null) {
+                        scoreDisplay = `<strong style="color: #0f172a; font-size: 15px;">${t.cr3ea_overall_score}</strong>`;
+                    }
+                    
+                    const freqText = t.cr3ea_ccp_oprp_sieves_frequency || t.cr3ea_ccp_oprp_sieves_productvariety || "2-Hour Check";
+                    const clearBadgeHtml = `<span class="badge badge-warning" style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">${freqText}</span>`;
+                    
+                    let status = t.cr3ea_status || "In Progress";
+                    let badgeClass = "badge-warning";
+                    if (status === "Submitted" || status === "Completed") badgeClass = "badge-success";
+                    else if (status === "Escalated") badgeClass = "badge-error";
+                    
+                    const isProgress = (String(status).toLowerCase() === "in-progress" || String(status).toLowerCase() === "in progress" || String(status).toLowerCase() === "inprogress-paused");
+                    const pendingWith = isProgress ? `QA Executive (${qaExec})` : status;
 
-                    clearBadgeHtml = isCleared 
-                        ? '<span class="badge badge-success" style="background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Yes</span>' 
-                        : '<span class="badge badge-error" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">No</span>';
-                }
+                    tr.innerHTML = `
+                        <td>${date}</td>
+                        <td><strong>${form}</strong></td>
+                        <td>${line}</td>
+                        <td>${shift}</td>
+                        <td style="text-align: left;">${execs}</td>
+                        <td>${scoreDisplay}</td>
+                        <td>${clearBadgeHtml}</td>
+                        <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
+                        <td style="font-weight: 500; color: #1e293b;">${pendingWith}</td>
+                    `;
+                    
+                    let isMyTask = false;
+                    const isQaStatus = (status === "In Progress" || status === "InProgress-paused" || status === "Escalated");
+                    if (isQaStatus) {
+                        const qaEmail = String(t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
+                        const qaResolvedName = (typeof qaEmail === "string" && qaEmail.includes("@")) ? ALC_Dashboard.resolveQaNameFromEmail(qaEmail).toLowerCase().trim() : qaEmail;
+                        if ((currentUserEmail && qaEmail && (currentUserEmail === qaEmail || currentUserEmail.includes(qaEmail))) ||
+                            (currentUserName && qaEmail && (currentUserName === qaEmail || currentUserName.includes(qaEmail) || qaEmail.includes(currentUserName))) ||
+                            (currentUserName && qaResolvedName && (currentUserName === qaResolvedName || currentUserName.includes(qaResolvedName) || qaResolvedName.includes(currentUserName)))) {
+                            isMyTask = true;
+                        }
+                    }
 
-                let displayStatus = status;
-                if (displayStatus.includes("Pending Production")) {
-                    displayStatus = displayStatus.replace("Pending Production", "Pending Observation");
-                } else if (displayStatus === "QA In Progress") {
-                    displayStatus = "QA In Progress (Paused)";
-                }
+                    if (isMyTask) {
+                        tr.classList.add("my-task-row");
+                    }
 
-                tr.innerHTML = `
-                    <td>${date}</td>
-                    <td><strong>${form}</strong></td>
-                    <td>${line}</td>
-                    <td>${shift}</td>
-                    <td style="text-align: left;">${execs}</td>
-                    <td>${scoreDisplay}</td>
-                    <td>${clearBadgeHtml}</td>
-                    <td><span class="badge badge-fill ${badgeClass}">${displayStatus}</span></td>
-                    <td style="font-weight: 500; color: #1e293b;">${pendingWith}</td>
-                `;
+                    let isClickable = true;
+                    if ((status === "In Progress" || status === "InProgress-paused") && !isMyTask) {
+                        isClickable = false;
+                    }
 
-                // Restrict clicking on paused tours ("QA In Progress") to the assigned QA Executive only
-                let isClickable = true;
-                if (status === "QA In Progress" && !isMyTask) {
-                    isClickable = false;
-                }
-
-                if (isClickable) {
-                    tr.style.cursor = "pointer";
-                    tr.title = "Click to open tour clearance form";
-                    tr.onclick = function () {
-                        window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/AreaLine.aspx?TourId=${t.cr3ea_prod_qualitytourid}`;
-                    };
+                    if (isClickable) {
+                        tr.style.cursor = "pointer";
+                        tr.title = "Click to open CCP/OPRP checklist";
+                        tr.onclick = function () {
+                            window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/CCP-OPRP.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                        };
+                    } else {
+                        tr.style.cursor = "default";
+                        tr.title = "This tour is in progress by another QA and is only accessible to the assigned QA Executive.";
+                        tr.onclick = null;
+                    }
                 } else {
-                    tr.style.cursor = "default";
-                    tr.title = "This tour is paused by QA and is only accessible to the assigned QA Executive.";
-                    tr.onclick = null;
+                    const titleVal = t.cr3ea_title || "";
+                    const cleanTitle = titleVal.split("||")[0].trim();
+                    const form = cleanTitle.split('_')[0] || "Area Line Clearance";
+                    const prodExec = t.cr3ea_shiftexecutiveproduction || "N/A";
+                    const qaExecRaw = t.cr3ea_tourby || "N/A";
+                    const qaExec = qaExecRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaExecRaw) : qaExecRaw;
+                    const execs = `Shift: ${prodExec} | QA: ${qaExec}`;
+ 
+                    const pendingWith = ALC_Dashboard.getPendingWith(t);
+ 
+                    let scoreDisplay = "-";
+                    let scoreNum = null;
+                    const computedScore = ALC_Dashboard.calculateScoreDynamically(t);
+ 
+                    if (computedScore !== null) {
+                        scoreNum = parseFloat(computedScore);
+                        scoreDisplay = `<strong style="color: #0f172a; font-size: 15px;">${computedScore}%</strong>`;
+                    } else if (t.cr3ea_overall_score !== undefined && t.cr3ea_overall_score !== null && String(t.cr3ea_overall_score).trim() !== "") {
+                        scoreNum = parseFloat(t.cr3ea_overall_score);
+                        scoreDisplay = `<strong style="color: #0f172a; font-size: 15px;">${scoreNum.toFixed(2)}%</strong>`;
+                    }
+
+                    let status = t.cr3ea_processstatus || t.cr3ea_status || "Pending QA";
+
+                    let isEscalated = false;
+                    const requestTimeString = t.cr3ea_request_time || t.cr3ea_tourstartdate || t.createdon;
+                    if (status === "Pending QA" && requestTimeString) {
+                        const reqTime = new Date(requestTimeString).getTime();
+                        const now = new Date().getTime();
+                        if (!isNaN(reqTime) && (now - reqTime > 5 * 60 * 1000)) {
+                            const tourDateLocal = moment(requestTimeString).local().format("YYYY-MM-DD");
+                            const todayLocal = moment().format("YYYY-MM-DD");
+                            if (tourDateLocal === todayLocal) {
+                                isEscalated = true;
+                                status = "Escalated";
+                            }
+                        }
+                    }
+
+                    if (scoreNum !== null) {
+                        const isSuccess = (scoreNum >= 80);
+                        if (status.includes("Pending Production")) {
+                            status = isSuccess ? "Success - Pending Production" : "Failed - Pending Production";
+                        } else if (status.includes("Pending Re-Verification") || status === "Pending Re-Verification") {
+                            status = isSuccess ? "Success - Pending Re-Verification" : "Failed - Pending Re-Verification";
+                        }
+                    } else {
+                        if (status === "Pending Re-Verification") {
+                            status = "Failed - Pending Re-Verification";
+                        }
+                    }
+
+                    let badgeClass = "badge-warning";
+
+                    let isMyTask = false;
+
+                    const isQaStatus = (status === "Pending QA" || status === "QA In Progress" || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
+                    if (isQaStatus) {
+                        const qaEmail = (t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
+                        const qaResolvedName = qaEmail.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaEmail).toLowerCase().trim() : qaEmail;
+                        if ((currentUserEmail && qaEmail && (currentUserEmail === qaEmail || currentUserEmail.includes(qaEmail))) ||
+                            (currentUserName && qaEmail && (currentUserName === qaEmail || currentUserName.includes(qaEmail) || qaEmail.includes(currentUserName))) ||
+                            (currentUserName && qaResolvedName && (currentUserName === qaResolvedName || currentUserName.includes(qaResolvedName) || qaResolvedName.includes(currentUserName)))) {
+                            isMyTask = true;
+                        }
+                    }
+
+                    const escalationContactsStr = t.cr3ea_escalation_contacts || "";
+                    const escalationEmails = escalationContactsStr.toLowerCase().split(",").map(e => e.trim());
+
+                    const qaEmailVal = (t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
+                    if (qaEmailVal && ALC_Dashboard.qaList) {
+                        const matchConfig = ALC_Dashboard.qaList.find(c =>
+                            c.AssignedUser && c.AssignedUser.results &&
+                            c.AssignedUser.results.some(u => u.EMail && u.EMail.toLowerCase().trim() === qaEmailVal)
+                        );
+                        if (matchConfig && matchConfig.EscalationManager && matchConfig.EscalationManager.results) {
+                            matchConfig.EscalationManager.results.forEach(m => {
+                                if (m.EMail) {
+                                    const emailLower = m.EMail.toLowerCase().trim();
+                                    if (!escalationEmails.includes(emailLower)) {
+                                        escalationEmails.push(emailLower);
+                                    }
+                                }
+                            });
+                        }
+                    }
+
+                    const isUserEscalationManager = currentUserEmail && escalationEmails.includes(currentUserEmail);
+                    const isUserEscalationManagerByName = currentUserName && escalationEmails.some(email => email.includes(currentUserName));
+
+                    const isEscalatedForMe = isEscalated && (isUserEscalationManager || isUserEscalationManagerByName);
+
+                    const isProdStatus = (status === "Failed - Pending Production" || status === "Success - Pending Production");
+                    const isReverifyStatus = (status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
+
+                    if (isProdStatus || isReverifyStatus) {
+                        const prodExecName = (t.cr3ea_shiftexecutiveproduction || "").toLowerCase().trim();
+                        const assignees = ALC_Dashboard.getAreaAssigneesForFailedCheckpoints(t);
+
+                        const isUserProdExec = (currentUserName && prodExecName && (prodExecName === currentUserName || prodExecName.includes(currentUserName) || currentUserName.includes(prodExecName))) ||
+                            (currentUserEmail && prodExecName && currentUserEmail.includes(prodExecName.replace(/\s+/g, ".")));
+
+                        const isAssigneeMatch = assignees && assignees.some(name => {
+                            const cleanName = name.toLowerCase().trim();
+                            return cleanName === currentUserName ||
+                                (currentUserName && (cleanName.includes(currentUserName) || currentUserName.includes(cleanName))) ||
+                                (currentUserEmail && currentUserEmail.includes(cleanName.replace(/\s+/g, ".")));
+                        });
+
+                        if (isProdStatus) {
+                            const hasNoPendingForThisAreaOwner = assignees && assignees.length > 0 && !isAssigneeMatch;
+                            if (isUserProdExec || !hasNoPendingForThisAreaOwner) {
+                                isMyTask = true;
+                            }
+                        } else if (isReverifyStatus) {
+                            const hasPendingProdCheckpoints = assignees && assignees.length > 0;
+                            if (hasPendingProdCheckpoints && (isUserProdExec || isAssigneeMatch)) {
+                                isMyTask = true;
+                            }
+                        }
+                    }
+
+                    if (isMyTask) {
+                        tr.classList.add("my-task-row");
+                    }
+
+                    if (isEscalatedForMe) {
+                        tr.classList.add("escalated-task-row");
+                        tr.title = "CRITICAL: This tour has escalated! Click to view details.";
+                    }
+
+                    if (status === "Failed - Pending Production" || status === "Failed - Pending Re-Verification" || status === "Escalated") {
+                        badgeClass = "badge-error";
+                    } else if (status === "Success - Pending Production" || status === "Success - Pending Re-Verification") {
+                        badgeClass = "badge-success";
+                    } else if (status === "QA In Progress") {
+                        badgeClass = "badge-warning";
+                    }
+
+                    if (scoreNum === null) {
+                        if (status === "In Progress") {
+                            scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Request Pending</span>`;
+                        } else if (status === "Pending QA") {
+                            scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Awaiting QA Accept</span>`;
+                        } else if (status === "Escalated") {
+                            scoreDisplay = `<span class="text-danger font-weight-bold" style="font-size: 12px;">ESCALATED</span>`;
+                        } else if (status === "QA In Progress") {
+                            scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Evaluation Pending</span>`;
+                        } else {
+                            scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">N/A</span>`;
+                        }
+                    }
+
+                    let clearBadgeHtml = "-";
+                    const isAlcTour = (form.toLowerCase().includes("line") || form.toLowerCase().includes("alc") || form.toLowerCase().includes("clearance"));
+                    if (isAlcTour) {
+                        const isClearedVal = t.cr3ea_islineclear;
+                        const isCleared = isClearedVal === true ||
+                            isClearedVal === "true" ||
+                            isClearedVal === 1 ||
+                            isClearedVal === "1" ||
+                            isClearedVal === "Yes" ||
+                            status === "Completed" ||
+                            status === "Closed" ||
+                            status === "Closed - Expired" ||
+                            status === "Success";
+
+                        clearBadgeHtml = isCleared
+                            ? '<span class="badge badge-success" style="background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Yes</span>'
+                            : '<span class="badge badge-error" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">No</span>';
+                    }
+
+                    let displayStatus = status;
+                    if (displayStatus.includes("Pending Production")) {
+                        displayStatus = displayStatus.replace("Pending Production", "Pending Observation");
+                    } else if (displayStatus === "QA In Progress") {
+                        displayStatus = "QA In Progress (Paused)";
+                    }
+
+                    tr.innerHTML = `
+                        <td>${date}</td>
+                        <td><strong>${form}</strong></td>
+                        <td>${line}</td>
+                        <td>${shift}</td>
+                        <td style="text-align: left;">${execs}</td>
+                        <td>${scoreDisplay}</td>
+                        <td>${clearBadgeHtml}</td>
+                        <td><span class="badge badge-fill ${badgeClass}">${displayStatus}</span></td>
+                        <td style="font-weight: 500; color: #1e293b;">${pendingWith}</td>
+                    `;
+
+                    let isClickable = true;
+                    if (status === "QA In Progress" && !isMyTask) {
+                        isClickable = false;
+                    }
+
+                    if (isClickable) {
+                        tr.style.cursor = "pointer";
+                        tr.title = "Click to open tour clearance form";
+                        tr.onclick = function () {
+                            window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/AreaLine.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                        };
+                    } else {
+                        tr.style.cursor = "default";
+                        tr.title = "This tour is paused by QA and is only accessible to the assigned QA Executive.";
+                        tr.onclick = null;
+                    }
                 }
 
                 tbody.appendChild(tr);
             } catch (err) {
                 console.error("Error rendering ongoing row: ", err, t);
+                alert("Error rendering ongoing row: " + err.message + "\nStack: " + err.stack);
             }
         });
     },
@@ -831,7 +1131,7 @@ const ALC_Dashboard = {
 
         tbody.innerHTML = "";
         if (this.closedList.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-3 text-secondary">No closed/completed tour archives.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" class="text-center py-3 text-secondary">No closed/completed tour archives.</td></tr>`;
             return;
         }
 
@@ -839,95 +1139,188 @@ const ALC_Dashboard = {
         const end = start + this.pageSize;
         const pageItems = this.closedList.slice(start, end);
 
+        const isFS = this.selectedCategory === "FoodSafety";
+        const isCCP = this.selectedCategory === "CCP_OPRP_Sieves";
+
         pageItems.forEach(t => {
             try {
                 const tr = document.createElement("tr");
-                tr.style.cursor = "pointer";
-                tr.title = "Click to view observation details";
-                tr.onclick = function () {
-                    window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/AreaLine.aspx?TourId=${t.cr3ea_prod_qualitytourid}`;
-                };
-
                 const date = ALC_Dashboard.parseDate(t.cr3ea_tourstartdate);
-                const titleVal = t.cr3ea_title || "";
-                const cleanTitle = titleVal.split("||")[0].trim();
-                const form = cleanTitle.split('_')[0] || "Area Line Clearance";
                 const line = t.cr3ea_lineno || "N/A";
                 const shift = t.cr3ea_shift || "N/A";
-                const prodExec = t.cr3ea_shiftexecutiveproduction || "N/A";
-                const qaExecRaw = t.cr3ea_tourby || "N/A";
-                const qaExec = qaExecRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaExecRaw) : qaExecRaw;
-                const execs = `Shift: ${prodExec} | QA: ${qaExec}`;
-                
-                let score = (t.cr3ea_overall_score !== undefined && t.cr3ea_overall_score !== null) ? `${t.cr3ea_overall_score}%` : "N/A";
-                let result = t.cr3ea_checklist_result || "N/A";
 
-                if (titleVal.indexOf("||") !== -1) {
-                    const titleParts = titleVal.split("||");
-                    const scorePart = titleParts[1] ? titleParts[1].trim() : "";
-                    const resultPart = titleParts[2] ? titleParts[2].trim() : "";
-                    if (scorePart.startsWith("Score:")) {
-                        score = scorePart.replace("Score:", "").trim();
-                    } else if (scorePart) {
-                        score = scorePart;
+                if (isFS) {
+                    let form = t.cr3ea_food_safety_checklisttype;
+                    if (!form && t.cr3ea_title) {
+                        let cleanTitle = t.cr3ea_title.split("||")[0].trim();
+                        if (cleanTitle.startsWith("FoodSafety_")) cleanTitle = cleanTitle.replace("FoodSafety_", "");
+                        if (cleanTitle.startsWith("Food_Safety_")) cleanTitle = cleanTitle.replace("Food_Safety_", "");
+                        
+                        if (cleanTitle.startsWith("PPE_")) form = "PPE Checklist";
+                        else if (cleanTitle.startsWith("GMP_")) form = "GMP Checklist";
+                        else if (cleanTitle.startsWith("PCI_")) form = "PCI Checklist";
                     }
-                    if (score && score !== "N/A" && !score.includes("%")) {
-                        score = `${score}%`;
+                    if (!form) form = "Food Safety Checklist";
+                    const qaName = t.cr3ea_assigned_qa || "N/A";
+                    const qaExec = qaName.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaName) : qaName;
+                    const prodInchargeRaw = t.cr3ea_shiftexecutiveproduction || "N/A";
+                    const prodIncharge = prodInchargeRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(prodInchargeRaw) : prodInchargeRaw;
+                    const execs = `QA: ${qaExec} | Prod: ${prodIncharge}`;
+                    
+                    let score = "-";
+                    if (t.cr3ea_overall_score !== undefined && t.cr3ea_overall_score !== null) {
+                        score = t.cr3ea_overall_score;
                     }
-                    result = resultPart || result;
-                }
+                    
+                    const clearBadgeHtml = `<span class="badge badge-warning" style="background-color: #fef3c7; color: #d97706; border: 1px solid #fde68a; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">${t.cr3ea_food_safety_cycle || "Cycle-1"}</span>`;
+                    
+                    const status = t.cr3ea_checklist_result || t.cr3ea_status || "Completed";
+                    let badgeClass = "badge-success";
+                    if (status === "Fail") badgeClass = "badge-error";
 
-                let status = t.cr3ea_processstatus || t.cr3ea_status || "Completed";
-                if (status === "Completed") {
-                    status = "Success";
-                }
-                let badgeClass = "badge-success";
-                if (status === "Closed - Expired") {
-                    const scoreVal = t.cr3ea_overall_score ? parseFloat(t.cr3ea_overall_score) : 0;
-                    if (scoreVal >= 80) {
-                        status = "Success - Expired";
+                    tr.innerHTML = `
+                        <td>${date}</td>
+                        <td><strong>${form}</strong></td>
+                        <td>${line}</td>
+                        <td>${shift}</td>
+                        <td style="text-align: left;">${execs}</td>
+                        <td><strong>${score}</strong></td>
+                        <td>${clearBadgeHtml}</td>
+                        <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
+                    `;
+                    
+                    tr.style.cursor = "pointer";
+                    tr.title = "Click to open Food Safety checklist";
+                    tr.onclick = function () {
+                        window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/FoodSafety.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                    };
+                } else if (isCCP) {
+                    let form = t.cr3ea_ccp_oprp_sieves_parametertype;
+                    if (!form && t.cr3ea_title) {
+                        const cleanTitle = String(t.cr3ea_title).split("||")[0].trim();
+                        if (cleanTitle.includes("Sieves") || cleanTitle.includes("sieves")) form = "Sieves & Magnets";
+                        else form = "CCP & OPRP";
+                    }
+                    if (!form) form = "CCP, OPRP & Sieves";
+
+                    const qaName = t.cr3ea_assigned_qa || t.cr3ea_tourby || "N/A";
+                    const qaExec = (typeof qaName === "string" && qaName.includes("@")) ? ALC_Dashboard.resolveQaNameFromEmail(qaName) : qaName;
+                    const prodInchargeRaw = t.cr3ea_shiftexecutiveproduction || "N/A";
+                    const prodIncharge = (typeof prodInchargeRaw === "string" && prodInchargeRaw.includes("@")) ? ALC_Dashboard.resolveQaNameFromEmail(prodInchargeRaw) : prodInchargeRaw;
+                    const execs = `QA: ${qaExec} | Prod: ${prodIncharge}`;
+                    
+                    let score = "-";
+                    if (t.cr3ea_overall_score !== undefined && t.cr3ea_overall_score !== null) {
+                        score = t.cr3ea_overall_score;
+                    }
+                    
+                    const freqText = t.cr3ea_ccp_oprp_sieves_frequency || t.cr3ea_ccp_oprp_sieves_productvariety || "2-Hour Check";
+                    const clearBadgeHtml = `<span class="badge badge-warning" style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">${freqText}</span>`;
+                    
+                    const status = t.cr3ea_status || "Completed";
+                    let badgeClass = "badge-success";
+
+                    tr.innerHTML = `
+                        <td>${date}</td>
+                        <td><strong>${form}</strong></td>
+                        <td>${line}</td>
+                        <td>${shift}</td>
+                        <td style="text-align: left;">${execs}</td>
+                        <td><strong>${score}</strong></td>
+                        <td>${clearBadgeHtml}</td>
+                        <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
+                    `;
+                    
+                    tr.style.cursor = "pointer";
+                    tr.title = "Click to open CCP/OPRP checklist";
+                    tr.onclick = function () {
+                        window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/CCP-OPRP.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                    };
+                } else {
+                    const titleVal = t.cr3ea_title || "";
+                    const cleanTitle = titleVal.split("||")[0].trim();
+                    const form = cleanTitle.split('_')[0] || "Area Line Clearance";
+                    const prodExec = t.cr3ea_shiftexecutiveproduction || "N/A";
+                    const qaExecRaw = t.cr3ea_tourby || "N/A";
+                    const qaExec = qaExecRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaExecRaw) : qaExecRaw;
+                    const execs = `Shift: ${prodExec} | QA: ${qaExec}`;
+
+                    let score = (t.cr3ea_overall_score !== undefined && t.cr3ea_overall_score !== null) ? `${t.cr3ea_overall_score}%` : "N/A";
+                    let result = t.cr3ea_checklist_result || "N/A";
+
+                    if (titleVal.indexOf("||") !== -1) {
+                        const titleParts = titleVal.split("||");
+                        const scorePart = titleParts[1] ? titleParts[1].trim() : "";
+                        const resultPart = titleParts[2] ? titleParts[2].trim() : "";
+                        if (scorePart.startsWith("Score:")) {
+                            score = scorePart.replace("Score:", "").trim();
+                        } else if (scorePart) {
+                            score = scorePart;
+                        }
+                        if (score && score !== "N/A" && !score.includes("%")) {
+                            score = `${score}%`;
+                        }
+                        result = resultPart || result;
+                    }
+
+                    let status = t.cr3ea_processstatus || t.cr3ea_status || "Completed";
+                    if (status === "Completed") {
+                        status = "Success";
+                    }
+                    let badgeClass = "badge-success";
+                    if (status === "Closed - Expired") {
+                        const scoreVal = t.cr3ea_overall_score ? parseFloat(t.cr3ea_overall_score) : 0;
+                        if (scoreVal >= 80) {
+                            status = "Success - Expired";
+                            badgeClass = "badge-success";
+                        } else {
+                            status = "Failed - Expired";
+                            badgeClass = "badge-error";
+                        }
+                    } else if (status === "Closed") {
+                        badgeClass = "badge-secondary";
+                    } else if (status === "Success") {
                         badgeClass = "badge-success";
-                    } else {
-                        status = "Failed - Expired";
-                        badgeClass = "badge-error";
                     }
-                } else if (status === "Closed") {
-                    badgeClass = "badge-secondary";
-                } else if (status === "Success") {
-                    badgeClass = "badge-success";
+
+                    let clearBadgeHtml = "-";
+                    const isAlcTour = (form.toLowerCase().includes("line") || form.toLowerCase().includes("alc") || form.toLowerCase().includes("clearance"));
+                    if (isAlcTour) {
+                        const isClearedVal = t.cr3ea_islineclear;
+                        const isCleared = isClearedVal === true ||
+                            isClearedVal === "true" ||
+                            isClearedVal === 1 ||
+                            isClearedVal === "1" ||
+                            isClearedVal === "Yes" ||
+                            status === "Completed" ||
+                            status === "Closed" ||
+                            status === "Closed - Expired" ||
+                            status === "Success" ||
+                            status === "Success - Expired";
+
+                        clearBadgeHtml = isCleared
+                            ? '<span class="badge badge-success" style="background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Yes</span>'
+                            : '<span class="badge badge-error" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">No</span>';
+                    }
+
+                    tr.innerHTML = `
+                        <td>${date}</td>
+                        <td><strong>${form}</strong></td>
+                        <td>${line}</td>
+                        <td>${shift}</td>
+                        <td style="text-align: left;">${execs}</td>
+                        <td><strong>${score}</strong></td>
+                        <td>${clearBadgeHtml}</td>
+                        <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
+                    `;
+                    
+                    tr.style.cursor = "pointer";
+                    tr.title = "Click to open tour clearance form";
+                    tr.onclick = function () {
+                        window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/AreaLine.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                    };
                 }
 
-                // Evaluate Is Line Clear
-                let clearBadgeHtml = "-";
-                const isAlcTour = (form.toLowerCase().includes("line") || form.toLowerCase().includes("alc") || form.toLowerCase().includes("clearance"));
-                if (isAlcTour) {
-                    const isClearedVal = t.cr3ea_islineclear;
-                    const isCleared = isClearedVal === true || 
-                                      isClearedVal === "true" || 
-                                      isClearedVal === 1 || 
-                                      isClearedVal === "1" || 
-                                      isClearedVal === "Yes" || 
-                                      status === "Completed" || 
-                                      status === "Closed" || 
-                                      status === "Closed - Expired" || 
-                                      status === "Success" || 
-                                      status === "Success - Expired";
-
-                    clearBadgeHtml = isCleared 
-                        ? '<span class="badge badge-success" style="background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Yes</span>' 
-                        : '<span class="badge badge-error" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">No</span>';
-                }
-
-                tr.innerHTML = `
-                    <td>${date}</td>
-                    <td><strong>${form}</strong></td>
-                    <td>${line}</td>
-                    <td>${shift}</td>
-                    <td style="text-align: left;">${execs}</td>
-                    <td><strong>${score}</strong></td>
-                    <td>${clearBadgeHtml}</td>
-                    <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
-                `;
                 tbody.appendChild(tr);
             } catch (err) {
                 console.error("Error rendering closed row: ", err, t);
@@ -963,7 +1356,6 @@ const ALC_Dashboard = {
             pagerContainer.style.display = "flex";
         }
 
-        // Previous Button
         const prevBtn = document.createElement("button");
         prevBtn.type = "button";
         prevBtn.className = "bs-btn bs-btn-secondary";
@@ -979,7 +1371,6 @@ const ALC_Dashboard = {
         };
         pagerContainer.appendChild(prevBtn);
 
-        // Page info text
         const pageInfo = document.createElement("span");
         pageInfo.style.fontSize = "13px";
         pageInfo.style.fontWeight = "600";
@@ -988,7 +1379,6 @@ const ALC_Dashboard = {
         pageInfo.innerText = `Page ${this.currentPage} of ${totalPages} (Total: ${totalItems})`;
         pagerContainer.appendChild(pageInfo);
 
-        // Next Button
         const nextBtn = document.createElement("button");
         nextBtn.type = "button";
         nextBtn.className = "bs-btn bs-btn-secondary";
@@ -1009,16 +1399,16 @@ const ALC_Dashboard = {
     fetchSharePointConfigs: async function () {
         const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
         const listName = "Quality-Rajpura";
-        
+
         let query = "?$select=Id,Title,ConfigType,Region,Plant,Area," +
             "AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id" +
             "&$expand=AssignedUser" +
             "&$filter=Plant eq 'Rajpura'";
-        
+
         let url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
         let response;
         let isFallback = false;
-        
+
         try {
             response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
             if (!response.ok) throw new Error("Fallback needed");
@@ -1035,10 +1425,10 @@ const ALC_Dashboard = {
         if (!response.ok) {
             throw new Error(`Failed to fetch SharePoint config on dashboard: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
         const results = data.d.results;
-        
+
         return results.map(item => {
             const rawUser = isFallback ? item.Assigned_x0020_User : item.AssignedUser;
             let assignedUserNormalized = { results: [] };
@@ -1068,7 +1458,7 @@ const ALC_Dashboard = {
         };
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
-        const filter = `?$filter=cr3ea_qualitytourid eq '${tourId}'`;
+        const filter = `?$filter=_cr3ea_qualitytourid_value eq '${tourId}'`;
         const url = `${baseApiUrl}/api/data/v${apiVersion}/cr3ea_rajpura_alcses${filter}`;
 
         const response = await fetch(url, { headers: headers });
@@ -1086,13 +1476,13 @@ const ALC_Dashboard = {
         }
 
         const pendingFailedCheckpoints = t.checkpoints.filter(cp => {
-            const isFailed = cp.cr3ea_status === "Not Okay" || 
-                             (cp.cr3ea_defectcategory && (
-                                 cp.cr3ea_defectcategory.includes("00") || 
-                                 cp.cr3ea_defectcategory.includes("01") ||
-                                 cp.cr3ea_defectcategory.includes("Non-Compliant") ||
-                                 cp.cr3ea_defectcategory.includes("Partial")
-                             ));
+            const isFailed = cp.cr3ea_status === "Not Okay" ||
+                (cp.cr3ea_defectcategory && (
+                    cp.cr3ea_defectcategory.includes("00") ||
+                    cp.cr3ea_defectcategory.includes("01") ||
+                    cp.cr3ea_defectcategory.includes("Non-Compliant") ||
+                    cp.cr3ea_defectcategory.includes("Partial")
+                ));
             const hasRemarks = cp.cr3ea_productionremarks || (cp.cr3ea_defectremarks && cp.cr3ea_defectremarks.trim().startsWith("Action:"));
             return isFailed && !hasRemarks;
         });
@@ -1106,11 +1496,11 @@ const ALC_Dashboard = {
             const areaName = cp.cr3ea_area;
             if (!areaName) return;
 
-            const configRow = ALC_Dashboard.configs.find(c => 
-                c.ConfigType === "Product User" && 
-                c.Area && 
-                (c.Area.toLowerCase().includes(areaName.toLowerCase().trim()) || 
-                 areaName.toLowerCase().trim().includes(c.Area.toLowerCase()))
+            const configRow = ALC_Dashboard.configs.find(c =>
+                c.ConfigType === "Product User" &&
+                c.Area &&
+                (c.Area.toLowerCase().includes(areaName.toLowerCase().trim()) ||
+                    areaName.toLowerCase().trim().includes(c.Area.toLowerCase()))
             );
 
             if (configRow && configRow.AssignedUser && configRow.AssignedUser.results) {
@@ -1144,13 +1534,13 @@ const ALC_Dashboard = {
 
             let numericScore = 2; // Default is Okay (2)
             const scoreText = cp.cr3ea_defectcategory || "";
-            
+
             if (scoreText.includes("(0)") || scoreText === "00" || scoreText.includes("Non-Compliant")) {
                 numericScore = 0;
             } else if (scoreText.includes("(1)") || scoreText === "01" || scoreText.includes("Partial")) {
                 numericScore = 1;
             }
-            
+
             totalObtainedPoints += numericScore;
         });
 

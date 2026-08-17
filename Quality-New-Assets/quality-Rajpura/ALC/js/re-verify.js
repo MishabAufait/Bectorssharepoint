@@ -97,7 +97,7 @@ const ALC_ReVerification = {
         });
 
         const trackerBanner = document.getElementById("reverify-tracker-banner");
-        if (trackerBanner) trackerBanner.style.display = "block";
+        if (trackerBanner) trackerBanner.style.display = "hidden";
 
         // Initialize Select2 on dropdowns and bind tracker updates
         const selectElements = tbody.querySelectorAll("select");
@@ -232,7 +232,7 @@ const ALC_ReVerification = {
                     reverifyVal = reverifyVal ? `${reverifyVal} | File: ${fileName}` : ` | File: ${fileName}`;
                 }
 
-                const finalRemarks = reverifyVal 
+                const finalRemarks = reverifyVal
                     ? (baseRemark ? `${baseRemark} | Re-verified: ${reverifyVal}` : `Re-verified: ${reverifyVal}`)
                     : cp.cr3ea_defectremarks;
 
@@ -304,7 +304,7 @@ const ALC_ReVerification = {
             const isLineClearVal = (parseFloat(overallPercent) >= 80 || ALC_StateMachine.isPreviousDay);
 
             const sessionUpdate = {
-                cr3ea_prod_qualitytourid: ALC_StateMachine.currentTourId,
+                cr3ea_prod_rajpura_quality_tourid: ALC_StateMachine.currentTourId,
                 cr3ea_status: dbStatusValue,
                 cr3ea_processstatus: statusText,
                 cr3ea_title: cleanBaseTitle,
@@ -320,9 +320,9 @@ const ALC_ReVerification = {
                     const fullSession = Object.assign({}, ALC_StateMachine.currentSession, sessionUpdate);
                     const isPass = (sessionUpdate.cr3ea_checklist_result === "Pass");
                     await ALC_Notification.sendReverificationComplete(
-                        fullSession, 
-                        overallPercent, 
-                        sessionUpdate.cr3ea_checklist_result, 
+                        fullSession,
+                        overallPercent,
+                        sessionUpdate.cr3ea_checklist_result,
                         isPass
                     );
                 }
@@ -364,7 +364,7 @@ const ALC_ReVerification = {
         let partialCount = 0;
         let nonCompliantCount = 0;
         let pendingCount = 0;
-        
+
         let totalObtainedScore = 0;
         const totalMaxScore = totalCheckpoints * 2;
 
@@ -380,9 +380,9 @@ const ALC_ReVerification = {
         this.allCheckpoints.forEach((cp, idx) => {
             // Find if this checkpoint is one of the failed checkpoints being re-verified
             const failedIndex = this.failedCheckpoints.findIndex(f => f.cr3ea_rajpura_alcsid === cp.cr3ea_rajpura_alcsid);
-            
+
             let scoreValue = cp.cr3ea_defectcategory || "Compliant (2)";
-            
+
             // If it is in the failed checkpoints list and is being edited, override with the dropdown value
             if (failedIndex !== -1 && reverifyDropdowns.length > 0) {
                 const liveVal = dropdownScores[failedIndex];

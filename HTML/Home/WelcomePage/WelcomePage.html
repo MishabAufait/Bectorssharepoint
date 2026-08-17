@@ -95,9 +95,19 @@
 <!-- Common Rajpura Quality Dashboard Section (Initially Hidden) -->
 <div id="rajpuraQualityDashboard" style="display: none; margin-top: 30px; padding: 15px;">
     <div class="bs-card" style="margin-bottom: 25px; padding: 20px; border-radius: 8px; border: 1px solid #ccc;">
-        <div class="bs-card-header d-flex justify-content-between align-items-center mb-3" style="background: #f8f9fa; padding: 10px; border-bottom: 1px solid #e0e0e0;">
+        <div class="bs-card-header d-flex justify-content-between align-items-center mb-3" style="background: #f8f9fa; padding: 10px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
             <h3 class="bec-fs-lg text-primary" style="font-weight: bold; margin: 0; color: #1a73e8;">Rajpura Quality Dashboard</h3>
-            <span class="badge badge-fill badge-primary" style="background-color: #1a73e8; color: #fff; padding: 5px 10px; border-radius: 4px;">Rajpura Plant</span>
+            <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <label style="font-weight: 600; margin-bottom: 0; color: #475569; font-size: 13px; white-space: nowrap;">Checklist Type:</label>
+                    <select id="dashboardCategorySelect" class="form-select" style="width: 220px; height: 35px; padding: 5px 10px; font-size: 13px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; cursor: pointer; background-color: #ffffff; color: #1e293b;">
+                        <option value="ALC">Area Line Clearance (ALC)</option>
+                        <option value="FoodSafety">Food Safety Checklist</option>
+                        <option value="CCP_OPRP_Sieves">CCP, OPRP & Sieves</option>
+                    </select>
+                </div>
+                <span class="badge badge-fill badge-primary" style="background-color: #1a73e8; color: #fff; padding: 5px 10px; border-radius: 4px;">Rajpura Plant</span>
+            </div>
         </div>
         <div class="bs-card-body">
             

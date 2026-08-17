@@ -13,6 +13,8 @@ async function handleALCSubmit() {
     try {
         const buttons = document.querySelectorAll("button");
         buttons.forEach(button => button.disabled = true);
+        
+        if (typeof ShowLoader === "function") ShowLoader();
 
         // 1. Collect Header Data
         const headerData = {
@@ -102,6 +104,7 @@ async function handleALCSubmit() {
         });
 
         if (collectedData.length === 0) {
+            if (typeof HideLoader === "function") HideLoader();
             alert("No data to submit.");
             buttons.forEach(button => button.disabled = false);
             return;
@@ -113,6 +116,7 @@ async function handleALCSubmit() {
         const AccessToken = typeof getAccessToken !== 'undefined' ? await getAccessToken() : null;
         if (!AccessToken) {
             console.error("No access token available. Simulating success for local dev.");
+            if (typeof HideLoader === "function") HideLoader();
             alert(`${collectedData.length} records saved successfully (Simulated)`);
             buttons.forEach(button => button.disabled = false);
             return;
@@ -131,7 +135,13 @@ async function handleALCSubmit() {
         const tableName = "cr3ea_rajpura_alcses"; // Dataverse Web API expects the plural entity set name
         const apiUrl = `${typeof environmentUrl !== 'undefined' ? environmentUrl : ''}/api/data/v${apiVersion}/${tableName}`;
 
-        for (const record of collectedData) {
+        const total = collectedData.length;
+        for (let i = 0; i < total; i++) {
+            const percent = Math.round((i / total) * 100);
+            if (typeof ShowProgressLoader === "function") {
+                ShowProgressLoader(percent, `Saving changeover records... (${i + 1} of ${total})`);
+            }
+            const record = collectedData[i];
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: headers,
@@ -145,10 +155,16 @@ async function handleALCSubmit() {
             console.log('Record saved:', await response.json());
         }
 
+        if (typeof ShowProgressLoader === "function") {
+            ShowProgressLoader(100, "Finalizing clearance submission...");
+        }
+
+        if (typeof HideLoader === "function") HideLoader();
         alert(`${collectedData.length} records saved successfully!`);
         buttons.forEach(button => button.disabled = false);
 
     } catch (error) {
+        if (typeof HideLoader === "function") HideLoader();
         console.error('Error saving records:', error);
         alert('Failed to save records. Please try again or check console for errors.');
         const buttons = document.querySelectorAll("button");
