@@ -78,7 +78,7 @@ async function handleALCSubmit() {
 
                     // 3. Map to Dataverse Schema
                     collectedData.push({
-                        "cr3ea_qualitytourid": tourId,
+                        "cr3ea_qualitytourid@odata.bind": tourId && tourId !== "N/A" ? `/cr3ea_prod_rajpura_quality_tours(${String(tourId).replace(/[{}]/g, "").trim().toLowerCase()})` : null,
                         "cr3ea_title": `ALC_${tourStartDate}`,
                         "cr3ea_cycle": `Cycle-1`, // Hardcoded to Cycle 1 as per new UI
                         "cr3ea_shift": headerData.shift,

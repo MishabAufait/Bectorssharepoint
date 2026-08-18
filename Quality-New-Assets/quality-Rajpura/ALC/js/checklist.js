@@ -311,7 +311,7 @@ const ALC_Checklist = {
                     }
 
                     const rowRecord = {
-                        "cr3ea_qualitytourid": ALC_StateMachine.currentTourId ? String(ALC_StateMachine.currentTourId).replace(/[{}]/g, "").trim().toLowerCase() : "",
+                        "cr3ea_qualitytourid@odata.bind": ALC_StateMachine.currentTourId ? `/cr3ea_prod_rajpura_quality_tours(${String(ALC_StateMachine.currentTourId).replace(/[{}]/g, "").trim().toLowerCase()})` : null,
                         "cr3ea_title": `ALC_${moment().format('MM-DD-YYYY')}`,
                         "cr3ea_cycle": `Cycle-1`,
                         "cr3ea_area": areaName,
@@ -586,7 +586,7 @@ const ALC_Checklist = {
                     }
 
                     const rowRecord = {
-                        "cr3ea_qualitytourid": ALC_StateMachine.currentTourId ? String(ALC_StateMachine.currentTourId).replace(/[{}]/g, "").trim().toLowerCase() : "",
+                        "cr3ea_qualitytourid@odata.bind": ALC_StateMachine.currentTourId ? `/cr3ea_prod_rajpura_quality_tours(${String(ALC_StateMachine.currentTourId).replace(/[{}]/g, "").trim().toLowerCase()})` : null,
                         "cr3ea_title": `ALC_${moment().format('MM-DD-YYYY')}`,
                         "cr3ea_cycle": `Cycle-1`,
                         "cr3ea_area": areaName,
