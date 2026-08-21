@@ -35,8 +35,33 @@ const MixingBaking_Checklist = {
         else if (status === "Checklist Filling") { badgeColor = "#d97706"; badgeBg = "#fef3c7"; }
         else if (status === "Completed") { badgeColor = "#16a34a"; badgeBg = "#dcfce7"; }
 
-        const dateHtml = isCompleted && cycleData
-            ? `<span class="tour-date" style="font-size: 13px; color: #64748b; font-weight: 500; margin-right: 10px;">${moment(cycleData.createdon || MixingBaking_Main.state.tourData.cr3ea_tourstartdate).format("DD/MM/YYYY")}</span>`
+        let dateStr = "";
+        if (isCompleted && cycleData) {
+            // 1. Try to parse date from the title (e.g. MixingBaking_LineN/A_Cycle-1_21-08-2026)
+            const title = cycleData.cr3ea_title || cycleData.Title || "";
+            const parts = title.split("_");
+            let parsedDate = null;
+            if (parts.length > 0) {
+                const lastPart = parts[parts.length - 1];
+                if (/^\d{2}-\d{2}-\d{4}$/.test(lastPart)) {
+                    parsedDate = moment(lastPart, "DD-MM-YYYY");
+                }
+            }
+            if (parsedDate && parsedDate.isValid()) {
+                dateStr = parsedDate.format("DD/MM/YYYY");
+            } else {
+                // 2. Fallback to createdon or parent tour start date
+                const rawDate = cycleData.createdon || (MixingBaking_Main.state.tourData ? MixingBaking_Main.state.tourData.cr3ea_tourstartdate : null);
+                if (rawDate) {
+                    dateStr = moment(rawDate).format("DD/MM/YYYY");
+                } else {
+                    dateStr = moment().format("DD/MM/YYYY");
+                }
+            }
+        }
+
+        const dateHtml = dateStr
+            ? `<span class="tour-date" style="font-size: 13px; color: #64748b; font-weight: 500; margin-right: 10px;">${dateStr}</span>`
             : '';
 
         newCycle.innerHTML = `
