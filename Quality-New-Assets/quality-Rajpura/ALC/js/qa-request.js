@@ -220,8 +220,20 @@ const ALC_QARequest = {
             if (unclearedSession) {
                 HideLoader();
                 const tourTimeStr = unclearedSession.cr3ea_tourstartdate ? moment(unclearedSession.cr3ea_tourstartdate).format("hh:mm A") : "earlier";
-                alert(`Cannot start a new tour on ${line}. The previous tour on this line (started at ${tourTimeStr}) is still pending line clearance.`);
-                return;
+                const override = confirm(`Line ${line} already has an active clearance request started at ${tourTimeStr}. Do you want to override and start a new request?`);
+                if (!override) {
+                    return;
+                }
+                ShowLoader();
+                try {
+                    await ALC_DAL.saveSession({
+                        cr3ea_prod_rajpura_quality_tourid: unclearedSession.cr3ea_prod_rajpura_quality_tourid,
+                        cr3ea_status: "Cancelled",
+                        cr3ea_processstatus: "Cancelled"
+                    });
+                } catch (e) {
+                    console.warn("Failed to cancel previous session, proceeding anyway:", e);
+                }
             }
 
             const session = await ALC_DAL.saveSession(headerData);

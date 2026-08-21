@@ -20,7 +20,8 @@ const QualityRajpura_Config = {
     // SharePoint Document Libraries
     SHAREPOINT_DOCS: {
         ALC_CORRECTIVE_ACTIONS: "ALC_CorrectiveActions_Docs",
-        CCP_OPRP_CORRECTIVE_ACTIONS: "CCP_OPRP_CorrectiveActions_Docs"
+        CCP_OPRP_CORRECTIVE_ACTIONS: "CCP_OPRP_CorrectiveActions_Docs",
+        MIXING_BAKING: "MixingBaking_Docs"
     },
 
     // Dataverse Table Names categorized by form
@@ -39,7 +40,7 @@ const QualityRajpura_Config = {
         },
         MIXING_BAKING: {
             PARENT: "cr3ea_prod_rajpura_quality_tours",
-            CHILD: ""
+            CHILD: "cr3ea_prod_rajpura_mixingandbakings"
         },
         PACKAGING_OPERATIONS: {
             PARENT: "cr3ea_prod_rajpura_quality_tours",

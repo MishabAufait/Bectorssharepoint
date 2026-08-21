@@ -18,7 +18,7 @@
     <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/css/main.min.css">
     <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/css/home-page.min.css">
     <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css">
-    <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/style.css">
+    <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/style.css?v=1.2">
 </head>
 <body>
     <div id="loading-overlay" style="display: none; position: fixed; inset: 0; background: rgba(255, 255, 255, 0.6); z-index: 99999; pointer-events: auto;"></div>
@@ -140,6 +140,12 @@
                 <div class="tour-cycle-card-panel-lists">
                     <!-- Cards will be populated dynamically -->
                 </div>
+                <!-- Complete Tour Button Container -->
+                <div id="complete-tour-btn-container" style="display: none; margin-top: 30px; padding: 20px; justify-content: center; border-top: 1px solid #e2e8f0; background: #ffffff; width: 100%; box-sizing: border-box;">
+                    <button type="button" id="complete-tour-btn" class="bs-btn" style="padding: 12px 36px; font-size: 15px; font-weight: 700; border-radius: 8px; background-color: #10b981; color: #ffffff; border: none; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2), 0 2px 4px -1px rgba(16, 185, 129, 0.1); cursor: pointer; transition: all 0.2s;" onclick="CCP_OPRP_Checklist.completeTour()">
+                        Complete Quality Tour
+                    </button>
+                </div>
             </div>
         </div>
     </main>
@@ -191,8 +197,8 @@
     
     <!-- Checklist Module Scripts -->
     <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/js/dal.js"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/js/main.js"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/js/checklist.js"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/js/main.js?v=1.2"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/js/checklist.js?v=1.6"></script>
     <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/js/workflow.js"></script>
     <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/script.js"></script>
 

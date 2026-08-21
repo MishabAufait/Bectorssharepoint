@@ -367,11 +367,16 @@ const ALC_Dashboard = {
     applyCategoryFilter: async function () {
         const isFS = this.selectedCategory === "FoodSafety";
         const isCCP = this.selectedCategory === "CCP_OPRP_Sieves";
+        const isMB = this.selectedCategory === "MixingAndBaking";
         
         // Filter raw list
         const filteredList = this.allToursRaw.filter(t => {
             const titleVal = String(t.cr3ea_title || "");
             let cleanTitle = titleVal.split("||")[0].trim();
+            
+            const isMBTitle = cleanTitle.startsWith("MixingBaking_") || cleanTitle.toLowerCase().includes("mixingbaking");
+            const isMBItem = isMBTitle;
+
             const isFSPrefix = cleanTitle.startsWith("FoodSafety_") || cleanTitle.startsWith("Food_Safety_");
             if (isFSPrefix) {
                 cleanTitle = cleanTitle.replace("FoodSafety_", "").replace("Food_Safety_", "");
@@ -388,8 +393,10 @@ const ALC_Dashboard = {
                 return isFSItem;
             } else if (isCCP) {
                 return isCCPItem;
+            } else if (isMB) {
+                return isMBItem;
             } else {
-                return !isFSItem && !isCCPItem;
+                return !isFSItem && !isCCPItem && !isMBItem;
             }
         });
 
@@ -421,6 +428,8 @@ const ALC_Dashboard = {
                     }
                 } else if (isCCP) {
                     metric4++; // Completed
+                } else if (isMB) {
+                    metric4++; // Submitted/Completed
                 }
             } else {
                 ongoingList.push(t);
@@ -431,11 +440,13 @@ const ALC_Dashboard = {
                     if (t.cr3ea_escalated === "Yes" || t.cr3ea_status === "Escalated") {
                         metric2++; // Overdue / Escalated
                     }
+                } else if (isMB) {
+                    metric3++; // In Progress
                 }
             }
         }
 
-        if (!isFS && !isCCP) {
+        if (!isFS && !isCCP && !isMB) {
             // ALC KPIs calculations
             metric2 = filteredList.filter(t => {
                 const titleVal = t.cr3ea_title || "";
@@ -525,6 +536,7 @@ const ALC_Dashboard = {
     updateKpiLabels: function () {
         const isFS = this.selectedCategory === "FoodSafety";
         const isCCP = this.selectedCategory === "CCP_OPRP_Sieves";
+        const isMB = this.selectedCategory === "MixingAndBaking";
         
         const label2 = document.getElementById("kpi-success-rate") ? document.getElementById("kpi-success-rate").previousElementSibling : null;
         const label3 = document.getElementById("kpi-open-deviations") ? document.getElementById("kpi-open-deviations").previousElementSibling : null;
@@ -538,6 +550,10 @@ const ALC_Dashboard = {
             if (label2) label2.innerText = "Overdue Tours";
             if (label3) label3.innerText = "In Progress";
             if (label4) label4.innerText = "Completed Tours";
+        } else if (isMB) {
+            if (label2) label2.innerText = "Failed Batches";
+            if (label3) label3.innerText = "In Progress";
+            if (label4) label4.innerText = "Submitted Tours";
         } else {
             if (label2) label2.innerText = "Lines On Hold";
             if (label3) label3.innerText = "Open Observations";
@@ -548,6 +564,7 @@ const ALC_Dashboard = {
     updateTableHeaders: function () {
         const isFS = this.selectedCategory === "FoodSafety";
         const isCCP = this.selectedCategory === "CCP_OPRP_Sieves";
+        const isMB = this.selectedCategory === "MixingAndBaking";
         const ongoingTable = document.getElementById("rajpura-ongoing-tbody") ? document.getElementById("rajpura-ongoing-tbody").closest("table") : null;
         const closedTable = document.getElementById("rajpura-cycles-tbody") ? document.getElementById("rajpura-cycles-tbody").closest("table") : null;
 
@@ -584,6 +601,24 @@ const ALC_Dashboard = {
                 if (headers.length >= 8) {
                     headers[1].innerText = "Verification Type";
                     headers[6].innerText = "Frequency / Product";
+                    headers[7].innerText = "Result";
+                }
+            }
+        } else if (isMB) {
+            if (ongoingTable) {
+                const headers = ongoingTable.querySelectorAll("thead th");
+                if (headers.length >= 9) {
+                    headers[1].innerText = "Checklist Form";
+                    headers[6].innerText = "Product / Batch";
+                    headers[7].innerText = "Status";
+                    headers[8].innerText = "QA / Incharge";
+                }
+            }
+            if (closedTable) {
+                const headers = closedTable.querySelectorAll("thead th");
+                if (headers.length >= 8) {
+                    headers[1].innerText = "Checklist Form";
+                    headers[6].innerText = "Product / Batch";
                     headers[7].innerText = "Result";
                 }
             }
@@ -729,6 +764,7 @@ const ALC_Dashboard = {
 
         const isFS = this.selectedCategory === "FoodSafety";
         const isCCP = this.selectedCategory === "CCP_OPRP_Sieves";
+        const isMB = this.selectedCategory === "MixingAndBaking";
         const currentUserEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? _spPageContextInfo.userEmail.toLowerCase().trim() : "";
         const currentUserName = (typeof EmployeeName !== 'undefined' && EmployeeName) ? EmployeeName.toLowerCase().trim() :
             ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? _spPageContextInfo.userDisplayName.toLowerCase().trim() : "");
@@ -816,6 +852,57 @@ const ALC_Dashboard = {
                         tr.title = "This tour is in progress by another QA and is only accessible to the assigned QA Executive.";
                         tr.onclick = null;
                     }
+                } else if (isMB) {
+                    const form = "Mixing & Baking";
+                    const qaName = t.cr3ea_assigned_qa || t.cr3ea_tourby || "N/A";
+                    const qaExec = qaName.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaName) : qaName;
+                    const prodInchargeRaw = t.cr3ea_shiftexecutiveproduction || "N/A";
+                    const prodIncharge = prodInchargeRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(prodInchargeRaw) : prodInchargeRaw;
+                    const execs = `QA: ${qaExec} | Prod: ${prodIncharge}`;
+                    
+                    const scoreDisplay = "-";
+                    const clearBadgeHtml = `<span class="badge badge-warning" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Mixing & Baking</span>`;
+                    
+                    let status = t.cr3ea_status || "In Progress";
+                    let badgeClass = "badge-warning";
+                    if (status === "Submitted" || status === "Completed") badgeClass = "badge-success";
+                    
+                    const isProgress = (String(status).toLowerCase() === "in-progress" || String(status).toLowerCase() === "in progress" || String(status).toLowerCase() === "inprogress-paused");
+                    const pendingWith = isProgress ? `QA Executive (${qaExec})` : "Completed";
+
+                    tr.innerHTML = `
+                        <td>${date}</td>
+                        <td><strong>${form}</strong></td>
+                        <td>${line}</td>
+                        <td>${shift}</td>
+                        <td style="text-align: left;">${execs}</td>
+                        <td>${scoreDisplay}</td>
+                        <td>${clearBadgeHtml}</td>
+                        <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
+                        <td style="font-weight: 500; color: #1e293b;">${pendingWith}</td>
+                    `;
+                    
+                    let isMyTask = false;
+                    const isQaStatus = (status === "In Progress" || status === "InProgress-paused" || status === "Pending QA");
+                    if (isQaStatus) {
+                        const qaEmail = String(t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
+                        const qaResolvedName = qaEmail.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaEmail).toLowerCase().trim() : qaEmail;
+                        if ((currentUserEmail && qaEmail && (currentUserEmail === qaEmail || currentUserEmail.includes(qaEmail))) ||
+                            (currentUserName && qaEmail && (currentUserName === qaEmail || currentUserName.includes(qaEmail) || qaEmail.includes(currentUserName))) ||
+                            (currentUserName && qaResolvedName && (currentUserName === qaResolvedName || currentUserName.includes(qaResolvedName) || qaResolvedName.includes(currentUserName)))) {
+                            isMyTask = true;
+                        }
+                    }
+
+                    if (isMyTask) {
+                        tr.classList.add("my-task-row");
+                    }
+
+                    tr.style.cursor = "pointer";
+                    tr.title = "Click to open Mixing & Baking checklist";
+                    tr.onclick = function () {
+                        window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/MixingAndBaking.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                    };
                 } else if (isCCP) {
                     let form = t.cr3ea_ccp_oprp_sieves_parametertype;
                     if (!form && t.cr3ea_title) {
@@ -1141,6 +1228,7 @@ const ALC_Dashboard = {
 
         const isFS = this.selectedCategory === "FoodSafety";
         const isCCP = this.selectedCategory === "CCP_OPRP_Sieves";
+        const isMB = this.selectedCategory === "MixingAndBaking";
 
         pageItems.forEach(t => {
             try {
@@ -1193,6 +1281,36 @@ const ALC_Dashboard = {
                     tr.title = "Click to open Food Safety checklist";
                     tr.onclick = function () {
                         window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/FoodSafety.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                    };
+                } else if (isMB) {
+                    const form = "Mixing & Baking";
+                    const qaName = t.cr3ea_assigned_qa || t.cr3ea_tourby || "N/A";
+                    const qaExec = qaName.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaName) : qaName;
+                    const prodInchargeRaw = t.cr3ea_shiftexecutiveproduction || "N/A";
+                    const prodIncharge = prodInchargeRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(prodInchargeRaw) : prodInchargeRaw;
+                    const execs = `QA: ${qaExec} | Prod: ${prodIncharge}`;
+                    
+                    const score = "-";
+                    const clearBadgeHtml = `<span class="badge badge-warning" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Mixing & Baking</span>`;
+                    
+                    const status = t.cr3ea_status || "Completed";
+                    let badgeClass = "badge-success";
+
+                    tr.innerHTML = `
+                        <td>${date}</td>
+                        <td><strong>${form}</strong></td>
+                        <td>${line}</td>
+                        <td>${shift}</td>
+                        <td style="text-align: left;">${execs}</td>
+                        <td><strong>${score}</strong></td>
+                        <td>${clearBadgeHtml}</td>
+                        <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
+                    `;
+                    
+                    tr.style.cursor = "pointer";
+                    tr.title = "Click to open Mixing & Baking checklist";
+                    tr.onclick = function () {
+                        window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/MixingAndBaking.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
                     };
                 } else if (isCCP) {
                     let form = t.cr3ea_ccp_oprp_sieves_parametertype;

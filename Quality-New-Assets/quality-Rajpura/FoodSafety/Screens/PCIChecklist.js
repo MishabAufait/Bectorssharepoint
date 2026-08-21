@@ -139,8 +139,8 @@ const PCIChecklistScreen = {
                 <input type="number" class="form-control pci-obs-count" id="pci-obs-count-${locIndex}-${obsIndex}" 
                        min="1" value="1" style="height: 42px; text-align: center;" placeholder="Count">
             </div>
-            <div style="width: 45px;">
-                <button type="button" class="bs-btn bs-btn-danger" style="padding: 10px; height: 42px;" onclick="PCIChecklistScreen.removeObservation(${locIndex}, ${obsIndex})">
+            <div style="width: 45px; display: flex; align-items: center; justify-content: center;">
+                <button type="button" style="background: transparent; border: none; padding: 0; width: 42px; height: 42px; font-size: 20px; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center;" onclick="PCIChecklistScreen.removeObservation(${locIndex}, ${obsIndex})">
                     🗑
                 </button>
             </div>
@@ -566,8 +566,8 @@ const PCIChecklistScreen = {
                                             <input type="number" class="form-control pci-obs-count" id="pci-obs-count-${idx}-${obsIdx}" 
                                                    min="1" value="${match.cr953_food_safety_defectcount || 1}" style="height: 42px; text-align: center;">
                                         </div>
-                                        <div style="width: 45px;">
-                                            <button type="button" class="bs-btn bs-btn-danger" style="padding: 10px; height: 42px;" onclick="PCIChecklistScreen.removeObservation(${idx}, ${obsIdx})">
+                                        <div style="width: 45px; display: flex; align-items: center; justify-content: center;">
+                                            <button type="button" style="background: transparent; border: none; padding: 0; width: 42px; height: 42px; font-size: 20px; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center;" onclick="PCIChecklistScreen.removeObservation(${idx}, ${obsIdx})">
                                                 🗑
                                             </button>
                                         </div>

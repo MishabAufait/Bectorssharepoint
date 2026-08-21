@@ -79,8 +79,8 @@ const CCP_OPRP_Checklist = {
         const rows = cycleData.rows || [];
 
         // Check if there is a metadata initialization row (draft/paused status)
-        const hasInitRow = rows.some(r => r.cr3ea_checkpointname === "Metadata Initialization");
-        const hasActualChecks = rows.some(r => r.cr3ea_checkpointname !== "Metadata Initialization" && r.cr3ea_checkpointname !== "Shutdown Closure");
+        const hasInitRow = rows.some(r => r.cr3ea_checkpointname === "Metadata Initialization" || r.cr3ea_description === "Metadata Initialization");
+        const hasActualChecks = rows.some(r => r.cr3ea_checkpointname !== "Metadata Initialization" && r.cr3ea_checkpointname !== "Shutdown Closure" && r.cr3ea_description !== "Metadata Initialization");
 
         if (hasInitRow) {
             return hasActualChecks ? "Checklist Filling - Paused" : "Checklist Filling";
@@ -182,7 +182,13 @@ const CCP_OPRP_Checklist = {
         newCycle.classList.add("bs-card", "bs-card-secondary", "tour-cycle-panel");
         newCycle.id = cycleId;
 
-        const dateStr = isCompleted && cycleData ? cycleData.sessionTime : moment().format("DD/MM/YYYY");
+        let dateStr = moment().format("DD/MM/YYYY");
+        if (isCompleted && cycleData) {
+            const rawDate = cycleData.sessionTime || (CCP_OPRP_Main.state.tourData ? CCP_OPRP_Main.state.tourData.cr3ea_tourstartdate : null);
+            if (rawDate) {
+                dateStr = moment(rawDate).format("DD/MM/YYYY");
+            }
+        }
         const status = isCompleted ? this.getCycleStatus(cycleData) : "Metadata Setup";
         const isClosedCycle = isCompleted && status !== "Checklist Filling" && status !== "Checklist Filling - Paused";
 
@@ -224,10 +230,16 @@ const CCP_OPRP_Checklist = {
                     ${stepperHtml}
                     <div class="tour-cycle-info-wrapper" style="margin-bottom: 15px;">
                         <div class="tour-cyle-start-info" style="display: flex; flex-wrap: wrap; gap: 15px; background: #f8fafc; padding: 12px; border-radius: 8px;">
-                            <div><strong>Product:</strong> ${cycleData.productName || "N/A"}</div>
-                            <div><strong>Executive:</strong> ${cycleData.executiveName || "N/A"}</div>
-                            <div><strong>Line:</strong> ${cycleData.location || "N/A"}</div>
-                            <div><strong>Response:</strong> ${cycleData.response || "OK"}</div>
+                            ${CCP_OPRP_Main.state.category === "CCP" ? `
+                                <div><strong>Product:</strong> ${cycleData.productName || "N/A"}</div>
+                                <div><strong>Executive:</strong> ${cycleData.executiveName || "N/A"}</div>
+                                <div><strong>Line:</strong> ${cycleData.location || "N/A"}</div>
+                                <div><strong>Response:</strong> ${cycleData.response || "OK"}</div>
+                            ` : `
+                                <div><strong>Executive:</strong> ${cycleData.executiveName || "N/A"}</div>
+                                <div><strong>Frequency:</strong> ${CCP_OPRP_Main.state.frequency === "4hrs" ? "4-Hour Check" : "Once a Shift (8-Hour Check)"}</div>
+                                <div><strong>Response:</strong> ${cycleData.response || "OK"}</div>
+                            `}
                         </div>
                     </div>
                     <div class="tour-cyle-step-completed">
@@ -453,19 +465,31 @@ const CCP_OPRP_Checklist = {
         const tourId = CCP_OPRP_Main.state.varTourID;
         const shift = sessionStorage.getItem("shiftValue") || "Shift-1";
 
-        const initRecord = {
-            "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${tourId})`,
-            "cr3ea_title": `${category === "CCP" ? "OPRP_CCP" : "Sieves"}_${moment().format("DD-MM-YYYY")}_Line${startData.location}_Cycle-${cycleNum}_INIT`,
-            "cr3ea_cycle": `Cycle-${cycleNum}`,
-            "cr3ea_shift": shift,
-            "cr3ea_tourstartdate": moment().format("MM-DD-YYYY"),
-            "cr3ea_observedby": CCP_OPRP_Main.state.qaExecutive,
-            "cr3ea_location": startData.location,
-            "cr3ea_productname": startData.productName,
-            "cr3ea_category": category === "CCP" ? "CCP" : "OPRP",
-            "cr3ea_checkpointname": "Metadata Initialization",
-            "cr3ea_acceptanceresponse": "In Progress"
-        };
+        let initRecord = {};
+        if (category === "CCP") {
+            initRecord = {
+                "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${tourId})`,
+                "cr3ea_title": `OPRP_CCP_${moment().format("DD-MM-YYYY")}_Line${startData.location}_Cycle-${cycleNum}_INIT`,
+                "cr3ea_cycle": `Cycle-${cycleNum}`,
+                "cr3ea_shift": shift,
+                "cr3ea_tourstartdate": moment().format("MM-DD-YYYY"),
+                "cr3ea_observedby": CCP_OPRP_Main.state.qaExecutive,
+                "cr3ea_location": startData.location,
+                "cr3ea_productname": startData.productName,
+                "cr3ea_category": "CCP",
+                "cr3ea_checkpointname": "Metadata Initialization",
+                "cr3ea_acceptanceresponse": "In Progress"
+            };
+        } else {
+            initRecord = {
+                "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${tourId})`,
+                "cr3ea_title": `Sieves_${moment().format("DD-MM-YYYY")}_Cycle-${cycleNum}_INIT`,
+                "cr3ea_cycle": `Cycle-${cycleNum}`,
+                "cr3ea_frequency": CCP_OPRP_Main.state.frequency,
+                "cr3ea_description": "Metadata Initialization",
+                "cr3ea_criteria": "In Progress"
+            };
+        }
 
         try {
             await CCP_OPRP_DAL.saveChecklistItem(initRecord, category);
@@ -545,7 +569,7 @@ const CCP_OPRP_Checklist = {
             const checkpoints = this.lineCheckpoints[line] || ["CCP (Metal Detector)"];
 
             rows.forEach(row => {
-                if (row.cr3ea_checkpointname === "Metadata Initialization") return;
+                if (row.cr3ea_checkpointname === "Metadata Initialization" || row.cr3ea_description === "Metadata Initialization") return;
                 
                 const fullName = row.cr3ea_checkpointname || "";
                 const parts = fullName.split(" - ");
@@ -573,7 +597,7 @@ const CCP_OPRP_Checklist = {
 
         // Pre-populate any checks saved in cycleData.rows (Pause/Resume support)
         rows.forEach(row => {
-            if (row.cr3ea_checkpointname === "Metadata Initialization") return;
+            if (row.cr3ea_checkpointname === "Metadata Initialization" || row.cr3ea_description === "Metadata Initialization") return;
             
             if (isCCP) {
                 const fullName = row.cr3ea_checkpointname || "";
@@ -968,30 +992,37 @@ const CCP_OPRP_Checklist = {
                         "cr3ea_frequency": CCP_OPRP_Main.state.frequency
                     };
 
-                    if (isNotOkay) {
-                        record.cr3ea_deviationstatus = "New";
-                        record.cr3ea_actiontaken = "";
-                    }
-
                     records.push(record);
                 });
             }
 
             // If the user requested to pause, append the Metadata Initialization record to preserve checklist filling state
             if (isPause) {
-                const initRecord = {
-                    "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${tourId})`,
-                    "cr3ea_title": `${category === "CCP" ? "OPRP_CCP" : "Sieves"}_${moment().format("DD-MM-YYYY")}_Line${location}_Cycle-${cycleNum}_INIT`,
-                    "cr3ea_cycle": `Cycle-${cycleNum}`,
-                    "cr3ea_shift": shift,
-                    "cr3ea_tourstartdate": moment().format("MM-DD-YYYY"),
-                    "cr3ea_observedby": CCP_OPRP_Main.state.qaExecutive,
-                    "cr3ea_location": location,
-                    "cr3ea_productname": productName,
-                    "cr3ea_category": category === "CCP" ? "CCP" : "OPRP",
-                    "cr3ea_checkpointname": "Metadata Initialization",
-                    "cr3ea_acceptanceresponse": "In Progress"
-                };
+                let initRecord = {};
+                if (category === "CCP") {
+                    initRecord = {
+                        "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${tourId})`,
+                        "cr3ea_title": `OPRP_CCP_${moment().format("DD-MM-YYYY")}_Line${location}_Cycle-${cycleNum}_INIT`,
+                        "cr3ea_cycle": `Cycle-${cycleNum}`,
+                        "cr3ea_shift": shift,
+                        "cr3ea_tourstartdate": moment().format("MM-DD-YYYY"),
+                        "cr3ea_observedby": CCP_OPRP_Main.state.qaExecutive,
+                        "cr3ea_location": location,
+                        "cr3ea_productname": productName,
+                        "cr3ea_category": "CCP",
+                        "cr3ea_checkpointname": "Metadata Initialization",
+                        "cr3ea_acceptanceresponse": "In Progress"
+                    };
+                } else {
+                    initRecord = {
+                        "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${tourId})`,
+                        "cr3ea_title": `Sieves_${moment().format("DD-MM-YYYY")}_Cycle-${cycleNum}_INIT`,
+                        "cr3ea_cycle": `Cycle-${cycleNum}`,
+                        "cr3ea_frequency": CCP_OPRP_Main.state.frequency,
+                        "cr3ea_description": "Metadata Initialization",
+                        "cr3ea_criteria": "In Progress"
+                    };
+                }
                 records.push(initRecord);
             }
 
@@ -1227,9 +1258,14 @@ const CCP_OPRP_Checklist = {
         if (deviations.length === 0) return "";
 
         let html = `
-            <div class="deviation-workflow-panel" style="margin-top: 20px; padding: 15px; border: 1px solid #fed7aa; background: #fff7ed; border-radius: 8px;">
-                <h5 style="margin-top: 0; color: #c2410c; font-weight: bold; display: flex; align-items: center; gap: 6px;">
-                    ⚠️ Quality Deviation Registered
+            <div class="deviation-workflow-panel" style="margin-top: 24px; padding: 20px; border: 1px solid #fee2e2; border-left: 4px solid #ea580c; background: #fffcfb; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);">
+                <h5 style="margin-top: 0; margin-bottom: 18px; color: #ea580c; font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; font-family: 'Outfit', 'Inter', sans-serif;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color: #ea580c;">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    Quality Deviation Registered
                 </h5>
         `;
 
@@ -1272,24 +1308,27 @@ const CCP_OPRP_Checklist = {
             }
 
             html += `
-                <div class="deviation-item" data-id="${idVal}" data-remarks="${baseRemark}" style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed #fdba74;">
-                    <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; font-weight: 700; margin-bottom: 4px;">${tabName}</div>
-                    <div style="font-weight: 700; color: #1e293b; margin-bottom: 2px; font-size: 14px;">${groupTitle}</div>
-                    <div style="font-size: 13px; color: #475569; margin-bottom: 10px; font-weight: 500; display: flex; align-items: center; gap: 5px;">
-                        <span style="display: inline-block; width: 6px; height: 6px; background: #c2410c; border-radius: 50%;"></span>
+                <div class="deviation-item" data-id="${idVal}" data-remarks="${baseRemark}" style="background: #ffffff; border: 1px solid #f3f4f6; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; border-bottom: 1px solid #f3f4f6; padding-bottom: 8px;">
+                        <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #475569; letter-spacing: 0.5px;">${tabName}</span>
+                        <span style="font-size: 12px; font-weight: 700; color: #ea580c; font-family: 'Outfit', sans-serif;">${groupTitle}</span>
+                    </div>
+                    <div style="font-size: 13px; font-weight: 600; color: #1e293b; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                        <span style="display: inline-block; width: 6px; height: 6px; background: #ef4444; border-radius: 50%;"></span>
                         ${testName}
                     </div>
-                    <div style="font-size: 13px; margin-bottom: 8px; background: #ffffff; padding: 8px 12px; border-radius: 6px; border: 1px solid #fed7aa;">
-                        <strong>QA Remarks:</strong> <span style="color: #ef4444; font-weight: 500;">${baseRemark}</span>
+                    <div style="font-size: 13px; margin-bottom: 14px; background: #fff5f5; padding: 10px 14px; border-radius: 6px; border: 1px solid #fee2e2; display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size: 10px; text-transform: uppercase; color: #ef4444; font-weight: 800; letter-spacing: 0.5px;">QA Remarks</span>
+                        <span style="color: #b91c1c; font-weight: 500; font-family: 'Inter', sans-serif;">${baseRemark}</span>
                     </div>
             `;
 
             if (status === "Pending Production Action") {
                 if (canEditAction) {
                     html += `
-                        <div class="form-group" style="margin-bottom: 10px;">
-                            <label class="form-label" style="font-size: 12px; color: #475569;">Corrective Action Plan (Production)</label>
-                            <input type="text" class="form-control deviation-action-input" placeholder="Describe corrective action taken..." style="height: 36px;" />
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label" style="font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px; display: block;">Corrective Action Plan (Production)</label>
+                            <input type="text" class="form-control deviation-action-input" placeholder="Describe corrective action taken..." style="height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 8px 12px; font-size: 13px; width: 100%; box-sizing: border-box; transition: all 0.2s;" />
                         </div>
                     `;
                 } else {
@@ -1300,15 +1339,18 @@ const CCP_OPRP_Checklist = {
             } else {
                 // Pending Re-verification, closed, or escalated
                 html += `
-                    <div style="font-size: 13px; margin-bottom: 8px;"><strong>Action Plan taken:</strong> <span style="color: #16a34a;">${dev.cr3ea_actiontaken || "No action described"}</span></div>
+                    <div style="font-size: 13px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size: 10px; text-transform: uppercase; color: #16a34a; font-weight: 800; letter-spacing: 0.5px;">Action Plan Taken</span>
+                        <span style="color: #15803d; font-weight: 600; font-family: 'Inter', sans-serif;">${dev.cr3ea_actiontaken || "No action described"}</span>
+                    </div>
                 `;
 
                 if (status === "Pending QA Re-Verification") {
                     if (canVerify) {
                         html += `
-                            <div class="form-group" style="margin-bottom: 10px;">
-                                <label class="form-label" style="font-size: 12px; color: #475569;">Re-verification Comment (QA)</label>
-                                <input type="text" class="form-control deviation-verify-input" placeholder="Enter verification comments..." style="height: 36px;" />
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label" style="font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px; display: block;">Re-verification Comment (QA)</label>
+                                <input type="text" class="form-control deviation-verify-input" placeholder="Enter verification comments..." style="height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 8px 12px; font-size: 13px; width: 100%; box-sizing: border-box; transition: all 0.2s;" />
                             </div>
                         `;
                     } else {
@@ -1319,7 +1361,10 @@ const CCP_OPRP_Checklist = {
                 } else {
                     const closureComments = remarksParts[1] || "Closed";
                     html += `
-                        <div style="font-size: 13px;"><strong>QA Closure Comments:</strong> ${closureComments}</div>
+                        <div style="font-size: 13px; display: flex; flex-direction: column; gap: 4px;">
+                            <span style="font-size: 10px; text-transform: uppercase; color: #475569; font-weight: 800; letter-spacing: 0.5px;">QA Closure Comments</span>
+                            <span style="color: #334155; font-weight: 600; font-family: 'Inter', sans-serif;">${closureComments}</span>
+                        </div>
                     `;
                 }
             }
@@ -1329,15 +1374,15 @@ const CCP_OPRP_Checklist = {
 
         if (status === "Pending Production Action" && canEditAction) {
             html += `
-                <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
-                    <button type="button" class="bs-btn bs-btn-primary btn-sm" onclick="CCP_OPRP_Checklist.submitCorrectiveActions(${cycleNum})">Submit Corrective Actions</button>
+                <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+                    <button type="button" class="bs-btn bs-btn-primary btn-sm" style="padding: 8px 16px; font-size: 12px; font-weight: 600; border-radius: 6px;" onclick="CCP_OPRP_Checklist.submitCorrectiveActions(${cycleNum})">Submit Corrective Actions</button>
                 </div>
             `;
         } else if (status === "Pending QA Re-Verification" && canVerify) {
             html += `
-                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px;">
-                    <button type="button" class="bs-btn bs-btn-outline-primary btn-sm" onclick="CCP_OPRP_Checklist.submitQAClosure(${cycleNum}, false)">Reject Actions</button>
-                    <button type="button" class="bs-btn bs-btn-primary btn-sm" onclick="CCP_OPRP_Checklist.submitQAClosure(${cycleNum}, true)">Approve & Close Cycle</button>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+                    <button type="button" class="bs-btn bs-btn-outline-primary btn-sm" style="padding: 8px 16px; font-size: 12px; font-weight: 600; border-radius: 6px;" onclick="CCP_OPRP_Checklist.submitQAClosure(${cycleNum}, false)">Reject Actions</button>
+                    <button type="button" class="bs-btn bs-btn-primary btn-sm" style="padding: 8px 16px; font-size: 12px; font-weight: 600; border-radius: 6px;" onclick="CCP_OPRP_Checklist.submitQAClosure(${cycleNum}, true)">Approve & Close Cycle</button>
                 </div>
             `;
         }
@@ -1456,6 +1501,67 @@ const CCP_OPRP_Checklist = {
             HideLoader();
             console.error("Failed to submit QA closure: ", err);
             alert("Failed to submit QA closure: " + err.message);
+        }
+    },
+
+    completeTour: async function () {
+        if (!CCP_OPRP_Main.state.varTourID) {
+            alert("No active tour found to complete.");
+            return;
+        }
+
+        const isQA = CCP_OPRP_Main.state.canEditChecklist;
+        if (!isQA) {
+            alert("Only the assigned QA Executive can complete this tour.");
+            return;
+        }
+
+        const confirmComplete = confirm("Are you sure you want to complete this Quality Tour? This will lock the tour from further edits.");
+        if (!confirmComplete) return;
+
+        ShowLoader();
+        try {
+            const category = CCP_OPRP_Main.state.category;
+            const items = await CCP_OPRP_DAL.getChecklistItems(CCP_OPRP_Main.state.varTourID, category);
+            
+            const isCCP = category === "CCP";
+
+            // Check for unresolved deviations
+            const unresolvedDeviations = items.filter(item => {
+                const resp = isCCP ? item.cr3ea_acceptanceresponse : item.cr3ea_criteria;
+                const isNotOkay = resp === "Not Okay" || (resp && resp.includes("Not Okay"));
+                return isNotOkay && item.cr3ea_deviationstatus !== "Closed";
+            });
+
+            if (unresolvedDeviations.length > 0) {
+                HideLoader();
+                const cycleList = [...new Set(unresolvedDeviations.map(d => d.cr3ea_cycle || "Cycle-1"))].sort();
+                alert(`Cannot complete the tour. The following cycles have unresolved deviations or pending QA re-verifications: ${cycleList.join(", ")}.\n\nPlease resolve all quality deviations before completing the tour.`);
+                return;
+            }
+
+            // Mark parent tour as Completed
+            const payload = {
+                cr3ea_prod_rajpura_quality_tourid: CCP_OPRP_Main.state.varTourID,
+                cr3ea_status: "Completed",
+                cr3ea_processstatus: "Completed",
+                cr3ea_tourcompletiondate: new Date().toISOString()
+            };
+
+            await CCP_OPRP_DAL.saveTourSession(payload);
+            HideLoader();
+            alert("Quality Tour completed and locked successfully!");
+            
+            // Redirect back to Home Dashboard
+            const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                : "/sites/Mrs_Bectors_PTMS/Pages/Home.aspx";
+            window.location.href = homeUrl;
+
+        } catch (err) {
+            HideLoader();
+            console.error("Failed to complete tour: ", err);
+            alert("Failed to complete tour: " + err.message);
         }
     }
 };

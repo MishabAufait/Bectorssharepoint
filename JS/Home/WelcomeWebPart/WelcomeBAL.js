@@ -555,10 +555,31 @@ async function SaveQualityDataItem() {
 
   var TourStartDateDTour = moment().format('M/D/YYYY h:mm A');
   var TourByDTour = _spPageContextInfo.userId.toString();
-  var TitleDTour = RoleName + '_' + moment().format('MM-DD-YYYY');
+  var prefix = "";
+  if (ProductValue === 'Area Line Clearance Checklist' || ProductValue === 'ALC') {
+    prefix = "ALC_";
+  } else if (ProductValue === 'Mixing And Baking') {
+    prefix = "MixingBaking_";
+  } else if (ProductValue === 'Packaging Operations') {
+    prefix = "Packaging_";
+  } else if (ProductValue === 'CCP, OPRP, Sieves & Magnets') {
+    prefix = "CCP_";
+  } else if (ProductValue === 'Food Safety') {
+    prefix = "FoodSafety_";
+  }
+  var TitleDTour = prefix + RoleName + '_' + moment().format('MM-DD-YYYY');
   var AccessToken = await getAccessToken();
-  var tableName = (ProductValue === 'Area Line Clearance Checklist' || ProductValue === 'ALC') && 
-      (typeof Plantid !== 'undefined' && Plantid == QualityRajpura_Config.PLANT_ID) ? QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR : "cr3ea_prod_qualitytours";
+  const isRajpuraChecklist = (
+      ProductValue === 'Area Line Clearance Checklist' || 
+      ProductValue === 'ALC' || 
+      ProductValue === 'Mixing And Baking' || 
+      ProductValue === 'Packaging Operations' || 
+      ProductValue === 'CCP, OPRP, Sieves & Magnets' || 
+      ProductValue === 'Food Safety'
+  );
+  var tableName = (isRajpuraChecklist && typeof Plantid !== 'undefined' && Plantid == QualityRajpura_Config.PLANT_ID) 
+      ? QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR 
+      : "cr3ea_prod_qualitytours";
   var apiVersion = "9.2";
   var apiUrl = environmentUrl + "/api/data/v" + apiVersion + "/" + tableName;
 
@@ -600,14 +621,19 @@ async function SaveQualityDataItem() {
       });
 
       let data = await response.json();
-      var UniqueValID = data.cr3ea_prod_qualitytourid;
+      var UniqueValID = (tableName === QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR)
+          ? data.cr3ea_prod_rajpura_quality_tourid
+          : data.cr3ea_prod_qualitytourid;
       SaveQTourItemSuccess(UniqueValID);
 
       if (!response.ok) {
         throw new Error(`Error: ${response.statusText}`);
       }
     } else {
-      SaveQTourItemSuccess(plant_tour_res.value[0].cr3ea_prod_qualitytourid);
+      const existingId = (tableName === QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR)
+          ? plant_tour_res.value[0].cr3ea_prod_rajpura_quality_tourid
+          : plant_tour_res.value[0].cr3ea_prod_qualitytourid;
+      SaveQTourItemSuccess(existingId);
     }
   }
 }
@@ -616,14 +642,19 @@ async function SaveQualityDataItem() {
 async function SaveBakeryDataItem() {
   const shiftSelect = document.getElementById("shiftSelect");
   const selectedText = shiftSelect.options[shiftSelect.selectedIndex].text;
+  var ProductValue = $('#tourSelect').val() || "";
 
   localStorage.setItem("shiftValue", selectedText);
 
   var TourStartDateDTour = moment().format('M/D/YYYY h:mm A');
   var TourByDTour = _spPageContextInfo.userId.toString();
-  var TitleDTour = RoleName + '_' + moment().format('MM-DD-YYYY');
+  var isMixingTour = (ProductValue === 'Mixing' || ProductValue === 'Mixing And Baking' || ProductValue === 'MixingAndBaking' || ProductValue.toLowerCase().includes('mixing'));
+  var prefix = isMixingTour ? "MixingBaking_" : "";
+  var TitleDTour = prefix + RoleName + '_' + moment().format('MM-DD-YYYY');
   var AccessToken = await getAccessToken();
-  var tableName = "cr3ea_prod_qualitytours";
+  var tableName = (isMixingTour && typeof Plantid !== 'undefined' && Plantid == QualityRajpura_Config.PLANT_ID)
+      ? QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR 
+      : "cr3ea_prod_qualitytours";
   var apiVersion = "9.2";
   var apiUrl = environmentUrl + "/api/data/v" + apiVersion + "/" + tableName;
 
@@ -663,14 +694,19 @@ async function SaveBakeryDataItem() {
       });
 
       let data = await response.json();
-      var UniqueValID = data.cr3ea_prod_qualitytourid;
+      var UniqueValID = (tableName === QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR)
+          ? data.cr3ea_prod_rajpura_quality_tourid
+          : data.cr3ea_prod_qualitytourid;
       SaveBTourItemSuccess(UniqueValID);
 
       if (!response.ok) {
         throw new Error(`Error: ${response.statusText}`);
       }
     } else {
-      SaveBTourItemSuccess(plant_tour_res.value[0].cr3ea_prod_qualitytourid);
+      const existingId = (tableName === QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR)
+          ? plant_tour_res.value[0].cr3ea_prod_rajpura_quality_tourid
+          : plant_tour_res.value[0].cr3ea_prod_qualitytourid;
+      SaveBTourItemSuccess(existingId);
     }
   }
 }
@@ -755,7 +791,11 @@ function SaveBTourItemSuccess(ID) {
     newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Coding.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Mixing') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Mixing.aspx?TourId=" + QualityTourId;
+    if (typeof Plantid !== 'undefined' && Plantid == QualityRajpura_Config.PLANT_ID) {
+      newUrl = "/sites/Mrs_Bectors_PTMS/Pages/MixingAndBaking.aspx?TourId=" + QualityTourId;
+    } else {
+      newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Mixing.aspx?TourId=" + QualityTourId;
+    }
   }
   else if (ProductValue == 'Process Format') {
     newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Processformat.aspx?TourId=" + QualityTourId;

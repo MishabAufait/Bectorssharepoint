@@ -72,6 +72,13 @@ const CCP_OPRP_Main = {
                 document.querySelector(".tour-header-title").innerText = `${titleText} (RAJPURA)`;
 
                 await this.loadCyclesHistory();
+
+                // Toggle complete tour button visibility
+                const compContainer = document.getElementById("complete-tour-btn-container");
+                if (compContainer) {
+                    const isCompleted = this.state.tourData.cr3ea_status === "Completed" || this.state.tourData.cr3ea_status === "Success" || this.state.tourData.cr3ea_status === "Closed";
+                    compContainer.style.display = (isCompleted || !this.state.canEditChecklist) ? "none" : "flex";
+                }
             } else {
                 // Tour exists but parameters are not set yet, show setup form
                 this.renderSetupForm();
@@ -428,7 +435,11 @@ const CCP_OPRP_Main = {
                 if (item.cr3ea_productname) grouped[cycleNum].productName = item.cr3ea_productname;
                 if (item.cr3ea_executivename) grouped[cycleNum].executiveName = item.cr3ea_executivename;
                 if (item.cr3ea_location) grouped[cycleNum].location = item.cr3ea_location;
-                if (item.cr3ea_tourstartdate) grouped[cycleNum].sessionTime = item.cr3ea_tourstartdate;
+                if (item.cr3ea_tourstartdate) {
+                    grouped[cycleNum].sessionTime = item.cr3ea_tourstartdate;
+                } else if (item.createdon) {
+                    grouped[cycleNum].sessionTime = item.createdon;
+                }
                 if (item.cr3ea_acceptanceresponse && item.cr3ea_acceptanceresponse !== "In Progress") {
                     grouped[cycleNum].response = item.cr3ea_acceptanceresponse;
                 }

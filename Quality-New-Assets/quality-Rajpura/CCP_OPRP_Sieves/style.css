@@ -171,3 +171,26 @@
     min-width: 0;
     padding: 15px;
 }
+
+/* Ensure the body container renders in a vertical flow so bottom buttons align properly */
+#rajpuraQualityDashboard .plan-tour-body {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+}
+
+/* Complete Tour Button Hover Effects */
+#complete-tour-btn {
+    transition: all 0.2s ease-in-out !important;
+}
+
+#complete-tour-btn:hover {
+    background-color: #059669 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 8px -1px rgba(16, 185, 129, 0.3), 0 3px 6px -1px rgba(16, 185, 129, 0.15) !important;
+}
+
+#complete-tour-btn:active {
+    background-color: #047857 !important;
+    transform: translateY(0);
+}
