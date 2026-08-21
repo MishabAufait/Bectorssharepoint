@@ -510,5 +510,31 @@ const MixingBaking_DAL = {
         }
 
         return await response.json();
+    },
+
+    // Retrieve uploaded files from SharePoint for completed cycle
+    getCycleAttachments: async function (tourId, cycleNum) {
+        const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
+        const libraryName = QualityRajpura_Config.SHAREPOINT_DOCS.MIXING_BAKING;
+        const cleanTourId = tourId ? String(tourId).replace(/[{}]/g, "").trim().toLowerCase() : "";
+
+        if (!webUrl) {
+            console.warn("Local mock environment. Returning empty attachments.");
+            return [];
+        }
+
+        const url = `${webUrl}/_api/web/lists/getByTitle('${libraryName}')/items?$select=Id,Title,FileRef&$filter=QualityTourId eq '${cleanTourId}' and Cycle eq 'Cycle-${cycleNum}'`;
+        
+        try {
+            const response = await $.ajax({
+                url: url,
+                method: "GET",
+                headers: { "Accept": "application/json; odata=verbose" }
+            });
+            return response.d.results || [];
+        } catch (err) {
+            console.error("Failed to fetch attachments:", err);
+            return [];
+        }
     }
 };

@@ -36,6 +36,9 @@ const CCP_OPRP_Main = {
     },
 
     init: async function () {
+        // Save last visited dashboard category
+        localStorage.setItem("lastVisitedDashboard", "CCP_OPRP_Sieves");
+
         this.state.varTourID = this.getQueryStringParam("TourId");
         
         try {
@@ -460,13 +463,19 @@ const CCP_OPRP_Main = {
                 this.state.cycleCounter = 1;
             }
 
-            // Render current active cycle
-            CCP_OPRP_Checklist.renderCycleSection(this.state.cycleCounter, false);
+            // Render current active cycle ONLY if parent tour is not completed
+            const isTourCompleted = this.state.tourData?.cr3ea_status === "Completed" || this.state.tourData?.cr3ea_status === "Success" || this.state.tourData?.cr3ea_status === "Closed";
+            if (!isTourCompleted) {
+                CCP_OPRP_Checklist.renderCycleSection(this.state.cycleCounter, false);
+            }
             
         } catch (e) {
             console.error("Failed to load cycles history: ", e);
-            // Render at least Cycle-1 on error
-            CCP_OPRP_Checklist.renderCycleSection(1, false);
+            // Render at least Cycle-1 on error if not completed
+            const isTourCompleted = this.state.tourData?.cr3ea_status === "Completed" || this.state.tourData?.cr3ea_status === "Success" || this.state.tourData?.cr3ea_status === "Closed";
+            if (!isTourCompleted) {
+                CCP_OPRP_Checklist.renderCycleSection(1, false);
+            }
         }
     },
 

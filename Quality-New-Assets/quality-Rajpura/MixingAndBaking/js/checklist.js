@@ -21,13 +21,30 @@ const MixingBaking_Checklist = {
             ? "max-height: 0px !important; height: 0px !important; overflow: hidden !important; display: block !important;"
             : "max-height: none !important; height: auto !important; overflow: visible !important; display: block !important;";
 
+        // Resolve status dynamically to match CCP/OPRP badges
+        let status = "Metadata Setup";
+        if (isCompleted) {
+            status = "Completed";
+        } else if (MixingBaking_Main.state.product) {
+            status = "Checklist Filling";
+        }
+
+        let badgeColor = "#64748b";
+        let badgeBg = "#f1f5f9";
+        if (status === "Metadata Setup") { badgeColor = "#2563eb"; badgeBg = "#dbeafe"; }
+        else if (status === "Checklist Filling") { badgeColor = "#d97706"; badgeBg = "#fef3c7"; }
+        else if (status === "Completed") { badgeColor = "#16a34a"; badgeBg = "#dcfce7"; }
+
         const dateHtml = isCompleted && cycleData
             ? `<span class="tour-date" style="font-size: 13px; color: #64748b; font-weight: 500; margin-right: 10px;">${moment(cycleData.createdon || MixingBaking_Main.state.tourData.cr3ea_tourstartdate).format("DD/MM/YYYY")}</span>`
             : '';
 
         newCycle.innerHTML = `
             <div class="bs-card-header" onclick="MixingBaking_Checklist.togglePanel(${cycleNum})" style="display: ${showHeader ? 'flex' : 'none'}; justify-content: space-between; align-items: center; width: 100%;">
-                <h4 class="bs-card-title" style="margin: 0;">Cycle ${cycleNum}</h4>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <h4 class="bs-card-title" style="margin: 0;">Cycle ${cycleNum}</h4>
+                    <span class="badge" style="background-color: ${badgeBg}; color: ${badgeColor}; font-weight: 600; padding: 4px 8px; border-radius: 4px; font-size: 11px;">${status}</span>
+                </div>
                 <div style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
                     ${dateHtml}
                     <button type="button" class="bs-btn icon-btn bs-card-toggler-btn" style="padding: 0; background: transparent; border: none;">
@@ -38,6 +55,19 @@ const MixingBaking_Checklist = {
                 </div>
             </div>
             <div class="bs-card-body" style="${initialBodyStyle}">
+                <!-- Stepper matching CCP/OPRP -->
+                ${!isCompleted ? `
+                <div class="stepper-wrapper" style="margin-bottom: 20px;">
+                    <div style="display: flex; gap: 10px; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 15px; font-size: 13px;">
+                        <span class="stepper-item ${!MixingBaking_Main.state.product ? 'active' : ''}" style="font-weight: ${!MixingBaking_Main.state.product ? '700' : '500'}; color: ${!MixingBaking_Main.state.product ? '#2563eb' : '#64748b'}; background: ${!MixingBaking_Main.state.product ? '#dbeafe' : 'transparent'}; padding: 4px 10px; border-radius: 4px;">1. Setup Info</span>
+                        <span style="color: #cbd5e1;">➔</span>
+                        <span class="stepper-item ${MixingBaking_Main.state.product ? 'active' : ''}" style="font-weight: ${MixingBaking_Main.state.product ? '700' : '500'}; color: ${MixingBaking_Main.state.product ? '#2563eb' : '#64748b'}; background: ${MixingBaking_Main.state.product ? '#dbeafe' : 'transparent'}; padding: 4px 10px; border-radius: 4px;">2. Checklist Fill</span>
+                        <span style="color: #cbd5e1;">➔</span>
+                        <span class="stepper-item" style="font-weight: 500; color: #64748b; padding: 4px 10px; border-radius: 4px;">3. Completed</span>
+                    </div>
+                </div>
+                ` : ''}
+
                 <!-- STEP 1: START CYCLE FORM -->
                 <div class="tour-cyle-step tour-cyle-step-start bs-fade-elem ${isCompleted ? '' : 'bs-fade-active bs-fade-in'}" id="start-step-${cycleNum}" style="display: ${isCompleted ? 'none' : 'block'};">
                     <form class="tour-cyle-info-form">
@@ -697,35 +727,38 @@ const MixingBaking_Checklist = {
         const val = (v) => v && String(v).trim() ? v : '-';
 
         completedDiv.innerHTML = `
-            <div class="mb-completed-wrapper" style="background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); border-radius: 12px; padding: 20px; margin-top: 15px;">
-                <div class="mb-completed-header" style="border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
-                    <h5 style="margin: 0; font-size: 15px; font-weight: 700; color: #1e293b;">Cycle ${cycleNum} Saved Details Summary</h5>
-                    <span class="badge badge-success" style="background-color: #10b981; color: white; padding: 5px 10px; border-radius: 50px; font-weight: 600; font-size: 11px;">Submitted</span>
+            <div class="mb-completed-wrapper" style="background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); border-radius: 12px; padding: 24px; margin-top: 15px;">
+                <div class="mb-completed-header" style="border-bottom: 1px solid #f1f5f9; padding-bottom: 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <h5 style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;">Cycle ${cycleNum} Saved Details Summary</h5>
+                    <span class="badge" style="background-color: #dcfce7; color: #16a34a; padding: 6px 12px; border-radius: 50px; font-weight: 600; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
+                        <span style="width: 6px; height: 6px; background: #16a34a; border-radius: 50%;"></span>
+                        Submitted
+                    </span>
                 </div>
 
-                <!-- TAB NAVIGATION FOR COMPLETED CYCLE -->
-                <div class="mb-tabs-nav" style="display: flex; gap: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 15px; flex-wrap: wrap;">
-                    <button type="button" class="mb-tab-btn active comp-tab-btn-${cycleNum}" style="background: #2563eb; color: white; border: 1px solid #2563eb; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;" onclick="MixingBaking_Checklist.switchCompletedTab(this, ${cycleNum}, 'comp-ing-q-${cycleNum}')">1. Ingredient Quality</button>
-                    <button type="button" class="mb-tab-btn comp-tab-btn-${cycleNum}" style="background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;" onclick="MixingBaking_Checklist.switchCompletedTab(this, ${cycleNum}, 'comp-mat-q-${cycleNum}')">2. Material Quality</button>
-                    <button type="button" class="mb-tab-btn comp-tab-btn-${cycleNum}" style="background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;" onclick="MixingBaking_Checklist.switchCompletedTab(this, ${cycleNum}, 'comp-mix-f-${cycleNum}')">3. Mixing & Forming</button>
-                    <button type="button" class="mb-tab-btn comp-tab-btn-${cycleNum}" style="background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;" onclick="MixingBaking_Checklist.switchCompletedTab(this, ${cycleNum}, 'comp-bake-s-${cycleNum}')">4. Baking & Standards</button>
+                <!-- TAB NAVIGATION FOR COMPLETED CYCLE (Modern segmented control) -->
+                <div class="mb-tabs-nav" style="display: flex; gap: 4px; padding: 4px; background: #f1f5f9; border-radius: 8px; margin-bottom: 20px; width: 100%; box-sizing: border-box;">
+                    <button type="button" class="mb-tab-btn active comp-tab-btn-${cycleNum}" style="flex: 1; border: none; background: #ffffff; color: #1e293b; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);" onclick="MixingBaking_Checklist.switchCompletedTab(this, ${cycleNum}, 'comp-ing-q-${cycleNum}')">1. Ingredient Quality</button>
+                    <button type="button" class="mb-tab-btn comp-tab-btn-${cycleNum}" style="flex: 1; border: none; background: transparent; color: #475569; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; text-align: center;" onclick="MixingBaking_Checklist.switchCompletedTab(this, ${cycleNum}, 'comp-mat-q-${cycleNum}')">2. Material Quality</button>
+                    <button type="button" class="mb-tab-btn comp-tab-btn-${cycleNum}" style="flex: 1; border: none; background: transparent; color: #475569; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; text-align: center;" onclick="MixingBaking_Checklist.switchCompletedTab(this, ${cycleNum}, 'comp-mix-f-${cycleNum}')">3. Mixing & Forming</button>
+                    <button type="button" class="mb-tab-btn comp-tab-btn-${cycleNum}" style="flex: 1; border: none; background: transparent; color: #475569; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; text-align: center;" onclick="MixingBaking_Checklist.switchCompletedTab(this, ${cycleNum}, 'comp-bake-s-${cycleNum}')">4. Baking & Standards</button>
                 </div>
                 
                 <div class="summary-sections-container" style="color: #334155; line-height: 1.5;">
                     
                     <!-- TAB 1: INGREDIENT QUALITY -->
-                    <div class="comp-tab-pane-${cycleNum}" id="comp-ing-q-${cycleNum}" style="display: block; border: 1px solid #f1f5f9; border-radius: 8px; background: #fafafa; padding: 15px;">
+                    <div class="comp-tab-pane-${cycleNum}" id="comp-ing-q-${cycleNum}" style="display: block; border: 1px solid #f1f5f9; border-radius: 8px; background: #fafafa; padding: 16px;">
                         <h6 style="margin-top: 0; margin-bottom: 12px; font-size: 13px; color: #2563eb; font-weight: 700; border-left: 3px solid #2563eb; padding-left: 8px; text-transform: uppercase; letter-spacing: 0.5px;">1. Ingredient Quality & Temperatures</h6>
                         
-                        <div class="table-responsive" style="margin-bottom: 12px;">
-                            <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; background: white; border: 1px solid #e2e8f0;">
+                        <div class="table-responsive" style="margin-bottom: 12px; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; background: white;">
                                 <thead>
                                     <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-                                        <th style="padding: 8px; font-weight: 600;">Ingredient</th>
-                                        <th style="padding: 8px; font-weight: 600;">Standard</th>
-                                        <th style="padding: 8px; font-weight: 600;">Observed</th>
-                                        <th style="padding: 8px; font-weight: 600;">Remarks</th>
-                                        <th style="padding: 8px; font-weight: 600;">Action Taken</th>
+                                        <th style="padding: 10px 12px; font-weight: 600; color: #475569;">Ingredient</th>
+                                        <th style="padding: 10px 12px; font-weight: 600; color: #475569;">Standard</th>
+                                        <th style="padding: 10px 12px; font-weight: 600; color: #475569;">Observed</th>
+                                        <th style="padding: 10px 12px; font-weight: 600; color: #475569;">Remarks</th>
+                                        <th style="padding: 10px 12px; font-weight: 600; color: #475569;">Action Taken</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -738,22 +771,22 @@ const MixingBaking_Checklist = {
                                         { label: "Slurry", key: "cr3ea_slurry" },
                                         { label: "Ground Sugar Temp", key: "cr3ea_groundsugartemp" },
                                         { label: "Ground Sugar Particle", key: "cr3ea_groundsugarparticlesize" }
-                                    ].map(item => `
-                                        <tr style="border-bottom: 1px solid #f1f5f9;">
-                                            <td style="padding: 8px; font-weight: 600; color: #475569;">${item.label}</td>
-                                            <td style="padding: 8px;">${val(cycleData[item.key + "standard"])}</td>
-                                            <td style="padding: 8px;">${val(cycleData[item.key + "observed"])}</td>
-                                            <td style="padding: 8px;">${val(cycleData[item.key + "remarks"])}</td>
-                                            <td style="padding: 8px;">${val(cycleData[item.key + "actiontaken"])}</td>
+                                    ].map((item, idx) => `
+                                        <tr style="border-bottom: 1px solid #f1f5f9; background: ${idx % 2 === 0 ? '#ffffff' : '#fcfcfc'};">
+                                            <td style="padding: 10px 12px; font-weight: 600; color: #1e293b;">${item.label}</td>
+                                            <td style="padding: 10px 12px; color: #334155;">${val(cycleData[item.key + "standard"])}</td>
+                                            <td style="padding: 10px 12px; font-weight: 600; color: #0f172a;">${val(cycleData[item.key + "observed"])}</td>
+                                            <td style="padding: 10px 12px; color: #64748b;">${val(cycleData[item.key + "remarks"])}</td>
+                                            <td style="padding: 10px 12px; color: #64748b;">${val(cycleData[item.key + "actiontaken"])}</td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
                             </table>
                         </div>
 
-                        <div class="minor-summary">
-                            <span style="font-weight: 600; font-size: 11px; display: block; margin-bottom: 6px; color: #475569;">Minor Ingredients:</span>
-                            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                        <div class="minor-summary" style="margin-top: 16px; background: white; border: 1px solid #e2e8f0; padding: 12px 16px; border-radius: 8px;">
+                            <span style="font-weight: 700; font-size: 11px; display: block; margin-bottom: 8px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Minor Ingredients Checklist:</span>
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                                 ${[
                                     { label: "Cocoa Powder", key: "cr3ea_cocoapowderdone" },
                                     { label: "SMP", key: "cr3ea_smpdone" },
@@ -764,60 +797,130 @@ const MixingBaking_Checklist = {
                                     { label: "Others", key: "cr3ea_othersdone" }
                                 ].map(item => {
                                     const isDone = cycleData[item.key] === "Done";
-                                    const bg = isDone ? "#e8f5e9" : "#ffebee";
-                                    const color = isDone ? "#2e7d32" : "#c62828";
-                                    return `<span style="padding: 3px 6px; border-radius: 4px; font-size: 11px; background: ${bg}; color: ${color}; font-weight: 600;">${item.label}: ${cycleData[item.key] || 'Not Done'}</span>`;
+                                    const bg = isDone ? "#dcfce7" : "#fee2e2";
+                                    const color = isDone ? "#15803d" : "#b91c1c";
+                                    return `<span style="padding: 4px 8px; border-radius: 6px; font-size: 11px; background: ${bg}; color: ${color}; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                                        <span style="width: 5px; height: 5px; background: ${color}; border-radius: 50%;"></span>
+                                        ${item.label}: ${cycleData[item.key] || 'Not Done'}
+                                    </span>`;
                                 }).join('')}
                             </div>
                         </div>
                     </div>
 
                     <!-- TAB 2: MATERIAL QUALITY -->
-                    <div class="comp-tab-pane-${cycleNum}" id="comp-mat-q-${cycleNum}" style="display: none; border: 1px solid #f1f5f9; border-radius: 8px; background: #fafafa; padding: 15px;">
+                    <div class="comp-tab-pane-${cycleNum}" id="comp-mat-q-${cycleNum}" style="display: none; border: 1px solid #f1f5f9; border-radius: 8px; background: #fafafa; padding: 16px;">
                         <h6 style="margin-top: 0; margin-bottom: 12px; font-size: 13px; color: #2563eb; font-weight: 700; border-left: 3px solid #2563eb; padding-left: 8px; text-transform: uppercase; letter-spacing: 0.5px;">2. Material Quality & Sponge</h6>
                         
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; font-size: 12px;">
-                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px;">
-                                <span style="font-weight: 700; color: #334155; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px; margin-bottom: 6px;">Supplier Details</span>
-                                <div style="margin-bottom: 4px;"><strong>Flour Supplier:</strong> ${val(cycleData.cr3ea_floursupplier)}</div>
-                                <div style="margin-bottom: 4px;"><strong>Choco Chips:</strong> ${cycleData.cr3ea_chocochipssupplier ? `${cycleData.cr3ea_chocochipssupplier} | Temp: ${val(cycleData.cr3ea_chocochipstemp)}°C | Count: ${val(cycleData.cr3ea_chocochipscountperkg)}/kg | ${val(cycleData.cr3ea_chocochipscompoundorpure)}` : '-'}</div>
-                                <div><strong>Cashew:</strong> ${cycleData.cr3ea_cashewsupplier ? `${cycleData.cr3ea_cashewsupplier} | Temp: ${val(cycleData.cr3ea_cashewtemp)}°C | Count: ${val(cycleData.cr3ea_cashewcountperkg)}/kg | ${val(cycleData.cr3ea_cashewcompoundorpure)}` : '-'}</div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; font-size: 12px;">
+                            <!-- Supplier Details -->
+                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 12px;">
+                                <span style="font-weight: 700; font-size: 13px; color: #1e293b; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 4px;">Supplier Details</span>
+                                <div>
+                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Flour Supplier</div>
+                                    <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_floursupplier)}</div>
+                                </div>
+                                <div style="border-top: 1px solid #f8fafc; padding-top: 8px;">
+                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Choco Chips Supplier</div>
+                                    ${cycleData.cr3ea_chocochipssupplier ? `
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${cycleData.cr3ea_chocochipssupplier}</div>
+                                        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 11px; color: #475569;">
+                                            <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Temp: <strong>${val(cycleData.cr3ea_chocochipstemp)}°C</strong></span>
+                                            <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Count: <strong>${val(cycleData.cr3ea_chocochipscountperkg)}/kg</strong></span>
+                                            <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Type: <strong>${val(cycleData.cr3ea_chocochipscompoundorpure)}</strong></span>
+                                        </div>
+                                    ` : '<div style="color: #94a3b8; font-size: 12px; font-style: italic; margin-top: 2px;">No Choco Chips data</div>'}
+                                </div>
+                                <div style="border-top: 1px solid #f8fafc; padding-top: 8px;">
+                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Cashew Supplier</div>
+                                    ${cycleData.cr3ea_cashewsupplier ? `
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${cycleData.cr3ea_cashewsupplier}</div>
+                                        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 11px; color: #475569;">
+                                            <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Temp: <strong>${val(cycleData.cr3ea_cashewtemp)}°C</strong></span>
+                                            <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Count: <strong>${val(cycleData.cr3ea_cashewcountperkg)}/kg</strong></span>
+                                            <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Type: <strong>${val(cycleData.cr3ea_cashewcompoundorpure)}</strong></span>
+                                        </div>
+                                    ` : '<div style="color: #94a3b8; font-size: 12px; font-style: italic; margin-top: 2px;">No Cashew data</div>'}
+                                </div>
                             </div>
 
-                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px;">
-                                <span style="font-weight: 700; color: #334155; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px; margin-bottom: 6px;">Syrups & Liquids</span>
-                                <div style="margin-bottom: 4px;"><strong>Invert Syrup:</strong> Temp: ${val(cycleData.cr3ea_invertsyruptemp)}°C | pH: ${val(cycleData.cr3ea_invertsyrupph)} | Brix: ${val(cycleData.cr3ea_invertsyrupbrix)}</div>
-                                <div><strong>Blackjack (2nd):</strong> Temp: ${val(cycleData.cr3ea_blackjack2temp)}°C | pH: ${val(cycleData.cr3ea_blackjack2ph)} | Brix: ${val(cycleData.cr3ea_blackjack2brix)}</div>
+                            <!-- Syrups & Liquids -->
+                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 12px;">
+                                <span style="font-weight: 700; font-size: 13px; color: #1e293b; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 4px;">Syrups & Liquids</span>
+                                <div>
+                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Invert Syrup</div>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 11px; color: #475569;">
+                                        <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Temp: <strong>${val(cycleData.cr3ea_invertsyruptemp)}°C</strong></span>
+                                        <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">pH: <strong>${val(cycleData.cr3ea_invertsyrupph)}</strong></span>
+                                        <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Brix: <strong>${val(cycleData.cr3ea_invertsyrupbrix)}</strong></span>
+                                    </div>
+                                </div>
+                                <div style="border-top: 1px solid #f8fafc; padding-top: 12px;">
+                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Blackjack (2nd Stage)</div>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 11px; color: #475569;">
+                                        <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Temp: <strong>${val(cycleData.cr3ea_blackjack2temp)}°C</strong></span>
+                                        <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">pH: <strong>${val(cycleData.cr3ea_blackjack2ph)}</strong></span>
+                                        <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Brix: <strong>${val(cycleData.cr3ea_blackjack2brix)}</strong></span>
+                                    </div>
+                                </div>
                             </div>
 
-                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; grid-column: 1 / -1;">
-                                <span style="font-weight: 700; color: #334155; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px; margin-bottom: 8px;">Mixing Sponge Parameters</span>
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px;">
-                                    <div><strong>Sponge Name:</strong> ${val(cycleData.cr3ea_spongeproductname)}</div>
-                                    <div><strong>Water Qty:</strong> ${val(cycleData.cr3ea_spongewaterquantity)}</div>
-                                    <div><strong>Yeast Qty:</strong> ${val(cycleData.cr3ea_spongeyeastquantity)}</div>
-                                    <div><strong>Water Temp:</strong> ${val(cycleData.cr3ea_spongewatertemp)}°C</div>
-                                    <div><strong>Mixing Time:</strong> ${val(cycleData.cr3ea_spongemixingtime)} min</div>
-                                    <div><strong>Ferm. Start Temp:</strong> ${val(cycleData.cr3ea_fermentationstarttemp)}°C</div>
-                                    <div><strong>Ferm. Room Temp:</strong> ${val(cycleData.cr3ea_fermentationroomtemp)}°C</div>
-                                    <div><strong>Final Temp:</strong> ${val(cycleData.cr3ea_finaltempafterfermentation)}°C</div>
-                                    <div><strong>Final pH:</strong> ${val(cycleData.cr3ea_finalphafterfermentation)}</div>
+                            <!-- Sponge Parameters -->
+                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; grid-column: 1 / -1; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                                <span style="font-weight: 700; font-size: 13px; color: #1e293b; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 12px;">Mixing Sponge Parameters</span>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Sponge Name</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_spongeproductname)}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Water Quantity</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_spongewaterquantity)}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Yeast Quantity</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_spongeyeastquantity)}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Water Temp</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_spongewatertemp)}°C</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Mixing Time</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_spongemixingtime)} min</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Fermentation Start Temp</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_fermentationstarttemp)}°C</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Fermentation Room Temp</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_fermentationroomtemp)}°C</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Final Temp (After Ferm)</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_finaltempafterfermentation)}°C</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Final pH</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_finalphafterfermentation)}</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- TAB 3: MIXING & FORMING -->
-                    <div class="comp-tab-pane-${cycleNum}" id="comp-mix-f-${cycleNum}" style="display: none; border: 1px solid #f1f5f9; border-radius: 8px; background: #fafafa; padding: 15px;">
+                    <div class="comp-tab-pane-${cycleNum}" id="comp-mix-f-${cycleNum}" style="display: none; border: 1px solid #f1f5f9; border-radius: 8px; background: #fafafa; padding: 16px;">
                         <h6 style="margin-top: 0; margin-bottom: 12px; font-size: 13px; color: #2563eb; font-weight: 700; border-left: 3px solid #2563eb; padding-left: 8px; text-transform: uppercase; letter-spacing: 0.5px;">3. Mixing Dough & Forming Stage</h6>
                         
-                        <div class="table-responsive" style="margin-bottom: 12px;">
-                            <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; background: white; border: 1px solid #e2e8f0;">
+                        <div class="table-responsive" style="margin-bottom: 12px; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; background: white;">
                                 <thead>
                                     <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-                                        <th style="padding: 8px; font-weight: 600;">Dough Parameter</th>
-                                        <th style="padding: 8px; font-weight: 600;">Standard</th>
-                                        <th style="padding: 8px; font-weight: 600;">Observed</th>
+                                        <th style="padding: 10px 12px; font-weight: 600; color: #475569;">Dough Parameter</th>
+                                        <th style="padding: 10px 12px; font-weight: 600; color: #475569;">Standard</th>
+                                        <th style="padding: 10px 12px; font-weight: 600; color: #475569;">Observed</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -828,125 +931,242 @@ const MixingBaking_Checklist = {
                                         { label: "Jacket of Mixer Temperature", key: "cr3ea_jackettemp" },
                                         { label: "Dough Consistency", key: "cr3ea_doughconsistency" },
                                         { label: "Dough Standing Time", key: "cr3ea_doughstandingtime" }
-                                    ].map(item => `
-                                        <tr style="border-bottom: 1px solid #f1f5f9;">
-                                            <td style="padding: 8px; font-weight: 600; color: #475569;">${item.label}</td>
-                                            <td style="padding: 8px;">${val(cycleData[item.key + "standard"])}</td>
-                                            <td style="padding: 8px;">${val(cycleData[item.key + "observed"])}</td>
+                                    ].map((item, idx) => `
+                                        <tr style="border-bottom: 1px solid #f1f5f9; background: ${idx % 2 === 0 ? '#ffffff' : '#fcfcfc'};">
+                                            <td style="padding: 10px 12px; font-weight: 600; color: #1e293b;">${item.label}</td>
+                                            <td style="padding: 10px 12px; color: #334155;">${val(cycleData[item.key + "standard"])}</td>
+                                            <td style="padding: 10px 12px; font-weight: 600; color: #0f172a;">${val(cycleData[item.key + "observed"])}</td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
                             </table>
                         </div>
 
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; font-size: 12px;">
-                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; display: flex; align-items: center;">
-                                <div><strong>Mixer Type:</strong> ${val(cycleData.cr3ea_typeofmixer)}</div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; font-size: 12px; margin-top: 16px;">
+                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); display: flex; align-items: center; gap: 8px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                                <div>
+                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Mixer Type</div>
+                                    <div style="font-size: 14px; color: #1e293b; font-weight: 700; margin-top: 2px;">${val(cycleData.cr3ea_typeofmixer)}</div>
+                                </div>
                             </div>
-                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px;">
-                                <span style="font-weight: 700; color: #334155; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px; margin-bottom: 6px;">Forming Details</span>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-                                    <div><strong>Moulder RPM:</strong> ${val(cycleData.cr3ea_moulderrpmstrokes)}</div>
-                                    <div><strong>Sample Count:</strong> ${val(cycleData.cr3ea_formingsamplecount)}</div>
-                                    <div><strong>Wet Weight (Std):</strong> ${val(cycleData.cr3ea_standardwetweight)}</div>
-                                    <div><strong>Wet Weight (Obs):</strong> ${val(cycleData.cr3ea_observedwetweight)}</div>
-                                    <div><strong>Wt Before Sugar:</strong> ${val(cycleData.cr3ea_weightbeforesugarsprinkling)}</div>
-                                    <div><strong>Wt After Sugar:</strong> ${val(cycleData.cr3ea_weightaftersugarsprinkling)}</div>
+                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                                <span style="font-weight: 700; font-size: 13px; color: #1e293b; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 12px;">Forming Details</span>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px;">
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Moulder RPM</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_moulderrpmstrokes)}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Sample Count</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_formingsamplecount)}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Wet Weight (Std)</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_standardwetweight)}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Wet Weight (Obs)</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_observedwetweight)}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Wt Before Sugar</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_weightbeforesugarsprinkling)}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Weight After Sugar</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_weightaftersugarsprinkling)}</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- TAB 4: BAKING & STANDARDS -->
-                    <div class="comp-tab-pane-${cycleNum}" id="comp-bake-s-${cycleNum}" style="display: none; border: 1px solid #f1f5f9; border-radius: 8px; background: #fafafa; padding: 15px;">
+                    <div class="comp-tab-pane-${cycleNum}" id="comp-bake-s-${cycleNum}" style="display: none; border: 1px solid #f1f5f9; border-radius: 8px; background: #fafafa; padding: 16px;">
                         <h6 style="margin-top: 0; margin-bottom: 12px; font-size: 13px; color: #2563eb; font-weight: 700; border-left: 3px solid #2563eb; padding-left: 8px; text-transform: uppercase; letter-spacing: 0.5px;">4. Baking Stage & Physical Standards</h6>
                         
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; font-size: 12px; margin-bottom: 12px;">
-                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px;">
-                                <span style="font-weight: 700; color: #334155; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px; margin-bottom: 6px;">Baking Settings</span>
-                                <div style="margin-bottom: 4px;"><strong>Baking Time:</strong> ${val(cycleData.cr3ea_bakingtime)}</div>
-                                <div style="margin-bottom: 4px;"><strong>Baking Profile - Taste:</strong> ${val(cycleData.cr3ea_bakingprofiletaste)}</div>
-                                <div><strong>As per Template:</strong> ${val(cycleData.cr3ea_bakingprofileaspertemplate)}</div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; font-size: 12px; margin-bottom: 16px;">
+                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 8px;">
+                                <span style="font-weight: 700; font-size: 13px; color: #1e293b; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 4px;">Baking Settings</span>
+                                <div>
+                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Baking Time</div>
+                                    <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_bakingtime)}</div>
+                                </div>
+                                <div style="border-top: 1px solid #f8fafc; padding-top: 6px;">
+                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Baking Taste Profile</div>
+                                    <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_bakingprofiletaste)}</div>
+                                </div>
+                                <div style="border-top: 1px solid #f8fafc; padding-top: 6px;">
+                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">As per template</div>
+                                    <div style="margin-top: 4px;">
+                                        <span style="padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; background: ${cycleData.cr3ea_bakingprofileaspertemplate === 'Yes' ? '#dcfce7' : '#fee2e2'}; color: ${cycleData.cr3ea_bakingprofileaspertemplate === 'Yes' ? '#15803d' : '#b91c1c'};">
+                                            ${val(cycleData.cr3ea_bakingprofileaspertemplate)}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
-                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px;">
-                                <span style="font-weight: 700; color: #334155; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px; margin-bottom: 6px;">Product Temperatures after Baking</span>
-                                <div style="margin-bottom: 4px;"><strong>Top Product Temp:</strong> ${val(cycleData.cr3ea_topproducttempafterbaking)}°C</div>
-                                <div><strong>Bottom Product Temp:</strong> ${val(cycleData.cr3ea_bottomproducttempafterbaking)}°C</div>
+                            
+                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 10px;">
+                                <span style="font-weight: 700; font-size: 13px; color: #1e293b; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 4px;">Product Temperatures after Baking</span>
+                                <div>
+                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Top Product Temp</div>
+                                    <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_topproducttempafterbaking)}°C</div>
+                                </div>
+                                <div style="border-top: 1px solid #f8fafc; padding-top: 8px;">
+                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Bottom Product Temp</div>
+                                    <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_bottomproducttempafterbaking)}°C</div>
+                                </div>
                             </div>
                         </div>
 
                         <!-- Baking Zone Temperatures Table -->
-                        <span style="font-weight: 600; font-size: 11px; display: block; margin-bottom: 6px; color: #475569;">Baking Zone Temperatures (°C):</span>
-                        <div class="table-responsive" style="margin-bottom: 12px;">
-                            <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: center; background: white; border: 1px solid #e2e8f0;">
+                        <span style="font-weight: 700; font-size: 11px; display: block; margin-bottom: 8px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Baking Zone Temperatures (°C):</span>
+                        <div class="table-responsive" style="margin-bottom: 16px; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: center; background: white;">
                                 <thead>
                                     <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-                                        <th style="padding: 6px; text-align: left; font-weight: 600;">Zone</th>
-                                        <th style="padding: 6px; font-weight: 600;">Z1</th>
-                                        <th style="padding: 6px; font-weight: 600;">Z2</th>
-                                        <th style="padding: 6px; font-weight: 600;">Z3</th>
-                                        <th style="padding: 6px; font-weight: 600;">Z4</th>
-                                        <th style="padding: 6px; font-weight: 600;">Z5</th>
-                                        <th style="padding: 6px; font-weight: 600;">Z6</th>
-                                        <th style="padding: 6px; font-weight: 600;">Z7</th>
+                                        <th style="padding: 8px 10px; text-align: left; font-weight: 600; color: #475569;">Zone</th>
+                                        <th style="padding: 8px 10px; font-weight: 600; color: #475569;">Z1</th>
+                                        <th style="padding: 8px 10px; font-weight: 600; color: #475569;">Z2</th>
+                                        <th style="padding: 8px 10px; font-weight: 600; color: #475569;">Z3</th>
+                                        <th style="padding: 8px 10px; font-weight: 600; color: #475569;">Z4</th>
+                                        <th style="padding: 8px 10px; font-weight: 600; color: #475569;">Z5</th>
+                                        <th style="padding: 8px 10px; font-weight: 600; color: #475569;">Z6</th>
+                                        <th style="padding: 8px 10px; font-weight: 600; color: #475569;">Z7</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr style="border-bottom: 1px solid #f1f5f9;">
-                                        <td style="padding: 6px; font-weight: 600; text-align: left; color: #475569;">Top</td>
-                                        ${[1,2,3,4,5,6,7].map(i => `<td style="padding: 6px;">${val(cycleData[`cr3ea_topbakingtempzone${i}`])}</td>`).join('')}
+                                        <td style="padding: 8px 10px; font-weight: 600; text-align: left; color: #475569; background: #fcfcfc;">Top</td>
+                                        ${[1,2,3,4,5,6,7].map(i => `<td style="padding: 8px 10px;">${val(cycleData[`cr3ea_topbakingtempzone${i}`])}</td>`).join('')}
                                     </tr>
                                     <tr>
-                                        <td style="padding: 6px; font-weight: 600; text-align: left; color: #475569;">Bottom</td>
-                                        ${[1,2,3,4,5,6,7].map(i => `<td style="padding: 6px;">${val(cycleData[`cr3ea_bottombakingtempzone${i}`])}</td>`).join('')}
+                                        <td style="padding: 8px 10px; font-weight: 600; text-align: left; color: #475569; background: #fcfcfc;">Bottom</td>
+                                        ${[1,2,3,4,5,6,7].map(i => `<td style="padding: 8px 10px;">${val(cycleData[`cr3ea_bottombakingtempzone${i}`])}</td>`).join('')}
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
 
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; font-size: 12px; margin-top: 8px;">
-                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px;">
-                                <span style="font-weight: 700; color: #334155; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px; margin-bottom: 6px;">Biscuit Physical Standards</span>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-                                    <div><strong>Length:</strong> ${val(cycleData.cr3ea_biscuitlength)}</div>
-                                    <div><strong>Width:</strong> ${val(cycleData.cr3ea_biscuitwidth)}</div>
-                                    <div><strong>Diameter:</strong> ${val(cycleData.cr3ea_biscuitdiameter)}</div>
-                                    <div><strong>Sample Count:</strong> ${val(cycleData.cr3ea_standardssamplecount)}</div>
-                                    <div><strong>Std Weight:</strong> ${val(cycleData.cr3ea_biscuitstdweight)}</div>
-                                    <div><strong>Obs. Weight:</strong> ${val(cycleData.cr3ea_biscuitobservedweight)}</div>
-                                    <div><strong>Wt After Oil Spray:</strong> ${val(cycleData.cr3ea_weightafteroilspray)}</div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; font-size: 12px; margin-top: 8px;">
+                            <!-- Biscuit Physical Standards -->
+                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                                <span style="font-weight: 700; font-size: 13px; color: #1e293b; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 12px;">Biscuit Physical Standards</span>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px;">
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Length</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_biscuitlength)}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Width</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_biscuitwidth)}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Diameter</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_biscuitdiameter)}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Sample Count</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_standardssamplecount)}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Std Weight</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_biscuitstdweight)}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Obs. Weight</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_biscuitobservedweight)}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Wt After Oil</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_weightafteroilspray)}</div>
+                                    </div>
                                 </div>
                             </div>
-                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px;">
-                                <span style="font-weight: 700; color: #334155; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px; margin-bottom: 6px;">Quality & Moisture Parameters</span>
-                                <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 4px; font-weight: 700; margin-bottom: 4px; color: #475569;">
+
+                            <!-- Quality & Moisture Parameters -->
+                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                                <span style="font-weight: 700; font-size: 13px; color: #1e293b; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 12px;">Quality & Moisture Parameters</span>
+                                <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 6px; font-weight: 700; margin-bottom: 6px; color: #475569; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">
                                     <div>Parameter</div>
                                     <div>Standard</div>
                                     <div>Observed</div>
                                 </div>
-                                <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 4px; border-bottom: 1px solid #f8fafc; padding-bottom: 2px;">
-                                    <div>Top Colour</div>
-                                    <div>${val(cycleData.cr3ea_topcolourstandard)}</div>
-                                    <div>${val(cycleData.cr3ea_topcolourobserved)}</div>
+                                <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 6px; border-bottom: 1px solid #f8fafc; padding-bottom: 4px; font-size: 12px;">
+                                    <div style="font-weight: 600; color: #334155;">Top Colour</div>
+                                    <div style="color: #64748b;">${val(cycleData.cr3ea_topcolourstandard)}</div>
+                                    <div style="font-weight: 600; color: #0f172a;">${val(cycleData.cr3ea_topcolourobserved)}</div>
                                 </div>
-                                <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 4px; border-bottom: 1px solid #f8fafc; padding-top: 2px; padding-bottom: 2px;">
-                                    <div>Bottom Colour</div>
-                                    <div>${val(cycleData.cr3ea_bottomcolourstandard)}</div>
-                                    <div>${val(cycleData.cr3ea_bottomcolourobserved)}</div>
+                                <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 6px; border-bottom: 1px solid #f8fafc; padding-top: 4px; padding-bottom: 4px; font-size: 12px;">
+                                    <div style="font-weight: 600; color: #334155;">Bottom Colour</div>
+                                    <div style="color: #64748b;">${val(cycleData.cr3ea_bottomcolourstandard)}</div>
+                                    <div style="font-weight: 600; color: #0f172a;">${val(cycleData.cr3ea_bottomcolourobserved)}</div>
                                 </div>
-                                <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 4px; padding-top: 2px;">
-                                    <div>Moisture %</div>
-                                    <div>${val(cycleData.cr3ea_moisturestandard)}</div>
-                                    <div>${val(cycleData.cr3ea_moistureobserved)}</div>
+                                <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 6px; padding-top: 4px; font-size: 12px;">
+                                    <div style="font-weight: 600; color: #334155;">Moisture %</div>
+                                    <div style="color: #64748b;">${val(cycleData.cr3ea_moisturestandard)}</div>
+                                    <div style="font-weight: 600; color: #0f172a;">${val(cycleData.cr3ea_moistureobserved)}</div>
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- Document Attachment Section -->
+                        <div id="mb-attachment-container-${cycleNum}-${cycleData.cr3ea_prod_rajpura_mixingandbakingid}" style="margin-top: 16px; padding: 12px 16px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; font-size: 13px;">
+                            <span style="color: #64748b;">Checking for uploaded document...</span>
                         </div>
                     </div>
 
                 </div>
-                <p style="margin-top:15px; font-size:11px; color:#64748b; font-style: italic;">To review complete records or export detailed Excel/PDF reports, please visit the central HOD/PM plant tour dashboard.</p>
+                <p style="margin-top:20px; font-size:11px; color:#64748b; font-style: italic; border-top: 1px solid #f1f5f9; padding-top: 12px;">To review complete records or export detailed Excel/PDF reports, please visit the central HOD/PM plant tour dashboard.</p>
             </div>
         `;
+
+        // Fetch and render document link asynchronously
+        (async () => {
+            try {
+                const attachments = await MixingBaking_DAL.getCycleAttachments(MixingBaking_Main.state.varTourID, cycleNum);
+                const placeholder = document.getElementById(`mb-attachment-container-${cycleNum}-${cycleData.cr3ea_prod_rajpura_mixingandbakingid}`);
+                if (placeholder) {
+                    if (attachments && attachments.length > 0) {
+                        const file = attachments[0];
+                        placeholder.style.borderStyle = "solid";
+                        placeholder.style.borderColor = "#e2e8f0";
+                        placeholder.style.background = "#ffffff";
+                        placeholder.innerHTML = `
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14 2 14 8 20 8"></polyline>
+                                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                                        <polyline points="10 9 9 9 8 9"></polyline>
+                                    </svg>
+                                    <strong style="color: #334155; font-size: 13px;">${file.Title}</strong>
+                                </div>
+                                <a href="${file.FileRef}" target="_blank" class="bs-btn" style="padding: 6px 12px; font-size: 12px; background: #2563eb; color: white; border: none; border-radius: 4px; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                    View Document
+                                </a>
+                            </div>
+                        `;
+                    } else {
+                        placeholder.innerHTML = `
+                            <div style="display: flex; align-items: center; gap: 8px; color: #64748b;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                </svg>
+                                <span>No document uploaded for this cycle</span>
+                            </div>
+                        `;
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to load completed cycle attachment:", err);
+            }
+        })();
     },
 
     switchCompletedTab: function (btn, cycleNum, paneId) {
@@ -961,17 +1181,17 @@ const MixingBaking_Checklist = {
             activePane.style.display = "block";
         }
         
-        // Reset button states for this cycle
+        // Toggle button active classes matching the segmented navigation style
         document.querySelectorAll(`.comp-tab-btn-${cycleNum}`).forEach(b => {
-            b.style.background = "#f8fafc";
-            b.style.color = "#64748b";
-            b.style.borderColor = "#e2e8f0";
+            b.style.background = "transparent";
+            b.style.color = "#475569";
+            b.style.boxShadow = "none";
         });
         
         // Highlight active button
-        btn.style.background = "#2563eb";
-        btn.style.color = "white";
-        btn.style.borderColor = "#2563eb";
+        btn.style.background = "#ffffff";
+        btn.style.color = "#1e293b";
+        btn.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06)";
     },
 
     // Collapsible Accordion toggler handler
@@ -1002,6 +1222,47 @@ const MixingBaking_Checklist = {
         } else {
             panel.style.cssText = "height: 80px !important; overflow: hidden !important; display: block !important;";
             body.style.cssText = "max-height: 0px !important; height: 0px !important; overflow: hidden !important; display: block !important;";
+        }
+    },
+
+    completeTour: async function () {
+        if (!MixingBaking_Main.state.varTourID) {
+            alert("No active tour found to complete.");
+            return;
+        }
+
+        const isQA = MixingBaking_Main.state.canEditChecklist;
+        if (!isQA) {
+            alert("Only the assigned QA Executive can complete this tour.");
+            return;
+        }
+
+        const confirmComplete = confirm("Are you sure you want to complete this Quality Tour? This will lock the tour from further edits.");
+        if (!confirmComplete) return;
+
+        ShowLoader();
+        try {
+            // Mark parent tour as Completed in Dataverse
+            const payload = {
+                cr3ea_status: "Completed",
+                cr3ea_processstatus: "Completed",
+                cr3ea_tourcompletiondate: new Date().toISOString()
+            };
+
+            await MixingBaking_DAL.updateParentTour(MixingBaking_Main.state.varTourID, payload);
+            HideLoader();
+            alert("Quality Tour completed and locked successfully!");
+            
+            // Redirect back to Home Dashboard
+            const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                : "/sites/Mrs_Bectors_PTMS/Pages/Home.aspx";
+            window.location.href = homeUrl;
+
+        } catch (err) {
+            HideLoader();
+            console.error("Failed to complete tour: ", err);
+            alert("Failed to complete tour: " + err.message);
         }
     }
 };

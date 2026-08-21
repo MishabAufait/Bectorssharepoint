@@ -16,7 +16,11 @@ $(document).ready(function () {
 
 const ALC_Dashboard = {
     qaList: [],
-    selectedCategory: localStorage.getItem("lastVisitedDashboard") || "ALC",
+    selectedCategory: (() => {
+        const val = localStorage.getItem("lastVisitedDashboard");
+        const valid = ["ALC", "FoodSafety", "CCP_OPRP_Sieves", "MixingAndBaking"];
+        return valid.includes(val) ? val : "ALC";
+    })(),
     allToursRaw: [],
 
     loadConfig: async function () {
@@ -131,6 +135,7 @@ const ALC_Dashboard = {
                     $(categoryDropdown).off("change.cat").on("change.cat", () => {
                         console.log("Dashboard category changed to: " + categoryDropdown.value);
                         ALC_Dashboard.selectedCategory = categoryDropdown.value;
+                        localStorage.setItem("lastVisitedDashboard", categoryDropdown.value);
                         ALC_Dashboard.applyCategoryFilter();
                     });
                 }
@@ -187,6 +192,7 @@ const ALC_Dashboard = {
                 $(categoryDropdown).off("change.cat").on("change.cat", () => {
                     console.log("Dashboard category changed to: " + categoryDropdown.value);
                     ALC_Dashboard.selectedCategory = categoryDropdown.value;
+                    localStorage.setItem("lastVisitedDashboard", categoryDropdown.value);
                     ALC_Dashboard.applyCategoryFilter();
                 });
                 // Sync select state with category (triggers Select2 UI update)

@@ -35,13 +35,14 @@ const MixingBaking_Main = {
         observedBy: "",
         cycleCounter: 1,
         isQaUser: false,
-        isProductionUser: false
+        isProductionUser: false,
+        canEditChecklist: false
     },
 
     init: async function () {
         ShowLoader();
         // Save last visited dashboard category
-        localStorage.setItem("lastVisitedDashboard", "MixingBaking");
+        localStorage.setItem("lastVisitedDashboard", "MixingAndBaking");
 
         // 1. Get TourId from query parameters
         const urlParams = new URLSearchParams(window.location.search);
@@ -72,6 +73,33 @@ const MixingBaking_Main = {
             // 4. Resolve roles and permissions
             await this.identifyUserRole();
 
+            // Calculate final permissions matching Sieves
+            const assignedQA = (this.state.tourData?.cr3ea_assigned_qa || "").toLowerCase().trim();
+            const currentUserName = typeof currentUser !== "undefined" ? currentUser : "";
+            const currentUserLogin = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : "";
+            const currentUserEmail = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userEmail : "";
+
+            const myEmail = currentUserEmail.toLowerCase().trim();
+            const myName1 = currentUserName.toLowerCase().trim();
+            const myName2 = currentUserLogin.toLowerCase().trim();
+
+            let isAssignedQA = false;
+            if (!assignedQA) {
+                isAssignedQA = this.state.isQaUser;
+            } else {
+                isAssignedQA = (myEmail && (myEmail === assignedQA || assignedQA.includes(myEmail))) ||
+                               (myName1 && (myName1 === assignedQA || assignedQA.includes(myName1))) ||
+                               (myName2 && (myName2 === assignedQA || assignedQA.includes(myName2))) ||
+                               this.state.isQaUser;
+            }
+
+            // Allow editing/completing in mock local simulation
+            if (!this.state.varTourID) {
+                isAssignedQA = true;
+            }
+
+            this.state.canEditChecklist = isAssignedQA;
+
             // Render details
             document.getElementById("currentDay").innerText = moment().format("DD/MM/YYYY");
             document.getElementById("shiftBadge").innerText = this.state.shift.replace("-", " ");
@@ -79,6 +107,13 @@ const MixingBaking_Main = {
 
             // 5. Load historical records and render active cycle
             await this.loadCyclesHistory();
+
+            // Toggle complete tour button visibility
+            const compContainer = document.getElementById("complete-tour-btn-container");
+            if (compContainer) {
+                const isTourCompleted = this.state.tourData.cr3ea_status === "Completed" || this.state.tourData.cr3ea_status === "Success" || this.state.tourData.cr3ea_status === "Closed";
+                compContainer.style.display = (isTourCompleted || !this.state.canEditChecklist) ? "none" : "flex";
+            }
 
         } catch (err) {
             console.error("Mixing & Baking Initialization failed:", err);
@@ -140,6 +175,8 @@ const MixingBaking_Main = {
             return match ? parseInt(match[0], 10) : null;
         };
 
+        const isTourCompleted = this.state.tourData?.cr3ea_status === "Completed" || this.state.tourData?.cr3ea_status === "Success" || this.state.tourData?.cr3ea_status === "Closed";
+
         if (completedCycles && completedCycles.length > 0) {
             const cycleNumbers = [];
             completedCycles.forEach(cycleRecord => {
@@ -151,11 +188,17 @@ const MixingBaking_Main = {
             // Find next cycle number
             const validNums = cycleNumbers.filter(n => !isNaN(n) && n > 0);
             this.state.cycleCounter = validNums.length > 0 ? Math.max(...validNums) + 1 : completedCycles.length + 1;
-            MixingBaking_Checklist.createCycleSection(this.state.cycleCounter, false);
+            
+            // Only render active card if tour is not completed
+            if (!isTourCompleted) {
+                MixingBaking_Checklist.createCycleSection(this.state.cycleCounter, false);
+            }
         } else {
-            // Start fresh
-            this.state.cycleCounter = 1;
-            MixingBaking_Checklist.createCycleSection(1, false);
+            // Start fresh ONLY if tour is not completed
+            if (!isTourCompleted) {
+                this.state.cycleCounter = 1;
+                MixingBaking_Checklist.createCycleSection(1, false);
+            }
         }
     }
 };
