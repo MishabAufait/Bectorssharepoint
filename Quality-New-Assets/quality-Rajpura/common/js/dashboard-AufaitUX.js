@@ -20,9 +20,9 @@ const ALC_Dashboard = {
     loadConfig: async function () {
         try {
             const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-            const listName = "Quality-Rajpura";
+            const listName = QualityRajpura_Config.SHAREPOINT_LISTS.CONFIG;
             
-            let query = "?$select=Id,Title,AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id&$expand=AssignedUser&$filter=Plant eq 'Rajpura'";
+            let query = "?$select=Id,Title,ConfigType,AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id&$expand=AssignedUser&$filter=Plant eq 'Rajpura'";
             let url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
             let response;
             let isFallback = false;
@@ -773,7 +773,7 @@ const ALC_Dashboard = {
     // Fetch SharePoint configurations for the plant
     fetchSharePointConfigs: async function () {
         const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-        const listName = "Quality-Rajpura";
+        const listName = QualityRajpura_Config.SHAREPOINT_LISTS.CONFIG;
         
         let query = "?$select=Id,Title,ConfigType,Region,Plant,Area," +
             "AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id" +

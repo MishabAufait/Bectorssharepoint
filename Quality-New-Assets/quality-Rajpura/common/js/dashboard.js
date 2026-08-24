@@ -18,7 +18,7 @@ const ALC_Dashboard = {
     qaList: [],
     selectedCategory: (() => {
         const val = localStorage.getItem("lastVisitedDashboard");
-        const valid = ["ALC", "FoodSafety", "CCP_OPRP_Sieves", "MixingAndBaking"];
+        const valid = ["ALC", "FoodSafety", "CCP_OPRP_Sieves", "MixingAndBaking", "PackagingOperations"];
         return valid.includes(val) ? val : "ALC";
     })(),
     allToursRaw: [],
@@ -26,9 +26,9 @@ const ALC_Dashboard = {
     loadConfig: async function () {
         try {
             const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-            const listName = "Quality-Rajpura";
+            const listName = QualityRajpura_Config.SHAREPOINT_LISTS.CONFIG;
 
-            let query = "?$select=Id,Title,AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id,EscalationManager/Title,EscalationManager/EMail,EscalationManager/Id&$expand=AssignedUser,EscalationManager&$filter=Plant eq 'Rajpura'";
+            let query = "?$select=Id,Title,ConfigType,AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id,EscalationManager/Title,EscalationManager/EMail,EscalationManager/Id&$expand=AssignedUser,EscalationManager&$filter=Plant eq 'Rajpura'";
             let url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
             let response;
             let isFallback = false;
@@ -38,7 +38,7 @@ const ALC_Dashboard = {
                 if (!response.ok) throw new Error();
             } catch (e) {
                 isFallback = true;
-                query = "?$select=Id,Title,Assigned_x0020_User/Title,Assigned_x0020_User/EMail,Assigned_x0020_User/Id,Escalation_x0020_Manager/Title,Escalation_x0020_Manager/EMail,Escalation_x0020_Manager/Id&$expand=Assigned_x0020_User,Escalation_x0020_Manager&$filter=Plant eq 'Rajpura'";
+                query = "?$select=Id,Title,Config_x0020_Type,Assigned_x0020_User/Title,Assigned_x0020_User/EMail,Assigned_x0020_User/Id,Escalation_x0020_Manager/Title,Escalation_x0020_Manager/EMail,Escalation_x0020_Manager/Id&$expand=Assigned_x0020_User,Escalation_x0020_Manager&$filter=Plant eq 'Rajpura'";
                 url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
                 response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
             }
@@ -67,8 +67,10 @@ const ALC_Dashboard = {
                         }
                     }
 
+                    const configType = isFallback ? item.Config_x0020_Type : item.ConfigType;
+
                     return {
-                        Title: item.Title,
+                        Title: configType || item.Title,
                         AssignedUser: assignedUserNormalized,
                         EscalationManager: escalationManagerNormalized
                     };
@@ -374,6 +376,7 @@ const ALC_Dashboard = {
         const isFS = this.selectedCategory === "FoodSafety";
         const isCCP = this.selectedCategory === "CCP_OPRP_Sieves";
         const isMB = this.selectedCategory === "MixingAndBaking";
+        const isPkgOps = this.selectedCategory === "PackagingOperations";
         
         // Filter raw list
         const filteredList = this.allToursRaw.filter(t => {
@@ -395,14 +398,20 @@ const ALC_Dashboard = {
             const isCCPTitle = cleanTitle.startsWith("CCP_") || cleanTitle.startsWith("Sieves_") || cleanTitle.toLowerCase().includes("ccp") || cleanTitle.toLowerCase().includes("sieves");
             const isCCPItem = !!hasCCPField || isCCPTitle;
 
+            const isPkgOpsTitle = cleanTitle.startsWith("PkgOps_") || cleanTitle.startsWith("PackagingOperations_") || cleanTitle.toLowerCase().includes("pkgops");
+            const hasPkgOpsField = t.cr3ea_pkgops_type;
+            const isPkgOpsItem = !!hasPkgOpsField || isPkgOpsTitle;
+
             if (isFS) {
                 return isFSItem;
             } else if (isCCP) {
                 return isCCPItem;
             } else if (isMB) {
                 return isMBItem;
+            } else if (isPkgOps) {
+                return isPkgOpsItem;
             } else {
-                return !isFSItem && !isCCPItem && !isMBItem;
+                return !isFSItem && !isCCPItem && !isMBItem && !isPkgOpsItem;
             }
         });
 
@@ -436,6 +445,8 @@ const ALC_Dashboard = {
                     metric4++; // Completed
                 } else if (isMB) {
                     metric4++; // Submitted/Completed
+                } else if (isPkgOps) {
+                    metric4++; // Completed/Success
                 }
             } else {
                 ongoingList.push(t);
@@ -448,18 +459,25 @@ const ALC_Dashboard = {
                     }
                 } else if (isMB) {
                     metric3++; // In Progress
+                } else if (isPkgOps) {
+                    metric3++; // In Progress
                 }
             }
         }
 
         if (!isFS && !isCCP && !isMB) {
-            // ALC KPIs calculations
+            // ALC and Packaging Operations KPIs calculations
             metric2 = filteredList.filter(t => {
                 const titleVal = t.cr3ea_title || "";
                 const cleanTitle = titleVal.split("||")[0].trim();
                 const form = cleanTitle.split('_')[0] || "Area Line Clearance";
-                const isAlc = form.toLowerCase().includes("line") || form.toLowerCase().includes("alc") || form.toLowerCase().includes("clearance");
-                if (!isAlc) return false;
+                const isAlcOrPkg = form.toLowerCase().includes("line") || 
+                                   form.toLowerCase().includes("alc") || 
+                                   form.toLowerCase().includes("clearance") ||
+                                   form.toLowerCase().includes("pkg") ||
+                                   form.toLowerCase().includes("packaging") ||
+                                   t.cr3ea_pkgops_type;
+                if (!isAlcOrPkg) return false;
 
                 const status = t.cr3ea_processstatus || t.cr3ea_status || "In Progress";
                 const isTerminal = status === "Completed" || status === "Closed" || status === "Closed - Expired" || status === "Success" || status === "Success - Expired";
@@ -771,6 +789,7 @@ const ALC_Dashboard = {
         const isFS = this.selectedCategory === "FoodSafety";
         const isCCP = this.selectedCategory === "CCP_OPRP_Sieves";
         const isMB = this.selectedCategory === "MixingAndBaking";
+        const isPkgOps = this.selectedCategory === "PackagingOperations";
         const currentUserEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? _spPageContextInfo.userEmail.toLowerCase().trim() : "";
         const currentUserName = (typeof EmployeeName !== 'undefined' && EmployeeName) ? EmployeeName.toLowerCase().trim() :
             ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? _spPageContextInfo.userDisplayName.toLowerCase().trim() : "");
@@ -982,6 +1001,149 @@ const ALC_Dashboard = {
                     } else {
                         tr.style.cursor = "default";
                         tr.title = "This tour is in progress by another QA and is only accessible to the assigned QA Executive.";
+                        tr.onclick = null;
+                    }
+                } else if (isPkgOps) {
+                    const subType = t.cr3ea_pkgops_type || "Packaging Operations";
+                    const form = `Packaging - ${subType}`;
+                    const prodExec = t.cr3ea_shiftexecutiveproduction || "N/A";
+                    const qaExecRaw = t.cr3ea_tourby || "N/A";
+                    const qaExec = qaExecRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaExecRaw) : qaExecRaw;
+                    const execs = `Shift: ${prodExec} | QA: ${qaExec}`;
+ 
+                    const pendingWith = ALC_Dashboard.getPendingWith(t);
+ 
+                    let scoreDisplay = "-";
+                    let scoreNum = null;
+                    const computedScore = ALC_Dashboard.calculateScoreDynamically(t);
+ 
+                    if (computedScore !== null) {
+                        scoreNum = parseFloat(computedScore);
+                        scoreDisplay = `<strong style="color: #0f172a; font-size: 15px;">${computedScore}%</strong>`;
+                    } else if (t.cr3ea_overall_score !== undefined && t.cr3ea_overall_score !== null && String(t.cr3ea_overall_score).trim() !== "") {
+                        scoreNum = parseFloat(t.cr3ea_overall_score);
+                        scoreDisplay = `<strong style="color: #0f172a; font-size: 15px;">${scoreNum.toFixed(2)}%</strong>`;
+                    }
+
+                    let status = t.cr3ea_processstatus || t.cr3ea_status || "Pending QA";
+
+                    let isEscalated = false;
+                    const requestTimeString = t.cr3ea_request_time || t.cr3ea_tourstartdate || t.createdon;
+                    if (status === "Pending QA" && requestTimeString) {
+                        const reqTime = new Date(requestTimeString).getTime();
+                        const now = new Date().getTime();
+                        if (!isNaN(reqTime) && (now - reqTime > 5 * 60 * 1000)) {
+                            const tourDateLocal = moment(requestTimeString).local().format("YYYY-MM-DD");
+                            const todayLocal = moment().format("YYYY-MM-DD");
+                            if (tourDateLocal === todayLocal) {
+                                isEscalated = true;
+                                status = "Escalated";
+                            }
+                        }
+                    }
+
+                    if (scoreNum !== null) {
+                        const isSuccess = (scoreNum >= 80);
+                        if (status.includes("Pending Production")) {
+                            status = isSuccess ? "Success - Pending Production" : "Failed - Pending Production";
+                        } else if (status.includes("Pending Re-Verification") || status === "Pending Re-Verification") {
+                            status = isSuccess ? "Success - Pending Re-Verification" : "Failed - Pending Re-Verification";
+                        }
+                    } else {
+                        if (status === "Pending Re-Verification") {
+                            status = "Failed - Pending Re-Verification";
+                        }
+                    }
+
+                    let badgeClass = "badge-warning";
+                    let isMyTask = false;
+
+                    const isQaStatus = (status === "Pending QA" || status === "QA In Progress" || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
+                    if (isQaStatus) {
+                        const qaEmail = (t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
+                        const qaResolvedName = qaEmail.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaEmail).toLowerCase().trim() : qaEmail;
+                        if ((currentUserEmail && qaEmail && (currentUserEmail === qaEmail || currentUserEmail.includes(qaEmail))) ||
+                            (currentUserName && qaEmail && (currentUserName === qaEmail || currentUserName.includes(qaEmail) || qaEmail.includes(currentUserName))) ||
+                            (currentUserName && qaResolvedName && (currentUserName === qaResolvedName || currentUserName.includes(qaResolvedName) || qaResolvedName.includes(currentUserName)))) {
+                            isMyTask = true;
+                        }
+                    }
+
+                    if (isMyTask) {
+                        tr.classList.add("my-task-row");
+                    }
+
+                    if (status === "Failed - Pending Production" || status === "Failed - Pending Re-Verification" || status === "Escalated") {
+                        badgeClass = "badge-error";
+                    } else if (status === "Success - Pending Production" || status === "Success - Pending Re-Verification") {
+                        badgeClass = "badge-success";
+                    } else if (status === "QA In Progress") {
+                        badgeClass = "badge-warning";
+                    }
+
+                    if (scoreNum === null) {
+                        if (status === "In Progress") {
+                            scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Request Pending</span>`;
+                        } else if (status === "Pending QA") {
+                            scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Awaiting QA Accept</span>`;
+                        } else if (status === "Escalated") {
+                            scoreDisplay = `<span class="text-danger font-weight-bold" style="font-size: 12px;">ESCALATED</span>`;
+                        } else if (status === "QA In Progress") {
+                            scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Evaluation Pending</span>`;
+                        } else {
+                            scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">N/A</span>`;
+                        }
+                    }
+
+                    let clearBadgeHtml = "-";
+                    const isClearedVal = t.cr3ea_islineclear;
+                    const isCleared = isClearedVal === true ||
+                        isClearedVal === "true" ||
+                        isClearedVal === 1 ||
+                        isClearedVal === "1" ||
+                        isClearedVal === "Yes" ||
+                        status === "Completed" ||
+                        status === "Closed" ||
+                        status === "Closed - Expired" ||
+                        status === "Success";
+
+                    clearBadgeHtml = isCleared
+                        ? '<span class="badge badge-success" style="background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Yes</span>'
+                        : '<span class="badge badge-error" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">No</span>';
+
+                    let displayStatus = status;
+                    if (displayStatus.includes("Pending Production")) {
+                        displayStatus = displayStatus.replace("Pending Production", "Pending Observation");
+                    } else if (displayStatus === "QA In Progress") {
+                        displayStatus = "QA In Progress (Paused)";
+                    }
+
+                    tr.innerHTML = `
+                        <td>${date}</td>
+                        <td><strong>${form}</strong></td>
+                        <td>${line}</td>
+                        <td>${shift}</td>
+                        <td style="text-align: left;">${execs}</td>
+                        <td>${scoreDisplay}</td>
+                        <td>${clearBadgeHtml}</td>
+                        <td><span class="badge badge-fill ${badgeClass}">${displayStatus}</span></td>
+                        <td style="font-weight: 500; color: #1e293b;">${pendingWith}</td>
+                    `;
+
+                    let isClickable = true;
+                    if (status === "QA In Progress" && !isMyTask) {
+                        isClickable = false;
+                    }
+
+                    if (isClickable) {
+                        tr.style.cursor = "pointer";
+                        tr.title = "Click to open Packaging Operations checklist";
+                        tr.onclick = function () {
+                            window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/Product-Operation.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                        };
+                    } else {
+                        tr.style.cursor = "default";
+                        tr.title = "This tour is paused by QA and is only accessible to the assigned QA Executive.";
                         tr.onclick = null;
                     }
                 } else {
@@ -1235,6 +1397,7 @@ const ALC_Dashboard = {
         const isFS = this.selectedCategory === "FoodSafety";
         const isCCP = this.selectedCategory === "CCP_OPRP_Sieves";
         const isMB = this.selectedCategory === "MixingAndBaking";
+        const isPkgOps = this.selectedCategory === "PackagingOperations";
 
         pageItems.forEach(t => {
             try {
@@ -1359,6 +1522,51 @@ const ALC_Dashboard = {
                     tr.title = "Click to open CCP/OPRP checklist";
                     tr.onclick = function () {
                         window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/CCP-OPRP.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                    };
+                } else if (isPkgOps) {
+                    const subType = t.cr3ea_pkgops_type || "Packaging Operations";
+                    const form = `Packaging - ${subType}`;
+                    const qaName = t.cr3ea_assigned_qa || t.cr3ea_tourby || "N/A";
+                    const qaExec = qaName.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaName) : qaName;
+                    const prodInchargeRaw = t.cr3ea_shiftexecutiveproduction || "N/A";
+                    const prodIncharge = prodInchargeRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(prodInchargeRaw) : prodInchargeRaw;
+                    const execs = `QA: ${qaExec} | Prod: ${prodIncharge}`;
+                    
+                    let score = "-";
+                    if (t.cr3ea_overall_score !== undefined && t.cr3ea_overall_score !== null && String(t.cr3ea_overall_score).trim() !== "") {
+                        score = `${parseFloat(t.cr3ea_overall_score).toFixed(2)}%`;
+                    }
+                    
+                    let clearBadgeHtml = "-";
+                    const isClearedVal = t.cr3ea_islineclear;
+                    const isCleared = isClearedVal === true ||
+                        isClearedVal === "true" ||
+                        isClearedVal === 1 ||
+                        isClearedVal === "1" ||
+                        isClearedVal === "Yes";
+
+                    clearBadgeHtml = isCleared
+                        ? '<span class="badge badge-success" style="background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Yes</span>'
+                        : '<span class="badge badge-error" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">No</span>';
+                    
+                    const status = t.cr3ea_status || "Completed";
+                    let badgeClass = "badge-success";
+
+                    tr.innerHTML = `
+                        <td>${date}</td>
+                        <td><strong>${form}</strong></td>
+                        <td>${line}</td>
+                        <td>${shift}</td>
+                        <td style="text-align: left;">${execs}</td>
+                        <td><strong>${score}</strong></td>
+                        <td>${clearBadgeHtml}</td>
+                        <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
+                    `;
+                    
+                    tr.style.cursor = "pointer";
+                    tr.title = "Click to open Packaging Operations checklist";
+                    tr.onclick = function () {
+                        window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/Product-Operation.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
                     };
                 } else {
                     const titleVal = t.cr3ea_title || "";
@@ -1522,7 +1730,7 @@ const ALC_Dashboard = {
     // Fetch SharePoint configurations for the plant
     fetchSharePointConfigs: async function () {
         const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-        const listName = "Quality-Rajpura";
+        const listName = QualityRajpura_Config.SHAREPOINT_LISTS.CONFIG;
 
         let query = "?$select=Id,Title,ConfigType,Region,Plant,Area," +
             "AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id" +

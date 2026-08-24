@@ -9,7 +9,7 @@ const QualityRajpura_Config = {
 
     // SharePoint List Names categorized by form
     SHAREPOINT_LISTS: {
-        CONFIG: "Quality-Rajpura",
+        CONFIG: "Quality-Rajpura-ALC",
         ALC: "Quality-Rajpura-ALC",
         FOOD_SAFETY: "Quality-Rajpura-FoodSafety",
         MIXING_BAKING: "Quality-Rajpura-MixingBaking",
@@ -21,7 +21,8 @@ const QualityRajpura_Config = {
     SHAREPOINT_DOCS: {
         ALC_CORRECTIVE_ACTIONS: "ALC_CorrectiveActions_Docs",
         CCP_OPRP_CORRECTIVE_ACTIONS: "CCP_OPRP_CorrectiveActions_Docs",
-        MIXING_BAKING: "MixingBaking_Docs"
+        MIXING_BAKING: "MixingBaking_Docs",
+        PACKAGING_OPERATIONS: "PackagingOperations_Docs"
     },
 
     // Dataverse Table Names categorized by form
@@ -44,7 +45,13 @@ const QualityRajpura_Config = {
         },
         PACKAGING_OPERATIONS: {
             PARENT: "cr3ea_prod_rajpura_quality_tours",
-            CHILD: ""
+            CHILD_TEMP_HUMIDITY: "cr3ea_prod_rajpura_pkgops_temphumidities",
+            CHILD_CODE_VERIFICATION: "cr3ea_prod_rajpura_pkgops_codeverifications",
+            CHILD_PAPA: "cr3ea_prod_rajpura_pkgops_papas",
+            CHILD_PQI_NET_WEIGHT: "cr3ea_prod_rajpura_pkgops_pqi_netweights",
+            CHILD_PQI_EVALUATION: "cr3ea_prod_rajpura_pkgops_pqi_evaluations",
+            CHILD_SEAL_INTEGRITY: "cr3ea_prod_rajpura_pkgops_sealintegrities",
+            CHILD_QUALITY_WALL: "cr3ea_prod_rajpura_pkgops_qualitywalls"
         },
         CCP_OPRP_SIEVES_MAGNETS: {
             PARENT: "cr3ea_prod_rajpura_quality_tours",

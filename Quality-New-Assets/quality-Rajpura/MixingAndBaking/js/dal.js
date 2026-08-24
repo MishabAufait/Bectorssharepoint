@@ -7,7 +7,11 @@ const MixingBaking_DAL = {
         const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
         const listName = QualityRajpura_Config.SHAREPOINT_LISTS.CONFIG;
 
-        let query = "?$select=Id,Title,AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id,EscalationManager/Title,EscalationManager/EMail,EscalationManager/Id&$expand=AssignedUser,EscalationManager&$filter=Plant eq 'Rajpura'";
+        let query = "?$select=Id,Title,ConfigType,Region,Plant,Area," +
+            "AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id," +
+            "EscalationManager/Title,EscalationManager/EMail,EscalationManager/Id" +
+            "&$expand=AssignedUser,EscalationManager" +
+            "&$filter=Plant eq 'Rajpura'";
         let url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
         let response;
         let isFallback = false;
@@ -18,7 +22,11 @@ const MixingBaking_DAL = {
                 if (!response.ok) throw new Error("Fallback needed");
             } catch (e) {
                 isFallback = true;
-                query = "?$select=Id,Title,Assigned_x0020_User/Title,Assigned_x0020_User/EMail,Assigned_x0020_User/Id,Escalation_x0020_Manager/Title,Escalation_x0020_Manager/EMail,Escalation_x0020_Manager/Id&$expand=Assigned_x0020_User,Escalation_x0020_Manager&$filter=Plant eq 'Rajpura'";
+                query = "?$select=Id,Title,Config_x0020_Type,Region,Plant,Area," +
+                    "Assigned_x0020_User/Title,Assigned_x0020_User/EMail,Assigned_x0020_User/Id," +
+                    "Escalation_x0020_Manager/Title,Escalation_x0020_Manager/EMail,Escalation_x0020_Manager/Id" +
+                    "&$expand=Assigned_x0020_User,Escalation_x0020_Manager" +
+                    "&$filter=Plant eq 'Rajpura'";
                 url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
                 response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
             }
@@ -50,9 +58,11 @@ const MixingBaking_DAL = {
                     }
                 }
 
+                const configType = isFallback ? item.Config_x0020_Type : item.ConfigType;
+
                 return {
                     Id: item.Id,
-                    Title: item.Title, // e.g. "QA User" or "Product User"
+                    Title: configType || item.Title, // Map configType to Title to support existing main.js checks
                     AssignedUser: assignedUserNormalized,
                     EscalationManager: escalationManagerNormalized
                 };

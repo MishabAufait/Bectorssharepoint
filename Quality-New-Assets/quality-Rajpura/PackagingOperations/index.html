@@ -2,25 +2,218 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Packaging Operations (Rajpura)</title>
     <!-- Common Global CSS -->
-    <link rel="stylesheet" href="../common/css/global.css">
+    <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=1.8">
     <!-- Component Specific CSS -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/style.css?v=1.1">
 </head>
-<body>
-    <div class="bs-card">
-        <div class="bs-card-header">
-            <h1 class="bs-card-title">Packaging Operations (Rajpura)</h1>
+<body id="rajpura-pkgops-main-body" style="background-color: #f1f5f9; font-family: 'Inter', system-ui, -apple-system, sans-serif; padding: 20px; color: #1e293b;">
+    <main id="rajpura-pkgops-main-container" style="max-width: 1400px; margin: 0 auto;">
+        
+        <!-- Header Bar -->
+        <div class="bs-card mb-4" style="background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+            <div>
+                <h1 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.2;">Packaging Operations</h1>
+                <div id="header-session-info" style="margin-top: 5px;">
+                    <span style="font-size: 13px; color: #64748b;">No active quality tour session.</span>
+                </div>
+            </div>
+            <div>
+                <button type="button" id="btnBackToDashboard" class="bs-btn" style="background-color: #ffffff; border: 1px solid #cbd5e1; color: #475569; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">Back to Dashboard</button>
+            </div>
         </div>
-        <div class="bs-card-body">
-            <!-- Template for Rajpura Packaging Operations form -->
+
+        <!-- Stepper progress bar -->
+        <div class="tour-workflow-stepper" style="margin-bottom: 25px; background: #ffffff; border: 1px solid #cbd5e1; padding: 15px 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <span class="stepper-item active" id="step-setup">1. Setup Metadata</span>
+                <span style="color: #cbd5e1; font-weight: bold;">&gt;</span>
+                <span class="stepper-item" id="step-checklist">2. QA Checklist</span>
+                <span style="color: #cbd5e1; font-weight: bold;">&gt;</span>
+                <span class="stepper-item" id="step-action">3. Production Action</span>
+                <span style="color: #cbd5e1; font-weight: bold;">&gt;</span>
+                <span class="stepper-item" id="step-reverify">4. QA Re-Verify</span>
+                <span style="color: #cbd5e1; font-weight: bold;">&gt;</span>
+                <span class="stepper-item" id="step-summary">5. Closed Summary</span>
+            </div>
         </div>
-    </div>
+
+        <!-- STATE 1: SETUP CONTAINER -->
+        <div id="setup-container" class="bs-card mb-4" style="background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: none;">
+            <div class="bs-card-header" style="border-bottom: 1px solid #cbd5e1; padding: 15px 20px; background-color: #f8fafc;">
+                <h4 style="margin: 0; font-size: 16px; font-weight: 700; color: #1e293b;">Checklist Setup Form</h4>
+            </div>
+            <div class="bs-card-body" style="padding: 20px;">
+                <div class="row g-3">
+                    <div class="col-md-3 form-group">
+                        <label class="form-label">Date</label>
+                        <input type="text" class="form-control" id="setup-date" disabled readonly>
+                    </div>
+                    <div class="col-md-3 form-group">
+                        <label class="form-label">Time</label>
+                        <input type="text" class="form-control" id="setup-time" disabled readonly>
+                    </div>
+                    <div class="col-md-3 form-group">
+                        <label class="form-label">Site</label>
+                        <div class="select2-parent">
+                            <select class="form-select" id="setup-site">
+                                <option value="Rajpura">Rajpura</option>
+                                <option value="Phillaur">Phillaur</option>
+                                <option value="Tahliwal">Tahliwal</option>
+                                <option value="Indore">Indore</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3 form-group">
+                        <label class="form-label">Line No</label>
+                        <div class="select2-parent">
+                            <select class="form-select" id="setup-line">
+                                <option value="Line 1">Line 1</option>
+                                <option value="Line 2">Line 2</option>
+                                <option value="Line 3">Line 3</option>
+                                <option value="Line 4">Line 4</option>
+                                <option value="Line 5">Line 5</option>
+                                <option value="Line 6">Line 6</option>
+                                <option value="Line 7">Line 7</option>
+                                <option value="Line 8">Line 8</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="row g-3 mt-3">
+                    <div class="col-md-4 form-group">
+                        <label class="form-label">Assign QA Executive</label>
+                        <div class="select2-parent">
+                            <select class="form-select" id="setup-qa-executive">
+                                <!-- Loaded dynamically -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4 form-group">
+                        <label class="form-label">Shift Executive Production</label>
+                        <input type="text" class="form-control" id="setup-exec-prod" placeholder="Production Executive Name">
+                    </div>
+                    <div class="col-md-4 form-group">
+                        <label class="form-label">Shift</label>
+                        <div class="select2-parent">
+                            <select class="form-select" id="setup-shift">
+                                <option value="Shift 1">Shift 1</option>
+                                <option value="Shift 2">Shift 2</option>
+                                <option value="Shift 3">Shift 3</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="row g-3 mt-3">
+                    <div class="col-md-6 form-group">
+                        <label class="form-label fw-bold" style="color: #2563eb;">Select Sub-Checklist parameter</label>
+                        <div class="select2-parent">
+                            <select class="form-select" id="setup-pkgops-type" style="border: 2px solid #3b82f6; font-weight: 600;">
+                                <option value="Temperatures & Humidity">Temperatures & Humidity</option>
+                                <option value="Code Verification">Code Verification</option>
+                                <option value="PAPA">PAPA</option>
+                                <option value="PQI">PQI</option>
+                                <option value="Seal Integrity">Seal Integrity</option>
+                                <option value="Cream Percentage">Cream Percentage</option>
+                                <option value="Quality Wall Records">Quality Wall Records</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-4">
+                    <div class="col-md-12 text-end">
+                        <button type="button" class="bs-btn bs-btn-primary" onclick="PKGOPS_QARequest.startQualityTour()" style="background-color: #2563eb; color: #ffffff; padding: 10px 20px; border-radius: 6px; border: 0; font-weight: 700; cursor: pointer; transition: all 0.2s;">Start Quality Tour</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STATE 2: QA CHECKLIST FILL CONTAINER -->
+        <div id="checklist-container" class="bs-card mb-4" style="background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: none;">
+            <div class="bs-card-header" style="border-bottom: 1px solid #cbd5e1; padding: 15px 20px; background-color: #f8fafc;">
+                <h4 style="margin: 0; font-size: 16px; font-weight: 700; color: #1e293b;">Checklist Parameters Entry</h4>
+            </div>
+            <div class="bs-card-body" style="padding: 20px;">
+                <div id="checklist-form-area">
+                    <!-- Loaded dynamically in checklist.js -->
+                </div>
+                <div class="row mt-4" id="checklist-btn-block">
+                    <div class="col-md-12 text-end">
+                        <button type="button" id="btnSubmitChecklist" class="bs-btn bs-btn-primary" onclick="PKGOPS_Checklist.submitChecklist()" style="background-color: #2563eb; color: #ffffff; padding: 10px 20px; border-radius: 6px; border: 0; font-weight: 700; cursor: pointer;">Submit Checklist</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STATE 3: PRODUCTION CORRECTIVE ACTION CONTAINER -->
+        <div id="corrective-action-container" class="bs-card mb-4" style="background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: none;">
+            <div class="bs-card-header" style="border-bottom: 1px solid #cbd5e1; padding: 15px 20px; background-color: #fee2e2;">
+                <h4 style="margin: 0; font-size: 16px; font-weight: 700; color: #991b1b;">Corrective Action Logs</h4>
+            </div>
+            <div class="bs-card-body" style="padding: 20px;">
+                <div id="corrective-action-form-area">
+                    <!-- Loaded dynamically in corrective-action.js -->
+                </div>
+                <div class="row mt-4">
+                    <div class="col-md-12 text-end">
+                        <button type="button" id="btnSubmitCorrectiveAction" class="bs-btn bs-btn-danger" onclick="PKGOPS_CorrectiveAction.submitCorrectiveAction()" style="background-color: #dc2626; color: #ffffff; padding: 10px 20px; border-radius: 6px; border: 0; font-weight: 700; cursor: pointer;">Submit to QA for Re-Verification</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STATE 4: QA RE-VERIFICATION CONTAINER -->
+        <div id="reverify-container" class="bs-card mb-4" style="background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: none;">
+            <div class="bs-card-header" style="border-bottom: 1px solid #cbd5e1; padding: 15px 20px; background-color: #e0f2fe;">
+                <h4 style="margin: 0; font-size: 16px; font-weight: 700; color: #0369a1;">Re-Verification Clearance</h4>
+            </div>
+            <div class="bs-card-body" style="padding: 20px;">
+                <div id="reverify-form-area">
+                    <!-- Loaded dynamically in re-verify.js -->
+                </div>
+                <div class="row mt-4">
+                    <div class="col-md-12 text-end">
+                        <button type="button" id="btnSubmitReverification" class="bs-btn bs-btn-primary" onclick="PKGOPS_Reverify.submitReverification()" style="background-color: #0284c7; color: #ffffff; padding: 10px 20px; border-radius: 6px; border: 0; font-weight: 700; cursor: pointer;">Close & Close Checklist</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STATE 5: CLOSED SUMMARY CONTAINER -->
+        <div id="summary-container" class="bs-card mb-4" style="background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: none;">
+            <div class="bs-card-header" style="border-bottom: 1px solid #cbd5e1; padding: 15px 20px; background-color: #f1f5f9;">
+                <h4 style="margin: 0; font-size: 16px; font-weight: 700; color: #1e293b;">Audit Session Summary</h4>
+            </div>
+            <div class="bs-card-body" style="padding: 20px;">
+                <div id="summary-form-area">
+                    <!-- Loaded dynamically in summary.js -->
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Dependencies -->
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/CommonJS/libraries/jquery-3.7.1.min.js"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/CommonJS/libraries/select2.min.js"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/CommonJS/libraries/moment.min.js"></script>
     
-    <!-- Common Global JS -->
-    <script src="../common/js/utils.js"></script>
-    <!-- Component Specific JS -->
-    <script src="script.js"></script>
+    <!-- SharePoint / Dataverse Shared libraries -->
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/CommonJS/CommonDAL.js"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/CommonJS/Common.js"></script>
+
+    <!-- App Modules -->
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=2.0"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/notification.js?v=1.8"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/dal.js?v=2.4"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/state-machine.js?v=2.4"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/qa-request.js?v=2.4"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/checklist.js?v=2.4"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/corrective-action.js?v=2.4"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/re-verify.js?v=2.4"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/summary.js?v=2.4"></script>
+    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/main.js?v=2.4"></script>
 </body>
 </html>
