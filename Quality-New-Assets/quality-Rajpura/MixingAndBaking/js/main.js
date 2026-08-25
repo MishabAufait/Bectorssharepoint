@@ -62,6 +62,43 @@ const MixingBaking_Main = {
                 this.state.tourData = await MixingBaking_DAL.getParentTour(this.state.varTourID);
                 console.log("Parent Tour details loaded:", this.state.tourData);
 
+                // Expiry Check: Check if tour was created on a previous day and is not terminal
+                const creationTime = this.state.tourData.createdon || this.state.tourData.cr3ea_tourstartdate;
+                const status = this.state.tourData.cr3ea_status || "In Progress";
+                if (creationTime) {
+                    const parsedDate = moment(creationTime, [
+                        "DD-MM-YYYY HH:mm:ss",
+                        "DD-MM-YYYY hh:mm A",
+                        "YYYY-MM-DDTHH:mm:ssZ",
+                        "YYYY-MM-DDTHH:mm:ss.SSSZ",
+                        "YYYY-MM-DD HH:mm:ss"
+                    ], true);
+                    if (parsedDate && parsedDate.isValid()) {
+                        const tourDateLocal = parsedDate.local().format("YYYY-MM-DD");
+                        const todayLocal = moment().format("YYYY-MM-DD");
+                        if (tourDateLocal !== todayLocal && 
+                            status !== "Closed - Expired" && 
+                            status !== "Completed" && 
+                            status !== "Closed" && 
+                            status !== "Success") {
+                            
+                            console.log(`Tour is from a previous day (${tourDateLocal}) and is in state "${status}". Auto-expiring and closing...`);
+                            try {
+                                const payload = {
+                                    cr3ea_status: "Closed - Expired",
+                                    cr3ea_processstatus: "Closed - Expired"
+                                };
+                                await MixingBaking_DAL.updateParentTour(this.state.varTourID, payload);
+                                this.state.tourData.cr3ea_status = "Closed - Expired";
+                                this.state.tourData.cr3ea_processstatus = "Closed - Expired";
+                                console.log("Tour successfully closed and expired in Dataverse.");
+                            } catch (e) {
+                                console.error("Failed to automatically close/expire previous day's tour:", e);
+                            }
+                        }
+                    }
+                }
+
                 // Populate state with parent tour values
                 this.state.line = this.state.tourData.cr3ea_lineno || this.state.tourData.cr3ea_lineid || "N/A";
                 this.state.qaExecutive = this.state.tourData.cr3ea_assigned_qa || "";
@@ -111,8 +148,11 @@ const MixingBaking_Main = {
             // Toggle complete tour button visibility
             const compContainer = document.getElementById("complete-tour-btn-container");
             if (compContainer) {
-                const isTourCompleted = this.state.tourData.cr3ea_status === "Completed" || this.state.tourData.cr3ea_status === "Success" || this.state.tourData.cr3ea_status === "Closed";
-                compContainer.style.display = (isTourCompleted || !this.state.canEditChecklist) ? "none" : "flex";
+                const isTourCompleted = this.state.tourData.cr3ea_status === "Completed" || 
+                                         this.state.tourData.cr3ea_status === "Success" || 
+                                         this.state.tourData.cr3ea_status === "Closed" || 
+                                         this.state.tourData.cr3ea_status === "Closed - Expired";
+                compContainer.style.display = (isTourCompleted || !this.state.canEditChecklist || !this.state.product) ? "none" : "flex";
             }
 
         } catch (err) {
@@ -175,9 +215,13 @@ const MixingBaking_Main = {
             return match ? parseInt(match[0], 10) : null;
         };
 
-        const isTourCompleted = this.state.tourData?.cr3ea_status === "Completed" || this.state.tourData?.cr3ea_status === "Success" || this.state.tourData?.cr3ea_status === "Closed";
+        const isTourCompleted = this.state.tourData?.cr3ea_status === "Completed" || 
+                                 this.state.tourData?.cr3ea_status === "Success" || 
+                                 this.state.tourData?.cr3ea_status === "Closed" || 
+                                 this.state.tourData?.cr3ea_status === "Closed - Expired";
 
         if (completedCycles && completedCycles.length > 0) {
+            this.state.product = completedCycles[0].cr3ea_productname || "";
             const cycleNumbers = [];
             completedCycles.forEach(cycleRecord => {
                 const cycleNum = getCycleNum(cycleRecord.cr3ea_cycle) || 1;

@@ -44,6 +44,43 @@ const PKGOPS_Main = {
                     return;
                 }
 
+                // Same-day check and auto-expiry logic
+                const creationTime = this.currentSession.createdon || this.currentSession.cr3ea_tourstartdate;
+                const status = this.currentSession.cr3ea_status || "In Progress";
+                if (creationTime) {
+                    const parsedDate = moment(creationTime, [
+                        "DD-MM-YYYY HH:mm:ss",
+                        "DD-MM-YYYY hh:mm A",
+                        "YYYY-MM-DDTHH:mm:ssZ",
+                        "YYYY-MM-DDTHH:mm:ss.SSSZ",
+                        "YYYY-MM-DD HH:mm:ss"
+                    ], true);
+                    if (parsedDate && parsedDate.isValid()) {
+                        const tourDateLocal = parsedDate.local().format("YYYY-MM-DD");
+                        const todayLocal = moment().format("YYYY-MM-DD");
+                        if (tourDateLocal !== todayLocal && 
+                            status !== "Closed - Expired" && 
+                            status !== "Completed" && 
+                            status !== "Closed" && 
+                            status !== "Success") {
+                            
+                            console.log(`Tour is from a previous day (${tourDateLocal}) and is in state "${status}". Auto-expiring and closing...`);
+                            try {
+                                const payload = {
+                                    cr3ea_status: "Closed - Expired",
+                                    cr3ea_processstatus: "Closed - Expired"
+                                };
+                                await PKGOPS_DAL.updateTour(this.currentTourId, payload);
+                                this.currentSession.cr3ea_status = "Closed - Expired";
+                                this.currentSession.cr3ea_processstatus = "Closed - Expired";
+                                console.log("Tour successfully closed and expired in Dataverse.");
+                            } catch (e) {
+                                console.error("Failed to automatically close/expire previous day's tour:", e);
+                            }
+                        }
+                    }
+                }
+
                 // Parse current login user context
                 const userEmail = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userEmail : "admin@example.com";
                 const userTitle = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : "Admin User";

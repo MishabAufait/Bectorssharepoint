@@ -368,11 +368,42 @@ const ALC_Main = {
                 }
             }
 
+            let finalStatus = status;
+            // If the tour is from a previous day and is not already in a terminal state, auto close and expire it
+            if (ALC_StateMachine.isPreviousDay && 
+                status !== "Closed - Expired" && 
+                status !== "Completed" && 
+                status !== "Closed" && 
+                status !== "Success") {
+                
+                console.log(`Tour is from a previous day and is in state "${status}". Auto-expiring and closing...`);
+                try {
+                    const baseTitle = session.cr3ea_title || ("ALC_" + moment(creationTime).format("MM-DD-YYYY_HH:mm"));
+                    const cleanBaseTitle = baseTitle.split("||")[0].trim();
+                    
+                    await ALC_DAL.saveSession({
+                        cr3ea_prod_rajpura_quality_tourid: this.currentTourId,
+                        cr3ea_status: "Closed - Expired",
+                        cr3ea_processstatus: "Closed - Expired",
+                        cr3ea_title: cleanBaseTitle,
+                        cr3ea_checklist_result: "Expired"
+                    });
+                    
+                    finalStatus = "Closed - Expired";
+                    session.cr3ea_status = "Closed - Expired";
+                    session.cr3ea_processstatus = "Closed - Expired";
+                    session.cr3ea_checklist_result = "Expired";
+                    console.log("Tour successfully closed and expired in Dataverse.");
+                } catch (e) {
+                    console.error("Failed to automatically close/expire previous day's tour:", e);
+                }
+            }
+
             // Update UI with existing header values
             this.populateHeaderFields(session);
 
             // Execute transition
-            await this.transitionByStatus(status, session);
+            await this.transitionByStatus(finalStatus, session);
         } catch (error) {
             console.warn("Failed to fetch session from Dataverse. Loading mock session fallback for testing/offline use:", error);
 

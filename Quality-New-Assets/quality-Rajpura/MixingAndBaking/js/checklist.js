@@ -1,6 +1,25 @@
 // Checklist UI Controller for Rajpura Mixing & Baking Form
 console.log("Mixing & Baking Checklist Controller loaded");
 
+const MixingBaking_Validator = {
+    highlight: function (element, isInvalid) {
+        if (!element) return;
+        if (isInvalid) {
+            element.style.borderColor = "#ef4444";
+            element.style.boxShadow = "0 0 0 0.2rem rgba(239, 68, 68, 0.25)";
+        } else {
+            element.style.borderColor = "";
+            element.style.boxShadow = "";
+        }
+    },
+    clearAll: function (cycleNum) {
+        const panel = document.getElementById(`cycle-${cycleNum}`);
+        if (!panel) return;
+        const inputs = panel.querySelectorAll("input, select, textarea");
+        inputs.forEach(el => this.highlight(el, false));
+    }
+};
+
 const MixingBaking_Checklist = {
     // Maps cycle number to attachment files selected for upload
     selectedFiles: {},
@@ -103,6 +122,8 @@ const MixingBaking_Checklist = {
                                     <select id="productSelect-${cycleNum}" class="form-select select2-init">
                                         <option value="Marie Classic">Marie Classic</option>
                                         <option value="Cremica Bourbon">Cremica Bourbon</option>
+                                        <option value="Bourbon">Bourbon</option>
+                                        <option value="Chelsea Vanilla">Chelsea Vanilla</option>
                                         <option value="Classic Crackers">Classic Crackers</option>
                                         <option value="Goldmarie">Goldmarie</option>
                                         <option value="Digestive Biscuits">Digestive Biscuits</option>
@@ -449,9 +470,14 @@ const MixingBaking_Checklist = {
             // Initialize select2 on dropdowns
             $(`#productSelect-${cycleNum}, #executive-name-${cycleNum}, #prod-incharge-${cycleNum}`).select2({
                 minimumResultsForSearch: -1,
-                dropdownAutoWidth: true,
+                dropdownAutoWidth: false,
                 width: '100%'
             });
+
+            // Auto-populate standards if session already started (reopening)
+            if (MixingBaking_Main.state.product) {
+                this.populateStandardValues(cycleNum, MixingBaking_Main.state.product);
+            }
         }
     },
 
@@ -506,12 +532,20 @@ const MixingBaking_Checklist = {
 
     // Step 1 Click - Start Session
     startSession: async function (cycleNum) {
-        const product = document.getElementById(`productSelect-${cycleNum}`).value;
-        const exec = document.getElementById(`executive-name-${cycleNum}`).value;
+        MixingBaking_Validator.clearAll(cycleNum);
+        const productEl = document.getElementById(`productSelect-${cycleNum}`);
+        const execEl = document.getElementById(`executive-name-${cycleNum}`);
+        const batchEl = document.getElementById(`batch-no-${cycleNum}`);
+
+        const product = productEl?.value || "";
+        const exec = execEl?.value || "";
         const incharge = document.getElementById(`prod-incharge-${cycleNum}`).value;
-        const batchNo = document.getElementById(`batch-no-${cycleNum}`).value;
+        const batchNo = batchEl?.value?.trim() || "";
 
         if (!product || !exec || !batchNo) {
+            if (productEl && !product) MixingBaking_Validator.highlight(productEl, true);
+            if (execEl && !exec) MixingBaking_Validator.highlight(execEl, true);
+            if (batchEl && !batchNo) MixingBaking_Validator.highlight(batchEl, true);
             alert("Please fill in Product, Executive Name, and Batch No.");
             return;
         }
@@ -557,6 +591,12 @@ const MixingBaking_Checklist = {
             MixingBaking_Main.state.productionIncharge = incharge;
             MixingBaking_Main.state.batchNo = batchNo;
 
+            // Show Complete Quality Tour button if user can edit
+            const compContainer = document.getElementById("complete-tour-btn-container");
+            if (compContainer && MixingBaking_Main.state.canEditChecklist) {
+                compContainer.style.display = "flex";
+            }
+
             // Hide Step 1, show details & main form
             const startStep = document.getElementById(`start-step-${cycleNum}`);
             if (startStep) {
@@ -584,6 +624,9 @@ const MixingBaking_Checklist = {
             if (cardHeader) {
                 cardHeader.style.display = "flex";
             }
+
+            // Auto-populate standards based on product selected
+            this.populateStandardValues(cycleNum, product);
         } catch (err) {
             console.error("Failed to start session:", err);
             alert("Failed to start session: " + err.message);
@@ -618,8 +661,91 @@ const MixingBaking_Checklist = {
 
     // Step 3 Click - Submit Cycle
     saveCycle: async function (cycleNum) {
-        ShowLoader();
+        if (typeof ShowLoader === "function") ShowLoader();
         try {
+            const numericFields = [];
+            
+            // 1. Ingredients
+            const ingredientsList = ["rpo", "solidfat", "butter", "blackjack", "spongetemp", "slurry", "groundsugartemp", "groundsugarparticlesize"];
+            ingredientsList.forEach(ing => {
+                numericFields.push({ id: `cr3ea_${ing}standard-${cycleNum}`, name: `${ing} Standard` });
+                numericFields.push({ id: `cr3ea_${ing}observed-${cycleNum}`, name: `${ing} Observed` });
+            });
+
+            // 2. Custom Ingredients (Choco chips / Cashew)
+            const customIngsList = ["chocochips", "cashew"];
+            customIngsList.forEach(c => {
+                numericFields.push({ id: `cr3ea_${c}temp-${cycleNum}`, name: `${c} Temperature` });
+                numericFields.push({ id: `cr3ea_${c}countperkg-${cycleNum}`, name: `${c} Count/kg` });
+            });
+
+            // 3. Syrups
+            const syrupsList = ["invertsyrup", "blackjack2"];
+            syrupsList.forEach(s => {
+                numericFields.push({ id: `cr3ea_${s}temp-${cycleNum}`, name: `${s} Temperature` });
+                numericFields.push({ id: `cr3ea_${s}ph-${cycleNum}`, name: `${s} pH` });
+                numericFields.push({ id: `cr3ea_${s}brix-${cycleNum}`, name: `${s} Brix` });
+            });
+
+            // 4. Mixing Sponge
+            const spongeList = ["spongewaterquantity", "spongeyeastquantity", "spongewatertemp", "spongemixingtime", "fermentationstarttemp", "fermentationroomtemp", "finaltempafterfermentation", "finalphafterfermentation"];
+            spongeList.forEach(s => {
+                numericFields.push({ id: `cr3ea_${s}-${cycleNum}`, name: `Sponge ${s}` });
+            });
+
+            // 5. Mixing Dough
+            const doughList = ["creamingtime", "mixingtime", "doughtemp", "jackettemp", "doughconsistency", "doughstandingtime"];
+            doughList.forEach(d => {
+                numericFields.push({ id: `cr3ea_${d}standard-${cycleNum}`, name: `Dough ${d} Standard` });
+                numericFields.push({ id: `cr3ea_${d}observed-${cycleNum}`, name: `Dough ${d} Observed` });
+            });
+
+            // 6. Forming
+            const formingList = ["moulderrpmstrokes", "formingsamplecount", "standardwetweight", "observedwetweight", "weightbeforesugarsprinkling", "weightaftersugarsprinkling"];
+            formingList.forEach(f => {
+                numericFields.push({ id: `cr3ea_${f}-${cycleNum}`, name: `Forming ${f}` });
+            });
+
+            // 7. Baking Zone Temperatures & Product Temps
+            numericFields.push({ id: `cr3ea_bakingtime-${cycleNum}`, name: "Baking Time" });
+            for (let i = 1; i <= 7; i++) {
+                numericFields.push({ id: `cr3ea_topbakingtempzone${i}-${cycleNum}`, name: `Top Baking Zone ${i}` });
+                numericFields.push({ id: `cr3ea_bottombakingtempzone${i}-${cycleNum}`, name: `Bottom Baking Zone ${i}` });
+            }
+            numericFields.push({ id: `cr3ea_topproducttempafterbaking-${cycleNum}`, name: "Top Product Temp After Baking" });
+            numericFields.push({ id: `cr3ea_bottomproducttempafterbaking-${cycleNum}`, name: "Bottom Product Temp After Baking" });
+
+            // 8. QC Physical Standards & Quality/Moisture
+            const qcsList = ["biscuitlength", "biscuitwidth", "biscuitdiameter", "standardssamplecount", "biscuitstdweight", "biscuitobservedweight", "weightafteroilspray"];
+            qcsList.forEach(q => {
+                numericFields.push({ id: `cr3ea_${q}-${cycleNum}`, name: `QC Standard: ${q}` });
+            });
+
+            const qcPairsList = ["topcolour", "bottomcolour", "moisture"];
+            qcPairsList.forEach(q => {
+                numericFields.push({ id: `cr3ea_${q}standard-${cycleNum}`, name: `${q} Standard` });
+                numericFields.push({ id: `cr3ea_${q}observed-${cycleNum}`, name: `${q} Observed` });
+            });
+
+            // Run validation loop
+            MixingBaking_Validator.clearAll(cycleNum);
+            for (let f of numericFields) {
+                const el = document.getElementById(f.id);
+                if (!el) continue;
+                const val = el.value.trim();
+                if (val !== "") {
+                    const isNa = val.toUpperCase() === "NA" || val.toUpperCase() === "N/A";
+                    const isNum = !isNaN(parseFloat(val)) && isFinite(val);
+                    if (!isNa && !isNum) {
+                        MixingBaking_Validator.highlight(el, true);
+                        if (typeof HideLoader === "function") HideLoader();
+                        alert(`Please enter a valid numeric value or 'NA' for: ${f.name}`);
+                        el.focus();
+                        return;
+                    }
+                }
+            }
+
             // 1. Gather form values
             const record = {
                 "cr3ea_title": `MixingBaking_Line${MixingBaking_Main.state.line}_Cycle-${cycleNum}_${moment().format("DD-MM-YYYY")}`,
@@ -1288,6 +1414,258 @@ const MixingBaking_Checklist = {
             HideLoader();
             console.error("Failed to complete tour: ", err);
             alert("Failed to complete tour: " + err.message);
+        }
+    },
+
+    populateStandardValues: function (cycleNum, product) {
+        console.log(`Populating standard values for Product: ${product}, Cycle: ${cycleNum}`);
+        
+        // Helper to safely set element value
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.value = val;
+        };
+
+        // Helper to safely check a checkbox
+        const setChecked = (id, isChecked) => {
+            const el = document.getElementById(id);
+            if (el) el.checked = isChecked;
+        };
+
+        // Clean values before prefilling standard fields to prevent bleed
+        const fieldsToClear = [
+            "cr3ea_rpostandard", "cr3ea_solidfatstandard", "cr3ea_butterstandard", "cr3ea_blackjackstandard", "cr3ea_spongetempstandard", "cr3ea_slurrystandard", "cr3ea_groundsugartempstandard", "cr3ea_groundsugarparticlesizestandard",
+            "cr3ea_rpoobserved", "cr3ea_solidfatobserved", "cr3ea_butterobserved", "cr3ea_blackjackobserved", "cr3ea_spongetempobserved", "cr3ea_slurryobserved",
+            "cr3ea_chocochipssupplier", "cr3ea_chocochipstemp", "cr3ea_chocochipscountperkg", "cr3ea_chocochipscompoundorpure",
+            "cr3ea_cashewsupplier", "cr3ea_cashewtemp", "cr3ea_cashewcountperkg", "cr3ea_cashewcompoundorpure",
+            "cr3ea_floursupplier", "cr3ea_invertsyruptemp", "cr3ea_blackjack2temp",
+            "cr3ea_spongeproductname", "cr3ea_spongewaterquantity", "cr3ea_spongeyeastquantity", "cr3ea_spongewatertemp", "cr3ea_fermentationstarttemp", "cr3ea_fermentationroomtemp", "cr3ea_finaltempafterfermentation", "cr3ea_finalphafterfermentation",
+            "cr3ea_creamingtimestandard", "cr3ea_creamingtimeobserved", "cr3ea_mixingtimestandard", "cr3ea_mixingtimeobserved", "cr3ea_doughtempstandard", "cr3ea_doughtempobserved", "cr3ea_doughstandingtimestandard", "cr3ea_doughstandingtimeobserved",
+            "cr3ea_moulderrpmstrokes", "cr3ea_formingsamplecount", "cr3ea_standardwetweight",
+            "cr3ea_biscuitlength", "cr3ea_biscuitwidth", "cr3ea_biscuitdiameter", "cr3ea_standardssamplecount", "cr3ea_biscuitstdweight",
+            "cr3ea_topcolourstandard", "cr3ea_topcolourobserved", "cr3ea_bottomcolourstandard", "cr3ea_bottomcolourobserved",
+            "cr3ea_moisturestandard", "cr3ea_weightafteroilspray"
+        ];
+        fieldsToClear.forEach(f => {
+            const el = document.getElementById(`${f}-${cycleNum}`);
+            if (el) el.value = "";
+        });
+
+        // 1. Chelsea Vanilla
+        if (product === "Chelsea Vanilla") {
+            // Ingredient Temp
+            setVal(`cr3ea_rpostandard-${cycleNum}`, "45 Celsius");
+            setVal(`cr3ea_solidfatstandard-${cycleNum}`, "15 Celsius");
+            setVal(`cr3ea_butterstandard-${cycleNum}`, "NA");
+            setVal(`cr3ea_blackjackstandard-${cycleNum}`, "35 Celsius");
+            setVal(`cr3ea_spongetempstandard-${cycleNum}`, "NA");
+            setVal(`cr3ea_slurrystandard-${cycleNum}`, "NA");
+            setVal(`cr3ea_groundsugartempstandard-${cycleNum}`, "NA");
+
+            setVal(`cr3ea_butterobserved-${cycleNum}`, "NA");
+            setVal(`cr3ea_spongetempobserved-${cycleNum}`, "NA");
+            setVal(`cr3ea_slurryobserved-${cycleNum}`, "NA");
+
+            // Supplier Materials
+            setVal(`cr3ea_chocochipssupplier-${cycleNum}`, "NA");
+            setVal(`cr3ea_chocochipstemp-${cycleNum}`, "NA");
+            setVal(`cr3ea_chocochipscountperkg-${cycleNum}`, "NA");
+            setVal(`cr3ea_chocochipscompoundorpure-${cycleNum}`, "NA");
+
+            setVal(`cr3ea_cashewsupplier-${cycleNum}`, "NA");
+            setVal(`cr3ea_cashewtemp-${cycleNum}`, "NA");
+            setVal(`cr3ea_cashewcountperkg-${cycleNum}`, "NA");
+            setVal(`cr3ea_cashewcompoundorpure-${cycleNum}`, "NA");
+
+            setVal(`cr3ea_floursupplier-${cycleNum}`, "NA");
+
+            // Syrups
+            setVal(`cr3ea_invertsyruptemp-${cycleNum}`, "35 Celsius");
+            setVal(`cr3ea_blackjack2temp-${cycleNum}`, "35 Celsius");
+
+            // Mixing Sponge
+            setVal(`cr3ea_spongeproductname-${cycleNum}`, "NA");
+            setVal(`cr3ea_spongewaterquantity-${cycleNum}`, "NA");
+            setVal(`cr3ea_spongeyeastquantity-${cycleNum}`, "NA");
+            setVal(`cr3ea_spongewatertemp-${cycleNum}`, "NA");
+            setVal(`cr3ea_fermentationstarttemp-${cycleNum}`, "NA");
+            setVal(`cr3ea_fermentationroomtemp-${cycleNum}`, "NA");
+            setVal(`cr3ea_finaltempafterfermentation-${cycleNum}`, "NA");
+            setVal(`cr3ea_finalphafterfermentation-${cycleNum}`, "NA");
+
+            // Mixing Dough standard
+            setVal(`cr3ea_creamingtimestandard-${cycleNum}`, "10 min");
+            setVal(`cr3ea_mixingtimestandard-${cycleNum}`, "5 Min");
+            setVal(`cr3ea_doughtempstandard-${cycleNum}`, "32-35 celsius");
+            setVal(`cr3ea_doughstandingtimestandard-${cycleNum}`, "15 Min");
+
+            // Forming
+            setVal(`cr3ea_moulderrpmstrokes-${cycleNum}`, "NA");
+            setVal(`cr3ea_formingsamplecount-${cycleNum}`, "10 bis");
+            setVal(`cr3ea_standardwetweight-${cycleNum}`, "31g");
+
+            // Baking
+            setChecked(`cr3ea_bakingprofileaspertemplate-${cycleNum}`, true);
+
+            // Biscuit Standards
+            setVal(`cr3ea_biscuitlength-${cycleNum}`, "NA");
+            setVal(`cr3ea_biscuitwidth-${cycleNum}`, "NA");
+            setVal(`cr3ea_biscuitdiameter-${cycleNum}`, "42mm");
+            setVal(`cr3ea_standardssamplecount-${cycleNum}`, "10 bis");
+            setVal(`cr3ea_biscuitstdweight-${cycleNum}`, "27g");
+
+            // Quality & Moisture
+            setVal(`cr3ea_topcolourstandard-${cycleNum}`, "As per std");
+            setVal(`cr3ea_topcolourobserved-${cycleNum}`, "As per std");
+            setVal(`cr3ea_bottomcolourstandard-${cycleNum}`, "As per std");
+            setVal(`cr3ea_bottomcolourobserved-${cycleNum}`, "As per std");
+            setVal(`cr3ea_moisturestandard-${cycleNum}`, "1.75%");
+            setVal(`cr3ea_weightafteroilspray-${cycleNum}`, "NA");
+        }
+        // 2. Butter Cookies
+        else if (product === "Butter Cookies") {
+            // Ingredient Temp
+            setVal(`cr3ea_rpostandard-${cycleNum}`, "45 Celsius");
+            setVal(`cr3ea_solidfatstandard-${cycleNum}`, "NA");
+            setVal(`cr3ea_butterstandard-${cycleNum}`, "5 Celsius");
+            setVal(`cr3ea_blackjackstandard-${cycleNum}`, "NA");
+            setVal(`cr3ea_spongetempstandard-${cycleNum}`, "NA");
+            setVal(`cr3ea_slurrystandard-${cycleNum}`, "NA");
+            setVal(`cr3ea_groundsugartempstandard-${cycleNum}`, "NA");
+
+            setVal(`cr3ea_solidfatobserved-${cycleNum}`, "NA");
+            setVal(`cr3ea_blackjackobserved-${cycleNum}`, "NA");
+            setVal(`cr3ea_spongetempobserved-${cycleNum}`, "NA");
+            setVal(`cr3ea_slurryobserved-${cycleNum}`, "NA");
+
+            // Supplier Materials
+            setVal(`cr3ea_chocochipssupplier-${cycleNum}`, "NA");
+            setVal(`cr3ea_chocochipstemp-${cycleNum}`, "NA");
+            setVal(`cr3ea_chocochipscountperkg-${cycleNum}`, "NA");
+            setVal(`cr3ea_chocochipscompoundorpure-${cycleNum}`, "NA");
+
+            setVal(`cr3ea_cashewsupplier-${cycleNum}`, "NA");
+            setVal(`cr3ea_cashewtemp-${cycleNum}`, "NA");
+            setVal(`cr3ea_cashewcountperkg-${cycleNum}`, "NA");
+            setVal(`cr3ea_cashewcompoundorpure-${cycleNum}`, "NA");
+
+            setVal(`cr3ea_floursupplier-${cycleNum}`, "NA");
+
+            // Syrups
+            setVal(`cr3ea_invertsyruptemp-${cycleNum}`, "35 Celsius");
+            setVal(`cr3ea_blackjack2temp-${cycleNum}`, "NA");
+
+            // Mixing Sponge
+            setVal(`cr3ea_spongeproductname-${cycleNum}`, "NA");
+            setVal(`cr3ea_spongewaterquantity-${cycleNum}`, "NA");
+            setVal(`cr3ea_spongeyeastquantity-${cycleNum}`, "NA");
+            setVal(`cr3ea_spongewatertemp-${cycleNum}`, "NA");
+            setVal(`cr3ea_fermentationstarttemp-${cycleNum}`, "NA");
+            setVal(`cr3ea_fermentationroomtemp-${cycleNum}`, "NA");
+            setVal(`cr3ea_finaltempafterfermentation-${cycleNum}`, "NA");
+            setVal(`cr3ea_finalphafterfermentation-${cycleNum}`, "NA");
+
+            // Mixing Dough standard
+            setVal(`cr3ea_creamingtimestandard-${cycleNum}`, "10 min");
+            setVal(`cr3ea_mixingtimestandard-${cycleNum}`, "5 Min");
+            setVal(`cr3ea_doughtempstandard-${cycleNum}`, "32-35 celsius");
+            setVal(`cr3ea_doughstandingtimestandard-${cycleNum}`, "10 Min");
+
+            // Forming
+            setVal(`cr3ea_moulderrpmstrokes-${cycleNum}`, "NA");
+            setVal(`cr3ea_formingsamplecount-${cycleNum}`, "7 bis");
+            setVal(`cr3ea_standardwetweight-${cycleNum}`, "38g");
+
+            // Baking
+            setChecked(`cr3ea_bakingprofileaspertemplate-${cycleNum}`, true);
+
+            // Biscuit Standards
+            setVal(`cr3ea_biscuitlength-${cycleNum}`, "NA");
+            setVal(`cr3ea_biscuitwidth-${cycleNum}`, "NA");
+            setVal(`cr3ea_biscuitdiameter-${cycleNum}`, "44mm");
+            setVal(`cr3ea_standardssamplecount-${cycleNum}`, "7 bis");
+            setVal(`cr3ea_biscuitstdweight-${cycleNum}`, "33g");
+
+            // Quality & Moisture
+            setVal(`cr3ea_topcolourstandard-${cycleNum}`, "As per std");
+            setVal(`cr3ea_topcolourobserved-${cycleNum}`, "As per std");
+            setVal(`cr3ea_bottomcolourstandard-${cycleNum}`, "As per std");
+            setVal(`cr3ea_bottomcolourobserved-${cycleNum}`, "As per std");
+            setVal(`cr3ea_moisturestandard-${cycleNum}`, "2.00%");
+            setVal(`cr3ea_weightafteroilspray-${cycleNum}`, "NA");
+        }
+        // 3. Bourbon / Cremica Bourbon
+        else if (product === "Bourbon" || product === "Cremica Bourbon") {
+            // Ingredient Temp
+            setVal(`cr3ea_rpostandard-${cycleNum}`, "45 Celsius");
+            setVal(`cr3ea_solidfatstandard-${cycleNum}`, "NA");
+            setVal(`cr3ea_butterstandard-${cycleNum}`, "NA");
+            setVal(`cr3ea_blackjackstandard-${cycleNum}`, "35 Celsius");
+            setVal(`cr3ea_spongetempstandard-${cycleNum}`, "NA");
+            setVal(`cr3ea_slurrystandard-${cycleNum}`, "NA");
+            setVal(`cr3ea_groundsugartempstandard-${cycleNum}`, "NA");
+
+            setVal(`cr3ea_solidfatobserved-${cycleNum}`, "NA");
+            setVal(`cr3ea_butterobserved-${cycleNum}`, "NA");
+            setVal(`cr3ea_spongetempobserved-${cycleNum}`, "NA");
+            setVal(`cr3ea_slurryobserved-${cycleNum}`, "NA");
+            setVal(`cr3ea_groundsugartempobserved-${cycleNum}`, "NA");
+
+            // Supplier Materials
+            setVal(`cr3ea_chocochipssupplier-${cycleNum}`, "NA");
+            setVal(`cr3ea_chocochipstemp-${cycleNum}`, "NA");
+            setVal(`cr3ea_chocochipscountperkg-${cycleNum}`, "NA");
+            setVal(`cr3ea_chocochipscompoundorpure-${cycleNum}`, "NA");
+
+            setVal(`cr3ea_cashewsupplier-${cycleNum}`, "NA");
+            setVal(`cr3ea_cashewtemp-${cycleNum}`, "NA");
+            setVal(`cr3ea_cashewcountperkg-${cycleNum}`, "NA");
+            setVal(`cr3ea_cashewcompoundorpure-${cycleNum}`, "NA");
+
+            setVal(`cr3ea_floursupplier-${cycleNum}`, "NA");
+
+            // Syrups
+            setVal(`cr3ea_invertsyruptemp-${cycleNum}`, "35 Celsius");
+            setVal(`cr3ea_blackjack2temp-${cycleNum}`, "35 Celsius");
+
+            // Mixing Sponge
+            setVal(`cr3ea_spongeproductname-${cycleNum}`, "NA");
+            setVal(`cr3ea_spongewaterquantity-${cycleNum}`, "NA");
+            setVal(`cr3ea_spongeyeastquantity-${cycleNum}`, "NA");
+            setVal(`cr3ea_spongewatertemp-${cycleNum}`, "NA");
+            setVal(`cr3ea_fermentationstarttemp-${cycleNum}`, "NA");
+            setVal(`cr3ea_fermentationroomtemp-${cycleNum}`, "NA");
+            setVal(`cr3ea_finaltempafterfermentation-${cycleNum}`, "NA");
+            setVal(`cr3ea_finalphafterfermentation-${cycleNum}`, "NA");
+
+            // Mixing Dough standard
+            setVal(`cr3ea_creamingtimestandard-${cycleNum}`, "10 min");
+            setVal(`cr3ea_mixingtimestandard-${cycleNum}`, "6-7 Min");
+            setVal(`cr3ea_doughtempstandard-${cycleNum}`, "32-35 celsius");
+            setVal(`cr3ea_doughstandingtimestandard-${cycleNum}`, "10 Min");
+
+            // Forming
+            setVal(`cr3ea_moulderrpmstrokes-${cycleNum}`, "NA");
+            setVal(`cr3ea_formingsamplecount-${cycleNum}`, "14");
+            setVal(`cr3ea_standardwetweight-${cycleNum}`, "58g");
+
+            // Baking
+            setChecked(`cr3ea_bakingprofileaspertemplate-${cycleNum}`, true);
+
+            // Biscuit Standards
+            setVal(`cr3ea_biscuitlength-${cycleNum}`, "55mm");
+            setVal(`cr3ea_biscuitwidth-${cycleNum}`, "25mm");
+            setVal(`cr3ea_biscuitdiameter-${cycleNum}`, "NA");
+            setVal(`cr3ea_standardssamplecount-${cycleNum}`, "14");
+            setVal(`cr3ea_biscuitstdweight-${cycleNum}`, "49g");
+
+            // Quality & Moisture
+            setVal(`cr3ea_topcolourstandard-${cycleNum}`, "As per std");
+            setVal(`cr3ea_topcolourobserved-${cycleNum}`, "As per std");
+            setVal(`cr3ea_bottomcolourstandard-${cycleNum}`, "As per std");
+            setVal(`cr3ea_bottomcolourobserved-${cycleNum}`, "As per std");
+            setVal(`cr3ea_moisturestandard-${cycleNum}`, "1.5%");
+            setVal(`cr3ea_weightafteroilspray-${cycleNum}`, "NA");
         }
     }
 };

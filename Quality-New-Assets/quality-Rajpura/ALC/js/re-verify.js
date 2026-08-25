@@ -78,9 +78,9 @@ const ALC_ReVerification = {
                  <td>
                       <select class="form-select reverify-score-select" data-index="${index}" ${disabledAttr}>
                           <option value="" selected>Select</option>
-                          <option value="Compliant (2)">Compliant (2)</option>
-                          <option value="Partial (1)">Partial (1)</option>
-                          <option value="Non-Compliant (0)">Non-Compliant (0)</option>
+                          <option value="Compliant (2)">Compliant</option>
+                          <option value="Partial (1)">Partial</option>
+                          <option value="Non-Compliant (0)">Non-Compliant</option>
                       </select>
                  </td>
                  <td>

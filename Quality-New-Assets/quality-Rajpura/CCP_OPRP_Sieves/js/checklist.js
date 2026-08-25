@@ -1,6 +1,25 @@
 // Checklist Rendering Engine for Rajpura CCP, OPRP, Sieves & Magnets Quality form
 console.log("CCP_OPRP_Sieves Checklist Renderer loaded");
 
+const CCP_OPRP_Validator = {
+    highlight: function (element, isInvalid) {
+        if (!element) return;
+        if (isInvalid) {
+            element.style.borderColor = "#ef4444";
+            element.style.boxShadow = "0 0 0 0.2rem rgba(239, 68, 68, 0.25)";
+        } else {
+            element.style.borderColor = "";
+            element.style.boxShadow = "";
+        }
+    },
+    clearAll: function (cycleNum) {
+        const container = document.getElementById(`cycle-${cycleNum}`);
+        if (!container) return;
+        const inputs = container.querySelectorAll("input, select, textarea");
+        inputs.forEach(el => this.highlight(el, false));
+    }
+};
+
 const CCP_OPRP_Checklist = {
     // Checkpoints list mapped by Line
     lineCheckpoints: {
@@ -901,6 +920,7 @@ const CCP_OPRP_Checklist = {
 
     // Save cycle submissions (loop save to Dataverse)
     saveSession: async function (cycleNum, isPause = false) {
+        if (typeof ShowLoader === "function") ShowLoader();
         const category = CCP_OPRP_Main.state.category;
         const infoWrapper = document.getElementById(`info-wrapper-${cycleNum}`);
         
@@ -913,9 +933,67 @@ const CCP_OPRP_Checklist = {
         const tourId = CCP_OPRP_Main.state.varTourID;
         const shift = sessionStorage.getItem("shiftValue") || "Shift-1";
         
-        let records = [];
+        // 1. Perform validation checks (if not Paused/Draft)
+        if (!isPause) {
+            CCP_OPRP_Validator.clearAll(cycleNum);
+            
+            if (category === "CCP") {
+                const paneElements = document.querySelectorAll(`#tabs-panes-${cycleNum} .tab-pane-content`);
+                for (let pane of paneElements) {
+                    const rows = pane.querySelectorAll(".checkpoint-inner-row");
+                    for (let row of rows) {
+                        const checkRows = row.querySelectorAll(".checkpoint-check-row");
+                        for (let check of checkRows) {
+                            const key = check.dataset.key;
+                            const isNotOkay = check.querySelector('[data-status="not-okay"]').classList.contains("badge-fill");
+                            
+                            if (isNotOkay) {
+                                const remarksEl = check.querySelector(".check-remarks-input");
+                                const remarksVal = remarksEl?.value?.trim() || "";
+                                if (!remarksVal || remarksVal.toLowerCase() === "no remarks") {
+                                    if (remarksEl) CCP_OPRP_Validator.highlight(remarksEl, true);
+                                    if (typeof HideLoader === "function") HideLoader();
+                                    alert("Please enter defect remarks for all 'Not Okay' checkpoints.");
+                                    if (remarksEl) remarksEl.focus();
+                                    return;
+                                }
+                            }
 
-        ShowLoader();
+                            if (key === "mdsensitivity") {
+                                const sensEl = check.querySelector(".check-val-input");
+                                const sensVal = sensEl?.value?.trim() || "";
+                                if (!sensVal || sensVal.toUpperCase() === "N/A") {
+                                    if (sensEl) CCP_OPRP_Validator.highlight(sensEl, true);
+                                    if (typeof HideLoader === "function") HideLoader();
+                                    alert("Please enter a valid sensitivity value for Metal Detector check.");
+                                    if (sensEl) sensEl.focus();
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Sieves & Magnets
+                const sieveRows = document.querySelectorAll(`#tabs-panes-${cycleNum} .sieve-item-row`);
+                for (let row of sieveRows) {
+                    const isNotOkay = row.querySelector('[data-status="not-okay"]').classList.contains("badge-fill");
+                    if (isNotOkay) {
+                        const remarksEl = row.querySelector(".defect-remarks-field input");
+                        const remarksVal = remarksEl?.value?.trim() || "";
+                        if (!remarksVal || remarksVal.toLowerCase() === "no remarks") {
+                            if (remarksEl) CCP_OPRP_Validator.highlight(remarksEl, true);
+                            if (typeof HideLoader === "function") HideLoader();
+                            alert("Please enter defect remarks for all 'Not Okay' sieves/magnets.");
+                            if (remarksEl) remarksEl.focus();
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
+        let records = [];
 
         try {
             if (category === "CCP") {

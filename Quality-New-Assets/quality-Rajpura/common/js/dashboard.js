@@ -589,8 +589,24 @@ const ALC_Dashboard = {
         const isFS = this.selectedCategory === "FoodSafety";
         const isCCP = this.selectedCategory === "CCP_OPRP_Sieves";
         const isMB = this.selectedCategory === "MixingAndBaking";
+        const isPkgOps = this.selectedCategory === "PackagingOperations";
+        const isALC = this.selectedCategory === "ALC";
         const ongoingTable = document.getElementById("rajpura-ongoing-tbody") ? document.getElementById("rajpura-ongoing-tbody").closest("table") : null;
         const closedTable = document.getElementById("rajpura-cycles-tbody") ? document.getElementById("rajpura-cycles-tbody").closest("table") : null;
+
+        // Show/hide Score column dynamically (only visible for ALC)
+        if (ongoingTable) {
+            const headers = ongoingTable.querySelectorAll("thead th");
+            if (headers.length >= 9) {
+                headers[5].style.display = isALC ? "" : "none";
+            }
+        }
+        if (closedTable) {
+            const headers = closedTable.querySelectorAll("thead th");
+            if (headers.length >= 8) {
+                headers[5].style.display = isALC ? "" : "none";
+            }
+        }
 
         if (isFS) {
             if (ongoingTable) {
@@ -839,7 +855,7 @@ const ALC_Dashboard = {
                         <td>${line}</td>
                         <td>${shift}</td>
                         <td style="text-align: left;">${execs}</td>
-                        <td>${scoreDisplay}</td>
+                        <td style="display: none;">${scoreDisplay}</td>
                         <td>${clearBadgeHtml}</td>
                         <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
                         <td style="font-weight: 500; color: #1e293b;">${pendingWith}</td>
@@ -901,7 +917,7 @@ const ALC_Dashboard = {
                         <td>${line}</td>
                         <td>${shift}</td>
                         <td style="text-align: left;">${execs}</td>
-                        <td>${scoreDisplay}</td>
+                        <td style="display: none;">${scoreDisplay}</td>
                         <td>${clearBadgeHtml}</td>
                         <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
                         <td style="font-weight: 500; color: #1e293b;">${pendingWith}</td>
@@ -965,7 +981,7 @@ const ALC_Dashboard = {
                         <td>${line}</td>
                         <td>${shift}</td>
                         <td style="text-align: left;">${execs}</td>
-                        <td>${scoreDisplay}</td>
+                        <td style="display: none;">${scoreDisplay}</td>
                         <td>${clearBadgeHtml}</td>
                         <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
                         <td style="font-weight: 500; color: #1e293b;">${pendingWith}</td>
@@ -1124,7 +1140,7 @@ const ALC_Dashboard = {
                         <td>${line}</td>
                         <td>${shift}</td>
                         <td style="text-align: left;">${execs}</td>
-                        <td>${scoreDisplay}</td>
+                        <td style="display: none;">${scoreDisplay}</td>
                         <td>${clearBadgeHtml}</td>
                         <td><span class="badge badge-fill ${badgeClass}">${displayStatus}</span></td>
                         <td style="font-weight: 500; color: #1e293b;">${pendingWith}</td>
@@ -1441,7 +1457,7 @@ const ALC_Dashboard = {
                         <td>${line}</td>
                         <td>${shift}</td>
                         <td style="text-align: left;">${execs}</td>
-                        <td><strong>${score}</strong></td>
+                        <td style="display: none;"><strong>${score}</strong></td>
                         <td>${clearBadgeHtml}</td>
                         <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
                     `;
@@ -1471,7 +1487,7 @@ const ALC_Dashboard = {
                         <td>${line}</td>
                         <td>${shift}</td>
                         <td style="text-align: left;">${execs}</td>
-                        <td><strong>${score}</strong></td>
+                        <td style="display: none;"><strong>${score}</strong></td>
                         <td>${clearBadgeHtml}</td>
                         <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
                     `;
@@ -1513,7 +1529,7 @@ const ALC_Dashboard = {
                         <td>${line}</td>
                         <td>${shift}</td>
                         <td style="text-align: left;">${execs}</td>
-                        <td><strong>${score}</strong></td>
+                        <td style="display: none;"><strong>${score}</strong></td>
                         <td>${clearBadgeHtml}</td>
                         <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
                     `;
@@ -1558,7 +1574,7 @@ const ALC_Dashboard = {
                         <td>${line}</td>
                         <td>${shift}</td>
                         <td style="text-align: left;">${execs}</td>
-                        <td><strong>${score}</strong></td>
+                        <td style="display: none;"><strong>${score}</strong></td>
                         <td>${clearBadgeHtml}</td>
                         <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
                     `;

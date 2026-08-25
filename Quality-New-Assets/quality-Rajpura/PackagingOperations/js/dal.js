@@ -289,8 +289,72 @@ const PKGOPS_DAL = {
         return data.value || [];
     },
 
+    // 7.b Delete Sub-checklist Row
+    deleteSubChecklistRow: async function (subChecklistKey, guid) {
+        const AccessToken = await this.getAccessToken();
+        if (!AccessToken) {
+            console.warn("No token available. Simulating deleteSubChecklistRow locally.");
+            return true;
+        }
+
+        const apiVersion = "9.2";
+        const tableName = QualityRajpura_Config.DATAVERSE_TABLES.PACKAGING_OPERATIONS[subChecklistKey];
+        if (!tableName) return false;
+
+        const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+        const headers = {
+            "Accept": "application/json",
+            "OData-MaxVersion": "4.0",
+            "OData-Version": "4.0"
+        };
+
+        const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}(${guid})`;
+        const response = await this.fetchWithToken(url, { method: "DELETE", headers });
+
+        if (!response.ok) {
+            throw new Error(`Dataverse delete failed: ${await response.text()}`);
+        }
+        return true;
+    },
+
+    // 7.c Clean all existing sub-checklist rows for a tour ID
+    cleanSubChecklistRows: async function (subChecklistKey, tourId, evaluationType) {
+        try {
+            const existing = await this.getSubChecklistRows(subChecklistKey, tourId);
+            if (existing && existing.length > 0) {
+                let idColumn = "";
+                if (subChecklistKey === "CHILD_TEMP_HUMIDITY") idColumn = "cr3ea_prod_rajpura_pkgops_temphumidityid";
+                else if (subChecklistKey === "CHILD_CODE_VERIFICATION") idColumn = "cr3ea_prod_rajpura_pkgops_codeverificationid";
+                else if (subChecklistKey === "CHILD_PAPA") idColumn = "cr3ea_prod_rajpura_pkgops_papaid";
+                else if (subChecklistKey === "CHILD_PQI_NET_WEIGHT") idColumn = "cr3ea_prod_rajpura_pkgops_pqi_netweightid";
+                else if (subChecklistKey === "CHILD_PQI_EVALUATION") idColumn = "cr3ea_prod_rajpura_pkgops_pqi_evaluationid";
+                else if (subChecklistKey === "CHILD_SEAL_INTEGRITY") idColumn = "cr3ea_prod_rajpura_pkgops_sealintegrityid";
+                else if (subChecklistKey === "CHILD_QUALITY_WALL") idColumn = "cr3ea_prod_rajpura_pkgops_qualitywallid";
+
+                for (let item of existing) {
+                    if (evaluationType && item.cr3ea_evaluationtype !== evaluationType) {
+                        continue;
+                    }
+                    const guid = item[idColumn];
+                    if (guid) {
+                        await this.deleteSubChecklistRow(subChecklistKey, guid);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("cleanSubChecklistRows failed: ", e);
+        }
+    },
+
     // 8. Upload photo file to SharePoint Document Library PackagingOperations_Docs
     uploadAttachmentFile: async function (fileObject, tourId, pkgOpsType, checkpointId, actionRemarks) {
+        if (typeof window.compressImageFile === "function" && fileObject && fileObject.type.startsWith("image/")) {
+            try {
+                fileObject = await window.compressImageFile(fileObject);
+            } catch (e) {
+                console.warn("Image compression failed, using original: ", e);
+            }
+        }
         const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
         const webServerRelativeUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webServerRelativeUrl : "";
         const libraryName = QualityRajpura_Config.SHAREPOINT_DOCS.PACKAGING_OPERATIONS;

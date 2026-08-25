@@ -123,7 +123,7 @@ const ALC_DAL = {
         }
 
         const apiVersion = "9.2";
-        const tableName = QualityRajpura_Config.DATAVERSE_TABLES.ALC.PARENT; // Reuse existing entity or define custom state columns
+        const tableName = QualityRajpura_Config.DATAVERSE_TABLES.ALC.PARENT;
         const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
 
         const headers = {
@@ -134,18 +134,26 @@ const ALC_DAL = {
             "Prefer": "return=representation"
         };
 
+        const payload = { ...sessionData };
         let url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}`;
         let method = "POST";
 
-        if (sessionData.cr3ea_prod_rajpura_quality_tourid) {
-            url += `(${sessionData.cr3ea_prod_rajpura_quality_tourid})`;
+        if (payload.cr3ea_prod_rajpura_quality_tourid) {
+            const cleanId = String(payload.cr3ea_prod_rajpura_quality_tourid).replace(/[{}]/g, "").trim().toLowerCase();
+            url += `(${cleanId})`;
             method = "PATCH";
+            delete payload.cr3ea_prod_rajpura_quality_tourid; // Exclude primary key from PATCH payload body
+        }
+
+        // Ensure overall score is sent as a string (Dataverse schema defines it as Edm.String)
+        if (payload.cr3ea_overall_score !== undefined && payload.cr3ea_overall_score !== null) {
+            payload.cr3ea_overall_score = String(payload.cr3ea_overall_score);
         }
 
         const response = await this.fetchWithToken(url, {
             method: method,
             headers: headers,
-            body: JSON.stringify(sessionData)
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
@@ -308,6 +316,13 @@ const ALC_DAL = {
 
     // 4. Upload Attachment to SharePoint Document Library
     uploadCorrectiveActionFile: async function (fileObject, tourId, areaName, checkpointId, actionRemarks) {
+        if (typeof window.compressImageFile === "function" && fileObject && fileObject.type.startsWith("image/")) {
+            try {
+                fileObject = await window.compressImageFile(fileObject);
+            } catch (e) {
+                console.warn("Image compression failed, using original: ", e);
+            }
+        }
         const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
         const webServerRelativeUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webServerRelativeUrl : "";
         const libraryName = QualityRajpura_Config.SHAREPOINT_DOCS.ALC_CORRECTIVE_ACTIONS;

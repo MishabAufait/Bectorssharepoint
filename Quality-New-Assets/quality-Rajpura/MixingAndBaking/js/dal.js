@@ -332,6 +332,13 @@ const MixingBaking_DAL = {
 
     // 7. Upload attachment file to SharePoint Document Library
     uploadAttachment: async function (fileObject, tourId, cycleNum) {
+        if (typeof window.compressImageFile === "function" && fileObject && fileObject.type.startsWith("image/")) {
+            try {
+                fileObject = await window.compressImageFile(fileObject);
+            } catch (e) {
+                console.warn("Image compression failed, using original: ", e);
+            }
+        }
         const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
         const webServerRelativeUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webServerRelativeUrl : "";
         const libraryName = QualityRajpura_Config.SHAREPOINT_DOCS.MIXING_BAKING;

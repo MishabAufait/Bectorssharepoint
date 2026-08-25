@@ -100,3 +100,81 @@ window.ShowProgressLoader = function (percentage, text = "Submitting data...") {
         </div>
     `;
 };
+
+/**
+ * Compresses an image file on the client-side using Canvas to optimize upload speeds.
+ * @param {File} file - The file selected from input or camera.
+ * @param {Object} options - Custom options (maxWidth, maxHeight, quality).
+ * @returns {Promise<File>} - Resolves to the compressed File object.
+ */
+window.compressImageFile = function (file, options = {}) {
+    return new Promise((resolve) => {
+        if (!file || !file.type.startsWith("image/")) {
+            return resolve(file);
+        }
+
+        const maxWidth = options.maxWidth || 1024;
+        const maxHeight = options.maxHeight || 1024;
+        const quality = options.quality !== undefined ? options.quality : 0.7;
+
+        const reader = new FileReader();
+        reader.onload = function (event) {
+            const img = new Image();
+            img.onload = function () {
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width = Math.round((width * maxHeight) / height);
+                        height = maxHeight;
+                    }
+                }
+
+                const canvas = document.createElement("canvas");
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob(
+                    (blob) => {
+                        if (blob) {
+                            let newName = file.name;
+                            const lastDot = newName.lastIndexOf(".");
+                            if (lastDot !== -1) {
+                                newName = newName.substring(0, lastDot) + ".jpg";
+                            } else {
+                                newName = newName + ".jpg";
+                            }
+                            const compressedFile = new File([blob], newName, {
+                                type: "image/jpeg",
+                                lastModified: Date.now()
+                            });
+                            console.log(`Image compressed: ${file.name} (${Math.round(file.size / 1024)} KB -> ${Math.round(compressedFile.size / 1024)} KB)`);
+                            resolve(compressedFile);
+                        } else {
+                            resolve(file);
+                        }
+                    },
+                    "image/jpeg",
+                    quality
+                );
+            };
+            img.onerror = function () {
+                resolve(file);
+            };
+            img.src = event.target.result;
+        };
+        reader.onerror = function () {
+            resolve(file);
+        };
+        reader.readAsDataURL(file);
+    });
+};

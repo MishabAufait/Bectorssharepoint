@@ -101,6 +101,25 @@ const PKGOPS_PAPA_DEFECTS_FLAT = [
     { category: "C", type: "Pack", name: "Others" }
 ];
 
+const PKGOPS_Validator = {
+    highlight: function (element, isInvalid) {
+        if (!element) return;
+        if (isInvalid) {
+            element.style.borderColor = "#ef4444";
+            element.style.boxShadow = "0 0 0 0.2rem rgba(239, 68, 68, 0.25)";
+        } else {
+            element.style.borderColor = "";
+            element.style.boxShadow = "";
+        }
+    },
+    clearAll: function (containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        const inputs = container.querySelectorAll("input, select, textarea");
+        inputs.forEach(el => this.highlight(el, false));
+    }
+};
+
 const PKGOPS_Checklist = {
     currentTourId: null,
     pkgopsType: null,
@@ -119,6 +138,7 @@ const PKGOPS_Checklist = {
         
         console.log(`Initializing Checklist: TourId=${tourId}, Type=${pkgopsType}`);
         this.renderChecklistForm();
+        await this.loadSavedValues();
     },
 
     // Main router rendering the sub-checklist forms
@@ -622,6 +642,7 @@ const PKGOPS_Checklist = {
                 </div>
             `;
         }
+        this.populateActivePqiSubForm();
     },
 
     togglePqiDefectFields: function (idx) {
@@ -677,6 +698,46 @@ const PKGOPS_Checklist = {
 
         try {
             if (val === "NetWeight") {
+                PKGOPS_Validator.clearAll("pqi-sub-container");
+                const headers = [
+                    { id: "pqi-nw-product", name: "Product Name" },
+                    { id: "pqi-nw-sku", name: "SKU" },
+                    { id: "pqi-nw-standard", name: "Standard Weight" }
+                ];
+                for (let h of headers) {
+                    const el = document.getElementById(h.id);
+                    if (!el || !el.value.trim()) {
+                        if (el) PKGOPS_Validator.highlight(el, true);
+                        if (typeof HideLoader === "function") HideLoader();
+                        alert(`Please fill in the required field: ${h.name}`);
+                        if (el) el.focus();
+                        return;
+                    }
+                }
+
+                const standardVal = parseFloat(document.getElementById("pqi-nw-standard").value) || 0;
+                if (standardVal <= 0) {
+                    const el = document.getElementById("pqi-nw-standard");
+                    PKGOPS_Validator.highlight(el, true);
+                    if (typeof HideLoader === "function") HideLoader();
+                    alert("Standard Weight must be greater than 0.");
+                    el.focus();
+                    return;
+                }
+
+                // Check 15 weights
+                for (let i = 0; i < 15; i++) {
+                    const weightEl = document.getElementById(`pqi-weight-${i}`);
+                    const wVal = parseFloat(weightEl.value);
+                    if (!weightEl || isNaN(wVal) || wVal <= 0) {
+                        PKGOPS_Validator.highlight(weightEl, true);
+                        if (typeof HideLoader === "function") HideLoader();
+                        alert(`Please enter a valid weight greater than 0 for Sample ${i + 1}.`);
+                        weightEl.focus();
+                        return;
+                    }
+                }
+
                 const product = document.getElementById("pqi-nw-product").value;
                 const sku = document.getElementById("pqi-nw-sku").value;
                 const standard = parseFloat(document.getElementById("pqi-nw-standard").value) || 0;
@@ -704,17 +765,72 @@ const PKGOPS_Checklist = {
                     netWeightRecord[`cr3ea_sampleweight${idx + 1}`] = String(w);
                 });
 
+                await PKGOPS_DAL.cleanSubChecklistRows("CHILD_PQI_NET_WEIGHT", this.currentTourId);
                 await PKGOPS_DAL.saveSubChecklistRow("CHILD_PQI_NET_WEIGHT", netWeightRecord);
                 this.pqiSubChecklistsFilled.NetWeight = true;
                 document.getElementById("badge-pqi-netweight").className = "badge bg-success pqi-status-badge";
                 document.getElementById("badge-pqi-netweight").innerText = "Net Weight: Saved";
             } else {
+                PKGOPS_Validator.clearAll("pqi-sub-container");
+                const headers = [
+                    { id: "pqi-eval-product", name: "Product Name" },
+                    { id: "pqi-eval-sku", name: "SKU" },
+                    { id: "pqi-eval-pkd", name: "PKD" },
+                    { id: "pqi-eval-batch", name: "Batch Code" }
+                ];
+                for (let h of headers) {
+                    const el = document.getElementById(h.id);
+                    if (!el || !el.value.trim()) {
+                        if (el) PKGOPS_Validator.highlight(el, true);
+                        if (typeof HideLoader === "function") HideLoader();
+                        alert(`Please fill in the required field: ${h.name}`);
+                        if (el) el.focus();
+                        return;
+                    }
+                }
+
+                // Validate 10 sample evaluation rows
+                for (let idx = 0; idx < 10; idx++) {
+                    const statusEl = document.getElementById(`pqi-eval-status-${idx}`);
+                    if (!statusEl) continue;
+                    if (statusEl.value === "Not Okay") {
+                        const catEl = document.getElementById(`pqi-eval-cat-${idx}`);
+                        const detailEl = document.getElementById(`pqi-eval-detail-${idx}`);
+                        const fileInput = document.getElementById(`pqi-eval-file-${idx}`);
+
+                        if (!catEl || !catEl.value.trim()) {
+                            if (catEl) PKGOPS_Validator.highlight(catEl, true);
+                            if (typeof HideLoader === "function") HideLoader();
+                            alert(`Please enter a defect category for Sample ${idx + 1}.`);
+                            if (catEl) catEl.focus();
+                            return;
+                        }
+
+                        if (!detailEl || !detailEl.value.trim()) {
+                            if (detailEl) PKGOPS_Validator.highlight(detailEl, true);
+                            if (typeof HideLoader === "function") HideLoader();
+                            alert(`Please enter defect details for Sample ${idx + 1}.`);
+                            if (detailEl) detailEl.focus();
+                            return;
+                        }
+
+                        if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+                            if (fileInput) PKGOPS_Validator.highlight(fileInput, true);
+                            if (typeof HideLoader === "function") HideLoader();
+                            alert(`Please upload a proof image for defective Sample ${idx + 1}.`);
+                            if (fileInput) fileInput.focus();
+                            return;
+                        }
+                    }
+                }
+
                 // Save Pack evaluation
                 const product = document.getElementById("pqi-eval-product").value;
                 const sku = document.getElementById("pqi-eval-sku").value;
                 const pkd = document.getElementById("pqi-eval-pkd").value;
                 const batch = document.getElementById("pqi-eval-batch").value;
 
+                await PKGOPS_DAL.cleanSubChecklistRows("CHILD_PQI_EVALUATION", this.currentTourId, val);
                 // Save each sample evaluation row to CHILD_PQI_EVALUATION
                 for (let idx = 0; idx < 10; idx++) {
                     const status = document.getElementById(`pqi-eval-status-${idx}`).value;
@@ -946,6 +1062,44 @@ const PKGOPS_Checklist = {
             };
 
             if (this.pkgopsType === "Temperatures & Humidity") {
+                PKGOPS_Validator.clearAll("checklist-container");
+                const fields = [
+                    { id: "th-pkglinetemp", name: "Packaging Line Temp" },
+                    { id: "th-pkglinehumidity", name: "Packaging Line Humidity" },
+                    { id: "th-coolingtunneltemp", name: "Cooling Tunnel Temp" },
+                    { id: "th-creamroomtemp", name: "Cream Room Temp" },
+                    { id: "th-coldstorage1temp", name: "Cold Storage 1 Temp" },
+                    { id: "th-coldstorage2temp", name: "Cold Storage 2 Temp" },
+                    { id: "th-flavourroomtemp", name: "Flavour Room Temp" },
+                    { id: "th-dhroomhumidity", name: "DH Room Humidity" },
+                    { id: "th-coldroom1temp", name: "Cold Room 1 Temp" },
+                    { id: "th-coldroom2temp", name: "Cold Room 2 Temp" },
+                    { id: "th-coldroom3temp", name: "Cold Room 3 Temp" },
+                    { id: "th-deepfreezeryeasttemp", name: "Deep Freezer for Yeast" }
+                ];
+
+                for (let f of fields) {
+                    const el = document.getElementById(f.id);
+                    if (!el) continue;
+                    const val = el.value.trim();
+                    if (!val) {
+                        PKGOPS_Validator.highlight(el, true);
+                        if (typeof HideLoader === "function") HideLoader();
+                        alert(`Please fill in the required field: ${f.name}`);
+                        el.focus();
+                        return;
+                    }
+                    const isNa = val.toUpperCase() === "NA" || val.toUpperCase() === "N/A";
+                    const isNum = !isNaN(parseFloat(val)) && isFinite(val);
+                    if (!isNa && !isNum) {
+                        PKGOPS_Validator.highlight(el, true);
+                        if (typeof HideLoader === "function") HideLoader();
+                        alert(`Please enter a valid numeric value or 'NA' for: ${f.name}`);
+                        el.focus();
+                        return;
+                    }
+                }
+
                 const record = {
                     cr3ea_name: `TempHumidity_${moment().format("DD-MM-YYYY")}`,
                     cr3ea_pkglinetemp: document.getElementById("th-pkglinetemp").value,
@@ -962,15 +1116,85 @@ const PKGOPS_Checklist = {
                     cr3ea_deepfreezeryeasttemp: document.getElementById("th-deepfreezeryeasttemp").value,
                     "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
                 };
+                await PKGOPS_DAL.cleanSubChecklistRows("CHILD_TEMP_HUMIDITY", this.currentTourId);
                 await PKGOPS_DAL.saveSubChecklistRow("CHILD_TEMP_HUMIDITY", record);
             } 
             else if (this.pkgopsType === "Code Verification") {
+                PKGOPS_Validator.clearAll("checklist-container");
+                const headers = [
+                    { id: "cv-product", name: "Product Name" },
+                    { id: "cv-sku", name: "SKU" },
+                    { id: "cv-batch", name: "Batch No" },
+                    { id: "cv-pkd", name: "PKD" },
+                    { id: "cv-expiry", name: "Expiry Date" }
+                ];
+                for (let h of headers) {
+                    const el = document.getElementById(h.id);
+                    if (!el || !el.value.trim()) {
+                        if (el) PKGOPS_Validator.highlight(el, true);
+                        if (typeof HideLoader === "function") HideLoader();
+                        alert(`Please fill in the required header field: ${h.name}`);
+                        if (el) el.focus();
+                        return;
+                    }
+                }
+
+                const pkdEl = document.getElementById("cv-pkd");
+                const expEl = document.getElementById("cv-expiry");
+                if (pkdEl && expEl) {
+                    const pkdVal = new Date(pkdEl.value);
+                    const expVal = new Date(expEl.value);
+                    if (expVal < pkdVal) {
+                        PKGOPS_Validator.highlight(expEl, true);
+                        if (typeof HideLoader === "function") HideLoader();
+                        alert("Expiry Date cannot be earlier than PKD (Packaging Date).");
+                        expEl.focus();
+                        return;
+                    }
+                }
+
+                for (let i = 0; i < 10; i++) {
+                    const statusEl = document.getElementById(`cv-status-${i}`);
+                    if (!statusEl) continue;
+                    if (statusEl.value === "Not Okay") {
+                        const defectEl = document.getElementById(`cv-defect-${i}`);
+                        const countEl = document.getElementById(`cv-count-${i}`);
+                        const fileInput = document.getElementById(`cv-file-${i}`);
+
+                        if (!defectEl || !defectEl.value) {
+                            if (defectEl) PKGOPS_Validator.highlight(defectEl, true);
+                            if (typeof HideLoader === "function") HideLoader();
+                            alert(`Please select a defect category for Sample ${i + 1}.`);
+                            if (defectEl) defectEl.focus();
+                            return;
+                        }
+
+                        const countVal = parseInt(countEl.value) || 0;
+                        if (!countEl || countVal < 1) {
+                            if (countEl) PKGOPS_Validator.highlight(countEl, true);
+                            if (typeof HideLoader === "function") HideLoader();
+                            alert(`Please enter a defect count greater than 0 for Sample ${i + 1}.`);
+                            if (countEl) countEl.focus();
+                            return;
+                        }
+
+                        if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+                            if (fileInput) PKGOPS_Validator.highlight(fileInput, true);
+                            if (typeof HideLoader === "function") HideLoader();
+                            alert(`Please upload a proof image for defective Sample ${i + 1}.`);
+                            if (fileInput) fileInput.focus();
+                            return;
+                        }
+                    }
+                }
+
                 const product = document.getElementById("cv-product").value;
                 const sku = document.getElementById("cv-sku").value;
                 const batch = document.getElementById("cv-batch").value;
                 const pkd = document.getElementById("cv-pkd").value;
                 const expiry = document.getElementById("cv-expiry").value;
 
+                await PKGOPS_DAL.cleanSubChecklistRows("CHILD_CODE_VERIFICATION", this.currentTourId);
                 for (let i = 0; i < 10; i++) {
                     const status = document.getElementById(`cv-status-${i}`).value;
                     const defect = document.getElementById(`cv-defect-${i}`).value;
@@ -1004,12 +1228,63 @@ const PKGOPS_Checklist = {
                 }
             } 
             else if (this.pkgopsType === "PAPA") {
+                PKGOPS_Validator.clearAll("checklist-container");
+                const headers = [
+                    { id: "papa-product", name: "Product Name" },
+                    { id: "papa-sku", name: "SKU" },
+                    { id: "papa-sample-size", name: "Sample Size" }
+                ];
+                for (let h of headers) {
+                    const el = document.getElementById(h.id);
+                    if (!el || !el.value.trim()) {
+                        if (el) PKGOPS_Validator.highlight(el, true);
+                        if (typeof HideLoader === "function") HideLoader();
+                        alert(`Please fill in the required header field: ${h.name}`);
+                        if (el) el.focus();
+                        return;
+                    }
+                }
+
+                const sampleSize = parseInt(document.getElementById("papa-sample-size").value) || 100;
+                if (sampleSize < 1) {
+                    const el = document.getElementById("papa-sample-size");
+                    PKGOPS_Validator.highlight(el, true);
+                    if (typeof HideLoader === "function") HideLoader();
+                    alert("Sample size must be at least 1.");
+                    el.focus();
+                    return;
+                }
+
+                let sumCounts = 0;
+                for (let i = 0; i < PKGOPS_PAPA_DEFECTS_FLAT.length; i++) {
+                    const chk = document.getElementById(`papa-chk-${i}`);
+                    if (!chk) continue;
+                    if (chk.checked) {
+                        const countEl = document.getElementById(`papa-count-${i}`);
+                        const countVal = parseInt(countEl.value) || 0;
+                        if (countVal < 1) {
+                            PKGOPS_Validator.highlight(countEl, true);
+                            if (typeof HideLoader === "function") HideLoader();
+                            alert(`Please enter a defect count greater than 0 for checked defect: ${PKGOPS_PAPA_DEFECTS_FLAT[i].name}.`);
+                            countEl.focus();
+                            return;
+                        }
+                        sumCounts += countVal;
+                    }
+                }
+
+                if (sumCounts > sampleSize) {
+                    if (typeof HideLoader === "function") HideLoader();
+                    alert(`Total defect counts (${sumCounts}) cannot exceed the sample size (${sampleSize}).`);
+                    return;
+                }
+
                 const product = document.getElementById("papa-product").value;
                 const sku = document.getElementById("papa-sku").value;
-                const sampleSize = document.getElementById("papa-sample-size").value;
 
                 let overallDefectCount = 0;
 
+                await PKGOPS_DAL.cleanSubChecklistRows("CHILD_PAPA", this.currentTourId);
                 for (let i = 0; i < PKGOPS_PAPA_DEFECTS_FLAT.length; i++) {
                     const chk = document.getElementById(`papa-chk-${i}`);
                     if (!chk) continue;
@@ -1024,7 +1299,7 @@ const PKGOPS_Checklist = {
                             cr3ea_name: `PAPA_${sku}`,
                             cr3ea_productname: product,
                             cr3ea_sku: sku,
-                            cr3ea_noofsamples: sampleSize,
+                            cr3ea_noofsamples: String(sampleSize),
                             cr3ea_defecttype: `${PKGOPS_PAPA_DEFECTS_FLAT[i].name} (${PKGOPS_PAPA_DEFECTS_FLAT[i].category} - ${PKGOPS_PAPA_DEFECTS_FLAT[i].type})`,
                             cr3ea_defectcount: String(count),
                             cr3ea_defectwisepercentage: `${((count / sampleSize) * 100).toFixed(2)}%`,
@@ -1041,7 +1316,7 @@ const PKGOPS_Checklist = {
                         cr3ea_name: `PAPA_Overall_${sku}`,
                         cr3ea_productname: product,
                         cr3ea_sku: sku,
-                        cr3ea_noofsamples: sampleSize,
+                        cr3ea_noofsamples: String(sampleSize),
                         cr3ea_defecttype: "Overall Summary",
                         cr3ea_defectcount: String(overallDefectCount),
                         cr3ea_overalldefectpercentage: `${((overallDefectCount / sampleSize) * 100).toFixed(2)}%`,
@@ -1068,6 +1343,72 @@ const PKGOPS_Checklist = {
                 }
             } 
             else if (this.pkgopsType === "Seal Integrity") {
+                PKGOPS_Validator.clearAll("checklist-container");
+                const headers = [
+                    { id: "seal-product", name: "Product Name" },
+                    { id: "seal-sku", name: "SKU" },
+                    { id: "seal-machine", name: "Machine No" },
+                    { id: "seal-qty", name: "Sample Quantity" },
+                    { id: "seal-leak-count", name: "Leakage Count" }
+                ];
+                for (let h of headers) {
+                    const el = document.getElementById(h.id);
+                    if (!el || el.value.trim() === "") {
+                        if (el) PKGOPS_Validator.highlight(el, true);
+                        if (typeof HideLoader === "function") HideLoader();
+                        alert(`Please fill in the required field: ${h.name}`);
+                        if (el) el.focus();
+                        return;
+                    }
+                }
+
+                const qtyEl = document.getElementById("seal-qty");
+                const leakEl = document.getElementById("seal-leak-count");
+                const qtyVal = parseInt(qtyEl.value) || 0;
+                const leakVal = parseInt(leakEl.value) || 0;
+                const typeEl = document.getElementById("seal-leak-type");
+                const typeVal = typeEl.value;
+
+                if (qtyVal < 1) {
+                    PKGOPS_Validator.highlight(qtyEl, true);
+                    if (typeof HideLoader === "function") HideLoader();
+                    alert("Sample Quantity must be at least 1.");
+                    qtyEl.focus();
+                    return;
+                }
+
+                if (leakVal < 0) {
+                    PKGOPS_Validator.highlight(leakEl, true);
+                    if (typeof HideLoader === "function") HideLoader();
+                    alert("Leakage Count cannot be negative.");
+                    leakEl.focus();
+                    return;
+                }
+
+                if (leakVal > qtyVal) {
+                    PKGOPS_Validator.highlight(leakEl, true);
+                    if (typeof HideLoader === "function") HideLoader();
+                    alert("Leakage Count cannot exceed Sample Quantity.");
+                    leakEl.focus();
+                    return;
+                }
+
+                if (leakVal > 0 && typeVal === "None") {
+                    PKGOPS_Validator.highlight(typeEl, true);
+                    if (typeof HideLoader === "function") HideLoader();
+                    alert("Please select a valid Leakage Type when Leakage Count is greater than 0.");
+                    typeEl.focus();
+                    return;
+                }
+
+                if (leakVal === 0 && typeVal !== "None") {
+                    PKGOPS_Validator.highlight(typeEl, true);
+                    if (typeof HideLoader === "function") HideLoader();
+                    alert("Leakage Type must be 'None' when Leakage Count is 0.");
+                    typeEl.focus();
+                    return;
+                }
+
                 const product = document.getElementById("seal-product").value;
                 const sku = document.getElementById("seal-sku").value;
                 const machine = document.getElementById("seal-machine").value;
@@ -1090,6 +1431,7 @@ const PKGOPS_Checklist = {
                     cr3ea_deviationstatus: leakage > 0 ? "Open" : "None",
                     "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
                 };
+                await PKGOPS_DAL.cleanSubChecklistRows("CHILD_SEAL_INTEGRITY", this.currentTourId);
                 await PKGOPS_DAL.saveSubChecklistRow("CHILD_SEAL_INTEGRITY", sealRecord);
             } 
             else if (this.pkgopsType === "Cream Percentage") {
@@ -1104,6 +1446,41 @@ const PKGOPS_Checklist = {
                 }
             } 
             else if (this.pkgopsType === "Quality Wall Records") {
+                PKGOPS_Validator.clearAll("checklist-container");
+                const headers = [
+                    { id: "wall-product", name: "Product Name" },
+                    { id: "wall-sku", name: "SKU" },
+                    { id: "wall-facilitator", name: "Facilitator" },
+                    { id: "wall-type", name: "Type of Quality Wall" },
+                    { id: "wall-members", name: "Members Present" },
+                    { id: "wall-rating-appearance", name: "Appearance Rating" },
+                    { id: "wall-rating-sealing", name: "Sealing Quality Rating" },
+                    { id: "wall-rating-coding", name: "Coding Rating" }
+                ];
+                for (let h of headers) {
+                    const el = document.getElementById(h.id);
+                    if (!el || !el.value.trim()) {
+                        if (el) PKGOPS_Validator.highlight(el, true);
+                        if (typeof HideLoader === "function") HideLoader();
+                        alert(`Please fill in the required field: ${h.name}`);
+                        if (el) el.focus();
+                        return;
+                    }
+                }
+
+                const ratings = ["wall-rating-appearance", "wall-rating-sealing", "wall-rating-coding"];
+                for (let r of ratings) {
+                    const el = document.getElementById(r);
+                    const val = parseFloat(el.value) || 0;
+                    if (val < 1 || val > 5) {
+                        PKGOPS_Validator.highlight(el, true);
+                        if (typeof HideLoader === "function") HideLoader();
+                        alert("Rating score must be between 1 and 5.");
+                        el.focus();
+                        return;
+                    }
+                }
+
                 const product = document.getElementById("wall-product").value;
                 const sku = document.getElementById("wall-sku").value;
                 const facilitator = document.getElementById("wall-facilitator").value;
@@ -1130,6 +1507,7 @@ const PKGOPS_Checklist = {
                     cr3ea_remarks: remarks,
                     "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
                 };
+                await PKGOPS_DAL.cleanSubChecklistRows("CHILD_QUALITY_WALL", this.currentTourId);
                 await PKGOPS_DAL.saveSubChecklistRow("CHILD_QUALITY_WALL", wallRecord);
             }
 
@@ -1152,6 +1530,393 @@ const PKGOPS_Checklist = {
             if (typeof HideLoader === "function") HideLoader();
             console.error("Failed to submit checklist: ", e);
             alert("Submission failed. Please check entries and try again.");
+        }
+    },
+
+    pauseChecklist: async function () {
+        if (typeof ShowLoader === "function") ShowLoader();
+
+        try {
+            if (this.pkgopsType === "Temperatures & Humidity") {
+                const record = {
+                    cr3ea_name: `TempHumidity_${moment().format("DD-MM-YYYY")}`,
+                    cr3ea_pkglinetemp: document.getElementById("th-pkglinetemp")?.value || "",
+                    cr3ea_pkglinehumidity: document.getElementById("th-pkglinehumidity")?.value || "",
+                    cr3ea_coolingtunneltemp: document.getElementById("th-coolingtunneltemp")?.value || "",
+                    cr3ea_creamroomtemp: document.getElementById("th-creamroomtemp")?.value || "",
+                    cr3ea_coldstorage1nbtemp: document.getElementById("th-coldstorage1temp")?.value || "",
+                    cr3ea_coldstorage2nbtemp: document.getElementById("th-coldstorage2temp")?.value || "",
+                    cr3ea_flavourroomtemp: document.getElementById("th-flavourroomtemp")?.value || "",
+                    cr3ea_dhroomhumidity: document.getElementById("th-dhroomhumidity")?.value || "",
+                    cr3ea_coldroom1obtemp: document.getElementById("th-coldroom1temp")?.value || "",
+                    cr3ea_coldroom2obtemp: document.getElementById("th-coldroom2temp")?.value || "",
+                    cr3ea_coldroom3obtemp: document.getElementById("th-coldroom3temp")?.value || "",
+                    cr3ea_deepfreezeryeasttemp: document.getElementById("th-deepfreezeryeasttemp")?.value || "",
+                    "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
+                };
+                await PKGOPS_DAL.cleanSubChecklistRows("CHILD_TEMP_HUMIDITY", this.currentTourId);
+                await PKGOPS_DAL.saveSubChecklistRow("CHILD_TEMP_HUMIDITY", record);
+            } 
+            else if (this.pkgopsType === "Code Verification") {
+                const product = document.getElementById("cv-product")?.value || "";
+                const sku = document.getElementById("cv-sku")?.value || "";
+                const batch = document.getElementById("cv-batch")?.value || "";
+                const pkd = document.getElementById("cv-pkd")?.value || null;
+                const expiry = document.getElementById("cv-expiry")?.value || null;
+
+                await PKGOPS_DAL.cleanSubChecklistRows("CHILD_CODE_VERIFICATION", this.currentTourId);
+
+                for (let i = 0; i < 10; i++) {
+                    const status = document.getElementById(`cv-status-${i}`)?.value || "Okay";
+                    const defect = document.getElementById(`cv-defect-${i}`)?.value || "";
+                    const count = parseInt(document.getElementById(`cv-count-${i}`)?.value) || 0;
+                    const fileInput = document.getElementById(`cv-file-${i}`);
+
+                    let pictureUrl = "";
+                    if (fileInput && fileInput.files && fileInput.files[0]) {
+                        pictureUrl = await PKGOPS_DAL.uploadAttachmentFile(fileInput.files[0], this.currentTourId, "Code Verification", `Sample-${i}`, defect);
+                    }
+
+                    const cvRecord = {
+                        cr3ea_name: `CodeVerification_${sku}`,
+                        cr3ea_productname: product,
+                        cr3ea_sku: sku,
+                        cr3ea_batchno: batch,
+                        cr3ea_noofsamples: "10",
+                        cr3ea_defecttype: status === "Not Okay" ? defect : "None",
+                        cr3ea_defectcount: String(count),
+                        cr3ea_codepictureurl: pictureUrl,
+                        cr3ea_deviationstatus: status === "Not Okay" ? "Open" : "None",
+                        "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
+                    };
+                    if (pkd) cvRecord.cr3ea_pkd = pkd;
+                    if (expiry) cvRecord.cr3ea_expirydate = expiry;
+
+                    await PKGOPS_DAL.saveSubChecklistRow("CHILD_CODE_VERIFICATION", cvRecord);
+                }
+            } 
+            else if (this.pkgopsType === "PAPA") {
+                const product = document.getElementById("papa-product")?.value || "";
+                const sku = document.getElementById("papa-sku")?.value || "";
+                const sampleSize = parseInt(document.getElementById("papa-sample-size")?.value) || 100;
+
+                let overallDefectCount = 0;
+
+                await PKGOPS_DAL.cleanSubChecklistRows("CHILD_PAPA", this.currentTourId);
+
+                for (let i = 0; i < PKGOPS_PAPA_DEFECTS_FLAT.length; i++) {
+                    const chk = document.getElementById(`papa-chk-${i}`);
+                    if (!chk) continue;
+                    const isChecked = chk.checked;
+                    const count = parseInt(document.getElementById(`papa-count-${i}`)?.value) || 0;
+
+                    if (isChecked && count > 0) {
+                        overallDefectCount += count;
+
+                        const papaRecord = {
+                            cr3ea_name: `PAPA_${sku}`,
+                            cr3ea_productname: product,
+                            cr3ea_sku: sku,
+                            cr3ea_noofsamples: String(sampleSize),
+                            cr3ea_defecttype: `${PKGOPS_PAPA_DEFECTS_FLAT[i].name} (${PKGOPS_PAPA_DEFECTS_FLAT[i].category} - ${PKGOPS_PAPA_DEFECTS_FLAT[i].type})`,
+                            cr3ea_defectcount: String(count),
+                            cr3ea_defectwisepercentage: `${((count / sampleSize) * 100).toFixed(2)}%`,
+                            cr3ea_deviationstatus: "Open",
+                            "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
+                        };
+                        await PKGOPS_DAL.saveSubChecklistRow("CHILD_PAPA", papaRecord);
+                    }
+                }
+
+                const finalPapaRecord = {
+                    cr3ea_name: `PAPA_Overall_${sku}`,
+                    cr3ea_productname: product,
+                    cr3ea_sku: sku,
+                    cr3ea_noofsamples: String(sampleSize),
+                    cr3ea_defecttype: "Overall Summary",
+                    cr3ea_defectcount: String(overallDefectCount),
+                    cr3ea_overalldefectpercentage: `${((overallDefectCount / sampleSize) * 100).toFixed(2)}%`,
+                    cr3ea_deviationstatus: "None",
+                    "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
+                };
+                await PKGOPS_DAL.saveSubChecklistRow("CHILD_PAPA", finalPapaRecord);
+            } 
+            else if (this.pkgopsType === "Seal Integrity") {
+                const product = document.getElementById("seal-product")?.value || "";
+                const sku = document.getElementById("seal-sku")?.value || "";
+                const machine = document.getElementById("seal-machine")?.value || "";
+                const qty = document.getElementById("seal-qty")?.value || "";
+                const leakage = parseInt(document.getElementById("seal-leak-count")?.value) || 0;
+                const type = document.getElementById("seal-leak-type")?.value || "None";
+
+                const sealRecord = {
+                    cr3ea_name: `SealIntegrity_${sku}`,
+                    cr3ea_productname: product,
+                    cr3ea_sku: sku,
+                    cr3ea_machineno: machine,
+                    cr3ea_samplequantity: qty,
+                    cr3ea_noofleakage: String(leakage),
+                    cr3ea_leakagetype: type,
+                    cr3ea_deviationstatus: leakage > 0 ? "Open" : "None",
+                    "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
+                };
+                await PKGOPS_DAL.cleanSubChecklistRows("CHILD_SEAL_INTEGRITY", this.currentTourId);
+                await PKGOPS_DAL.saveSubChecklistRow("CHILD_SEAL_INTEGRITY", sealRecord);
+            } 
+            else if (this.pkgopsType === "Quality Wall Records") {
+                const product = document.getElementById("wall-product")?.value || "";
+                const sku = document.getElementById("wall-sku")?.value || "";
+                const facilitator = document.getElementById("wall-facilitator")?.value || "";
+                const type = document.getElementById("wall-type")?.value || "";
+                const members = document.getElementById("wall-members")?.value || "";
+                const app = document.getElementById("wall-rating-appearance")?.value || "5";
+                const seal = document.getElementById("wall-rating-sealing")?.value || "5";
+                const cod = document.getElementById("wall-rating-coding")?.value || "5";
+                const remarks = document.getElementById("wall-remarks")?.value || "";
+
+                const ratingVal = (parseFloat(app) + parseFloat(seal) + parseFloat(cod)) / 3;
+
+                const wallRecord = {
+                    cr3ea_name: `QualityWall_${sku}`,
+                    cr3ea_productname: product,
+                    cr3ea_sku: sku,
+                    cr3ea_facilitator: facilitator,
+                    cr3ea_typeofqualitywall: type,
+                    cr3ea_memberspresent: members,
+                    cr3ea_packappearancerating: String(app),
+                    cr3ea_sealingqualityrating: String(seal),
+                    cr3ea_codingrating: String(cod),
+                    cr3ea_overallrating: String(ratingVal),
+                    cr3ea_remarks: remarks,
+                    "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
+                };
+                await PKGOPS_DAL.cleanSubChecklistRows("CHILD_QUALITY_WALL", this.currentTourId);
+                await PKGOPS_DAL.saveSubChecklistRow("CHILD_QUALITY_WALL", wallRecord);
+            }
+
+            // Save parent status to QA In Progress to keep it active
+            let targetTourRecord = {
+                cr3ea_prod_rajpura_quality_tourid: this.currentTourId,
+                cr3ea_status: "QA In Progress",
+                cr3ea_processstatus: "QA In Progress"
+            };
+            await PKGOPS_DAL.saveTour(targetTourRecord);
+
+            if (typeof HideLoader === "function") HideLoader();
+            alert("Tour progress paused and saved successfully.");
+            
+            // Redirect to dashboard
+            window.location.href = "/sites/Mrs_Bectors_PTMS/Pages/Home.aspx";
+        } catch (e) {
+            if (typeof HideLoader === "function") HideLoader();
+            console.error("Failed to pause tour: ", e);
+            alert("Failed to pause tour. Please try again.");
+        }
+    },
+
+    loadSavedValues: async function () {
+        try {
+            if (this.pkgopsType === "Temperatures & Humidity") {
+                const rows = await PKGOPS_DAL.getSubChecklistRows("CHILD_TEMP_HUMIDITY", this.currentTourId);
+                if (rows && rows.length > 0) {
+                    const row = rows[0];
+                    if (document.getElementById("th-pkglinetemp")) document.getElementById("th-pkglinetemp").value = row.cr3ea_pkglinetemp || "";
+                    if (document.getElementById("th-pkglinehumidity")) document.getElementById("th-pkglinehumidity").value = row.cr3ea_pkglinehumidity || "";
+                    if (document.getElementById("th-coolingtunneltemp")) document.getElementById("th-coolingtunneltemp").value = row.cr3ea_coolingtunneltemp || "";
+                    if (document.getElementById("th-creamroomtemp")) document.getElementById("th-creamroomtemp").value = row.cr3ea_creamroomtemp || "";
+                    if (document.getElementById("th-coldstorage1temp")) document.getElementById("th-coldstorage1temp").value = row.cr3ea_coldstorage1nbtemp || "";
+                    if (document.getElementById("th-coldstorage2temp")) document.getElementById("th-coldstorage2temp").value = row.cr3ea_coldstorage2nbtemp || "";
+                    if (document.getElementById("th-flavourroomtemp")) document.getElementById("th-flavourroomtemp").value = row.cr3ea_flavourroomtemp || "";
+                    if (document.getElementById("th-dhroomhumidity")) document.getElementById("th-dhroomhumidity").value = row.cr3ea_dhroomhumidity || "";
+                    if (document.getElementById("th-coldroom1temp")) document.getElementById("th-coldroom1temp").value = row.cr3ea_coldroom1obtemp || "";
+                    if (document.getElementById("th-coldroom2temp")) document.getElementById("th-coldroom2temp").value = row.cr3ea_coldroom2obtemp || "";
+                    if (document.getElementById("th-coldroom3temp")) document.getElementById("th-coldroom3temp").value = row.cr3ea_coldroom3obtemp || "";
+                    if (document.getElementById("th-deepfreezeryeasttemp")) document.getElementById("th-deepfreezeryeasttemp").value = row.cr3ea_deepfreezeryeasttemp || "";
+                }
+            } 
+            else if (this.pkgopsType === "Code Verification") {
+                const rows = await PKGOPS_DAL.getSubChecklistRows("CHILD_CODE_VERIFICATION", this.currentTourId);
+                if (rows && rows.length > 0) {
+                    const firstRow = rows[0];
+                    if (document.getElementById("cv-product")) document.getElementById("cv-product").value = firstRow.cr3ea_productname || "";
+                    if (document.getElementById("cv-sku")) document.getElementById("cv-sku").value = firstRow.cr3ea_sku || "";
+                    if (document.getElementById("cv-batch")) document.getElementById("cv-batch").value = firstRow.cr3ea_batchno || "";
+                    if (document.getElementById("cv-pkd") && firstRow.cr3ea_pkd) {
+                        document.getElementById("cv-pkd").value = moment(firstRow.cr3ea_pkd).format("YYYY-MM-DD");
+                    }
+                    if (document.getElementById("cv-expiry") && firstRow.cr3ea_expirydate) {
+                        document.getElementById("cv-expiry").value = moment(firstRow.cr3ea_expirydate).format("YYYY-MM-DD");
+                    }
+
+                    rows.forEach((row, i) => {
+                        if (i < 10) {
+                            const status = row.cr3ea_defecttype && row.cr3ea_defecttype !== "None" ? "Not Okay" : "Okay";
+                            const statusSelect = document.getElementById(`cv-status-${i}`);
+                            if (statusSelect) {
+                                statusSelect.value = status;
+                                PKGOPS_Checklist.toggleCvDefectFields(i);
+                            }
+                            if (status === "Not Okay") {
+                                const defectSelect = document.getElementById(`cv-defect-${i}`);
+                                if (defectSelect) defectSelect.value = row.cr3ea_defecttype || "";
+                                const countInput = document.getElementById(`cv-count-${i}`);
+                                if (countInput) countInput.value = row.cr3ea_defectcount || "";
+                            }
+                        }
+                    });
+                }
+            } 
+            else if (this.pkgopsType === "PAPA") {
+                const rows = await PKGOPS_DAL.getSubChecklistRows("CHILD_PAPA", this.currentTourId);
+                if (rows && rows.length > 0) {
+                    const firstRow = rows.find(r => r.cr3ea_defecttype === "Overall Summary") || rows[0];
+                    if (document.getElementById("papa-product")) document.getElementById("papa-product").value = firstRow.cr3ea_productname || "";
+                    if (document.getElementById("papa-sku")) document.getElementById("papa-sku").value = firstRow.cr3ea_sku || "";
+                    if (document.getElementById("papa-sample-size")) document.getElementById("papa-sample-size").value = firstRow.cr3ea_noofsamples || "100";
+
+                    rows.forEach(row => {
+                        if (row.cr3ea_defecttype && row.cr3ea_defecttype !== "Overall Summary") {
+                            const rawDefect = row.cr3ea_defecttype;
+                            const idxBracket = rawDefect.lastIndexOf(" (");
+                            const cleanName = idxBracket !== -1 ? rawDefect.substring(0, idxBracket).trim() : rawDefect.trim();
+
+                            const matches = rawDefect.match(/\((A|B|C)\s*-\s*(Product|Pack)\)/i);
+                            const category = matches ? matches[1].toUpperCase() : null;
+                            const type = matches ? matches[2] : null;
+
+                            const flatIdx = PKGOPS_PAPA_DEFECTS_FLAT.findIndex(d => 
+                                d.name.trim().toLowerCase() === cleanName.toLowerCase() &&
+                                (!category || d.category === category) &&
+                                (!type || d.type.toLowerCase() === type.toLowerCase())
+                            );
+
+                            if (flatIdx !== -1) {
+                                const chk = document.getElementById(`papa-chk-${flatIdx}`);
+                                if (chk) {
+                                    chk.checked = true;
+                                    PKGOPS_Checklist.togglePapaDefect(flatIdx);
+                                }
+                                const countInput = document.getElementById(`papa-count-${flatIdx}`);
+                                if (countInput) countInput.value = row.cr3ea_defectcount || "0";
+                            }
+                        }
+                    });
+                    PKGOPS_Checklist.calculatePapaPercentages();
+                }
+            } 
+            else if (this.pkgopsType === "PQI") {
+                const nwRows = await PKGOPS_DAL.getSubChecklistRows("CHILD_PQI_NET_WEIGHT", this.currentTourId);
+                if (nwRows && nwRows.length > 0) {
+                    const row = nwRows[0];
+                    this.savedPqiNetWeight = row;
+                    this.pqiSubChecklistsFilled.NetWeight = true;
+                    const badge = document.getElementById("badge-pqi-netweight");
+                    if (badge) {
+                        badge.className = "badge bg-success pqi-status-badge";
+                        badge.innerText = "Net Weight: Saved";
+                    }
+                }
+
+                const evalRows = await PKGOPS_DAL.getSubChecklistRows("CHILD_PQI_EVALUATION", this.currentTourId);
+                if (evalRows && evalRows.length > 0) {
+                    this.savedPqiEvaluations = evalRows;
+                    const types = ["Product", "Primary", "Secondary", "CBB"];
+                    types.forEach(t => {
+                        const hasType = evalRows.some(r => r.cr3ea_evaluationtype === t);
+                        if (hasType) {
+                            this.pqiSubChecklistsFilled[t] = true;
+                            const badge = document.getElementById(`badge-pqi-${t.toLowerCase()}`);
+                            if (badge) {
+                                badge.className = "badge bg-success pqi-status-badge";
+                                badge.innerText = `${t}: Saved`;
+                            }
+                        }
+                    });
+                }
+
+                this.populateActivePqiSubForm();
+            } 
+            else if (this.pkgopsType === "Seal Integrity") {
+                const rows = await PKGOPS_DAL.getSubChecklistRows("CHILD_SEAL_INTEGRITY", this.currentTourId);
+                if (rows && rows.length > 0) {
+                    const row = rows[0];
+                    if (document.getElementById("seal-product")) document.getElementById("seal-product").value = row.cr3ea_productname || "";
+                    if (document.getElementById("seal-sku")) document.getElementById("seal-sku").value = row.cr3ea_sku || "";
+                    if (document.getElementById("seal-machine")) document.getElementById("seal-machine").value = row.cr3ea_machineno || "";
+                    if (document.getElementById("seal-qty")) document.getElementById("seal-qty").value = row.cr3ea_samplequantity || "10";
+                    if (document.getElementById("seal-leak-count")) document.getElementById("seal-leak-count").value = row.cr3ea_noofleakage || "0";
+                    if (document.getElementById("seal-leak-type")) document.getElementById("seal-leak-type").value = row.cr3ea_leakagetype || "None";
+                }
+            } 
+            else if (this.pkgopsType === "Quality Wall Records") {
+                const rows = await PKGOPS_DAL.getSubChecklistRows("CHILD_QUALITY_WALL", this.currentTourId);
+                if (rows && rows.length > 0) {
+                    const row = rows[0];
+                    if (document.getElementById("wall-product")) document.getElementById("wall-product").value = row.cr3ea_productname || "";
+                    if (document.getElementById("wall-sku")) document.getElementById("wall-sku").value = row.cr3ea_sku || "";
+                    if (document.getElementById("wall-facilitator")) document.getElementById("wall-facilitator").value = row.cr3ea_facilitator || "";
+                    if (document.getElementById("wall-type")) document.getElementById("wall-type").value = row.cr3ea_typeofqualitywall || "";
+                    if (document.getElementById("wall-members")) document.getElementById("wall-members").value = row.cr3ea_memberspresent || "";
+                    if (document.getElementById("wall-rating-appearance")) document.getElementById("wall-rating-appearance").value = row.cr3ea_packappearancerating || "5";
+                    if (document.getElementById("wall-rating-sealing")) document.getElementById("wall-rating-sealing").value = row.cr3ea_sealingqualityrating || "5";
+                    if (document.getElementById("wall-rating-coding")) document.getElementById("wall-rating-coding").value = row.cr3ea_codingrating || "5";
+                    if (document.getElementById("wall-remarks")) document.getElementById("wall-remarks").value = row.cr3ea_remarks || "";
+                    PKGOPS_Checklist.calculateOverallWallRating();
+                }
+            }
+        } catch (e) {
+            console.error("loadSavedValues failed: ", e);
+        }
+    },
+
+    populateActivePqiSubForm: function () {
+        const select = document.getElementById("pqi-sub-select");
+        if (!select) return;
+        const val = select.value;
+
+        if (val === "NetWeight") {
+            const row = this.savedPqiNetWeight;
+            if (row) {
+                if (document.getElementById("pqi-nw-product")) document.getElementById("pqi-nw-product").value = row.cr3ea_productname || "";
+                if (document.getElementById("pqi-nw-sku")) document.getElementById("pqi-nw-sku").value = row.cr3ea_sku || "";
+                if (document.getElementById("pqi-nw-standard")) document.getElementById("pqi-nw-standard").value = row.cr3ea_standardweight || "150";
+
+                for (let i = 0; i < 15; i++) {
+                    const weightEl = document.getElementById(`pqi-weight-${i}`);
+                    if (weightEl) {
+                        weightEl.value = row[`cr3ea_sampleweight${i + 1}`] || "";
+                    }
+                }
+                PKGOPS_Checklist.calculateNetWeightMetrics();
+            }
+        } else {
+            const rows = this.savedPqiEvaluations;
+            if (rows && rows.length > 0) {
+                const subRows = rows.filter(r => r.cr3ea_evaluationtype === val);
+                if (subRows.length > 0) {
+                    const firstRow = subRows[0];
+                    if (document.getElementById("pqi-eval-product")) document.getElementById("pqi-eval-product").value = firstRow.cr3ea_productname || "";
+                    if (document.getElementById("pqi-eval-sku")) document.getElementById("pqi-eval-sku").value = firstRow.cr3ea_sku || "";
+                    if (document.getElementById("pqi-eval-pkd") && firstRow.cr3ea_pkd) {
+                        document.getElementById("pqi-eval-pkd").value = moment(firstRow.cr3ea_pkd).format("YYYY-MM-DD");
+                    }
+                    if (document.getElementById("pqi-eval-batch")) document.getElementById("pqi-eval-batch").value = firstRow.cr3ea_batchcode || "";
+
+                    subRows.forEach((row, i) => {
+                        if (i < 10) {
+                            const statusSelect = document.getElementById(`pqi-eval-status-${i}`);
+                            if (statusSelect) {
+                                statusSelect.value = row.cr3ea_sampleresult || "Okay";
+                                PKGOPS_Checklist.togglePqiDefectFields(i);
+                            }
+                            const catInput = document.getElementById(`pqi-eval-cat-${i}`);
+                            if (catInput) catInput.value = row.cr3ea_defectcategory || "";
+                            const detailInput = document.getElementById(`pqi-eval-detail-${i}`);
+                            if (detailInput) detailInput.value = row.cr3ea_defectdetail || "";
+                        }
+                    });
+                }
+            }
         }
     }
 };

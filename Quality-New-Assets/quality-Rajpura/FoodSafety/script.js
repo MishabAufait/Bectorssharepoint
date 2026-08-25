@@ -129,6 +129,46 @@ const FoodSafety_Main = {
             }
 
             this.state.currentTourRecord = tour;
+
+            // Expiry Check: Check if tour was created on a previous day and is not terminal
+            const creationTime = tour.createdon || tour.cr3ea_tourstartdate;
+            let status = tour.cr3ea_status || "In Progress";
+            if (creationTime) {
+                const parsedDate = moment(creationTime, [
+                    "DD-MM-YYYY HH:mm:ss",
+                    "DD-MM-YYYY hh:mm A",
+                    "YYYY-MM-DDTHH:mm:ssZ",
+                    "YYYY-MM-DDTHH:mm:ss.SSSZ",
+                    "YYYY-MM-DD HH:mm:ss"
+                ], true);
+                if (parsedDate && parsedDate.isValid()) {
+                    const tourDateLocal = parsedDate.local().format("YYYY-MM-DD");
+                    const todayLocal = moment().format("YYYY-MM-DD");
+                    if (tourDateLocal !== todayLocal && 
+                        status !== "Closed - Expired" && 
+                        status !== "Completed" && 
+                        status !== "Closed" && 
+                        status !== "Success") {
+                        
+                        console.log(`Tour is from a previous day (${tourDateLocal}) and is in state "${status}". Auto-expiring and closing...`);
+                        try {
+                            const payload = {
+                                cr3ea_prod_rajpura_quality_tourid: tourId,
+                                cr3ea_status: "Closed - Expired",
+                                cr3ea_processstatus: "Closed - Expired"
+                            };
+                            await FoodSafety_DAL.saveTourSession(payload);
+                            tour.cr3ea_status = "Closed - Expired";
+                            tour.cr3ea_processstatus = "Closed - Expired";
+                            status = "Closed - Expired";
+                            console.log("Tour successfully closed and expired in Dataverse.");
+                        } catch (e) {
+                            console.error("Failed to automatically close/expire previous day's tour:", e);
+                        }
+                    }
+                }
+            }
+
             this.state.selectedChecklistType = tour.cr3ea_food_safety_checklisttype;
             this.state.selectedShift = tour.cr3ea_shift || "Shift 1";
             this.state.selectedSite = tour.cr3ea_plantid || "Rajpura";
@@ -145,8 +185,8 @@ const FoodSafety_Main = {
                 HeaderComponent.render();
             }
 
-            // If session is already submitted, prevent editing and navigate directly to summary page
-            if (tour.cr3ea_status === "Submitted") {
+            // If session is already submitted or closed/expired, prevent editing and navigate directly to summary page
+            if (status === "Submitted" || status === "Closed - Expired" || status === "Closed" || status === "Completed" || status === "Success") {
                 this.navigateTo("screen-summary");
                 if (typeof FoodSafety_Summary !== 'undefined' && FoodSafety_Summary.init) {
                     await FoodSafety_Summary.init(tourId);
