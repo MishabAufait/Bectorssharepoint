@@ -5,6 +5,13 @@ const DashboardScreen = {
     tours: [],
     filteredTours: [],
 
+    resolveUserName: function(emailOrName) {
+        if (!emailOrName) return "";
+        if (!emailOrName.includes("@")) return emailOrName;
+        const clean = emailOrName.split("@")[0].trim();
+        return clean.split(".").map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+    },
+
     init: async function () {
         console.log("Initializing Analytics Dashboard Screen...");
         HeaderComponent.render("dashboard-header-wrapper");
@@ -149,7 +156,7 @@ const DashboardScreen = {
                 <td style="padding: 12px 15px;">${t.cr3ea_lineno || 'N/A'}</td>
                 <td style="padding: 12px 15px; font-weight: bold; color: #0284c7;">${score}</td>
                 <td style="padding: 12px 15px;"><span class="badge ${badgeClass}">${result}</span></td>
-                <td style="padding: 12px 15px; color: #475569; font-size: 13px;">${t.cr3ea_assigned_qa || 'N/A'}</td>
+                <td style="padding: 12px 15px; color: #475569; font-size: 13px;">${this.resolveUserName(t.cr3ea_assigned_qa) || 'N/A'}</td>
             `;
             tbody.appendChild(tr);
         });

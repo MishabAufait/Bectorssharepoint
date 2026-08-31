@@ -24,6 +24,18 @@ const MixingBaking_Checklist = {
     // Maps cycle number to attachment files selected for upload
     selectedFiles: {},
 
+    resolveUserName: function(emailOrName) {
+        if (!emailOrName) return "";
+        if (!emailOrName.includes("@")) return emailOrName;
+        if (typeof MixingBaking_Main !== "undefined" && MixingBaking_Main.state && MixingBaking_Main.state.usersConfig) {
+            const list = [...(MixingBaking_Main.state.usersConfig.qaUsers || []), ...(MixingBaking_Main.state.usersConfig.prodUsers || [])];
+            const match = list.find(u => u.EMail && u.EMail.toLowerCase() === emailOrName.toLowerCase());
+            if (match) return match.Title;
+        }
+        const clean = emailOrName.split("@")[0].trim();
+        return clean.split(".").map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+    },
+
     // 1. Create a cycle panel section (either active form or completed read-only card)
     createCycleSection: function (cycleNum, isCompleted = false, cycleData = null) {
         const parentElement = document.querySelector(".tour-cycle-card-panel-lists");
@@ -168,7 +180,7 @@ const MixingBaking_Checklist = {
                         </div>
                         <div class="start-info-item">
                             <p class="item-label">Executive Name</p>
-                            <p class="item-value" id="disp-exec-${cycleNum}">${cycleData ? cycleData.cr3ea_observedby : ''}</p>
+                            <p class="item-value" id="disp-exec-${cycleNum}">${cycleData ? MixingBaking_Checklist.resolveUserName(cycleData.cr3ea_observedby) : ''}</p>
                         </div>
                         <div class="start-info-item">
                             <p class="item-label">Batch No</p>
@@ -452,8 +464,8 @@ const MixingBaking_Checklist = {
             qaSelect.empty().append('<option value="">Select Executive</option>');
             if (MixingBaking_Main.state.usersConfig && MixingBaking_Main.state.usersConfig.qaUsers) {
                 MixingBaking_Main.state.usersConfig.qaUsers.forEach(u => {
-                    const selected = u.Title === MixingBaking_Main.state.qaExecutive ? 'selected' : '';
-                    qaSelect.append(`<option value="${u.Title}" ${selected}>${u.Title}</option>`);
+                    const selected = u.EMail && MixingBaking_Main.state.qaExecutive && u.EMail.toLowerCase() === MixingBaking_Main.state.qaExecutive.toLowerCase() ? 'selected' : '';
+                    qaSelect.append(`<option value="${u.EMail || u.Title}" ${selected}>${u.Title}</option>`);
                 });
             }
 
@@ -462,8 +474,8 @@ const MixingBaking_Checklist = {
             prodSelect.empty().append('<option value="">Select Production Incharge</option>');
             if (MixingBaking_Main.state.usersConfig && MixingBaking_Main.state.usersConfig.prodUsers) {
                 MixingBaking_Main.state.usersConfig.prodUsers.forEach(u => {
-                    const selected = u.Title === MixingBaking_Main.state.productionIncharge ? 'selected' : '';
-                    prodSelect.append(`<option value="${u.Title}" ${selected}>${u.Title}</option>`);
+                    const selected = u.EMail && MixingBaking_Main.state.productionIncharge && u.EMail.toLowerCase() === MixingBaking_Main.state.productionIncharge.toLowerCase() ? 'selected' : '';
+                    prodSelect.append(`<option value="${u.EMail || u.Title}" ${selected}>${u.Title}</option>`);
                 });
             }
 
@@ -607,7 +619,7 @@ const MixingBaking_Checklist = {
             const infoWrapper = document.getElementById(`info-wrapper-${cycleNum}`);
             if (infoWrapper) {
                 document.getElementById(`disp-product-${cycleNum}`).innerText = product;
-                document.getElementById(`disp-exec-${cycleNum}`).innerText = exec;
+                document.getElementById(`disp-exec-${cycleNum}`).innerText = MixingBaking_Checklist.resolveUserName(exec);
                 document.getElementById(`disp-batch-${cycleNum}`).innerText = batchNo;
                 document.getElementById(`disp-shift-${cycleNum}`).innerText = MixingBaking_Main.state.shift;
                 infoWrapper.style.display = "block";

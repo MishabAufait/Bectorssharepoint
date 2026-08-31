@@ -102,9 +102,41 @@ const ALC_StateMachine = {
                 if (ALC_StateMachine.isQaUser && !this.isReadOnly) {
                     this.showElement("#qa-accept-panel");
                     this.hideElement("#production-wait-panel");
+                    const diagEl = document.getElementById("qa-diagnostic-msg");
+                    if (diagEl) diagEl.style.display = "none";
                 } else {
                     this.hideElement("#qa-accept-panel");
                     this.showElement("#production-wait-panel");
+
+                    // Add diagnostic message if the user is a QA user but is not authorized to accept (isReadOnly)
+                    const session = ALC_StateMachine.currentSession;
+                    const isUserQaRole = ALC_StateMachine.isGeneralQaUser || (ALC_StateMachine.userRole === "QUALITY");
+                    
+                    if (isUserQaRole && session) {
+                        const assignedQA = (session.cr3ea_assigned_qa || session.cr3ea_tourby || "None").trim();
+                        const myEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? String(_spPageContextInfo.userEmail).trim() : "";
+                        const myName = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? String(_spPageContextInfo.userDisplayName).trim() : (typeof EmployeeName !== 'undefined' ? EmployeeName : "");
+                        
+                        let diagEl = document.getElementById("qa-diagnostic-msg");
+                        if (!diagEl) {
+                            diagEl = document.createElement("div");
+                            diagEl.id = "qa-diagnostic-msg";
+                            diagEl.className = "alert alert-warning mt-3 text-start";
+                            diagEl.style.cssText = "font-size: 14px; max-width: 600px; margin: 15px auto 0 auto; text-align: left; border: 1px solid #ffeeba; background-color: #fff3cd; color: #856404; padding: 15px; border-radius: 4px;";
+                            const waitPanel = document.getElementById("production-wait-panel");
+                            if (waitPanel) waitPanel.appendChild(diagEl);
+                        }
+                        diagEl.innerHTML = `
+                            <strong>Inspection Access Notice:</strong><br>
+                            You are identified as a QA User: <strong>${myName}</strong> (${myEmail || "No email resolved"}).<br>
+                            However, this specific tour is assigned to: <strong>${assignedQA}</strong>.<br>
+                            Only the assigned QA Executive can accept and run this clearance checklist.
+                        `;
+                        diagEl.style.display = "block";
+                    } else {
+                        const diagEl = document.getElementById("qa-diagnostic-msg");
+                        if (diagEl) diagEl.style.display = "none";
+                    }
                 }
                 break;
 

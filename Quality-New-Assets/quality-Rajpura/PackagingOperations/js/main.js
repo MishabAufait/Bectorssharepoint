@@ -68,7 +68,8 @@ const PKGOPS_Main = {
                             try {
                                 const payload = {
                                     cr3ea_status: "Closed - Expired",
-                                    cr3ea_processstatus: "Closed - Expired"
+                                    cr3ea_processstatus: "Closed - Expired",
+                                    cr3ea_islineclear: true
                                 };
                                 await PKGOPS_DAL.updateTour(this.currentTourId, payload);
                                 this.currentSession.cr3ea_status = "Closed - Expired";
@@ -117,6 +118,13 @@ const PKGOPS_Main = {
         }
     },
 
+    resolveUserName: function(emailOrName) {
+        if (!emailOrName) return "";
+        if (!emailOrName.includes("@")) return emailOrName;
+        const clean = emailOrName.split("@")[0].trim();
+        return clean.split(".").map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+    },
+
     // Populate session headers
     populateSessionHeader: function () {
         if (!this.currentSession) return;
@@ -135,8 +143,8 @@ const PKGOPS_Main = {
                     <span><strong>Line:</strong> ${this.currentSession.cr3ea_lineno || "N/A"}</span>
                     <span><strong>Shift:</strong> ${this.currentSession.cr3ea_shift || "N/A"}</span>
                     <span><strong>Date:</strong> ${dateVal}</span>
-                    <span><strong>QA Executive:</strong> ${this.currentSession.cr3ea_assigned_qa || "N/A"}</span>
-                    <span><strong>Prod Executive:</strong> ${this.currentSession.cr3ea_shiftexecutiveproduction || "N/A"}</span>
+                    <span><strong>QA Executive:</strong> ${this.resolveUserName(this.currentSession.cr3ea_assigned_qa) || "N/A"}</span>
+                    <span><strong>Prod Executive:</strong> ${this.resolveUserName(this.currentSession.cr3ea_shiftexecutiveproduction) || "N/A"}</span>
                     <span><strong>Status:</strong> <span class="badge badge-fill badge-warning">${this.currentSession.cr3ea_status || "Pending"}</span></span>
                 </div>
             `;

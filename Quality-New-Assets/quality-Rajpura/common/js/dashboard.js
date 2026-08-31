@@ -236,7 +236,8 @@ const ALC_Dashboard = {
 
             const body = {
                 cr3ea_status: "Closed - Expired",
-                cr3ea_processstatus: "Closed - Expired"
+                cr3ea_processstatus: "Closed - Expired",
+                cr3ea_islineclear: true
             };
 
             let response = await fetch(url, {
@@ -273,11 +274,14 @@ const ALC_Dashboard = {
             if (!response.ok) {
                 const text = await response.text();
                 console.error(`Failed to patch tour expiration in Dataverse: ${text}`);
+                return false;
             } else {
                 console.log(`Successfully patched tour expiration for GUID: ${tourId}`);
+                return true;
             }
         } catch (e) {
             console.error(`Exception during auto-expiring tour: `, e);
+            return false;
         }
     },
 
@@ -330,6 +334,42 @@ const ALC_Dashboard = {
             if (!response.ok) throw new Error("OData fetch failed");
             const data = await response.json();
             const list = data.value || [];
+
+            // Auto-expire previous day's active tours
+            const todayLocal = moment().format("YYYY-MM-DD");
+            const expirePromises = [];
+            for (const t of list) {
+                let status = t.cr3ea_processstatus || t.cr3ea_status || "In Progress";
+                const isTerminal = status === "Completed" || status === "Closed" || status === "Closed - Expired" || status === "Success" || status === "Success - Expired" || status === "Submitted";
+                
+                if (!isTerminal) {
+                    const creationTime = t.cr3ea_tourstartdate || t.createdon;
+                    if (creationTime) {
+                        const parsedDate = ALC_Dashboard.parseDateMoment(creationTime);
+                        if (parsedDate && parsedDate.isValid()) {
+                            const tourDateLocal = parsedDate.local().format("YYYY-MM-DD");
+                            if (tourDateLocal !== todayLocal) {
+                                console.log(`Auto-expiring tour from previous day in dashboard: ${t.cr3ea_prod_rajpura_quality_tourid} (Started: ${tourDateLocal})`);
+                                if (t.cr3ea_prod_rajpura_quality_tourid) {
+                                    expirePromises.push(
+                                        ALC_Dashboard.expireTour(t.cr3ea_prod_rajpura_quality_tourid)
+                                            .then((success) => {
+                                                if (success) {
+                                                    t.cr3ea_status = "Closed - Expired";
+                                                    t.cr3ea_processstatus = "Closed - Expired";
+                                                    t.cr3ea_islineclear = true;
+                                                }
+                                            })
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (expirePromises.length > 0) {
+                await Promise.all(expirePromises);
+            }
 
             // Sort all tours by start date/time (latest first)
             list.sort((a, b) => {
@@ -1022,7 +1062,8 @@ const ALC_Dashboard = {
                 } else if (isPkgOps) {
                     const subType = t.cr3ea_pkgops_type || "Packaging Operations";
                     const form = `Packaging - ${subType}`;
-                    const prodExec = t.cr3ea_shiftexecutiveproduction || "N/A";
+                    const prodExecRaw = t.cr3ea_shiftexecutiveproduction || "N/A";
+                    const prodExec = prodExecRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(prodExecRaw) : prodExecRaw;
                     const qaExecRaw = t.cr3ea_tourby || "N/A";
                     const qaExec = qaExecRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaExecRaw) : qaExecRaw;
                     const execs = `Shift: ${prodExec} | QA: ${qaExec}`;
@@ -1166,7 +1207,8 @@ const ALC_Dashboard = {
                     const titleVal = t.cr3ea_title || "";
                     const cleanTitle = titleVal.split("||")[0].trim();
                     const form = cleanTitle.split('_')[0] || "Area Line Clearance";
-                    const prodExec = t.cr3ea_shiftexecutiveproduction || "N/A";
+                    const prodExecRaw = t.cr3ea_shiftexecutiveproduction || "N/A";
+                    const prodExec = prodExecRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(prodExecRaw) : prodExecRaw;
                     const qaExecRaw = t.cr3ea_tourby || "N/A";
                     const qaExec = qaExecRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaExecRaw) : qaExecRaw;
                     const execs = `Shift: ${prodExec} | QA: ${qaExec}`;

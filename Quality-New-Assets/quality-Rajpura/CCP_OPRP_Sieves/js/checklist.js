@@ -21,6 +21,13 @@ const CCP_OPRP_Validator = {
 };
 
 const CCP_OPRP_Checklist = {
+    resolveUserName: function(emailOrName) {
+        if (!emailOrName) return "";
+        if (!emailOrName.includes("@")) return emailOrName;
+        const clean = emailOrName.split("@")[0].trim();
+        return clean.split(".").map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+    },
+
     // Checkpoints list mapped by Line
     lineCheckpoints: {
         "Line-1": ["OPRP-1: Rotary (Metal Detector)", "OPRP-2: Rotary (Metal Detector)", "CCP: Packing (Metal Detector)"],
@@ -251,11 +258,11 @@ const CCP_OPRP_Checklist = {
                         <div class="tour-cyle-start-info" style="display: flex; flex-wrap: wrap; gap: 15px; background: #f8fafc; padding: 12px; border-radius: 8px;">
                             ${CCP_OPRP_Main.state.category === "CCP" ? `
                                 <div><strong>Product:</strong> ${cycleData.productName || "N/A"}</div>
-                                <div><strong>Executive:</strong> ${cycleData.executiveName || "N/A"}</div>
+                                <div><strong>Executive:</strong> ${this.resolveUserName(cycleData.executiveName) || "N/A"}</div>
                                 <div><strong>Line:</strong> ${cycleData.location || "N/A"}</div>
                                 <div><strong>Response:</strong> ${cycleData.response || "OK"}</div>
                             ` : `
-                                <div><strong>Executive:</strong> ${cycleData.executiveName || "N/A"}</div>
+                                <div><strong>Executive:</strong> ${this.resolveUserName(cycleData.executiveName) || "N/A"}</div>
                                 <div><strong>Frequency:</strong> ${CCP_OPRP_Main.state.frequency === "4hrs" ? "4-Hour Check" : "Once a Shift (8-Hour Check)"}</div>
                                 <div><strong>Response:</strong> ${cycleData.response || "OK"}</div>
                             `}
@@ -347,7 +354,7 @@ const CCP_OPRP_Checklist = {
                         </div>
                         <div class="form-group" style="margin-bottom: 12px;">
                             <label class="form-label">Shift Executive (Production)</label>
-                            <input type="text" class="form-control" id="executive-name-${cycleNum}" ${disabledAttr} value="${CCP_OPRP_Main.state.productionIncharge}" placeholder="Enter Production Executive Name..." />
+                            <input type="text" class="form-control" id="executive-name-${cycleNum}" ${disabledAttr} value="${this.resolveUserName(CCP_OPRP_Main.state.productionIncharge)}" placeholder="Enter Production Executive Name..." />
                         </div>
                         <div class="form-group" style="margin-bottom: 12px;">
                             <label class="form-label">Line No</label>
@@ -370,7 +377,7 @@ const CCP_OPRP_Checklist = {
                 <div class="tour-cyle-step-start" id="start-step-${cycleNum}">
                     <div class="form-group" style="margin-bottom: 12px;">
                         <label class="form-label">Shift Executive (Production)</label>
-                        <input type="text" class="form-control" id="executive-name-${cycleNum}" ${disabledAttr} value="${CCP_OPRP_Main.state.productionIncharge}" />
+                        <input type="text" class="form-control" id="executive-name-${cycleNum}" ${disabledAttr} value="${this.resolveUserName(CCP_OPRP_Main.state.productionIncharge)}" />
                     </div>
                     <div class="form-group" style="margin-bottom: 12px;">
                         <label class="form-label">Frequency</label>

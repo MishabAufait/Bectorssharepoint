@@ -123,18 +123,21 @@ const PKGOPS_QARequest = {
         const prodExecName = document.getElementById("setup-exec-prod")?.value || "Unknown";
         const pkgOpsType = document.getElementById("setup-pkgops-type")?.value || "Temperatures & Humidity";
 
+        const currentExecEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? String(_spPageContextInfo.userEmail).trim() : "";
+        const productionExecEmailOrName = currentExecEmail || prodExecName;
+
         const tourStartDate = new Date().toISOString();
         const titleStr = `PkgOps_${pkgOpsType.replace(/[^a-zA-Z0-9]/g, "")}_${line.replace(/\s+/g, "")}_${moment().format("DD-MM-YYYY_HHmm")}`;
 
         const tourData = {
             cr3ea_plantid: QualityRajpura_Config.PLANT_ID,
-            cr3ea_observedby: prodExecName,
+            cr3ea_observedby: productionExecEmailOrName,
             cr3ea_tourstartdate: tourStartDate,
             cr3ea_status: "QA In Progress",
             cr3ea_processstatus: "QA In Progress",
             cr3ea_title: titleStr,
             cr3ea_tourby: assignedQaEmail,
-            cr3ea_shiftexecutiveproduction: prodExecName,
+            cr3ea_shiftexecutiveproduction: productionExecEmailOrName,
             cr3ea_lineno: line,
             cr3ea_shift: shift,
             cr3ea_assigned_qa: assignedQaEmail,
@@ -151,6 +154,11 @@ const PKGOPS_QARequest = {
             const savedTour = await PKGOPS_DAL.saveTour(tourData);
             const tourId = savedTour.cr3ea_prod_rajpura_quality_tourid;
             
+            // Trigger notification
+            if (typeof ALC_Notification !== "undefined") {
+                await ALC_Notification.sendSubmitRequest(savedTour, assignedQaEmail, escalationEmails);
+            }
+
             if (typeof HideLoader === "function") HideLoader();
             
             // Redirect to active tour view

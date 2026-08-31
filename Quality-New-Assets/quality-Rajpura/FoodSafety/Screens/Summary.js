@@ -32,6 +32,13 @@ const FoodSafety_Summary = {
         "Mondelez Packing", "Line 8 Packing", "Line 8 Mixing", "FG Main Warehouse"
     ],
 
+    resolveUserName: function(emailOrName) {
+        if (!emailOrName) return "";
+        if (!emailOrName.includes("@")) return emailOrName;
+        const clean = emailOrName.split("@")[0].trim();
+        return clean.split(".").map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+    },
+
     init: async function (tourId) {
         console.log("Initializing Checklist Summary Screen for Tour ID:", tourId);
         
@@ -63,8 +70,8 @@ const FoodSafety_Summary = {
             document.getElementById("sum-site-line").innerText = `${siteVal} / ${lineVal}`;
             
             // Resolve QA and Production executive
-            document.getElementById("sum-qa-exec").innerText = parent.cr3ea_assigned_qa || "--";
-            document.getElementById("sum-prod-incharge").innerText = parent.cr3ea_shiftexecutiveproduction || "--";
+            document.getElementById("sum-qa-exec").innerText = FoodSafety_Summary.resolveUserName(parent.cr3ea_assigned_qa) || "--";
+            document.getElementById("sum-prod-incharge").innerText = FoodSafety_Summary.resolveUserName(parent.cr3ea_shiftexecutiveproduction) || "--";
             
             // Resolve shift and cycle
             const shiftVal = parent.cr3ea_shift || "--";
@@ -100,26 +107,54 @@ const FoodSafety_Summary = {
             }
             
             // 4. Render Score Box & Result status
-            const rawScore = parent.cr3ea_overall_score || "100%";
-            document.getElementById("sum-score-circle").innerText = rawScore;
-            
-            const resultStatus = parent.cr3ea_checklist_result || "Pass";
-            document.getElementById("sum-score-status").innerText = `Audit Result: ${resultStatus}`;
+            const status = parent.cr3ea_status || parent.cr3ea_processstatus || "";
+            const isExpired = status === "Closed - Expired" || status.includes("Expired");
+            const rawScore = parent.cr3ea_overall_score;
+            const hasNoScore = !rawScore || rawScore === "0%" || rawScore === "0" || childItems.length === 0;
+
+            const resultStatus = parent.cr3ea_checklist_result || (isExpired ? "Expired" : "Pass");
             
             const scoreBox = document.getElementById("sum-score-box");
             const scoreCircle = document.getElementById("sum-score-circle");
-            if (resultStatus === "Pass") {
-                scoreBox.style.borderColor = "#bbf7d0";
-                scoreBox.style.backgroundColor = "#f0fdf4";
-                scoreCircle.style.backgroundColor = "#10b981";
-                document.getElementById("sum-score-title").style.color = "#065f46";
-                document.getElementById("sum-score-status").style.color = "#047857";
+            
+            if (isExpired && hasNoScore) {
+                document.getElementById("sum-score-circle").innerText = "Expired";
+                if (scoreCircle) {
+                    scoreCircle.style.fontSize = "16px";
+                    scoreCircle.style.backgroundColor = "#ef4444";
+                }
+                document.getElementById("sum-score-status").innerText = "Expired while In Progress";
+                if (scoreBox) {
+                    scoreBox.style.borderColor = "#fecaca";
+                    scoreBox.style.backgroundColor = "#fee2e2";
+                    document.getElementById("sum-score-title").style.color = "#991b1b";
+                    document.getElementById("sum-score-status").style.color = "#b91c1c";
+                }
             } else {
-                scoreBox.style.borderColor = "#fecaca";
-                scoreBox.style.backgroundColor = "#fee2e2";
-                scoreCircle.style.backgroundColor = "#ef4444";
-                document.getElementById("sum-score-title").style.color = "#991b1b";
-                document.getElementById("sum-score-status").style.color = "#b91c1c";
+                document.getElementById("sum-score-circle").innerText = rawScore || "100%";
+                document.getElementById("sum-score-status").innerText = `Audit Result: ${resultStatus}`;
+                
+                if (resultStatus === "Pass") {
+                    if (scoreBox) {
+                        scoreBox.style.borderColor = "#bbf7d0";
+                        scoreBox.style.backgroundColor = "#f0fdf4";
+                    }
+                    if (scoreCircle) {
+                        scoreCircle.style.backgroundColor = "#10b981";
+                    }
+                    document.getElementById("sum-score-title").style.color = "#065f46";
+                    document.getElementById("sum-score-status").style.color = "#047857";
+                } else {
+                    if (scoreBox) {
+                        scoreBox.style.borderColor = "#fecaca";
+                        scoreBox.style.backgroundColor = "#fee2e2";
+                    }
+                    if (scoreCircle) {
+                        scoreCircle.style.backgroundColor = "#ef4444";
+                    }
+                    document.getElementById("sum-score-title").style.color = "#991b1b";
+                    document.getElementById("sum-score-status").style.color = "#b91c1c";
+                }
             }
             
             // 5. Render checkpoints observations table

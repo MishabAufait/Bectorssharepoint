@@ -155,7 +155,8 @@ const FoodSafety_Main = {
                             const payload = {
                                 cr3ea_prod_rajpura_quality_tourid: tourId,
                                 cr3ea_status: "Closed - Expired",
-                                cr3ea_processstatus: "Closed - Expired"
+                                cr3ea_processstatus: "Closed - Expired",
+                                cr3ea_islineclear: true
                             };
                             await FoodSafety_DAL.saveTourSession(payload);
                             tour.cr3ea_status = "Closed - Expired";

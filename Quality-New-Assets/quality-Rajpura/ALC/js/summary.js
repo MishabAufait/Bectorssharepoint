@@ -153,19 +153,34 @@ const ALC_Summary = {
         const scoreCircle = document.getElementById("sum-score-circle");
         const scoreCard = scoreCircle ? scoreCircle.parentElement : null;
         const isPassingScore = (parseFloat(overallPercent) >= 80);
+
+        const status = this.session.cr3ea_processstatus || this.session.cr3ea_status || "";
+        const isExpired = status === "Closed - Expired" || status.includes("Expired");
+        const hasNoScore = (totalMaxPoints === 0 || totalObtainedPoints === 0);
+
         if (scoreCircle) {
-            scoreCircle.innerText = `${overallPercent}%`;
-            if (isPassingScore) {
-                scoreCircle.style.backgroundColor = "#10b981";
-                scoreCircle.style.boxShadow = "0 4px 6px -1px rgba(16, 185, 129, 0.3)";
-            } else {
+            if (isExpired && hasNoScore) {
+                scoreCircle.innerText = "Expired";
+                scoreCircle.style.fontSize = "16px";
                 scoreCircle.style.backgroundColor = "#ef4444";
                 scoreCircle.style.boxShadow = "0 4px 6px -1px rgba(239, 68, 68, 0.3)";
+            } else {
+                scoreCircle.innerText = `${overallPercent}%`;
+                if (isPassingScore) {
+                    scoreCircle.style.backgroundColor = "#10b981";
+                    scoreCircle.style.boxShadow = "0 4px 6px -1px rgba(16, 185, 129, 0.3)";
+                } else {
+                    scoreCircle.style.backgroundColor = "#ef4444";
+                    scoreCircle.style.boxShadow = "0 4px 6px -1px rgba(239, 68, 68, 0.3)";
+                }
             }
         }
 
         if (scoreCard) {
-            if (isPassingScore) {
+            if (isExpired && hasNoScore) {
+                scoreCard.style.borderColor = "#fecaca";
+                scoreCard.style.backgroundColor = "#fef2f2";
+            } else if (isPassingScore) {
                 scoreCard.style.borderColor = "#bbf7d0";
                 scoreCard.style.backgroundColor = "#f0fdf4";
             } else {
@@ -176,8 +191,10 @@ const ALC_Summary = {
 
         const scoreDesc = document.getElementById("sum-score-desc");
         if (scoreDesc) {
-            const status = this.session.cr3ea_processstatus || this.session.cr3ea_status || "";
-            if (status === "Closed - Expired") {
+            if (isExpired && hasNoScore) {
+                scoreDesc.innerText = "Expired while in QA process / In Progress";
+                scoreDesc.style.color = "#b91c1c";
+            } else if (status === "Closed - Expired") {
                 scoreDesc.innerText = `${isPassingScore ? "Success" : "Failed"} - Expired with ${overallPercent}% compliance score.`;
                 scoreDesc.style.color = isPassingScore ? "#047857" : "#b91c1c";
             } else if (status.includes("Pending Production")) {

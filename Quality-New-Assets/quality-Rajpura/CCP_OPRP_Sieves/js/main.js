@@ -152,12 +152,12 @@ const CCP_OPRP_Main = {
 
         const matchUser = (userResults) => {
             if (!userResults || !userResults.results) return false;
+            const loginEmail = String(currentUserEmail || "").toLowerCase().trim();
+            const loginPart = loginEmail.split("@")[0];
             return userResults.results.some(u => {
-                const uEmail = (u.EMail || "").toLowerCase().trim();
-                const uTitle = (u.Title || "").toLowerCase().trim();
-                return (currentUserEmail && uEmail === currentUserEmail.toLowerCase().trim()) ||
-                       (currentUserName && uTitle === currentUserName.toLowerCase().trim()) ||
-                       (currentUserLogin && uTitle === currentUserLogin.toLowerCase().trim());
+                const uEmail = String(u.EMail || "").toLowerCase().trim();
+                const uPart = uEmail.split("@")[0];
+                return loginEmail && uEmail && (loginEmail === uEmail || (uPart && loginPart && uPart === loginPart));
             });
         };
 
@@ -212,9 +212,10 @@ const CCP_OPRP_Main = {
         if (!assignedQA) {
             isAssignedQA = this.state.isQaUser;
         } else {
-            isAssignedQA = (myEmail && (myEmail === assignedQA || assignedQA.includes(myEmail))) ||
-                           (myName1 && (myName1 === assignedQA || assignedQA.includes(myName1))) ||
-                           (myName2 && (myName2 === assignedQA || assignedQA.includes(myName2)));
+            const cleanAssignedQA = assignedQA.toLowerCase().trim();
+            const myEmailPart = myEmail.split("@")[0].trim();
+            const qaEmailPart = cleanAssignedQA.split("@")[0].trim();
+            isAssignedQA = (myEmail && (myEmail === cleanAssignedQA || myEmail.includes(cleanAssignedQA) || cleanAssignedQA.includes(myEmail) || (myEmailPart && qaEmailPart && myEmailPart === qaEmailPart)));
         }
 
         this.state.canEditChecklist = isAssignedQA;
@@ -268,53 +269,56 @@ const CCP_OPRP_Main = {
                 matchingConfigs: matchingConfigs
             });
 
-            const qas = new Set();
-            const prods = new Set();
+            const qas = {};
+            const prods = {};
 
             matchingConfigs.forEach(c => {
                 if (c.AssignedQA && c.AssignedQA.results) {
                     c.AssignedQA.results.forEach(u => {
-                        if (u.Title) qas.add(u.Title);
+                        if (u.EMail && u.Title) qas[u.EMail.toLowerCase().trim()] = u.Title;
                     });
                 }
                 if (c.ProductionIncharge && c.ProductionIncharge.results) {
                     c.ProductionIncharge.results.forEach(u => {
-                        if (u.Title) prods.add(u.Title);
+                        if (u.EMail && u.Title) prods[u.EMail.toLowerCase().trim()] = u.Title;
                     });
                 }
             });
 
             console.log("Extracted personnel sets from SharePoint:", {
-                qas: Array.from(qas),
-                prods: Array.from(prods)
+                qas: qas,
+                prods: prods
             });
 
             // Add empty choice at the top
             qaSelect.insertAdjacentHTML("beforeend", `<option value="">Select QA Executive...</option>`);
             prodSelect.insertAdjacentHTML("beforeend", `<option value="">Select Production Executive...</option>`);
 
-            if (qas.size > 0) {
-                qas.forEach(name => {
-                    qaSelect.insertAdjacentHTML("beforeend", `<option value="${name}">${name}</option>`);
-                });
+            for (const email in qas) {
+                qaSelect.insertAdjacentHTML("beforeend", `<option value="${email}">${qas[email]}</option>`);
             }
 
-            if (prods.size > 0) {
-                prods.forEach(name => {
-                    prodSelect.insertAdjacentHTML("beforeend", `<option value="${name}">${name}</option>`);
-                });
+            for (const email in prods) {
+                prodSelect.insertAdjacentHTML("beforeend", `<option value="${email}">${prods[email]}</option>`);
             }
 
             // Set initial value to empty
             qaSelect.value = "";
             prodSelect.value = "";
 
-            // Pre-select active EmployeeName if matching option exists
-            if (typeof EmployeeName !== 'undefined' && EmployeeName) {
+            // Pre-select active user email if matching option exists
+            const myEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? String(_spPageContextInfo.userEmail).toLowerCase().trim() : "";
+            if (myEmail) {
                 const options = Array.from(qaSelect.options);
-                const hasEmp = options.some(opt => opt.value.toLowerCase() === EmployeeName.toLowerCase());
-                if (hasEmp) {
-                    qaSelect.value = options.find(opt => opt.value.toLowerCase() === EmployeeName.toLowerCase()).value;
+                const match = options.find(opt => opt.value.toLowerCase() === myEmail);
+                if (match) {
+                    qaSelect.value = match.value;
+                }
+            } else if (typeof EmployeeName !== 'undefined' && EmployeeName) {
+                const options = Array.from(qaSelect.options);
+                const match = options.find(opt => opt.text.toLowerCase() === EmployeeName.toLowerCase());
+                if (match) {
+                    qaSelect.value = match.value;
                 }
             }
 
@@ -491,6 +495,10 @@ const CCP_OPRP_Main = {
             });
 
             const cyclesList = Object.values(grouped).sort((a, b) => a.cycleNum - b.cycleNum);
+            const isTourCompleted = this.state.tourData?.cr3ea_status === "Completed" || 
+                                     this.state.tourData?.cr3ea_status === "Success" || 
+                                     this.state.tourData?.cr3ea_status === "Closed" ||
+                                     this.state.tourData?.cr3ea_status === "Closed - Expired";
             
             if (cyclesList.length > 0) {
                 cyclesList.forEach(cData => {
@@ -501,13 +509,19 @@ const CCP_OPRP_Main = {
                 this.state.cycleCounter = Math.max(...cyclesList.map(c => c.cycleNum)) + 1;
             } else {
                 this.state.cycleCounter = 1;
+                if (isTourCompleted && (this.state.tourData?.cr3ea_status === "Closed - Expired" || String(this.state.tourData?.cr3ea_status).includes("Expired"))) {
+                    if (parentElement) {
+                        parentElement.innerHTML = `
+                            <div class="alert alert-danger text-center p-4 mt-3" style="border-radius: 8px; border: 1px solid #fecaca; background-color: #fee2e2; color: #b91c1c; font-family: sans-serif;">
+                                <h4 style="font-weight: 700; margin-bottom: 8px;">Expired while In Progress / QA Process</h4>
+                                <p style="margin: 0; font-size: 14px;">This checklist session was closed automatically because it expired before completion.</p>
+                            </div>
+                        `;
+                    }
+                }
             }
 
             // Render current active cycle ONLY if parent tour is not completed
-            const isTourCompleted = this.state.tourData?.cr3ea_status === "Completed" || 
-                                     this.state.tourData?.cr3ea_status === "Success" || 
-                                     this.state.tourData?.cr3ea_status === "Closed" ||
-                                     this.state.tourData?.cr3ea_status === "Closed - Expired";
             if (!isTourCompleted) {
                 CCP_OPRP_Checklist.renderCycleSection(this.state.cycleCounter, false);
             }

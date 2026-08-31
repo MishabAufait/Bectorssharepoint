@@ -64,9 +64,9 @@ const ALC_Main = {
 
     // Identify user role from SharePoint config list Quality-Rajpura
     identifyUserRole: async function () {
-        const currentUserName = typeof currentUser !== "undefined" ? currentUser : "";
-        const currentUserLogin = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : "";
-        const currentUserEmail = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userEmail : "";
+        const currentUserName = (typeof currentUser !== "undefined" && currentUser) ? String(currentUser).trim() : "";
+        const currentUserLogin = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? String(_spPageContextInfo.userDisplayName).trim() : "";
+        const currentUserEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? String(_spPageContextInfo.userEmail).trim() : "";
 
         try {
             const configs = await ALC_DAL.getConfig();
@@ -76,7 +76,22 @@ const ALC_Main = {
                 c.ConfigType === "QA User" &&
                 c.AssignedUser &&
                 c.AssignedUser.results &&
-                c.AssignedUser.results.some(u => u.Title === currentUserName || u.Title === currentUserLogin || (u.EMail && u.EMail.toLowerCase() === currentUserEmail.toLowerCase()))
+                c.AssignedUser.results.some(u => {
+                    const uTitle = (u.Title || "").toLowerCase().trim();
+                    const uEmail = (u.EMail || "").toLowerCase().trim();
+                    const uTitleClean = uTitle.replace(/[^a-z0-9]/g, "");
+                    const uEmailUserPart = uEmail.includes("@") ? uEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : uEmail.replace(/[^a-z0-9]/g, "");
+
+                    const cleanMyEmail = (currentUserEmail || "").toLowerCase().trim();
+                    const myEmailUserPart = cleanMyEmail.includes("@") ? cleanMyEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : cleanMyEmail.replace(/[^a-z0-9]/g, "");
+                    const cleanName1 = (currentUserName || "").toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+                    const cleanName2 = (currentUserLogin || "").toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+
+                    return uTitle === (currentUserName || "").toLowerCase() || uTitle === (currentUserLogin || "").toLowerCase() || 
+                           uTitleClean === cleanName1 || uTitleClean === cleanName2 ||
+                           (uEmail && uEmail === cleanMyEmail) || 
+                           (uEmailUserPart && uEmailUserPart === myEmailUserPart && myEmailUserPart.length > 0);
+                })
             );
 
             // Check if current user is listed under Product Incharge config
@@ -84,7 +99,22 @@ const ALC_Main = {
                 c.ConfigType === "Product User" &&
                 c.AssignedUser &&
                 c.AssignedUser.results &&
-                c.AssignedUser.results.some(u => u.Title === currentUserName || u.Title === currentUserLogin || (u.EMail && u.EMail.toLowerCase() === currentUserEmail.toLowerCase()))
+                c.AssignedUser.results.some(u => {
+                    const uTitle = (u.Title || "").toLowerCase().trim();
+                    const uEmail = (u.EMail || "").toLowerCase().trim();
+                    const uTitleClean = uTitle.replace(/[^a-z0-9]/g, "");
+                    const uEmailUserPart = uEmail.includes("@") ? uEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : uEmail.replace(/[^a-z0-9]/g, "");
+
+                    const cleanMyEmail = (currentUserEmail || "").toLowerCase().trim();
+                    const myEmailUserPart = cleanMyEmail.includes("@") ? cleanMyEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : cleanMyEmail.replace(/[^a-z0-9]/g, "");
+                    const cleanName1 = (currentUserName || "").toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+                    const cleanName2 = (currentUserLogin || "").toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+
+                    return uTitle === (currentUserName || "").toLowerCase() || uTitle === (currentUserLogin || "").toLowerCase() || 
+                           uTitleClean === cleanName1 || uTitleClean === cleanName2 ||
+                           (uEmail && uEmail === cleanMyEmail) || 
+                           (uEmailUserPart && uEmailUserPart === myEmailUserPart && myEmailUserPart.length > 0);
+                })
             );
 
             // Always parse and assign areas the user owns if they match any Product User configurations
@@ -116,6 +146,7 @@ const ALC_Main = {
 
             // Set granular flags on ALC_StateMachine
             ALC_StateMachine.isQaUser = isQaUser;
+            ALC_StateMachine.isGeneralQaUser = isQaUser;
             ALC_StateMachine.isProductUser = (userAreas.length > 0);
             ALC_StateMachine.isProductionUser = (!isQaUser && userAreas.length === 0);
 
@@ -300,19 +331,29 @@ const ALC_Main = {
             // Restrict QA role access only to the assigned QA for this specific tour session
             if (ALC_StateMachine.isQaUser) {
                 const assignedQAString = (session.cr3ea_assigned_qa || session.cr3ea_tourby || "").toLowerCase().trim();
-                const myEmail = (typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userEmail : "").toLowerCase().trim();
-                const myName1 = (typeof currentUser !== "undefined" ? currentUser : "").toLowerCase().trim();
-                const myName2 = (typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : "").toLowerCase().trim();
+                const myEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? String(_spPageContextInfo.userEmail).toLowerCase().trim() : "";
+                const myName1 = (typeof currentUser !== "undefined" && currentUser) ? String(currentUser).toLowerCase().trim() : "";
+                const myName2 = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? String(_spPageContextInfo.userDisplayName).toLowerCase().trim() : "";
 
                 let isAssignedQA = false;
 
                 if (assignedQAString) {
-                    // Match directly against current user info (email, username, display name)
-                    if (myEmail && (myEmail === assignedQAString || assignedQAString.includes(myEmail) || myEmail.includes(assignedQAString))) {
+                    const cleanAssigned = assignedQAString;
+                    const cleanMyEmail = myEmail;
+                    
+                    const assignedUserPart = cleanAssigned.includes("@") ? cleanAssigned.split("@")[0].replace(/[^a-z0-9]/g, "") : cleanAssigned.replace(/[^a-z0-9]/g, "");
+                    const myEmailUserPart = cleanMyEmail.includes("@") ? cleanMyEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : cleanMyEmail.replace(/[^a-z0-9]/g, "");
+
+                    const cleanName1 = myName1.replace(/[^a-z0-9]/g, "");
+                    const cleanName2 = myName2.replace(/[^a-z0-9]/g, "");
+
+                    if (cleanMyEmail && (cleanMyEmail === cleanAssigned || cleanAssigned.includes(cleanMyEmail) || cleanMyEmail.includes(cleanAssigned))) {
                         isAssignedQA = true;
-                    } else if (myName1 && (myName1 === assignedQAString || assignedQAString.includes(myName1) || myName1.includes(assignedQAString))) {
+                    } else if (assignedUserPart && myEmailUserPart && assignedUserPart === myEmailUserPart && myEmailUserPart.length > 0) {
                         isAssignedQA = true;
-                    } else if (myName2 && (myName2 === assignedQAString || assignedQAString.includes(myName2) || myName2.includes(assignedQAString))) {
+                    } else if (cleanName1 && (cleanAssigned.includes(cleanName1) || cleanName1.includes(assignedUserPart) || (assignedUserPart && cleanName1.includes(assignedUserPart)))) {
+                        isAssignedQA = true;
+                    } else if (cleanName2 && (cleanAssigned.includes(cleanName2) || cleanName2.includes(assignedUserPart) || (assignedUserPart && cleanName2.includes(assignedUserPart)))) {
                         isAssignedQA = true;
                     } else {
                         // Check SharePoint configurations to see if the assigned user matches the logged-in user
@@ -325,10 +366,16 @@ const ALC_Main = {
                                 const uTitle = (u.Title || "").toLowerCase().trim();
                                 const uEmail = (u.EMail || "").toLowerCase().trim();
 
-                                // Matches the assigned QA
-                                const matchesAssigned = (uTitle === assignedQAString || uEmail === assignedQAString || assignedQAString.includes(uTitle) || assignedQAString.includes(uEmail));
-                                // Matches the logged-in user
-                                const matchesMe = (uTitle === myName1 || uTitle === myName2 || (uEmail && uEmail === myEmail));
+                                const uTitleClean = uTitle.replace(/[^a-z0-9]/g, "");
+                                const uEmailUserPart = uEmail.includes("@") ? uEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : uEmail.replace(/[^a-z0-9]/g, "");
+
+                                const matchesAssigned = (uTitle === cleanAssigned || uEmail === cleanAssigned || 
+                                                         uTitleClean === assignedUserPart || uEmailUserPart === assignedUserPart ||
+                                                         cleanAssigned.includes(uTitleClean) || cleanAssigned.includes(uEmailUserPart));
+
+                                const matchesMe = (uTitle === myName1 || uTitle === myName2 || 
+                                                   uTitleClean === cleanName1 || uTitleClean === cleanName2 ||
+                                                   (uEmail && uEmail === cleanMyEmail) || (uEmailUserPart && uEmailUserPart === myEmailUserPart && myEmailUserPart.length > 0));
 
                                 return matchesAssigned && matchesMe;
                             })
@@ -386,7 +433,8 @@ const ALC_Main = {
                         cr3ea_status: "Closed - Expired",
                         cr3ea_processstatus: "Closed - Expired",
                         cr3ea_title: cleanBaseTitle,
-                        cr3ea_checklist_result: "Expired"
+                        cr3ea_checklist_result: "Expired",
+                        cr3ea_islineclear: true
                     });
                     
                     finalStatus = "Closed - Expired";
@@ -473,6 +521,14 @@ const ALC_Main = {
         if (status === "In Progress") {
             const hasInitAction = (ALC_StateMachine.isProductionUser || ALC_StateMachine.isProductUser);
             ALC_StateMachine.isReadOnly = !hasInitAction;
+            ALC_StateMachine.init(this.userRole, ALC_STATES.INIT_PRODUCTION, this.currentTourId);
+            await ALC_QARequest.init();
+            return;
+        }
+
+        if (status === "Escalated") {
+            const hasReassignAction = ALC_StateMachine.isProductionUser;
+            ALC_StateMachine.isReadOnly = !hasReassignAction;
             ALC_StateMachine.init(this.userRole, ALC_STATES.INIT_PRODUCTION, this.currentTourId);
             await ALC_QARequest.init();
             return;

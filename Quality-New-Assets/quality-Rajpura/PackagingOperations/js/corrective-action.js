@@ -200,6 +200,15 @@ const PKGOPS_CorrectiveAction = {
             };
             await PKGOPS_DAL.saveTour(tourPayload);
 
+            // Trigger notification
+            if (typeof ALC_Notification !== "undefined") {
+                const fullSession = {
+                    ...PKGOPS_StateMachine.currentSession,
+                    ...tourPayload
+                };
+                await ALC_Notification.sendResubmitRequest(fullSession, false);
+            }
+
             if (typeof HideLoader === "function") HideLoader();
             alert("Corrective Action submitted to QA HOD for Re-verification successfully!");
             window.location.reload();

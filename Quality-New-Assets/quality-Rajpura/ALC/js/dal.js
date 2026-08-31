@@ -298,8 +298,31 @@ const ALC_DAL = {
         // Filter: Keep all active tours + today's completed/closed tours
         const todayStr = moment().format("YYYY-MM-DD");
         return results.filter(session => {
-            const status = session.cr3ea_processstatus || session.cr3ea_status || "";
-            const isActive = (status !== "Completed" && status !== "Closed" && status !== "Closed - Expired");
+            const statusVal1 = (session.cr3ea_status || "").trim().toLowerCase();
+            const statusVal2 = (session.cr3ea_processstatus || "").trim().toLowerCase();
+
+            const isTerminalVal1 = statusVal1 === "completed" ||
+                statusVal1 === "closed" ||
+                statusVal1 === "closed - expired" ||
+                statusVal1 === "failed - expired" ||
+                statusVal1 === "success" ||
+                statusVal1 === "success - expired" ||
+                statusVal1 === "submitted" ||
+                statusVal1 === "cancelled" ||
+                statusVal1.includes("expired");
+
+            const isTerminalVal2 = statusVal2 === "completed" ||
+                statusVal2 === "closed" ||
+                statusVal2 === "closed - expired" ||
+                statusVal2 === "failed - expired" ||
+                statusVal2 === "success" ||
+                statusVal2 === "success - expired" ||
+                statusVal2 === "submitted" ||
+                statusVal2 === "cancelled" ||
+                statusVal2.includes("expired");
+
+            const isTerminal = isTerminalVal1 || isTerminalVal2;
+            const isActive = !isTerminal;
 
             if (isActive) {
                 return true;

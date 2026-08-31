@@ -2,7 +2,7 @@
 console.log("ALC Notification Module loaded");
 
 // Replace this placeholder with the actual Power Automate Flow HTTP trigger URL
-const ALC_NOTIFICATION_FLOW_URL = "https://86c49df27027e13c808b32506fa981.d1.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/11/workflows/EXAMPLE_WORKFLOW_ID/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=EXAMPLE_SIGNATURE";
+const ALC_NOTIFICATION_FLOW_URL = "https://default8efa5ce286e44882840cf2578cdf09.4c.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/14/workflows/a60198cce93940a2b4ab778d1ba39e04/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=kJNXOOocZbvwbjuFQx2uNiZ_TXNWnX7wfBpH6nk_Ilg";
 
 const ALC_Notification = {
     // Helper to send JSON payloads to Power Automate
@@ -31,6 +31,90 @@ const ALC_Notification = {
         }
     },
 
+    // Dynamic resolution of Checklist metadata from the session object
+    resolveChecklistMeta: function (session) {
+        if (!session) {
+            return {
+                prefix: "ALC_",
+                parentType: "Area Line Clearance",
+                type: "Area Line Clearance"
+            };
+        }
+
+        const title = String(session.cr3ea_title || "").toLowerCase();
+        
+        // 1. Packaging Operations
+        if (session.cr3ea_pkgops_type) {
+            return {
+                prefix: "PKGOPS_",
+                parentType: "Packaging Operations",
+                type: session.cr3ea_pkgops_type
+            };
+        }
+        if (title.startsWith("pkgops_") || title.includes("pkgops")) {
+            return {
+                prefix: "PKGOPS_",
+                parentType: "Packaging Operations",
+                type: "Packaging Operations"
+            };
+        }
+
+        // 2. Food Safety Checklists
+        if (session.cr3ea_food_safety_checklisttype) {
+            return {
+                prefix: "FOODSAFETY_",
+                parentType: "Food Safety Checklist",
+                type: session.cr3ea_food_safety_checklisttype
+            };
+        }
+        if (title.startsWith("foodsafety_") || title.startsWith("food_safety_") || title.includes("ppe_") || title.includes("gmp_") || title.includes("pci_")) {
+            let type = "Food Safety Checklist";
+            if (title.includes("ppe_")) type = "PPE Checklist";
+            else if (title.includes("gmp_")) type = "GMP Checklist";
+            else if (title.includes("pci_")) type = "PCI Checklist";
+            return {
+                prefix: "FOODSAFETY_",
+                parentType: "Food Safety Checklist",
+                type: type
+            };
+        }
+
+        // 3. CCP, OPRP & Sieves
+        if (session.cr3ea_ccp_oprp_sieves_parametertype) {
+            return {
+                prefix: "CCP_",
+                parentType: "CCP, OPRP & Sieves Monitoring",
+                type: session.cr3ea_ccp_oprp_sieves_parametertype
+            };
+        }
+        if (title.includes("ccp_") || title.includes("sieves_")) {
+            let type = "CCP, OPRP & Sieves Monitoring";
+            if (title.includes("sieves_")) type = "Sieves & Magnets Monitoring";
+            else if (title.includes("ccp_")) type = "CCP & OPRP Checklist";
+            return {
+                prefix: "CCP_",
+                parentType: "CCP, OPRP & Sieves Monitoring",
+                type: type
+            };
+        }
+
+        // 4. Mixing & Baking
+        if (title.startsWith("mixingbaking_") || title.includes("mixingbaking")) {
+            return {
+                prefix: "MIXINGBAKING_",
+                parentType: "Mixing & Baking Checklist",
+                type: "Mixing & Baking"
+            };
+        }
+
+        // 5. Default is Area Line Clearance (ALC)
+        return {
+            prefix: "ALC_",
+            parentType: "Area Line Clearance",
+            type: "Area Line Clearance"
+        };
+    },
+
     // Dynamic resolution of Production Executive email from SharePoint configurations or context
     resolveProductionExecutiveEmail: function (session, configs) {
         if (!session) return "";
@@ -38,7 +122,15 @@ const ALC_Notification = {
         if (!name) return "";
 
         // 1. Try resolving using SharePoint configurations list
-        const activeConfigs = configs || ALC_StateMachine.configs || [];
+        let activeConfigs = [];
+        if (configs && configs.length > 0) {
+            activeConfigs = configs;
+        } else if (typeof ALC_StateMachine !== "undefined" && ALC_StateMachine.configs) {
+            activeConfigs = ALC_StateMachine.configs;
+        } else if (typeof PKGOPS_QARequest !== "undefined" && PKGOPS_QARequest.qaList) {
+            activeConfigs = PKGOPS_QARequest.qaList;
+        }
+
         if (activeConfigs.length > 0) {
             for (const config of activeConfigs) {
                 if (config.AssignedUser && config.AssignedUser.results) {
@@ -69,7 +161,7 @@ const ALC_Notification = {
             .filter(e => e.includes("@"));
     },
 
-    // 1. Triggered on initial ALC Tour request submission
+    // 1. Triggered on initial Tour request submission
     sendSubmitRequest: async function (session, qaEmail, escalationEmails) {
         if (!session) return;
         const line = session.cr3ea_lineno || "N/A";
@@ -77,8 +169,11 @@ const ALC_Notification = {
         const prodName = session.cr3ea_shiftexecutiveproduction || session.cr3ea_observedby || "Unknown";
         const prodEmail = this.resolveProductionExecutiveEmail(session);
 
+        const meta = this.resolveChecklistMeta(session);
         const payload = {
-            "Scenario": "SUBMIT_ALC_REQUEST",
+            "Scenario": "SUBMIT_" + meta.prefix + "REQUEST",
+            "ParentChecklistType": meta.parentType,
+            "ChecklistType": meta.type,
             "TourId": session.cr3ea_prod_rajpura_quality_tourid || "N/A",
             "Line": line,
             "Shift": shift,
@@ -118,8 +213,11 @@ const ALC_Notification = {
             });
         }
 
+        const meta = this.resolveChecklistMeta(session);
         const payload = {
-            "Scenario": "INITIAL_VERIFICATION_COMPLETE",
+            "Scenario": (meta.prefix === "ALC_") ? "INITIAL_VERIFICATION_COMPLETE" : (meta.prefix + "VERIFICATION_COMPLETE"),
+            "ParentChecklistType": meta.parentType,
+            "ChecklistType": meta.type,
             "TourId": session.cr3ea_prod_rajpura_quality_tourid || "N/A",
             "Line": line,
             "Shift": shift,
@@ -137,7 +235,7 @@ const ALC_Notification = {
         await this.sendNotificationFlow(payload);
     },
 
-    // 3. Triggered when Production resubmits corrective actions
+    // 3. Triggered when Resubmitting corrective actions
     sendResubmitRequest: async function (session, stillPendingActions) {
         if (!session) return;
         const line = session.cr3ea_lineno || "N/A";
@@ -146,8 +244,11 @@ const ALC_Notification = {
         const prodEmail = this.resolveProductionExecutiveEmail(session);
         const qaEmail = session.cr3ea_tourby || session.cr3ea_assigned_qa || "";
 
+        const meta = this.resolveChecklistMeta(session);
         const payload = {
-            "Scenario": "RESUBMIT_REVERIFICATION_REQUEST",
+            "Scenario": (meta.prefix === "ALC_") ? "RESUBMIT_REVERIFICATION_REQUEST" : ("RESUBMIT_" + meta.prefix + "REVERIFICATION_REQUEST"),
+            "ParentChecklistType": meta.parentType,
+            "ChecklistType": meta.type,
             "TourId": session.cr3ea_prod_rajpura_quality_tourid || "N/A",
             "Line": line,
             "Shift": shift,
@@ -187,8 +288,11 @@ const ALC_Notification = {
             });
         }
 
+        const meta = this.resolveChecklistMeta(session);
         const payload = {
-            "Scenario": "REVERIFICATION_COMPLETE",
+            "Scenario": (meta.prefix === "ALC_") ? "REVERIFICATION_COMPLETE" : (meta.prefix + "REVERIFICATION_COMPLETE"),
+            "ParentChecklistType": meta.parentType,
+            "ChecklistType": meta.type,
             "TourId": session.cr3ea_prod_rajpura_quality_tourid || "N/A",
             "Line": line,
             "Shift": shift,
@@ -202,6 +306,36 @@ const ALC_Notification = {
             "IsPass": isPass,
             "RecipientEmails": recipients,
             "EscalationEmails": escalationEmails
+        };
+        await this.sendNotificationFlow(payload);
+    },
+
+    // 5. Triggered when QA acceptance timer expires and session is escalated
+    sendEscalationNotification: async function (session, qaEmail, escalationEmails) {
+        if (!session) return;
+        const line = session.cr3ea_lineno || "N/A";
+        const shift = session.cr3ea_shift || "N/A";
+        const prodName = session.cr3ea_shiftexecutiveproduction || session.cr3ea_observedby || "Unknown";
+        const prodEmail = this.resolveProductionExecutiveEmail(session);
+
+        const meta = this.resolveChecklistMeta(session);
+        const payload = {
+            "Scenario": meta.prefix + "ESCALATION",
+            "ParentChecklistType": meta.parentType,
+            "ChecklistType": meta.type,
+            "TourId": session.cr3ea_prod_rajpura_quality_tourid || "N/A",
+            "Line": line,
+            "Shift": shift,
+            "PrevProduct": session.cr3ea_previousrunningvariety || "N/A",
+            "NewProduct": session.cr3ea_runningvariety || "N/A",
+            "ProductionExecutiveName": prodName,
+            "ProductionExecutiveEmail": prodEmail,
+            "QAExecutiveEmail": qaEmail || session.cr3ea_tourby || session.cr3ea_assigned_qa || "",
+            "Score": "0.00",
+            "Result": "Escalated",
+            "IsPass": false,
+            "RecipientEmails": [qaEmail || session.cr3ea_tourby || session.cr3ea_assigned_qa].filter(Boolean),
+            "EscalationEmails": escalationEmails || []
         };
         await this.sendNotificationFlow(payload);
     }

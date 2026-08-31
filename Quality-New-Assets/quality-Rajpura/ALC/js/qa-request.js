@@ -90,6 +90,15 @@ const ALC_QARequest = {
         // Set the selected value if a session is loaded
         const currentSession = ALC_StateMachine.currentSession;
         if (currentSession) {
+            const status = currentSession.cr3ea_processstatus || currentSession.cr3ea_status || "";
+            if (status === "Escalated") {
+                const escalationPanel = document.getElementById("escalation-alert-panel");
+                if (escalationPanel) {
+                    escalationPanel.style.display = "block";
+                    escalationPanel.innerHTML = `<strong>ESCALATION LOGGED:</strong> QA Executive did not accept the request within the 5-minute limit. This has been escalated. The Shift Executive who started the tour can reassign the QA Executive below to restart the tour.`;
+                }
+            }
+
             const assignedQa = currentSession.cr3ea_assigned_qa || "";
             const qaExecRaw = currentSession.cr3ea_tourby || currentSession.cr3ea_shiftexecutivequality || currentSession.cr3ea_assigned_qa || "";
             let qaExec = qaExecRaw;
@@ -154,6 +163,9 @@ const ALC_QARequest = {
         }
 
         const productionExecName = document.getElementById("header-exec-prod")?.value || "Unknown";
+        const currentExecEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? String(_spPageContextInfo.userEmail).trim() : "";
+        const productionExecEmailOrName = currentExecEmail || productionExecName;
+
         const shift = document.getElementById("header-shift")?.value || "Shift 1";
         const line = document.getElementById("header-line")?.value || "Line 1";
         const prevProduct = document.getElementById("header-prev-product")?.value || "";
@@ -162,13 +174,13 @@ const ALC_QARequest = {
 
         const headerData = {
             cr3ea_plantid: QualityRajpura_Config.PLANT_ID, // Rajpura Plant Id
-            cr3ea_observedby: productionExecName,
+            cr3ea_observedby: productionExecEmailOrName,
             cr3ea_tourstartdate: requestTime,
             cr3ea_status: "Pending QA",
             cr3ea_processstatus: "Pending QA",
             cr3ea_title: "ALC_" + moment().format("MM-DD-YYYY_HH:mm"),
             cr3ea_tourby: assignedQaEmail, // Storing QA Email in tourby (must be unique)
-            cr3ea_shiftexecutiveproduction: productionExecName,
+            cr3ea_shiftexecutiveproduction: productionExecEmailOrName,
             cr3ea_lineno: line,
             cr3ea_shift: shift,
             cr3ea_previousrunningvariety: prevProduct,
@@ -194,33 +206,85 @@ const ALC_QARequest = {
             const sessions = await ALC_DAL.getActiveSessions();
             const todayStr = moment().format("YYYY-MM-DD");
 
+            console.log("ALC_QARequest: Checking line clearance override. Target line:", line, "Current Tour ID:", ALC_StateMachine.currentTourId);
+            console.log("ALC_QARequest: Retrieved sessions count:", sessions.length, sessions);
+
             const unclearedSession = sessions.find(s => {
-                if (ALC_StateMachine.currentTourId && s.cr3ea_prod_rajpura_quality_tourid === ALC_StateMachine.currentTourId) {
+                const cleanCurrentId = ALC_StateMachine.currentTourId ? String(ALC_StateMachine.currentTourId).replace(/[{}]/g, "").trim().toLowerCase() : "";
+                const cleanSessionId = s.cr3ea_prod_rajpura_quality_tourid ? String(s.cr3ea_prod_rajpura_quality_tourid).replace(/[{}]/g, "").trim().toLowerCase() : "";
+                
+                if (cleanCurrentId && cleanSessionId === cleanCurrentId) {
                     return false;
                 }
+
+                // Check if this session belongs to ALC (not other checklist forms)
+                const isFSItem = s.cr3ea_food_safety_checklisttype || 
+                                 (s.cr3ea_title && (s.cr3ea_title.includes("FoodSafety") || s.cr3ea_title.includes("PPE_") || s.cr3ea_title.includes("GMP_") || s.cr3ea_title.includes("PCI_")));
+                const isCCPItem = s.cr3ea_ccp_oprp_sieves_parametertype || 
+                                  (s.cr3ea_title && (s.cr3ea_title.includes("CCP_") || s.cr3ea_title.includes("Sieves_")));
+                const isMBItem = (s.cr3ea_title && s.cr3ea_title.includes("MixingBaking_"));
+                const isPkgOpsItem = s.cr3ea_pkgops_type || (s.cr3ea_title && s.cr3ea_title.includes("PkgOps_"));
+                const isAlcItem = !isFSItem && !isCCPItem && !isMBItem && !isPkgOpsItem;
+
+                if (!isAlcItem) {
+                    return false;
+                }
+
                 const isSameLine = s.cr3ea_lineno === line;
                 const isClearedVal = s.cr3ea_islineclear;
-                const status = s.cr3ea_processstatus || s.cr3ea_status || "";
+                
+                const statusVal1 = (s.cr3ea_status || "").trim().toLowerCase();
+                const statusVal2 = (s.cr3ea_processstatus || "").trim().toLowerCase();
+
+                const isTerminalVal1 = statusVal1 === "completed" ||
+                    statusVal1 === "closed" ||
+                    statusVal1 === "closed - expired" ||
+                    statusVal1 === "failed - expired" ||
+                    statusVal1 === "success" ||
+                    statusVal1 === "success - expired" ||
+                    statusVal1 === "submitted" ||
+                    statusVal1 === "cancelled" ||
+                    statusVal1.includes("expired");
+
+                const isTerminalVal2 = statusVal2 === "completed" ||
+                    statusVal2 === "closed" ||
+                    statusVal2 === "closed - expired" ||
+                    statusVal2 === "failed - expired" ||
+                    statusVal2 === "success" ||
+                    statusVal2 === "success - expired" ||
+                    statusVal2 === "submitted" ||
+                    statusVal2 === "cancelled" ||
+                    statusVal2.includes("expired");
+
+                const isTerminal = isTerminalVal1 || isTerminalVal2;
+
                 const isCleared = isClearedVal === true ||
                     isClearedVal === "true" ||
                     isClearedVal === 1 ||
                     isClearedVal === "1" ||
-                    isClearedVal === "Yes" ||
-                    status === "Completed" ||
-                    status === "Closed" ||
-                    status === "Closed - Expired" ||
-                    status === "Success";
+                    (typeof isClearedVal === "string" && isClearedVal.toLowerCase().trim() === "yes") ||
+                    isTerminal;
 
                 const tourDate = s.cr3ea_tourstartdate || s.createdon;
                 const isToday = tourDate && (moment(tourDate).local().format("YYYY-MM-DD") === todayStr);
 
-                return isSameLine && !isCleared && isToday;
+                const matches = isSameLine && !isCleared && isToday;
+                console.log(`ALC_QARequest evaluation for TourId: ${s.cr3ea_prod_rajpura_quality_tourid || s.cr3ea_prod_qualitytourid}: ` + 
+                            `isSameLine=${isSameLine} (${s.cr3ea_lineno} vs ${line}), ` +
+                            `isClearedVal=${isClearedVal}, ` +
+                            `status=${status}, ` +
+                            `isTerminal=${isTerminal}, ` +
+                            `isCleared=${isCleared}, ` +
+                            `isToday=${isToday} (${tourDate ? moment(tourDate).local().format("YYYY-MM-DD") : "N/A"} vs ${todayStr}) ` +
+                            `-> MATCHES=${matches}`);
+
+                return matches;
             });
 
             if (unclearedSession) {
                 HideLoader();
                 const tourTimeStr = unclearedSession.cr3ea_tourstartdate ? moment(unclearedSession.cr3ea_tourstartdate).format("hh:mm A") : "earlier";
-                const override = confirm(`Line ${line} already has an active clearance request started at ${tourTimeStr}. Do you want to override and start a new request?`);
+                const override = confirm(`${line} already has an active clearance request started at ${tourTimeStr}. Do you want to override and start a new request?`);
                 if (!override) {
                     return;
                 }
@@ -306,11 +370,38 @@ const ALC_QARequest = {
     },
 
     // Step 5: Escalation handler
-    triggerEscalation: function () {
+    triggerEscalation: async function () {
         console.warn("QA did not accept request within 5 minutes. Escalating...");
         const escalationPanel = document.getElementById("escalation-alert-panel");
         if (escalationPanel) {
             escalationPanel.style.display = "block";
+            escalationPanel.innerHTML = `<strong>ESCALATION LOGGED:</strong> QA Executive did not accept the request within the 5-minute limit. This has been escalated. The Shift Executive who started the tour can reassign the QA Executive below to restart the tour.`;
+        }
+
+        try {
+            if (ALC_StateMachine.currentTourId) {
+                const updatePayload = {
+                    cr3ea_prod_rajpura_quality_tourid: ALC_StateMachine.currentTourId,
+                    cr3ea_status: "Escalated",
+                    cr3ea_processstatus: "Escalated"
+                };
+                await ALC_DAL.saveSession(updatePayload);
+                console.log("ALC tour status updated to 'Escalated' in Dataverse.");
+
+                // Trigger Power Automate notification
+                if (typeof ALC_Notification !== "undefined") {
+                    const session = ALC_StateMachine.currentSession || {};
+                    const mergedSession = {
+                        ...session,
+                        ...updatePayload
+                    };
+                    const escalationEmails = this.escalationEmailsResolved || [];
+                    const qaEmail = session.cr3ea_tourby || session.cr3ea_assigned_qa || "";
+                    await ALC_Notification.sendEscalationNotification(mergedSession, qaEmail, escalationEmails);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to save escalation status in Dataverse:", e);
         }
 
         // Custom visual notification state update

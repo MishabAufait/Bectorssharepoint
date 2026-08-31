@@ -86,7 +86,8 @@ const MixingBaking_Main = {
                             try {
                                 const payload = {
                                     cr3ea_status: "Closed - Expired",
-                                    cr3ea_processstatus: "Closed - Expired"
+                                    cr3ea_processstatus: "Closed - Expired",
+                                    cr3ea_islineclear: true
                                 };
                                 await MixingBaking_DAL.updateParentTour(this.state.varTourID, payload);
                                 this.state.tourData.cr3ea_status = "Closed - Expired";
@@ -124,9 +125,11 @@ const MixingBaking_Main = {
             if (!assignedQA) {
                 isAssignedQA = this.state.isQaUser;
             } else {
-                isAssignedQA = (myEmail && (myEmail === assignedQA || assignedQA.includes(myEmail))) ||
-                               (myName1 && (myName1 === assignedQA || assignedQA.includes(myName1))) ||
-                               (myName2 && (myName2 === assignedQA || assignedQA.includes(myName2))) ||
+                const cleanAssignedQA = assignedQA.toLowerCase().trim();
+                const myEmailPart = myEmail.split("@")[0].trim();
+                const qaEmailPart = cleanAssignedQA.split("@")[0].trim();
+
+                isAssignedQA = (myEmail && (myEmail === cleanAssignedQA || myEmail.includes(cleanAssignedQA) || cleanAssignedQA.includes(myEmail) || (myEmailPart && qaEmailPart && myEmailPart === qaEmailPart))) ||
                                this.state.isQaUser;
             }
 
@@ -178,7 +181,13 @@ const MixingBaking_Main = {
             c.Title === "QA User" &&
             c.AssignedUser &&
             c.AssignedUser.results &&
-            c.AssignedUser.results.some(u => u.Title === currentUserName || u.Title === currentUserLogin || (u.EMail && u.EMail.toLowerCase() === currentUserEmail.toLowerCase()))
+            c.AssignedUser.results.some(u => {
+                const uEmail = String(u.EMail || "").toLowerCase().trim();
+                const loginEmail = String(currentUserEmail || "").toLowerCase().trim();
+                const uPart = uEmail.split("@")[0];
+                const loginPart = loginEmail.split("@")[0];
+                return loginEmail && uEmail && (loginEmail === uEmail || (uPart && loginPart && uPart === loginPart));
+            })
         );
 
         // Check Production Incharge mappings
@@ -186,7 +195,13 @@ const MixingBaking_Main = {
             c.Title === "Product User" &&
             c.AssignedUser &&
             c.AssignedUser.results &&
-            c.AssignedUser.results.some(u => u.Title === currentUserName || u.Title === currentUserLogin || (u.EMail && u.EMail.toLowerCase() === currentUserEmail.toLowerCase()))
+            c.AssignedUser.results.some(u => {
+                const uEmail = String(u.EMail || "").toLowerCase().trim();
+                const loginEmail = String(currentUserEmail || "").toLowerCase().trim();
+                const uPart = uEmail.split("@")[0];
+                const loginPart = loginEmail.split("@")[0];
+                return loginEmail && uEmail && (loginEmail === uEmail || (uPart && loginPart && uPart === loginPart));
+            })
         );
 
         this.state.isQaUser = isQa;
@@ -242,6 +257,15 @@ const MixingBaking_Main = {
             if (!isTourCompleted) {
                 this.state.cycleCounter = 1;
                 MixingBaking_Checklist.createCycleSection(1, false);
+            } else if (isTourCompleted && (this.state.tourData?.cr3ea_status === "Closed - Expired" || String(this.state.tourData?.cr3ea_status).includes("Expired"))) {
+                if (parentElement) {
+                    parentElement.innerHTML = `
+                        <div class="alert alert-danger text-center p-4 mt-3" style="border-radius: 8px; border: 1px solid #fecaca; background-color: #fee2e2; color: #b91c1c; font-family: sans-serif;">
+                            <h4 style="font-weight: 700; margin-bottom: 8px;">Expired while In Progress / QA Process</h4>
+                            <p style="margin: 0; font-size: 14px;">This checklist session was closed automatically because it expired before completion.</p>
+                        </div>
+                    `;
+                }
             }
         }
     }

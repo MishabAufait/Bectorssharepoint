@@ -191,7 +191,8 @@ const ALC_Dashboard = {
 
             const body = {
                 cr3ea_status: "Closed - Expired",
-                cr3ea_processstatus: "Closed - Expired"
+                cr3ea_processstatus: "Closed - Expired",
+                cr3ea_islineclear: true
             };
 
             let response = await fetch(url, {
@@ -352,6 +353,7 @@ const ALC_Dashboard = {
                                 await ALC_Dashboard.expireTour(t.cr3ea_prod_qualitytourid);
                                 t.cr3ea_status = "Closed - Expired";
                                 t.cr3ea_processstatus = "Closed - Expired";
+                                t.cr3ea_islineclear = true;
                                 status = "Closed - Expired";
                             }
                         }

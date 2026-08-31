@@ -1521,6 +1521,22 @@ const PKGOPS_Checklist = {
             console.log("Updating parent tour with final checklist state: ", targetTourRecord);
             await PKGOPS_DAL.saveTour(targetTourRecord);
 
+            // Trigger notification
+            if (typeof ALC_Notification !== "undefined") {
+                const score = hasDeviation ? 0 : 100;
+                const result = hasDeviation ? "Fail" : "Pass";
+                const isPass = !hasDeviation;
+                await ALC_Notification.sendVerificationComplete(
+                    {
+                        ...PKGOPS_StateMachine.currentSession,
+                        ...targetTourRecord
+                    },
+                    score,
+                    result,
+                    isPass
+                );
+            }
+
             if (typeof HideLoader === "function") HideLoader();
             alert(hasDeviation ? "Defects identified. Session submitted to Production for Corrective Action." : "Checklist completed and saved successfully!");
             

@@ -188,6 +188,17 @@ const PKGOPS_Reverify = {
 
             await PKGOPS_DAL.saveTour(tourPayload);
 
+            // Trigger notification
+            if (typeof ALC_Notification !== "undefined") {
+                const fullSession = {
+                    ...PKGOPS_StateMachine.currentSession,
+                    ...tourPayload
+                };
+                const score = overallPass ? 100 : 0;
+                const result = overallPass ? "Pass" : "Fail";
+                await ALC_Notification.sendReverificationComplete(fullSession, score, result, overallPass);
+            }
+
             if (typeof HideLoader === "function") HideLoader();
             alert(overallPass ? "Re-verification succeeded. Quality Tour closed successfully!" : "Re-verification failed. Tour returned to Production HOD.");
             window.location.reload();

@@ -30,12 +30,22 @@ const PKGOPS_Summary = {
         container.innerHTML = `<div class="text-center py-3"><div class="spinner-border text-primary" role="status"></div><p>Generating summary...</p></div>`;
 
         try {
+            const session = PKGOPS_Main.currentSession || {};
+            const status = session.cr3ea_status || session.cr3ea_processstatus || "";
+            const isExpired = status === "Closed - Expired" || status.includes("Expired");
             let detailHtml = "";
 
             if (this.activeSubChecklistKey) {
                 const rows = await PKGOPS_DAL.getSubChecklistRows(this.activeSubChecklistKey, this.currentTourId);
                 
-                if (rows.length === 0) {
+                if (isExpired && rows.length === 0) {
+                    detailHtml = `
+                        <div class="alert alert-danger text-center p-4 mt-3" style="border-radius: 8px; border: 1px solid #fecaca; background-color: #fee2e2; color: #b91c1c; font-family: sans-serif;">
+                            <h4 style="font-weight: 700; margin-bottom: 8px;">Expired while In Progress / QA Process</h4>
+                            <p style="margin: 0; font-size: 14px;">This checklist session was closed automatically because it expired before completion.</p>
+                        </div>
+                    `;
+                } else if (rows.length === 0) {
                     detailHtml = `<div class="alert alert-info">No detail records found for this checklist session.</div>`;
                 } else {
                     detailHtml = this.buildChecklistSummaryHtml(rows);
@@ -69,10 +79,13 @@ const PKGOPS_Summary = {
                 `;
             }
 
+            const badgeColor = isExpired ? "bg-danger" : "bg-success";
+            const badgeText = isExpired ? "Checklist Session Expired" : "Checklist Session Closed";
+
             container.innerHTML = `
                 <div class="row">
                     <div class="col-md-12 text-center">
-                        <span class="badge bg-success px-4 py-2" style="font-size: 16px; border-radius: 9999px; text-transform: uppercase;">Checklist Session Closed</span>
+                        <span class="badge ${badgeColor} px-4 py-2" style="font-size: 16px; border-radius: 9999px; text-transform: uppercase;">${badgeText}</span>
                         <h2 class="mt-2" style="color: #1e293b; font-weight: 700;">${this.pkgopsType} Audit Summary</h2>
                     </div>
                 </div>
