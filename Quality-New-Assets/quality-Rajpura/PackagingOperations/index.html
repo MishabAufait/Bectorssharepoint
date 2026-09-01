@@ -4,10 +4,40 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Packaging Operations (Rajpura)</title>
-    <!-- Common Global CSS -->
-    <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=1.8">
-    <!-- Component Specific CSS -->
-    <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/style.css?v=1.1">
+    <!-- Dynamic Stylesheet Loader (DEV, UAT, PROD) -->
+    <script type="text/javascript">
+        (function () {
+            var siteBaseUrl = "/sites/Mrs_Bectors_PTMS";
+            if (typeof _spPageContextInfo !== "undefined" && _spPageContextInfo.webServerRelativeUrl) {
+                siteBaseUrl = _spPageContextInfo.webServerRelativeUrl.replace(/\/+$/, "");
+            } else {
+                var currentUrl = window.location.href.toLowerCase();
+                if (currentUrl.indexOf("ptms_uat") !== -1) {
+                    siteBaseUrl = "/sites/PTMS_UAT";
+                } else if (currentUrl.indexOf("ptms_prd") !== -1) {
+                    siteBaseUrl = "/sites/PTMS_PRD";
+                } else {
+                    siteBaseUrl = "/sites/Mrs_Bectors_PTMS";
+                }
+            }
+
+            var cssLinks = [
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=2.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/style.css?v=2.0"
+            ];
+
+            for (var i = 0; i < cssLinks.length; i++) {
+                if (document.readyState === "loading") {
+                    document.write('<link rel="stylesheet" href="' + cssLinks[i] + '">');
+                } else {
+                    var link = document.createElement("link");
+                    link.rel = "stylesheet";
+                    link.href = cssLinks[i];
+                    document.head.appendChild(link);
+                }
+            }
+        })();
+    </script>
 </head>
 <body id="rajpura-pkgops-main-body" style="background-color: #f1f5f9; font-family: 'Inter', system-ui, -apple-system, sans-serif; padding: 20px; color: #1e293b;">
     <main id="rajpura-pkgops-main-container" style="max-width: 1400px; margin: 0 auto;">
@@ -196,25 +226,59 @@
 
     </main>
 
-    <!-- Dependencies -->
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/CommonJS/libraries/jquery-3.7.1.min.js"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/CommonJS/libraries/select2.min.js"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/CommonJS/libraries/moment.min.js"></script>
-    
-    <!-- SharePoint / Dataverse Shared libraries -->
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/CommonJS/CommonDAL.js"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/CommonJS/Common.js"></script>
+    <!-- Dynamic Scripts Loader (DEV, UAT, PROD) -->
+    <script type="text/javascript">
+        (function () {
+            var siteBaseUrl = "/sites/Mrs_Bectors_PTMS";
+            if (typeof _spPageContextInfo !== "undefined" && _spPageContextInfo.webServerRelativeUrl) {
+                siteBaseUrl = _spPageContextInfo.webServerRelativeUrl.replace(/\/+$/, "");
+            } else {
+                var currentUrl = window.location.href.toLowerCase();
+                if (currentUrl.indexOf("ptms_uat") !== -1) {
+                    siteBaseUrl = "/sites/PTMS_UAT";
+                } else if (currentUrl.indexOf("ptms_prd") !== -1) {
+                    siteBaseUrl = "/sites/PTMS_PRD";
+                } else {
+                    siteBaseUrl = "/sites/Mrs_Bectors_PTMS";
+                }
+            }
 
-    <!-- App Modules -->
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=2.1"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/notification.js?v=1.8"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/dal.js?v=2.7"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/state-machine.js?v=2.5"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/qa-request.js?v=2.5"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/checklist.js?v=2.6"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/corrective-action.js?v=2.5"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/re-verify.js?v=2.5"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/summary.js?v=2.5"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/main.js?v=2.6"></script>
+            var scripts = [
+                siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/libraries/jquery-3.7.1.min.js",
+                siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/libraries/select2.min.js",
+                siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/libraries/moment.min.js",
+                siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/CommonDAL.js",
+                siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/Common.js",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=2.1",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/notification.js?v=2.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/dal.js?v=2.7",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/state-machine.js?v=2.5",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/qa-request.js?v=2.5",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/checklist.js?v=2.6",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/corrective-action.js?v=2.5",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/re-verify.js?v=2.5",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/summary.js?v=2.5",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/main.js?v=2.6"
+            ];
+
+            if (document.readyState === "loading") {
+                for (var j = 0; j < scripts.length; j++) {
+                    document.write('<script type="text/javascript" src="' + scripts[j] + '"><\/script>');
+                }
+            } else {
+                var loadScriptIndex = function (idx) {
+                    if (idx >= scripts.length) return;
+                    var script = document.createElement("script");
+                    script.type = "text/javascript";
+                    script.src = scripts[idx];
+                    script.onload = function () {
+                        loadScriptIndex(idx + 1);
+                    };
+                    document.body.appendChild(script);
+                };
+                loadScriptIndex(0);
+            }
+        })();
+    </script>
 </body>
 </html>

@@ -407,7 +407,7 @@ const CCP_OPRP_Main = {
             cr3ea_ccp_oprp_sieves_parametertype: typeVal,
             cr3ea_ccp_oprp_sieves_frequency: typeVal === "Sieves and Magnets" ? freqVal : null,
             cr3ea_ccp_oprp_sieves_productvariety: typeVal === "CCP & OPRP" ? productVal : null,
-            cr3ea_plantid: siteVal === "Rajpura" ? "14" : siteVal,
+            cr3ea_plantid: siteVal === "Rajpura" ? QualityRajpura_Config.PLANT_ID : siteVal,
             cr3ea_lineno: typeVal === "CCP & OPRP" ? lineVal : null,
             cr3ea_assigned_qa: qaVal,
             cr3ea_shiftexecutiveproduction: prodVal,

@@ -123,7 +123,7 @@ const FoodSafety_Main = {
                 alert("Tour session not found in database.");
                 const welcomeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
                     ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
-                    : "/sites/Mrs_Bectors_PTMS/Pages/Home.aspx";
+                    : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
                 window.location.href = welcomeUrl;
                 return;
             }
@@ -220,7 +220,7 @@ const FoodSafety_Main = {
             alert("Failed to load tour session details.");
             const welcomeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
                 ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
-                : "/sites/Mrs_Bectors_PTMS/Pages/Home.aspx";
+                : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
             window.location.href = welcomeUrl;
         } finally {
             HideLoader();

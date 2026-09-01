@@ -3,9 +3,72 @@ console.log("Rajpura Common Utils Loaded");
 
 // Global Quality Rajpura configuration
 const QualityRajpura_Config = {
-    PLANT_ID: "14",
-    PLANT_NAME: "Rajpura",
-    QUALITY_DEPT_IDS: ["80", "81", "135"],
+    get PLANT_ID() {
+        return this.getCurrentConfig().PLANT_ID;
+    },
+    get PLANT_NAME() {
+        return this.getCurrentConfig().PLANT_NAME;
+    },
+    get QUALITY_DEPT_IDS() {
+        return this.getCurrentConfig().QUALITY_DEPT_IDS;
+    },
+
+    // Environment configurations for DEV, UAT, and PROD
+    ENVIRONMENTS: {
+        DEV: {
+            TENANT_URL: "https://aufaitcloud.sharepoint.com/sites/Mrs_Bectors_PTMS",
+            FLOW_URL: "https://prod-23.northcentralus.logic.azure.com:443/workflows/placeholder-dev-flow", // Replace with actual Dev Flow URL
+            PLANT_ID: "14",
+            PLANT_NAME: "Rajpura",
+            QUALITY_DEPT_IDS: ["80", "81", "135"]
+        },
+        UAT: {
+            TENANT_URL: "https://bectors.sharepoint.com/sites/PTMS_UAT",
+            FLOW_URL: "https://prod-15.northcentralus.logic.azure.com:443/workflows/placeholder-uat-flow", // Replace with actual UAT Flow URL
+            PLANT_ID: "14",
+            PLANT_NAME: "Rajpura",
+            QUALITY_DEPT_IDS: ["80", "81", "135"]
+        },
+        PROD: {
+            TENANT_URL: "https://bectors.sharepoint.com/sites/PTMS_PRD",
+            FLOW_URL: "https://default8efa5ce286e44882840cf2578cdf09.4c.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/14/workflows/a60198cce93940a2b4ab778d1ba39e04/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=kJNXOOocZbvwbjuFQx2uNiZ_TXNWnX7wfBpH6nk_Ilg",
+            PLANT_ID: "14",
+            PLANT_NAME: "Rajpura",
+            QUALITY_DEPT_IDS: ["80", "81", "135"]
+        }
+    },
+
+    // Resolves current environment dynamically based on site URL context
+    getEnvironment: function () {
+        const currentUrl = window.location.href.toLowerCase();
+        if (currentUrl.includes("ptms_uat")) {
+            return "UAT";
+        } else if (currentUrl.includes("ptms_prd")) {
+            return "PROD";
+        } else if (currentUrl.includes("aufaitcloud") || currentUrl.includes("mrs_bectors_ptms")) {
+            return "DEV";
+        }
+        return "DEV"; // Default fallback
+    },
+
+    getCurrentConfig: function () {
+        const env = this.getEnvironment();
+        return this.ENVIRONMENTS[env];
+    },
+
+    // Resolves current server-relative site URL based on environment (DEV, UAT, PROD)
+    getSiteBaseUrl: function () {
+        if (typeof _spPageContextInfo !== "undefined" && _spPageContextInfo.webServerRelativeUrl) {
+            return _spPageContextInfo.webServerRelativeUrl.replace(/\/+$/, "");
+        }
+        const currentUrl = window.location.href.toLowerCase();
+        if (currentUrl.includes("ptms_uat")) {
+            return "/sites/PTMS_UAT";
+        } else if (currentUrl.includes("ptms_prd")) {
+            return "/sites/PTMS_PRD";
+        }
+        return "/sites/Mrs_Bectors_PTMS";
+    },
 
     // SharePoint List Names categorized by form
     SHAREPOINT_LISTS: {

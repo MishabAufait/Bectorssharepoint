@@ -13,11 +13,42 @@
     <!-- Select2 Stylesheets -->
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 
-    <!-- Project Stylesheets -->
-    <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/css/main.min.css">
-    <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/css/home-page.min.css">
-    <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css">
-    <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/MixingAndBaking/style.css?v=1.6">
+    <!-- Dynamic Stylesheet Loader (DEV, UAT, PROD) -->
+    <script type="text/javascript">
+        (function () {
+            var siteBaseUrl = "/sites/Mrs_Bectors_PTMS";
+            if (typeof _spPageContextInfo !== "undefined" && _spPageContextInfo.webServerRelativeUrl) {
+                siteBaseUrl = _spPageContextInfo.webServerRelativeUrl.replace(/\/+$/, "");
+            } else {
+                var currentUrl = window.location.href.toLowerCase();
+                if (currentUrl.indexOf("ptms_uat") !== -1) {
+                    siteBaseUrl = "/sites/PTMS_UAT";
+                } else if (currentUrl.indexOf("ptms_prd") !== -1) {
+                    siteBaseUrl = "/sites/PTMS_PRD";
+                } else {
+                    siteBaseUrl = "/sites/Mrs_Bectors_PTMS";
+                }
+            }
+
+            var cssLinks = [
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/main.min.css?v=2.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/home-page.min.css?v=2.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=2.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/MixingAndBaking/style.css?v=2.0"
+            ];
+
+            for (var i = 0; i < cssLinks.length; i++) {
+                if (document.readyState === "loading") {
+                    document.write('<link rel="stylesheet" href="' + cssLinks[i] + '">');
+                } else {
+                    var link = document.createElement("link");
+                    link.rel = "stylesheet";
+                    link.href = cssLinks[i];
+                    document.head.appendChild(link);
+                }
+            }
+        })();
+    </script>
 </head>
 <body>
     <div id="loading-overlay" style="display: none; position: fixed; inset: 0; background: rgba(255, 255, 255, 0.6); z-index: 99999; pointer-events: auto;"></div>
@@ -95,39 +126,88 @@
         </div>
     </div>
 
-    <!-- Scripts -->
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <!-- Dynamic Scripts Loader (DEV, UAT, PROD) -->
+    <script type="text/javascript">
+        (function () {
+            var siteBaseUrl = "/sites/Mrs_Bectors_PTMS";
+            if (typeof _spPageContextInfo !== "undefined" && _spPageContextInfo.webServerRelativeUrl) {
+                siteBaseUrl = _spPageContextInfo.webServerRelativeUrl.replace(/\/+$/, "");
+            } else {
+                var currentUrl = window.location.href.toLowerCase();
+                if (currentUrl.indexOf("ptms_uat") !== -1) {
+                    siteBaseUrl = "/sites/PTMS_UAT";
+                } else if (currentUrl.indexOf("ptms_prd") !== -1) {
+                    siteBaseUrl = "/sites/PTMS_PRD";
+                } else {
+                    siteBaseUrl = "/sites/Mrs_Bectors_PTMS";
+                }
+            }
 
-    <!-- Global shared libraries -->
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/CommonJS/CommonDAL.js"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/CommonJS/Common.js"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=2.1"></script>
+            var scripts = [
+                siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/libraries/jquery-3.7.1.min.js",
+                siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/libraries/select2.min.js",
+                siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/libraries/moment.min.js",
+                siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/CommonDAL.js",
+                siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/Common.js",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=2.1",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/MixingAndBaking/js/dal.js?v=2.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/MixingAndBaking/js/main.js?v=2.3",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/MixingAndBaking/js/checklist.js?v=3.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/MixingAndBaking/script.js?v=2.0"
+            ];
 
-    <!-- Module scripts -->
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/MixingAndBaking/js/dal.js?v=2.0"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/MixingAndBaking/js/main.js?v=2.3"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/MixingAndBaking/js/checklist.js?v=3.0"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/MixingAndBaking/script.js?v=1.7"></script>
+            if (document.readyState === "loading") {
+                for (var j = 0; j < scripts.length; j++) {
+                    document.write('<script type="text/javascript" src="' + scripts[j] + '"><\/script>');
+                }
+            } else {
+                var loadScriptIndex = function (idx) {
+                    if (idx >= scripts.length) return;
+                    var script = document.createElement("script");
+                    script.type = "text/javascript";
+                    script.src = scripts[idx];
+                    script.onload = function () {
+                        loadScriptIndex(idx + 1);
+                    };
+                    script.onerror = function () {
+                        console.warn("Failed to load script: " + scripts[idx]);
+                        loadScriptIndex(idx + 1);
+                    };
+                    document.body.appendChild(script);
+                };
+                loadScriptIndex(0);
+            }
+        })();
+    </script>
 
     <!-- Popup helpers -->
     <script>
-        $(document).ready(function () {
-            $('#shiftSelect').select2({
-                minimumResultsForSearch: -1,
-                dropdownAutoWidth: false,
-                width: '100%'
+        function initMixingPopups() {
+            if (typeof jQuery === "undefined" || !jQuery.fn || !jQuery.fn.select2) {
+                setTimeout(initMixingPopups, 50);
+                return;
+            }
+            jQuery(function ($) {
+                $('#shiftSelect').select2({
+                    minimumResultsForSearch: -1,
+                    dropdownAutoWidth: false,
+                    width: '100%'
+                });
+                var opener = document.querySelector(".bs-menu-opener");
+                if (opener) {
+                    opener.addEventListener("click", function(e) {
+                        e.stopPropagation();
+                        var menu = document.querySelector(".bs-menu");
+                        if (menu) menu.classList.toggle("is-menu-active");
+                    });
+                }
+                document.addEventListener("click", function() {
+                    var menu = document.querySelector(".bs-menu");
+                    if (menu) menu.classList.remove("is-menu-active");
+                });
             });
-            // Setup shift button opener/closer
-            document.querySelector(".bs-menu-opener").addEventListener("click", function(e) {
-                e.stopPropagation();
-                document.querySelector(".bs-menu").classList.toggle("is-menu-active");
-            });
-            document.addEventListener("click", function() {
-                document.querySelector(".bs-menu").classList.remove("is-menu-active");
-            });
-        });
+        }
+        initMixingPopups();
 
         function shiftpopupopener() {
             document.getElementById("shiftPopup").classList.add("is-popup-active");

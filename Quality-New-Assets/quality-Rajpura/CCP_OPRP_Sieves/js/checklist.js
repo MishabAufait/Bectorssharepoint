@@ -1640,7 +1640,7 @@ const CCP_OPRP_Checklist = {
             // Redirect back to Home Dashboard
             const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
                 ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
-                : "/sites/Mrs_Bectors_PTMS/Pages/Home.aspx";
+                : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
             window.location.href = homeUrl;
 
         } catch (err) {

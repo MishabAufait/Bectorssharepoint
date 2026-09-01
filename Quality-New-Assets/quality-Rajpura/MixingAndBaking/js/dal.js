@@ -11,7 +11,7 @@ const MixingBaking_DAL = {
             "AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id," +
             "EscalationManager/Title,EscalationManager/EMail,EscalationManager/Id" +
             "&$expand=AssignedUser,EscalationManager" +
-            "&$filter=Plant eq 'Rajpura'";
+            `&$filter=Plant eq '${QualityRajpura_Config.PLANT_NAME}'`;
         let url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
         let response;
         let isFallback = false;
@@ -26,7 +26,7 @@ const MixingBaking_DAL = {
                     "Assigned_x0020_User/Title,Assigned_x0020_User/EMail,Assigned_x0020_User/Id," +
                     "Escalation_x0020_Manager/Title,Escalation_x0020_Manager/EMail,Escalation_x0020_Manager/Id" +
                     "&$expand=Assigned_x0020_User,Escalation_x0020_Manager" +
-                    "&$filter=Plant eq 'Rajpura'";
+                    `&$filter=Plant eq '${QualityRajpura_Config.PLANT_NAME}'`;
                 url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
                 response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
             }

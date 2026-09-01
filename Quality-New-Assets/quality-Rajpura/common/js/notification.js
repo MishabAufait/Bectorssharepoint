@@ -9,13 +9,18 @@ const ALC_Notification = {
     sendNotificationFlow: async function (payload) {
         console.log("ALC_Notification: Outgoing notification payload:", payload);
 
-        if (!ALC_NOTIFICATION_FLOW_URL || ALC_NOTIFICATION_FLOW_URL.includes("EXAMPLE_WORKFLOW_ID")) {
+        // Fetch flow URL dynamically based on environment
+        const flowUrl = (typeof QualityRajpura_Config !== "undefined" && typeof QualityRajpura_Config.getCurrentConfig === "function")
+            ? QualityRajpura_Config.getCurrentConfig().FLOW_URL
+            : ALC_NOTIFICATION_FLOW_URL;
+
+        if (!flowUrl || flowUrl.includes("EXAMPLE_WORKFLOW_ID") || flowUrl.includes("placeholder")) {
             console.warn("ALC_Notification: Power Automate flow URL is not configured. Outgoing payload logged above.");
             return;
         }
 
         try {
-            const response = await fetch(ALC_NOTIFICATION_FLOW_URL, {
+            const response = await fetch(flowUrl, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"

@@ -75,7 +75,7 @@ const CCP_OPRP_DAL = {
                 query += `&$expand=${expandParts.join(",")}`;
             }
             if (plantField) {
-                query += `&$filter=${plantField.InternalName} eq 'Rajpura'`;
+                query += `&$filter=${plantField.InternalName} eq '${QualityRajpura_Config.PLANT_NAME}'`;
             }
 
             const url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;

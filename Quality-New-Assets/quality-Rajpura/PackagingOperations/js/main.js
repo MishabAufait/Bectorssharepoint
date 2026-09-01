@@ -19,7 +19,7 @@ const PKGOPS_Main = {
         const btnDashboard = document.getElementById("btnBackToDashboard");
         if (btnDashboard) {
             btnDashboard.onclick = function () {
-                window.location.href = "/sites/Mrs_Bectors_PTMS/Pages/Home.aspx";
+                window.location.href = (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : (typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webServerRelativeUrl : '/sites/Mrs_Bectors_PTMS')) + "/Pages/Home.aspx";
             };
         }
 
@@ -40,7 +40,7 @@ const PKGOPS_Main = {
 
                 if (!this.currentSession) {
                     alert("Invalid Tour ID session. Returning to dashboard.");
-                    window.location.href = "/sites/Mrs_Bectors_PTMS/Pages/Home.aspx";
+                    window.location.href = (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : (typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webServerRelativeUrl : '/sites/Mrs_Bectors_PTMS')) + "/Pages/Home.aspx";
                     return;
                 }
 

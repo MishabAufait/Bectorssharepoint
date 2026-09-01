@@ -327,7 +327,7 @@ const FoodSafety_Summary = {
         // Redirect back to SharePoint Welcome page
         const welcomeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
             ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
-            : "/sites/Mrs_Bectors_PTMS/Pages/Home.aspx";
+            : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
             
         window.location.href = welcomeUrl;
     }

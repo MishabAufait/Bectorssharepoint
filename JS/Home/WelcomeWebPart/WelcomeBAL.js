@@ -20,6 +20,19 @@ var LeftNaviDept = "";
 var LeftNaviCriteria = "";
 var ShiftVal = "";
 
+function getWelcomePageBaseUrl() {
+  if (typeof QualityRajpura_Config !== 'undefined' && typeof QualityRajpura_Config.getSiteBaseUrl === 'function') {
+    return QualityRajpura_Config.getSiteBaseUrl();
+  }
+  if (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webServerRelativeUrl) {
+    return _spPageContextInfo.webServerRelativeUrl.replace(/\/+$/, '');
+  }
+  var url = window.location.href.toLowerCase();
+  if (url.indexOf("ptms_uat") !== -1) return "/sites/PTMS_UAT";
+  if (url.indexOf("ptms_prd") !== -1) return "/sites/PTMS_PRD";
+  return "/sites/Mrs_Bectors_PTMS";
+}
+
 /* =========================================================
    ✅ UPDATED: Select2 Init (Safe + Popup-aware)
    - avoids double init
@@ -532,17 +545,18 @@ async function SaveQualityDataItem() {
     if (shiftSelect) {
       localStorage.setItem("shiftValue", shiftSelect.options[shiftSelect.selectedIndex].text);
     }
-    let newUrl = "/sites/Mrs_Bectors_PTMS/Pages/ALC.aspx?action=new";
+    var siteBase = getWelcomePageBaseUrl();
+    let newUrl = siteBase + "/Pages/ALC.aspx?action=new";
     if (ProductValue === 'ALC') {
-      newUrl = "/sites/Mrs_Bectors_PTMS/Pages/AreaLine.aspx?action=new";
+      newUrl = siteBase + "/Pages/AreaLine.aspx?action=new";
     } else if (ProductValue === 'Mixing And Baking') {
-      newUrl = "/sites/Mrs_Bectors_PTMS/Pages/MixingAndBaking.aspx?action=new";
+      newUrl = siteBase + "/Pages/MixingAndBaking.aspx?action=new";
     } else if (ProductValue === 'Packaging Operations') {
-      newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Product-Operation.aspx?action=new";
+      newUrl = siteBase + "/Pages/Product-Operation.aspx?action=new";
     } else if (ProductValue === 'CCP, OPRP, Sieves & Magnets') {
-      newUrl = "/sites/Mrs_Bectors_PTMS/Pages/CCP-OPRP.aspx?action=new";
+      newUrl = siteBase + "/Pages/CCP-OPRP.aspx?action=new";
     } else if (ProductValue === 'Food Safety') {
-      newUrl = "/sites/Mrs_Bectors_PTMS/Pages/FoodSafety.aspx?action=new";
+      newUrl = siteBase + "/Pages/FoodSafety.aspx?action=new";
     }
     window.location.href = newUrl;
     return;
@@ -713,10 +727,11 @@ async function SaveBakeryDataItem() {
 
 function SaveDTourItemSuccess(ID) {
   var DepartTourId = ID;
+  var siteBase = getWelcomePageBaseUrl();
   if (Plantid == '11') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/WCMS.aspx?TourId=" + DepartTourId;
+    newUrl = siteBase + "/Pages/WCMS.aspx?TourId=" + DepartTourId;
   } else {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/DepartmentTour.aspx?TourId=" + DepartTourId;
+    newUrl = siteBase + "/Pages/DepartmentTour.aspx?TourId=" + DepartTourId;
   }
   window.location.href = newUrl;
 }
@@ -724,57 +739,58 @@ function SaveDTourItemSuccess(ID) {
 function SaveQTourItemSuccess(ID) {
   var QualityTourId = ID;
   var ProductValue = $('#tourSelect').val();
+  var siteBase = getWelcomePageBaseUrl();
 
   if (ProductValue == 'Product Quality Index') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/QualityTour.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/QualityTour.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Cream Percentage Checklist') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Cream.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/Cream.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Sieves And Magnets Old Plant') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/SievesAndMagnetsOldPlant.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/SievesAndMagnetsOldPlant.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Sieves And Magnets New Plant') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/SievesAndMagnetsNewPlant.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/SievesAndMagnetsNewPlant.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Product Monitoring Record') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/ProductMonitoring.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/ProductMonitoring.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Code Verification Record') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/CodeVerification.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/CodeVerification.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'OPRP And CCP Record') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/OPRP&CCP.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/OPRP&CCP.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Baking Process Record') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Baking.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/Baking.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Seal Integrity Test') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/VLT.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/VLT.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Quality Wall Record') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Qualitywall.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/Qualitywall.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Mixing Parameter') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Processparamater.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/Processparamater.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Area Line Clearance Checklist') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/ALC.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/ALC.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'ALC') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/AreaLine.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/AreaLine.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Mixing And Baking') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/MixingAndBaking.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/MixingAndBaking.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Packaging Operations') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Product-Operation.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/Product-Operation.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'CCP, OPRP, Sieves & Magnets') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/CCP-OPRP.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/CCP-OPRP.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Food Safety') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/FoodSafety.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/FoodSafety.aspx?TourId=" + QualityTourId;
   }
 
   window.location.href = newUrl;
@@ -783,31 +799,32 @@ function SaveQTourItemSuccess(ID) {
 function SaveBTourItemSuccess(ID) {
   var QualityTourId = ID;
   var ProductValue = $('#tourSelect').val();
+  var siteBase = getWelcomePageBaseUrl();
 
   if (ProductValue == 'Baking & Cooling') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Bakingandcooling.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/Bakingandcooling.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Coding') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Coding.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/Coding.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Mixing') {
     if (typeof Plantid !== 'undefined' && Plantid == QualityRajpura_Config.PLANT_ID) {
-      newUrl = "/sites/Mrs_Bectors_PTMS/Pages/MixingAndBaking.aspx?TourId=" + QualityTourId;
+      newUrl = siteBase + "/Pages/MixingAndBaking.aspx?TourId=" + QualityTourId;
     } else {
-      newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Mixing.aspx?TourId=" + QualityTourId;
+      newUrl = siteBase + "/Pages/Mixing.aspx?TourId=" + QualityTourId;
     }
   }
   else if (ProductValue == 'Process Format') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Processformat.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/Processformat.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'PQI') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/PQIBakery.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/PQIBakery.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Proofing') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/ProofingBakery.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/ProofingBakery.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Sieves and magnets') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/SievesAndMagnetsBakery.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/SievesAndMagnetsBakery.aspx?TourId=" + QualityTourId;
   }
 
   window.location.href = newUrl;
@@ -892,7 +909,7 @@ function SavePlanTItem() {
 
 function SavePTourItemSuccess(data) {
   var PlantTourId = data.d.Id;
-  newUrl = "/sites/Mrs_Bectors_PTMS/Pages/PlantTour.aspx?PTourId=" + PlantTourId;
+  newUrl = getWelcomePageBaseUrl() + "/Pages/PlantTour.aspx?PTourId=" + PlantTourId;
   window.location.href = newUrl;
 }
 /*Get Plant Tour ends*/
@@ -977,7 +994,7 @@ function ObservationReportData(collObservationReport) {
         var Categorytitle = (collObservationReport.value[i].cr3ea_categoryid == null) ? '' : collObservationReport.value[i].cr3ea_categorytitle;
 
         tempObservationReportHtml += '<tr>' +
-          '<td><a href="/sites/Mrs_Bectors_PTMS/Pages/ObservationClosure.aspx?ReqId=' + collObservationReport.value[i].cr3ea_prod_observationsid + '">' + (i + 1) + '</a></td>' +
+          '<td><a href="' + getWelcomePageBaseUrl() + '/Pages/ObservationClosure.aspx?ReqId=' + collObservationReport.value[i].cr3ea_prod_observationsid + '">' + (i + 1) + '</a></td>' +
           '<td>' + (collObservationReport.value[i].cr3ea_observation ?? '') + '</td>' +
           '<td>' + moment(collObservationReport.value[i].cr3ea_observeddate).format('DD-MMM-YY') + '</td>' +
           '<td>' + Categorytitle + '</td>' +
@@ -1183,7 +1200,7 @@ function WcmsObservationReportData(collObservationReport) {
         var Categorytitle = (collObservationReport.value[i].cr3ea_categoryid == null) ? '' : collObservationReport.value[i].cr3ea_categorytitle;
 
         tempObservationReportHtml += '<tr>' +
-          '<td><a href="/sites/Mrs_Bectors_PTMS/Pages/ObservationClosure.aspx?ReqId=' + collObservationReport.value[i].cr3ea_prod_wobservationsid + '">' + (i + 1) + '</a></td>' +
+          '<td><a href="' + getWelcomePageBaseUrl() + '/Pages/ObservationClosure.aspx?ReqId=' + collObservationReport.value[i].cr3ea_prod_wobservationsid + '">' + (i + 1) + '</a></td>' +
           '<td>' + collObservationReport.value[i].cr3ea_defectremarks + '</td>' +
           '<td>' + moment(collObservationReport.value[i].cr3ea_tourstartdate).format('DD-MMM-YY') + '</td>' +
           '<td>' + collObservationReport.value[i].cr3ea_observedby + '</td>' +

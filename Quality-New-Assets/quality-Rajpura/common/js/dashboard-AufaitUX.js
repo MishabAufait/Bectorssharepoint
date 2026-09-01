@@ -7,8 +7,11 @@ $(document).ready(function () {
     if (!document.getElementById(linkId)) {
         const link = document.createElement("link");
         link.id = linkId;
-        link.rel = "stylesheet";
-        link.href = "/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css";
+        const webUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webServerRelativeUrl)
+            ? _spPageContextInfo.webServerRelativeUrl.replace(/\/+$/, '')
+            : (window.location.href.toLowerCase().indexOf("ptms_uat") !== -1 ? "/sites/PTMS_UAT" :
+              (window.location.href.toLowerCase().indexOf("ptms_prd") !== -1 ? "/sites/PTMS_PRD" : "/sites/Mrs_Bectors_PTMS"));
+        link.href = `${webUrl}/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css`;
         document.head.appendChild(link);
     }
     ALC_Dashboard.init();
@@ -122,8 +125,8 @@ const ALC_Dashboard = {
             const dropdownEl = document.getElementById("DepartmentDropDownId");
             const deptId = (dropdownEl && dropdownEl.value !== "All") ? dropdownEl.value.toString() : (typeof userDepratmentId !== 'undefined' ? userDepratmentId.toString() : "");
 
-            const isQualityDept = (deptId === "80" || deptId === "81" || deptId === "135");
-            const isRajpura = (plant === "Rajpura" || pId === "14" || isQualityDept);
+            const isQualityDept = QualityRajpura_Config.QUALITY_DEPT_IDS.includes(deptId);
+            const isRajpura = (plant === QualityRajpura_Config.PLANT_NAME || pId === QualityRajpura_Config.PLANT_ID || isQualityDept);
 
             console.log(`Evaluating Dashboard: Plant=${plant}, SelectedDept=${deptId}, isRajpura=${isRajpura}, isQualityDept=${isQualityDept}`);
 
@@ -252,7 +255,7 @@ const ALC_Dashboard = {
             const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
             
             // Query latest 100 tours from quality tours
-            const filter = "?$filter=cr3ea_plantid eq '14'&$orderby=cr3ea_tourstartdate desc&$top=100";
+            const filter = `?$filter=cr3ea_plantid eq '${QualityRajpura_Config.PLANT_ID}'&$orderby=cr3ea_tourstartdate desc&$top=100`;
             const url = `${baseApiUrl}/api/data/v${apiVersion}/cr3ea_prod_qualitytours${filter}`;
 
             let response = await fetch(url, {
@@ -734,8 +737,14 @@ const ALC_Dashboard = {
         const prevBtn = document.createElement("button");
         prevBtn.type = "button";
         prevBtn.className = "bs-btn bs-btn-secondary";
-        prevBtn.style.padding = "6px 12px";
+        prevBtn.style.padding = "6px 14px";
         prevBtn.style.fontSize = "13px";
+        prevBtn.style.fontWeight = "600";
+        prevBtn.style.borderRadius = "6px";
+        prevBtn.style.border = "1px solid #cbd5e1";
+        prevBtn.style.backgroundColor = this.currentPage === 1 ? "#f8fafc" : "#ffffff";
+        prevBtn.style.color = this.currentPage === 1 ? "#94a3b8" : "#334155";
+        prevBtn.style.cursor = this.currentPage === 1 ? "not-allowed" : "pointer";
         prevBtn.innerText = "Previous";
         prevBtn.disabled = this.currentPage === 1;
         prevBtn.onclick = () => {
@@ -759,8 +768,14 @@ const ALC_Dashboard = {
         const nextBtn = document.createElement("button");
         nextBtn.type = "button";
         nextBtn.className = "bs-btn bs-btn-secondary";
-        nextBtn.style.padding = "6px 12px";
+        nextBtn.style.padding = "6px 14px";
         nextBtn.style.fontSize = "13px";
+        nextBtn.style.fontWeight = "600";
+        nextBtn.style.borderRadius = "6px";
+        nextBtn.style.border = "1px solid #cbd5e1";
+        nextBtn.style.backgroundColor = this.currentPage === totalPages ? "#f8fafc" : "#ffffff";
+        nextBtn.style.color = this.currentPage === totalPages ? "#94a3b8" : "#334155";
+        nextBtn.style.cursor = this.currentPage === totalPages ? "not-allowed" : "pointer";
         nextBtn.innerText = "Next";
         nextBtn.disabled = this.currentPage === totalPages;
         nextBtn.onclick = () => {
@@ -780,7 +795,7 @@ const ALC_Dashboard = {
         let query = "?$select=Id,Title,ConfigType,Region,Plant,Area," +
             "AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id" +
             "&$expand=AssignedUser" +
-            "&$filter=Plant eq 'Rajpura'";
+            `&$filter=Plant eq '${QualityRajpura_Config.PLANT_NAME}'`;
         
         let url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
         let response;
@@ -794,7 +809,7 @@ const ALC_Dashboard = {
             query = "?$select=Id,Title,Config_x0020_Type,Region,Plant,Area," +
                 "Assigned_x0020_User/Title,Assigned_x0020_User/EMail,Assigned_x0020_User/Id" +
                 "&$expand=Assigned_x0020_User" +
-                "&$filter=Plant eq 'Rajpura'";
+                `&$filter=Plant eq '${QualityRajpura_Config.PLANT_NAME}'`;
             url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
             response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
         }

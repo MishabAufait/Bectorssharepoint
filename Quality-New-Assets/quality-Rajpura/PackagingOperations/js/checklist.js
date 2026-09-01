@@ -1722,7 +1722,7 @@ const PKGOPS_Checklist = {
             alert("Tour progress paused and saved successfully.");
             
             // Redirect to dashboard
-            window.location.href = "/sites/Mrs_Bectors_PTMS/Pages/Home.aspx";
+            window.location.href = (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : (typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webServerRelativeUrl : '/sites/Mrs_Bectors_PTMS')) + "/Pages/Home.aspx";
         } catch (e) {
             if (typeof HideLoader === "function") HideLoader();
             console.error("Failed to pause tour: ", e);

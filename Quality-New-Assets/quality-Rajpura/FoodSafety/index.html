@@ -4,14 +4,44 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Food Safety Checklist (Rajpura)</title>
-    <!-- Bectors Global stylesheets -->
-    <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/CSS/packages/select2.min.css">
-    <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/css/main.min.css">
-    <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/css/home-page.min.css">
-    <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/css/style.css">
-    <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css">
-    <!-- Local stylesheet override -->
-    <link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/style.css">
+    <!-- Dynamic Stylesheet Loader (DEV, UAT, PROD) -->
+    <script type="text/javascript">
+        (function () {
+            var siteBaseUrl = "/sites/Mrs_Bectors_PTMS";
+            if (typeof _spPageContextInfo !== "undefined" && _spPageContextInfo.webServerRelativeUrl) {
+                siteBaseUrl = _spPageContextInfo.webServerRelativeUrl.replace(/\/+$/, "");
+            } else {
+                var currentUrl = window.location.href.toLowerCase();
+                if (currentUrl.indexOf("ptms_uat") !== -1) {
+                    siteBaseUrl = "/sites/PTMS_UAT";
+                } else if (currentUrl.indexOf("ptms_prd") !== -1) {
+                    siteBaseUrl = "/sites/PTMS_PRD";
+                } else {
+                    siteBaseUrl = "/sites/Mrs_Bectors_PTMS";
+                }
+            }
+
+            var cssLinks = [
+                siteBaseUrl + "/BectorsSourceCode/CSS/packages/select2.min.css",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/main.min.css?v=2.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/home-page.min.css?v=2.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/style.css?v=2.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=2.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/style.css?v=2.0"
+            ];
+
+            for (var i = 0; i < cssLinks.length; i++) {
+                if (document.readyState === "loading") {
+                    document.write('<link rel="stylesheet" href="' + cssLinks[i] + '">');
+                } else {
+                    var link = document.createElement("link");
+                    link.rel = "stylesheet";
+                    link.href = cssLinks[i];
+                    document.head.appendChild(link);
+                }
+            }
+        })();
+    </script>
 </head>
 <body>
 
@@ -174,7 +204,7 @@
                         </div>
 
                         <div class="tour-cyle-btn-wrapper" style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 25px;">
-                            <button type="button" class="bs-btn bs-btn-secondary" onclick="window.location.href='/sites/Mrs_Bectors_PTMS/Pages/Home.aspx'">
+                            <button type="button" class="bs-btn bs-btn-secondary" onclick="window.location.href=(typeof QualityRajpura_Config!=='undefined'?QualityRajpura_Config.getSiteBaseUrl():(typeof _spPageContextInfo!=='undefined'?_spPageContextInfo.webServerRelativeUrl:'/sites/Mrs_Bectors_PTMS'))+'/Pages/Home.aspx'">
                                 Cancel
                             </button>
                             <button type="button" id="info-start-checklist-btn" class="bs-btn bs-btn-primary" onclick="ChecklistInformationScreen.submit()" disabled>
@@ -560,68 +590,66 @@
     <!-- ========================================================
          SCRIPTS & DEPENDENCY LIBRARIES
          ======================================================== -->
-    <!-- SharePoint / Dataverse standard script paths -->
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/CommonJS/libraries/jquery-3.7.1.min.js"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/CommonJS/libraries/select2.min.js"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/CommonJS/libraries/moment.min.js"></script>
-
-    <!-- Fallbacks in case libraries are not present (supporting local pairing and testing) -->
-    <script>
-        if (typeof jQuery === "undefined") {
-            document.write('<script src="https://code.jquery.com/jquery-3.7.1.min.js"><\/script>');
-        }
-    </script>
-    <script>
-        if (typeof moment === "undefined") {
-            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"><\/script>');
-        }
-    </script>
-    <script>
-        window.addEventListener("DOMContentLoaded", function() {
-            if (typeof $.fn.select2 === "undefined") {
-                console.log("Loading Select2 scripts from CDN fallback");
-                const link = document.createElement("link");
-                link.rel = "stylesheet";
-                link.href = "https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css";
-                document.head.appendChild(link);
-                
-                const script = document.createElement("script");
-                script.src = "https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js";
-                script.onload = function() {
-                    console.log("Select2 fallback loaded");
-                    // Rerun welcome screen selects
-                    if (typeof WelcomeScreen !== 'undefined' && WelcomeScreen.init) {
-                        WelcomeScreen.init();
-                    }
-                };
-                document.body.appendChild(script);
+    <!-- Dynamic Scripts Loader (DEV, UAT, PROD) -->
+    <script type="text/javascript">
+        (function () {
+            var siteBaseUrl = "/sites/Mrs_Bectors_PTMS";
+            if (typeof _spPageContextInfo !== "undefined" && _spPageContextInfo.webServerRelativeUrl) {
+                siteBaseUrl = _spPageContextInfo.webServerRelativeUrl.replace(/\/+$/, "");
+            } else {
+                var currentUrl = window.location.href.toLowerCase();
+                if (currentUrl.indexOf("ptms_uat") !== -1) {
+                    siteBaseUrl = "/sites/PTMS_UAT";
+                } else if (currentUrl.indexOf("ptms_prd") !== -1) {
+                    siteBaseUrl = "/sites/PTMS_PRD";
+                } else {
+                    siteBaseUrl = "/sites/Mrs_Bectors_PTMS";
+                }
             }
-        });
+
+            var scripts = [
+                siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/libraries/jquery-3.7.1.min.js",
+                siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/libraries/select2.min.js",
+                siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/libraries/moment.min.js",
+                siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/CommonDAL.js",
+                siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/Common.js",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=2.1",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/notification.js?v=2.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Components/Header.js?v=2.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Components/Dropdown.js?v=2.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Components/DataCard.js?v=2.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/Welcome.js?v=2.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/ChecklistInformation.js?v=2.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/PPEChecklist.js?v=2.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/GMPChecklist.js?v=2.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/PCIChecklist.js?v=2.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/Summary.js?v=2.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/dal.js?v=2.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/script.js?v=2.0"
+            ];
+
+            if (document.readyState === "loading") {
+                for (var j = 0; j < scripts.length; j++) {
+                    document.write('<script type="text/javascript" src="' + scripts[j] + '"><\/script>');
+                }
+            } else {
+                var loadScriptIndex = function (idx) {
+                    if (idx >= scripts.length) return;
+                    var script = document.createElement("script");
+                    script.type = "text/javascript";
+                    script.src = scripts[idx];
+                    script.onload = function () {
+                        loadScriptIndex(idx + 1);
+                    };
+                    script.onerror = function () {
+                        console.warn("Failed to load script: " + scripts[idx]);
+                        loadScriptIndex(idx + 1);
+                    };
+                    document.body.appendChild(script);
+                };
+                loadScriptIndex(0);
+            }
+        })();
     </script>
-
-    <!-- SharePoint / Dataverse Shared libraries (optional or mock) -->
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/CommonJS/CommonDAL.js"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/CommonJS/Common.js"></script>
-
-    <!-- App Common Utilities -->
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/notification.js"></script>
-
-    <!-- App core components -->
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Components/Header.js"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Components/Dropdown.js"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Components/DataCard.js"></script>
-
-    <!-- App screens controllers -->
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/Welcome.js"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/ChecklistInformation.js"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/PPEChecklist.js"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/GMPChecklist.js"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/PCIChecklist.js"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/Summary.js"></script>
-
-    <!-- App core orchestrator -->
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/dal.js"></script>
-    <script src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/script.js?v=1.1"></script>
 </body>
 </html>
