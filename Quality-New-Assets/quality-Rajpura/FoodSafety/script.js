@@ -117,7 +117,13 @@ const FoodSafety_Main = {
             
             // Get tour records from local database / mock
             const tours = await FoodSafety_DAL.getTourHistory();
-            const tour = tours.find(t => t.cr3ea_prod_rajpura_quality_tourid === tourId);
+            const cleanTargetId = tourId ? String(tourId).replace(/[{}]/g, "").trim().toLowerCase() : "";
+            const tour = tours.find(t => {
+                const tid = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId)
+                    ? QualityRajpura_Config.getTourId(t)
+                    : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid || "");
+                return String(tid).replace(/[{}]/g, "").trim().toLowerCase() === cleanTargetId;
+            });
             
             if (!tour) {
                 alert("Tour session not found in database.");

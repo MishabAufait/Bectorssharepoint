@@ -929,7 +929,13 @@ const ALC_Dashboard = {
                         tr.style.cursor = "pointer";
                         tr.title = "Click to open Food Safety checklist";
                         tr.onclick = function () {
-                            window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/FoodSafety.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                            const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                                ? QualityRajpura_Config.getTourId(t)
+                                : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                            const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                                ? QualityRajpura_Config.getSiteBaseUrl()
+                                : "/sites/Mrs_Bectors_PTMS";
+                            window.location.href = `${siteBase}/Pages/FoodSafety.aspx?TourId=${tourId}`;
                         };
                     } else {
                         tr.style.cursor = "default";
@@ -1510,7 +1516,13 @@ const ALC_Dashboard = {
                     tr.style.cursor = "pointer";
                     tr.title = "Click to open Food Safety checklist";
                     tr.onclick = function () {
-                        window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/FoodSafety.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                        const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                            ? QualityRajpura_Config.getTourId(t)
+                            : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                        const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                            ? QualityRajpura_Config.getSiteBaseUrl()
+                            : "/sites/Mrs_Bectors_PTMS";
+                        window.location.href = `${siteBase}/Pages/FoodSafety.aspx?TourId=${tourId}`;
                     };
                 } else if (isMB) {
                     const form = "Mixing & Baking";

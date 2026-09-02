@@ -33,6 +33,30 @@ function getWelcomePageBaseUrl() {
   return "/sites/Mrs_Bectors_PTMS";
 }
 
+function isRajpuraPlant() {
+  if (typeof QualityRajpura_Config !== 'undefined') {
+    if (typeof Plantid !== 'undefined' && Plantid == QualityRajpura_Config.PLANT_ID) return true;
+    if (typeof PlantId !== 'undefined' && PlantId == QualityRajpura_Config.PLANT_ID) return true;
+  }
+  if (typeof Plantid !== 'undefined' && (Plantid == '14' || Plantid == '2')) return true;
+  if (typeof userPlantId === 'string' && userPlantId.toLowerCase().indexOf('rajpura') !== -1) return true;
+  if (typeof PlantId === 'string' && PlantId.toLowerCase().indexOf('rajpura') !== -1) return true;
+  var hdnPlant = typeof $ !== 'undefined' ? $('#hdnPlantId').val() : '';
+  if (hdnPlant == '14' || hdnPlant == '2') return true;
+  if (typeof QualityRajpura_Config !== 'undefined' && hdnPlant == QualityRajpura_Config.PLANT_ID) return true;
+  return false;
+}
+
+function isQualityDepartment() {
+  if (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.QUALITY_DEPT_IDS) {
+    if (QualityRajpura_Config.QUALITY_DEPT_IDS.indexOf(String(userDepratmentId)) !== -1) return true;
+  }
+  var qDepts = ['39', '80', '81', '135', '18'];
+  if (qDepts.indexOf(String(userDepratmentId)) !== -1) return true;
+  if (typeof DepartmentNameLeftNavi === 'string' && DepartmentNameLeftNavi.toLowerCase().indexOf('quality') !== -1) return true;
+  return false;
+}
+
 /* =========================================================
    ✅ UPDATED: Select2 Init (Safe + Popup-aware)
    - avoids double init
@@ -248,7 +272,7 @@ function AddDepartmentTourOnClick() {
   ShowLoader();
 
   if (userRoleSequence == 20) {
-    if (userDepratmentId == 135 || userDepratmentId == 80 || userDepratmentId == 81) {
+    if (isQualityDepartment()) {
       tourPopup();
     }
     else if (userDepratmentId == 79) {
@@ -294,8 +318,8 @@ function tourPopup() {
       '<option value="Sieves and magnets">Sieves and magnets</option>'
     );
     $('#shiftPopupDone').attr("onclick", "SaveBakeryDataItem()");
-  } else if (userDepratmentId == 135 || userDepratmentId == 80 || userDepratmentId == 81) {
-    if (userPlantId === 'Rajpura' || Plantid == '14') {
+  } else if (isQualityDepartment()) {
+    if (isRajpuraPlant()) {
       $('#tourSelect').empty().append(
         '<option value="ALC">ALC</option>' +
         '<option value="Mixing And Baking">Mixing And Baking</option>' +
@@ -540,7 +564,7 @@ async function SaveQualityDataItem() {
        ProductValue === 'Packaging Operations' || 
        ProductValue === 'Food Safety' || 
        ProductValue === 'CCP, OPRP, Sieves & Magnets') && 
-      (typeof Plantid !== 'undefined' && Plantid == QualityRajpura_Config.PLANT_ID)) {
+      isRajpuraPlant()) {
     const shiftSelect = document.getElementById("shiftSelect");
     if (shiftSelect) {
       localStorage.setItem("shiftValue", shiftSelect.options[shiftSelect.selectedIndex].text);
@@ -591,7 +615,7 @@ async function SaveQualityDataItem() {
       ProductValue === 'CCP, OPRP, Sieves & Magnets' || 
       ProductValue === 'Food Safety'
   );
-  var tableName = (isRajpuraChecklist && typeof Plantid !== 'undefined' && Plantid == QualityRajpura_Config.PLANT_ID) 
+  var tableName = (isRajpuraChecklist && isRajpuraPlant()) 
       ? QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR 
       : "cr3ea_prod_qualitytours";
   var apiVersion = "9.2";
@@ -636,7 +660,7 @@ async function SaveQualityDataItem() {
 
       let data = await response.json();
       var UniqueValID = (tableName === QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR)
-          ? data.cr3ea_prod_rajpura_quality_tourid
+          ? ((typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId) ? QualityRajpura_Config.getTourId(data) : (data.cr3ea_prod_rajpura_quality_tourid || data.cr3ea_rajpura_quality_tourid))
           : data.cr3ea_prod_qualitytourid;
       SaveQTourItemSuccess(UniqueValID);
 
@@ -645,7 +669,7 @@ async function SaveQualityDataItem() {
       }
     } else {
       const existingId = (tableName === QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR)
-          ? plant_tour_res.value[0].cr3ea_prod_rajpura_quality_tourid
+          ? ((typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId) ? QualityRajpura_Config.getTourId(plant_tour_res.value[0]) : (plant_tour_res.value[0].cr3ea_prod_rajpura_quality_tourid || plant_tour_res.value[0].cr3ea_rajpura_quality_tourid))
           : plant_tour_res.value[0].cr3ea_prod_qualitytourid;
       SaveQTourItemSuccess(existingId);
     }
@@ -666,7 +690,7 @@ async function SaveBakeryDataItem() {
   var prefix = isMixingTour ? "MixingBaking_" : "";
   var TitleDTour = prefix + RoleName + '_' + moment().format('MM-DD-YYYY');
   var AccessToken = await getAccessToken();
-  var tableName = (isMixingTour && typeof Plantid !== 'undefined' && Plantid == QualityRajpura_Config.PLANT_ID)
+  var tableName = (isMixingTour && isRajpuraPlant())
       ? QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR 
       : "cr3ea_prod_qualitytours";
   var apiVersion = "9.2";
@@ -709,7 +733,7 @@ async function SaveBakeryDataItem() {
 
       let data = await response.json();
       var UniqueValID = (tableName === QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR)
-          ? data.cr3ea_prod_rajpura_quality_tourid
+          ? ((typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId) ? QualityRajpura_Config.getTourId(data) : (data.cr3ea_prod_rajpura_quality_tourid || data.cr3ea_rajpura_quality_tourid))
           : data.cr3ea_prod_qualitytourid;
       SaveBTourItemSuccess(UniqueValID);
 
@@ -718,7 +742,7 @@ async function SaveBakeryDataItem() {
       }
     } else {
       const existingId = (tableName === QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR)
-          ? plant_tour_res.value[0].cr3ea_prod_rajpura_quality_tourid
+          ? ((typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId) ? QualityRajpura_Config.getTourId(plant_tour_res.value[0]) : (plant_tour_res.value[0].cr3ea_prod_rajpura_quality_tourid || plant_tour_res.value[0].cr3ea_rajpura_quality_tourid))
           : plant_tour_res.value[0].cr3ea_prod_qualitytourid;
       SaveBTourItemSuccess(existingId);
     }
@@ -808,7 +832,7 @@ function SaveBTourItemSuccess(ID) {
     newUrl = siteBase + "/Pages/Coding.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Mixing') {
-    if (typeof Plantid !== 'undefined' && Plantid == QualityRajpura_Config.PLANT_ID) {
+    if (isRajpuraPlant()) {
       newUrl = siteBase + "/Pages/MixingAndBaking.aspx?TourId=" + QualityTourId;
     } else {
       newUrl = siteBase + "/Pages/Mixing.aspx?TourId=" + QualityTourId;

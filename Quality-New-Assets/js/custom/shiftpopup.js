@@ -4,11 +4,18 @@ window.addEventListener("load", function () {
     const shiftPopup = document.querySelector(".shift-popup");
 const shiftPopupOpener = document.querySelectorAll(".shift-popup-opener");
 let storedValue = sessionStorage.getItem("shiftValue");
-  if (userDepratmentId != 39) {
-    shiftPopup.classList.remove("is-popup-active");
+  const isQuality = (typeof isQualityDepartment === 'function')
+    ? isQualityDepartment()
+    : (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.QUALITY_DEPT_IDS)
+      ? QualityRajpura_Config.QUALITY_DEPT_IDS.includes(String(typeof userDepratmentId !== 'undefined' ? userDepratmentId : ''))
+      : ['39', '80', '81', '135', '18'].includes(String(typeof userDepratmentId !== 'undefined' ? userDepratmentId : ''));
+
+  if (!isQuality && (typeof userDepratmentId === 'undefined' || userDepratmentId != 39)) {
+    if (shiftPopup) shiftPopup.classList.remove("is-popup-active");
   } else {
-    document.getElementById("shiftBadge").innerText = storedValue;
-    shiftPopup.classList.add("is-popup-active");
+    const badge = document.getElementById("shiftBadge");
+    if (badge && storedValue) badge.innerText = storedValue;
+    if (shiftPopup) shiftPopup.classList.add("is-popup-active");
   }
 });
 
