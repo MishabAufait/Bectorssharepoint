@@ -17,7 +17,20 @@ document.addEventListener("DOMContentLoaded", async function () {
 
 const shiftPopup = document.querySelector("#shiftPopup");
 if (shiftPopup) {
-    shiftPopup.classList.add("is-popup-active");
+  const isHomeOrDashboard = 
+    (typeof window !== 'undefined' && window.location && (
+      window.location.pathname.toLowerCase().includes("home.aspx") ||
+      window.location.pathname.toLowerCase().includes("welcome")
+    )) ||
+    document.getElementById("DepartmentTourBtn") !== null ||
+    document.getElementById("rajpuraQualityDashboard") !== null;
+
+  if (!isHomeOrDashboard) {
+    const storedShift = sessionStorage.getItem("shiftValue");
+    if (!storedShift) {
+      shiftPopup.classList.add("is-popup-active");
+    }
+  }
 }
 
 // Function to update the product name in the UI

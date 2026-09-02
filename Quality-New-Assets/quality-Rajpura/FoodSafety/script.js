@@ -126,7 +126,7 @@ const FoodSafety_Main = {
             });
             
             if (!tour) {
-                alert("Tour session not found in database.");
+                alert("Dataverse Connection Failed: Tour session not found in database.");
                 const welcomeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
                     ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
                     : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
@@ -223,7 +223,7 @@ const FoodSafety_Main = {
             }
         } catch (e) {
             console.error("Error resuming session:", e);
-            alert("Failed to load tour session details.");
+            alert("Dataverse Connection Failed: " + (e.message || "Failed to load tour session details from Dataverse."));
             const welcomeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
                 ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
                 : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";

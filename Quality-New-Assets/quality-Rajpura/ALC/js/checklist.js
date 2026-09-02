@@ -166,6 +166,7 @@ const ALC_Checklist = {
         } catch (e) {
             HideLoader();
             console.error("Failed to load saved checklist checkpoints:", e);
+            alert("Dataverse Error: Failed to load saved checklist checkpoints: " + (e.message || ""));
         }
     },
 
@@ -450,7 +451,8 @@ const ALC_Checklist = {
 
         } catch (error) {
             HideLoader();
-            alert("Error submitting ALC: " + error.message);
+            console.error("Error submitting ALC to Dataverse:", error);
+            alert("Dataverse Error: Failed to submit ALC checklist: " + (error.message || ""));
         }
     },
 
@@ -695,7 +697,7 @@ const ALC_Checklist = {
         } catch (error) {
             HideLoader();
             console.error("Error pausing tour:", error);
-            alert("Failed to pause tour: " + error.message);
+            alert("Dataverse Error: Failed to pause tour: " + (error.message || ""));
         }
     }
 };

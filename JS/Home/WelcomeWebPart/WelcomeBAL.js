@@ -190,6 +190,7 @@ function getHomeEmployeeDetailsSuccess(collEmployee) {
       }
 
       getDepartments(getDepartmentsSuccess, getDepartmentsFailure);
+      toggleMenuItemsByDepartment(userDepratmentId);
     }
     else {
       alert('You are not authorized to access this page!');
@@ -206,8 +207,11 @@ function EmployeeDetailsFailure() {
 }
 /*Get Employee Details ends*/
 
-var itemsToToggle = ['My Tours', 'Department Scores', 'Plant Scores'];
-toggleHomeMenuItems($('.sidebar'), itemsToToggle, userDepratmentId);
+function toggleHomeMenuItems($sidebar, items, deptId) {
+  if (typeof toggleMenuItemsByDepartment === "function") {
+    toggleMenuItemsByDepartment(deptId);
+  }
+}
 
 function getDepartmentsSuccess(collDepartment) {
   if (collDepartment.length > 0) {
@@ -621,58 +625,70 @@ async function SaveQualityDataItem() {
   var apiVersion = "9.2";
   var apiUrl = environmentUrl + "/api/data/v" + apiVersion + "/" + tableName;
 
-  if (AccessToken != '' && AccessToken != undefined && AccessToken != null) {
-    var header = {
-      "Accept": "application/json",
-      "Content-Type": "application/json; charset=utf-8",
-      "OData-MaxVersion": "4.0",
-      "OData-Version": "4.0",
-      "Prefer": "return=representation",
-      "Authorization": "Bearer " + AccessToken
-    };
+  try {
+    if (AccessToken != '' && AccessToken != undefined && AccessToken != null) {
+      var header = {
+        "Accept": "application/json",
+        "Content-Type": "application/json; charset=utf-8",
+        "OData-MaxVersion": "4.0",
+        "OData-Version": "4.0",
+        "Prefer": "return=representation",
+        "Authorization": "Bearer " + AccessToken
+      };
 
-    const actualUserName = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : EmployeeName;
+      const actualUserName = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : EmployeeName;
 
-    const dataToSave = {
-      cr3ea_departmentid: userDepratmentId,
-      cr3ea_tourstartdate: TourStartDateDTour,
-      cr3ea_tourby: actualUserName,
-      cr3ea_status: 'In Progress',
-      cr3ea_plantid: Plantid,
-      cr3ea_observedby: actualUserName,
-      cr3ea_roleid: userRoleID,
-      cr3ea_title: TitleDTour
-    };
+      const dataToSave = {
+        cr3ea_departmentid: userDepratmentId,
+        cr3ea_tourstartdate: TourStartDateDTour,
+        cr3ea_tourby: actualUserName,
+        cr3ea_status: 'In Progress',
+        cr3ea_plantid: Plantid,
+        cr3ea_observedby: actualUserName,
+        cr3ea_roleid: userRoleID,
+        cr3ea_title: TitleDTour
+      };
 
-    const isPlantTourExist = await fetch(
-      apiUrl + "?$filter=cr3ea_status eq 'In Progress' and cr3ea_departmentid eq '" + userDepratmentId + "'&$top=1",
-      { method: "GET", headers: header }
-    );
+      const isPlantTourExist = await fetch(
+        apiUrl + "?$filter=cr3ea_status eq 'In Progress' and cr3ea_departmentid eq '" + userDepratmentId + "'&$top=1",
+        { method: "GET", headers: header }
+      );
 
-    let plant_tour_res = await isPlantTourExist.json();
+      if (!isPlantTourExist.ok) {
+        throw new Error(`Dataverse fetch existing tour failed: ${isPlantTourExist.status} - ${isPlantTourExist.statusText}`);
+      }
 
-    if (plant_tour_res.value.length == 0) {
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: header,
-        body: JSON.stringify(dataToSave)
-      });
+      let plant_tour_res = await isPlantTourExist.json();
 
-      let data = await response.json();
-      var UniqueValID = (tableName === QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR)
-          ? ((typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId) ? QualityRajpura_Config.getTourId(data) : (data.cr3ea_prod_rajpura_quality_tourid || data.cr3ea_rajpura_quality_tourid))
-          : data.cr3ea_prod_qualitytourid;
-      SaveQTourItemSuccess(UniqueValID);
+      if (plant_tour_res.value.length == 0) {
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          headers: header,
+          body: JSON.stringify(dataToSave)
+        });
 
-      if (!response.ok) {
-        throw new Error(`Error: ${response.statusText}`);
+        if (!response.ok) {
+          throw new Error(`Dataverse create tour failed: ${response.status} - ${response.statusText}`);
+        }
+
+        let data = await response.json();
+        var UniqueValID = (tableName === QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR)
+            ? ((typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId) ? QualityRajpura_Config.getTourId(data) : (data.cr3ea_prod_rajpura_quality_tourid || data.cr3ea_rajpura_quality_tourid))
+            : data.cr3ea_prod_qualitytourid;
+        SaveQTourItemSuccess(UniqueValID);
+      } else {
+        const existingId = (tableName === QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR)
+            ? ((typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId) ? QualityRajpura_Config.getTourId(plant_tour_res.value[0]) : (plant_tour_res.value[0].cr3ea_prod_rajpura_quality_tourid || plant_tour_res.value[0].cr3ea_rajpura_quality_tourid))
+            : plant_tour_res.value[0].cr3ea_prod_qualitytourid;
+        SaveQTourItemSuccess(existingId);
       }
     } else {
-      const existingId = (tableName === QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR)
-          ? ((typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId) ? QualityRajpura_Config.getTourId(plant_tour_res.value[0]) : (plant_tour_res.value[0].cr3ea_prod_rajpura_quality_tourid || plant_tour_res.value[0].cr3ea_rajpura_quality_tourid))
-          : plant_tour_res.value[0].cr3ea_prod_qualitytourid;
-      SaveQTourItemSuccess(existingId);
+      alert("Dataverse Connection Failed: Unable to acquire authentication token. Please check your credentials or refresh the page.");
     }
+  } catch (err) {
+    if (typeof HideLoader === 'function') HideLoader();
+    console.error("Dataverse connection error in SaveQualityDataItem:", err);
+    alert("Dataverse Connection Failed: Unable to start plant tour.\n\n" + (err.message || "Please check network or login session."));
   }
 }
 
@@ -696,56 +712,68 @@ async function SaveBakeryDataItem() {
   var apiVersion = "9.2";
   var apiUrl = environmentUrl + "/api/data/v" + apiVersion + "/" + tableName;
 
-  if (AccessToken != '' && AccessToken != undefined && AccessToken != null) {
-    var header = {
-      "Accept": "application/json",
-      "Content-Type": "application/json; charset=utf-8",
-      "OData-MaxVersion": "4.0",
-      "OData-Version": "4.0",
-      "Prefer": "return=representation",
-      "Authorization": "Bearer " + AccessToken
-    };
+  try {
+    if (AccessToken != '' && AccessToken != undefined && AccessToken != null) {
+      var header = {
+        "Accept": "application/json",
+        "Content-Type": "application/json; charset=utf-8",
+        "OData-MaxVersion": "4.0",
+        "OData-Version": "4.0",
+        "Prefer": "return=representation",
+        "Authorization": "Bearer " + AccessToken
+      };
 
-    const dataToSave = {
-      cr3ea_departmentid: userDepratmentId,
-      cr3ea_tourstartdate: TourStartDateDTour,
-      cr3ea_tourby: EmployeeName,
-      cr3ea_status: 'In Progress',
-      cr3ea_plantid: Plantid,
-      cr3ea_observedby: EmployeeName,
-      cr3ea_roleid: userRoleID,
-      cr3ea_title: TitleDTour
-    };
+      const dataToSave = {
+        cr3ea_departmentid: userDepratmentId,
+        cr3ea_tourstartdate: TourStartDateDTour,
+        cr3ea_tourby: EmployeeName,
+        cr3ea_status: 'In Progress',
+        cr3ea_plantid: Plantid,
+        cr3ea_observedby: EmployeeName,
+        cr3ea_roleid: userRoleID,
+        cr3ea_title: TitleDTour
+      };
 
-    const isPlantTourExist = await fetch(
-      apiUrl + "?$filter=cr3ea_status eq 'In Progress' and cr3ea_departmentid eq '" + userDepratmentId + "'&$top=1",
-      { method: "GET", headers: header }
-    );
+      const isPlantTourExist = await fetch(
+        apiUrl + "?$filter=cr3ea_status eq 'In Progress' and cr3ea_departmentid eq '" + userDepratmentId + "'&$top=1",
+        { method: "GET", headers: header }
+      );
 
-    let plant_tour_res = await isPlantTourExist.json();
+      if (!isPlantTourExist.ok) {
+        throw new Error(`Dataverse fetch existing tour failed: ${isPlantTourExist.status} - ${isPlantTourExist.statusText}`);
+      }
 
-    if (plant_tour_res.value.length == 0) {
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: header,
-        body: JSON.stringify(dataToSave)
-      });
+      let plant_tour_res = await isPlantTourExist.json();
 
-      let data = await response.json();
-      var UniqueValID = (tableName === QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR)
-          ? ((typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId) ? QualityRajpura_Config.getTourId(data) : (data.cr3ea_prod_rajpura_quality_tourid || data.cr3ea_rajpura_quality_tourid))
-          : data.cr3ea_prod_qualitytourid;
-      SaveBTourItemSuccess(UniqueValID);
+      if (plant_tour_res.value.length == 0) {
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          headers: header,
+          body: JSON.stringify(dataToSave)
+        });
 
-      if (!response.ok) {
-        throw new Error(`Error: ${response.statusText}`);
+        if (!response.ok) {
+          throw new Error(`Dataverse create tour failed: ${response.status} - ${response.statusText}`);
+        }
+
+        let data = await response.json();
+        var UniqueValID = (tableName === QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR)
+            ? ((typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId) ? QualityRajpura_Config.getTourId(data) : (data.cr3ea_prod_rajpura_quality_tourid || data.cr3ea_rajpura_quality_tourid))
+            : data.cr3ea_prod_qualitytourid;
+        SaveBTourItemSuccess(UniqueValID);
+      } else {
+        const existingId = (tableName === QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR)
+            ? ((typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId) ? QualityRajpura_Config.getTourId(plant_tour_res.value[0]) : (plant_tour_res.value[0].cr3ea_prod_rajpura_quality_tourid || plant_tour_res.value[0].cr3ea_rajpura_quality_tourid))
+            : plant_tour_res.value[0].cr3ea_prod_qualitytourid;
+        SaveBTourItemSuccess(existingId);
       }
     } else {
-      const existingId = (tableName === QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR)
-          ? ((typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId) ? QualityRajpura_Config.getTourId(plant_tour_res.value[0]) : (plant_tour_res.value[0].cr3ea_prod_rajpura_quality_tourid || plant_tour_res.value[0].cr3ea_rajpura_quality_tourid))
-          : plant_tour_res.value[0].cr3ea_prod_qualitytourid;
-      SaveBTourItemSuccess(existingId);
+      alert("Dataverse Connection Failed: Unable to acquire authentication token. Please check your credentials or refresh the page.");
     }
+  } catch (err) {
+    if (typeof HideLoader === 'function') HideLoader();
+    console.error("Dataverse connection error in SaveBakeryDataItem:", err);
+    alert("Dataverse Connection Failed: Unable to start plant tour.\n\n" + (err.message || "Please check network or login session."));
   }
 }
 

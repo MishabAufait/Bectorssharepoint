@@ -1,9 +1,26 @@
 
 // Open popup on page load
 window.addEventListener("load", function () {
-    const shiftPopup = document.querySelector(".shift-popup");
-const shiftPopupOpener = document.querySelectorAll(".shift-popup-opener");
-let storedValue = sessionStorage.getItem("shiftValue");
+  const shiftPopup = document.querySelector(".shift-popup") || document.querySelector("#shiftPopup");
+
+  // NEVER auto-open plant tour popup on Home / Welcome / Dashboard pages
+  const isHomeOrDashboard = 
+    (typeof window !== 'undefined' && window.location && (
+      window.location.pathname.toLowerCase().includes("home.aspx") ||
+      window.location.pathname.toLowerCase().includes("welcome")
+    )) ||
+    document.getElementById("DepartmentTourBtn") !== null ||
+    document.getElementById("rajpuraQualityDashboard") !== null ||
+    document.getElementById("tblTourScores") !== null ||
+    document.getElementById("ShowObservation") !== null;
+
+  if (isHomeOrDashboard) {
+    if (shiftPopup) shiftPopup.classList.remove("is-popup-active");
+    return;
+  }
+
+  const shiftPopupOpener = document.querySelectorAll(".shift-popup-opener");
+  let storedValue = sessionStorage.getItem("shiftValue");
   const isQuality = (typeof isQualityDepartment === 'function')
     ? isQualityDepartment()
     : (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.QUALITY_DEPT_IDS)
@@ -15,7 +32,12 @@ let storedValue = sessionStorage.getItem("shiftValue");
   } else {
     const badge = document.getElementById("shiftBadge");
     if (badge && storedValue) badge.innerText = storedValue;
-    if (shiftPopup) shiftPopup.classList.add("is-popup-active");
+    // Only auto-open if #shiftBadge exists (checklist page requiring shift) and storedValue is empty
+    if (badge && !storedValue && shiftPopup) {
+      shiftPopup.classList.add("is-popup-active");
+    } else if (shiftPopup) {
+      shiftPopup.classList.remove("is-popup-active");
+    }
   }
 });
 

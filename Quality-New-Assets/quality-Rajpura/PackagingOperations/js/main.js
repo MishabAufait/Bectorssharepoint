@@ -114,6 +114,7 @@ const PKGOPS_Main = {
             } catch (e) {
                 if (typeof HideLoader === "function") HideLoader();
                 console.error("Failed to initialize active session: ", e);
+                alert("Dataverse Connection Failed: Unable to initialize Packaging Operations module.\n\n" + (e.message || "Please check network or login session."));
             }
         }
     },

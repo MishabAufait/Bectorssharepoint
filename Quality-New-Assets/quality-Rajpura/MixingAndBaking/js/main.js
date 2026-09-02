@@ -160,7 +160,7 @@ const MixingBaking_Main = {
 
         } catch (err) {
             console.error("Mixing & Baking Initialization failed:", err);
-            alert("Initialization failed: " + err.message);
+            alert("Dataverse Connection Failed: Unable to initialize Mixing & Baking module.\n\n" + (err.message || "Please check network or login session."));
         } finally {
             HideLoader();
         }

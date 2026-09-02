@@ -152,8 +152,7 @@ const ALC_DAL = {
     saveSession: async function (sessionData) {
         const AccessToken = await this.getAccessToken();
         if (!AccessToken) {
-            console.warn("No token available. Simulating saveSession locally.");
-            return { cr3ea_prod_rajpura_quality_tourid: "mock-session-id-" + Date.now() };
+            throw new Error("Dataverse Access Token is missing or unauthorized. Cannot save ALC session.");
         }
 
         const apiVersion = "9.2";
@@ -209,8 +208,7 @@ const ALC_DAL = {
     saveChecklistRow: async function (rowRecord) {
         const AccessToken = await this.getAccessToken();
         if (!AccessToken) {
-            console.warn("No token available. Simulating checklist row save locally.");
-            return { cr3ea_rajpura_alcsid: "mock-row-id-" + Date.now() };
+            throw new Error("Dataverse Access Token is missing or unauthorized. Cannot save checklist row.");
         }
 
         const apiVersion = "9.2";
@@ -306,19 +304,8 @@ const ALC_DAL = {
     getActiveSessions: async function () {
         const AccessToken = await this.getAccessToken();
         if (!AccessToken) {
-            console.warn("No token available. Simulating getActiveSessions locally.");
-            return [
-                {
-                    cr3ea_prod_rajpura_quality_tourid: "mock-active-1",
-                    cr3ea_status: "Pending QA",
-                    cr3ea_processstatus: "Pending QA",
-                    cr3ea_shiftexecutiveproduction: "Akkib AM",
-                    cr3ea_lineno: "Line 1",
-                    cr3ea_shift: "Shift 1",
-                    cr3ea_tourstartdate: new Date().toISOString(),
-                    cr3ea_tourby: "Mishab Muhammad"
-                }
-            ];
+            console.warn("No token available. Cannot fetch active sessions.");
+            return [];
         }
 
         const apiVersion = "9.2";

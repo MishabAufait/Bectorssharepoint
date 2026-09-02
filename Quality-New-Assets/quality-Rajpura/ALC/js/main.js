@@ -28,6 +28,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         await ALC_Main.init();
     } catch (error) {
         console.error("Failed to initialize ALC module:", error);
+        alert("Dataverse Connection Failed: Unable to initialize ALC module.\n\n" + (error.message || "Please check network or login session."));
     } finally {
         HideLoader();
     }
@@ -456,30 +457,12 @@ const ALC_Main = {
             // Execute transition
             await this.transitionByStatus(finalStatus, session);
         } catch (error) {
-            console.warn("Failed to fetch session from Dataverse. Loading mock session fallback for testing/offline use:", error);
-
-            // Populate mock session for visual testing/offline execution
-            const urlParams = new URLSearchParams(window.location.search);
-            const mockStatus = urlParams.get('status') || "QA In Progress";
-
-            const mockSession = {
-                cr3ea_prod_rajpura_quality_toursid: this.currentTourId,
-                cr3ea_shiftexecutiveproduction: urlParams.get('exec') || "Shift Executive User",
-                cr3ea_lineno: urlParams.get('line') || "Line 1",
-                cr3ea_shift: urlParams.get('shift') || "Shift 1",
-                cr3ea_previousrunningvariety: "Bectors Original",
-                cr3ea_runningvariety: "Marie Delight",
-                cr3ea_status: mockStatus,
-                cr3ea_processstatus: mockStatus,
-                cr3ea_title: "ALC_" + moment().format("MM-DD-YYYY_HH:mm"),
-                cr3ea_tourstartdate: new Date().toISOString()
-            };
-
-            // Store globally
-            ALC_StateMachine.currentSession = mockSession;
-
-            this.populateHeaderFields(mockSession);
-            await this.transitionByStatus(mockSession.cr3ea_status, mockSession);
+            console.error("Failed to fetch session from Dataverse:", error);
+            alert("Dataverse Connection Failed: Tour session not found in database or failed to load.\n\n" + (error.message || ""));
+            const welcomeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
+            window.location.href = welcomeUrl;
         }
     },
 

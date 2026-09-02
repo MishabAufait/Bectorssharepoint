@@ -30,6 +30,7 @@ const ALC_CorrectiveAction = {
         } catch (error) {
             HideLoader();
             console.error("Failed to load ALC checklists for production actions:", error);
+            alert("Dataverse Error: Failed to load checklists for corrective action - " + (error.message || ""));
         }
     },
 
@@ -442,7 +443,7 @@ const ALC_CorrectiveAction = {
                     errMsg = JSON.stringify(error);
                 }
             }
-            alert("Error submitting corrective actions: " + errMsg);
+            alert("Dataverse Error: Failed to submit corrective actions - " + errMsg);
         }
     }
 };

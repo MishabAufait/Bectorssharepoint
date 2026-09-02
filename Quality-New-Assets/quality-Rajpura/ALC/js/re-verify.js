@@ -29,6 +29,7 @@ const ALC_ReVerification = {
         } catch (error) {
             HideLoader();
             console.error("Failed to load checkpoints for QA re-verification:", error);
+            alert("Dataverse Error: Failed to load checkpoints for QA re-verification - " + (error.message || ""));
         }
     },
 
@@ -350,7 +351,7 @@ const ALC_ReVerification = {
 
         } catch (error) {
             HideLoader();
-            alert("Error submitting re-verification: " + error.message);
+            alert("Dataverse Error: Failed to submit re-verification - " + error.message);
         }
     },
 

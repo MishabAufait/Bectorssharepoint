@@ -128,6 +128,7 @@ const CCP_OPRP_Main = {
             }
         } catch (err) {
             console.error("Initialization failed: ", err);
+            alert("Dataverse Connection Failed: Unable to initialize CCP, OPRP, Sieves & Magnets module.\n\n" + (err.message || "Please check network or login session."));
         }
     },
 

@@ -394,18 +394,9 @@ const ALC_Dashboard = {
             await ALC_Dashboard.applyCategoryFilter();
 
         } catch (error) {
-            console.warn("Failed to load Dataverse tours, loading mock data fallback:", error);
-
-            // Mock Fallback (contains both ALC and FoodSafety tours)
-            ALC_Dashboard.allToursRaw = [
-                { cr3ea_prod_rajpura_quality_tourid: "mock-1", cr3ea_tourstartdate: new Date().toISOString(), cr3ea_title: "Area Line Clearance", cr3ea_lineno: "Line 1", cr3ea_shift: "Shift 2", cr3ea_shiftexecutiveproduction: "John Doe", cr3ea_tourby: "David QA", cr3ea_status: "Pending QA", cr3ea_processstatus: "Pending QA" },
-                { cr3ea_prod_rajpura_quality_tourid: "mock-2", cr3ea_tourstartdate: new Date().toISOString(), cr3ea_title: "Area Line Clearance", cr3ea_lineno: "Line 2", cr3ea_shift: "Shift 1", cr3ea_shiftexecutiveproduction: "Alice Production", cr3ea_tourby: "Emily QA", cr3ea_status: "Failed - Pending Production", cr3ea_processstatus: "Failed - Pending Production" },
-                { cr3ea_prod_rajpura_quality_tourid: "mock-3", cr3ea_tourstartdate: new Date(Date.now() - 86400000).toISOString(), cr3ea_title: "Area Line Clearance", cr3ea_lineno: "Line 1", cr3ea_shift: "Shift 3", cr3ea_shiftexecutiveproduction: "John Doe", cr3ea_tourby: "David QA", cr3ea_overall_score: 100, cr3ea_checklist_result: "Pass", cr3ea_status: "Completed", cr3ea_processstatus: "Completed" },
-                // Mock Food Safety tours
-                { cr3ea_prod_rajpura_quality_tourid: "mock-fs-1", cr3ea_tourstartdate: new Date().toISOString(), cr3ea_title: "PPE_Rajpura_Line 1_13082026", cr3ea_food_safety_checklisttype: "PPE Checklist", cr3ea_lineno: "Line 1", cr3ea_shift: "Shift 2", cr3ea_shiftexecutiveproduction: "John Prod", cr3ea_assigned_qa: "David QA", cr3ea_status: "In Progress", cr3ea_processstatus: "In Progress", cr3ea_food_safety_cycle: "Cycle-1" },
-                { cr3ea_prod_rajpura_quality_tourid: "mock-fs-2", cr3ea_tourstartdate: new Date(Date.now() - 3600000).toISOString(), cr3ea_title: "GMP_Rajpura_Line 2_13082026", cr3ea_food_safety_checklisttype: "GMP Checklist", cr3ea_lineno: "Line 2", cr3ea_shift: "Shift 1", cr3ea_shiftexecutiveproduction: "Alice Incharge", cr3ea_assigned_qa: "David QA", cr3ea_overall_score: "85%", cr3ea_checklist_result: "Pass", cr3ea_status: "Submitted", cr3ea_processstatus: "Submitted", cr3ea_food_safety_cycle: "Cycle-2" }
-            ];
-            
+            console.error("Failed to load Dataverse tours:", error);
+            alert("Dataverse Connection Failed: Unable to retrieve tour history from Dataverse.\n\n" + (error.message || "Please verify your login session or network connection."));
+            ALC_Dashboard.allToursRaw = [];
             await ALC_Dashboard.applyCategoryFilter();
         } finally {
             if (refreshBtn) {

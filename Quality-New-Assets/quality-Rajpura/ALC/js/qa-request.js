@@ -16,21 +16,8 @@ const ALC_QARequest = {
             console.error("Failed to load QA config from SharePoint list:", error);
         }
 
-        // Fallback to mock QA users if SharePoint query failed or returned empty results
-        if (!this.qaList || this.qaList.length === 0) {
-            console.log("Populating mock QA users for preview/development fallback");
-            this.qaList = [
-                {
-                    Id: 1,
-                    ConfigType: "QA User",
-                    AssignedUser: {
-                        results: [
-                            { Id: 101, Title: "Mishab Muhammad", EMail: "mishab@example.com" },
-                            { Id: 102, Title: "Gokul K", EMail: "gokul@example.com" }
-                        ]
-                    }
-                }
-            ];
+        if (!this.qaList) {
+            this.qaList = [];
         }
 
         // Populate current Date & Time values on initialization
@@ -319,7 +306,8 @@ const ALC_QARequest = {
             window.location.href = homeUrl;
         } catch (error) {
             HideLoader();
-            alert("Failed to submit request: " + error.message);
+            console.error("Failed to submit request to Dataverse:", error);
+            alert("Dataverse Error: Failed to submit request - " + error.message);
         }
     },
 
