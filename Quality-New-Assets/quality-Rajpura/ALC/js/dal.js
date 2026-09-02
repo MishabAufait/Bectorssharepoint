@@ -1,6 +1,40 @@
 // Data Access Layer for Rajpura Quality forms
 console.log("ALC DAL loaded");
 
+// Defensive helper for tour ID normalization (self-heals even if older utils.js is cached)
+function normalizeTourRecord(record) {
+    if (!record || typeof record !== 'object') return record;
+    if (typeof QualityRajpura_Config !== 'undefined' && typeof QualityRajpura_Config.normalizeTourRecord === 'function') {
+        return QualityRajpura_Config.normalizeTourRecord(record);
+    }
+    const id = record.cr3ea_prod_rajpura_quality_tourid || 
+               record.cr3ea_rajpura_quality_tourid || 
+               record.cr3ea_prod_rajpura_quality_toursid || 
+               record.cr3ea_rajpura_quality_toursid || 
+               record.cr3ea_qualitytourid || "";
+    if (id) {
+        record.cr3ea_prod_rajpura_quality_tourid = id;
+        record.cr3ea_rajpura_quality_tourid = id;
+    }
+    return record;
+}
+
+if (typeof QualityRajpura_Config !== 'undefined') {
+    if (typeof QualityRajpura_Config.normalizeTourRecord !== 'function') {
+        QualityRajpura_Config.normalizeTourRecord = normalizeTourRecord;
+    }
+    if (typeof QualityRajpura_Config.getTourId !== 'function') {
+        QualityRajpura_Config.getTourId = function (record) {
+            if (!record || typeof record !== 'object') return '';
+            return record.cr3ea_prod_rajpura_quality_tourid || 
+                   record.cr3ea_rajpura_quality_tourid || 
+                   record.cr3ea_prod_rajpura_quality_toursid || 
+                   record.cr3ea_rajpura_quality_toursid || 
+                   record.cr3ea_qualitytourid || '';
+        };
+    }
+}
+
 const ALC_DAL = {
     getConfig: async function () {
         const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
@@ -124,7 +158,7 @@ const ALC_DAL = {
 
         const apiVersion = "9.2";
         const tableName = QualityRajpura_Config.DATAVERSE_TABLES.ALC.PARENT;
-        const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
 
         const headers = {
             "Accept": "application/json",
@@ -138,11 +172,13 @@ const ALC_DAL = {
         let url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}`;
         let method = "POST";
 
-        if (payload.cr3ea_prod_rajpura_quality_tourid) {
-            const cleanId = String(payload.cr3ea_prod_rajpura_quality_tourid).replace(/[{}]/g, "").trim().toLowerCase();
+        const tourId = QualityRajpura_Config.getTourId(payload);
+        if (tourId) {
+            const cleanId = String(tourId).replace(/[{}]/g, "").trim().toLowerCase();
             url += `(${cleanId})`;
             method = "PATCH";
-            delete payload.cr3ea_prod_rajpura_quality_tourid; // Exclude primary key from PATCH payload body
+            delete payload.cr3ea_prod_rajpura_quality_tourid;
+            delete payload.cr3ea_rajpura_quality_tourid;
         }
 
         // Ensure overall score is sent as a string (Dataverse schema defines it as Edm.String)
@@ -162,9 +198,10 @@ const ALC_DAL = {
         }
 
         if (method === "PATCH") {
-            return sessionData;
+            return normalizeTourRecord(sessionData);
         } else {
-            return await response.json();
+            const data = await response.json();
+            return normalizeTourRecord(data);
         }
     },
 
@@ -178,7 +215,7 @@ const ALC_DAL = {
 
         const apiVersion = "9.2";
         const tableName = QualityRajpura_Config.DATAVERSE_TABLES.ALC.CHILD;
-        const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
 
         const headers = {
             "Accept": "application/json",
@@ -191,8 +228,9 @@ const ALC_DAL = {
         let url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}`;
         let method = "POST";
 
-        if (rowRecord.cr3ea_rajpura_alcsid) {
-            url += `(${rowRecord.cr3ea_rajpura_alcsid})`;
+        const rowId = rowRecord.cr3ea_rajpura_alcsid || rowRecord.cr3ea_prod_rajpura_alcsid;
+        if (rowId) {
+            url += `(${rowId})`;
             method = "PATCH";
         }
 
@@ -210,7 +248,13 @@ const ALC_DAL = {
         if (method === "PATCH") {
             return rowRecord;
         } else {
-            return await response.json();
+            const data = await response.json();
+            const childId = data.cr3ea_rajpura_alcsid || data.cr3ea_prod_rajpura_alcsid;
+            if (childId) {
+                data.cr3ea_rajpura_alcsid = childId;
+                data.cr3ea_prod_rajpura_alcsid = childId;
+            }
+            return data;
         }
     },
 
@@ -223,8 +267,8 @@ const ALC_DAL = {
         }
 
         const apiVersion = "9.2";
-        const tableName = "cr3ea_rajpura_alcses";
-        const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+        const tableName = QualityRajpura_Config.DATAVERSE_TABLES.ALC.CHILD;
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
 
         const headers = {
             "Accept": "application/json",
@@ -247,7 +291,15 @@ const ALC_DAL = {
         }
 
         const data = await response.json();
-        return data.value;
+        const rows = data.value || [];
+        rows.forEach(r => {
+            const childId = r.cr3ea_rajpura_alcsid || r.cr3ea_prod_rajpura_alcsid;
+            if (childId) {
+                r.cr3ea_rajpura_alcsid = childId;
+                r.cr3ea_prod_rajpura_alcsid = childId;
+            }
+        });
+        return rows;
     },
 
     // Fetch all active tour sessions for Rajpura plant (Plant ID 14)
@@ -270,8 +322,8 @@ const ALC_DAL = {
         }
 
         const apiVersion = "9.2";
-        const tableName = "cr3ea_prod_rajpura_quality_tours";
-        const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+        const tableName = QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR;
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
 
         const headers = {
             "Accept": "application/json",
@@ -293,7 +345,7 @@ const ALC_DAL = {
         }
 
         const data = await response.json();
-        const results = data.value || [];
+        const results = (data.value || []).map(t => normalizeTourRecord(t));
 
         // Filter: Keep all active tours + today's completed/closed tours
         const todayStr = moment().format("YYYY-MM-DD");

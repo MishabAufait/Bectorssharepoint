@@ -31,14 +31,17 @@ const ALC_Summary = {
     loadSummaryData: async function () {
         // 1. Fetch current session details
         const AccessToken = await ALC_DAL.getAccessToken();
-        const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
-        const url = `${baseApiUrl}/api/data/v9.2/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`;
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
+        const url = `${baseApiUrl}/api/data/v9.2/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`;
         const headers = { "Accept": "application/json" };
         if (AccessToken) headers["Authorization"] = `Bearer ${AccessToken}`;
 
         const response = await fetch(url, { headers: headers });
         if (!response.ok) throw new Error(`Failed to retrieve tour session metadata: ${response.status}`);
-        this.session = await response.json();
+        const rawSession = await response.json();
+        this.session = (typeof QualityRajpura_Config !== 'undefined' && typeof QualityRajpura_Config.normalizeTourRecord === 'function')
+            ? QualityRajpura_Config.normalizeTourRecord(rawSession)
+            : (typeof normalizeTourRecord === 'function' ? normalizeTourRecord(rawSession) : rawSession);
 
         // 2. Fetch all checkpoints for the current tour
         this.checkpoints = await ALC_DAL.getCheckpoints(this.currentTourId);
@@ -482,8 +485,8 @@ const ALC_Summary = {
             // Retrieve recent sessions on this line
             const AccessToken = await ALC_DAL.getAccessToken();
             const apiVersion = "9.2";
-            const tableName = "cr3ea_prod_rajpura_quality_tours";
-            const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+            const tableName = QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR;
+            const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
             const headers = { "Accept": "application/json" };
             if (AccessToken) headers["Authorization"] = `Bearer ${AccessToken}`;
 
@@ -493,12 +496,15 @@ const ALC_Summary = {
             if (!response.ok) return;
 
             const data = await response.json();
-            const tours = data.value || [];
+            const normalizeFn = (typeof QualityRajpura_Config !== 'undefined' && typeof QualityRajpura_Config.normalizeTourRecord === 'function')
+                ? QualityRajpura_Config.normalizeTourRecord.bind(QualityRajpura_Config)
+                : (typeof normalizeTourRecord === 'function' ? normalizeTourRecord : (x => x));
+            const tours = (data.value || []).map(t => normalizeFn(t));
 
             // Filter tours matching current line (excluding current session)
             const lineName = this.session.cr3ea_lineno;
             const pastLineTours = tours
-                .filter(t => t.cr3ea_lineno === lineName && t.cr3ea_prod_rajpura_quality_tourid !== this.currentTourId)
+                .filter(t => t.cr3ea_lineno === lineName && QualityRajpura_Config.getTourId(t) !== this.currentTourId)
                 .sort((a, b) => {
                     const valA = a.cr3ea_tourstartdate || a.createdon || "";
                     const valB = b.cr3ea_tourstartdate || b.createdon || "";
@@ -531,7 +537,7 @@ const ALC_Summary = {
             if (pastLineTours.length === 0) return;
 
             // Fetch checkpoints for these past tours in parallel
-            const fetchPromises = pastLineTours.map(t => ALC_DAL.getCheckpoints(t.cr3ea_prod_rajpura_quality_tourid));
+            const fetchPromises = pastLineTours.map(t => ALC_DAL.getCheckpoints(QualityRajpura_Config.getTourId(t)));
             const pastCheckpointsLists = await Promise.all(fetchPromises);
 
             const recurringDeviations = [];

@@ -234,7 +234,7 @@ const ALC_Dashboard = {
             }
 
             const apiVersion = "9.2";
-            const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+            const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
             const url = `${baseApiUrl}/api/data/v${apiVersion}/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${tourId})`;
 
             const body = {
@@ -300,7 +300,7 @@ const ALC_Dashboard = {
             if (!token) throw new Error("No token");
 
             const apiVersion = "9.2";
-            const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+            const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
 
             const filter = `?$filter=(cr3ea_plantid eq '${QualityRajpura_Config.PLANT_ID}' or cr3ea_plantid eq 'Rajpura')&$orderby=cr3ea_tourstartdate desc&$top=100`;
             const url = `${baseApiUrl}/api/data/v${apiVersion}/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}${filter}`;
@@ -573,7 +573,7 @@ const ALC_Dashboard = {
             if (toursNeedCheckpoints.length > 0) {
                 const token = typeof getAccessToken === "function" ? await getAccessToken() : null;
                 const apiVersion = "9.2";
-                const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+                const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
                 
                 let configs = [];
                 try {
@@ -1863,8 +1863,9 @@ const ALC_Dashboard = {
         };
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
+        const tableName = QualityRajpura_Config.DATAVERSE_TABLES.ALC.CHILD;
         const filter = `?$filter=_cr3ea_qualitytourid_value eq '${tourId}'`;
-        const url = `${baseApiUrl}/api/data/v${apiVersion}/cr3ea_rajpura_alcses${filter}`;
+        const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}${filter}`;
 
         const response = await fetch(url, { headers: headers });
         if (!response.ok) {

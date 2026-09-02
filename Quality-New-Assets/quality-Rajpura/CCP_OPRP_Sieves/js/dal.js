@@ -1,6 +1,40 @@
 // Data Access Layer for Rajpura CCP, OPRP, Sieves & Magnets Quality form
 console.log("CCP_OPRP_Sieves DAL loaded");
 
+// Defensive helper for tour ID normalization (self-heals even if older utils.js is cached)
+function normalizeTourRecord(record) {
+    if (!record || typeof record !== 'object') return record;
+    if (typeof QualityRajpura_Config !== 'undefined' && typeof QualityRajpura_Config.normalizeTourRecord === 'function') {
+        return QualityRajpura_Config.normalizeTourRecord(record);
+    }
+    const id = record.cr3ea_prod_rajpura_quality_tourid || 
+               record.cr3ea_rajpura_quality_tourid || 
+               record.cr3ea_prod_rajpura_quality_toursid || 
+               record.cr3ea_rajpura_quality_toursid || 
+               record.cr3ea_qualitytourid || "";
+    if (id) {
+        record.cr3ea_prod_rajpura_quality_tourid = id;
+        record.cr3ea_rajpura_quality_tourid = id;
+    }
+    return record;
+}
+
+if (typeof QualityRajpura_Config !== 'undefined') {
+    if (typeof QualityRajpura_Config.normalizeTourRecord !== 'function') {
+        QualityRajpura_Config.normalizeTourRecord = normalizeTourRecord;
+    }
+    if (typeof QualityRajpura_Config.getTourId !== 'function') {
+        QualityRajpura_Config.getTourId = function (record) {
+            if (!record || typeof record !== 'object') return '';
+            return record.cr3ea_prod_rajpura_quality_tourid || 
+                   record.cr3ea_rajpura_quality_tourid || 
+                   record.cr3ea_prod_rajpura_quality_toursid || 
+                   record.cr3ea_rajpura_quality_toursid || 
+                   record.cr3ea_qualitytourid || '';
+        };
+    }
+}
+
 const CCP_OPRP_DAL = {
     // 1. Load SharePoint Configuration List mappings with dynamic column name resolution
     getConfig: async function () {
@@ -184,7 +218,7 @@ const CCP_OPRP_DAL = {
 
         const apiVersion = "9.2";
         const tableName = QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR;
-        const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
         const cleanId = String(tourId).replace(/[{}]/g, "").trim().toLowerCase();
 
         const headers = {
@@ -198,7 +232,7 @@ const CCP_OPRP_DAL = {
         if (!response.ok) {
             throw new Error(`Failed to load parent tour: ${response.statusText}`);
         }
-        return await response.json();
+        return normalizeTourRecord(await response.json());
     },
 
     // 5. Update Quality Tour Parent details
@@ -210,7 +244,7 @@ const CCP_OPRP_DAL = {
 
         const apiVersion = "9.2";
         const tableName = QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR;
-        const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
         const cleanId = String(tourId).replace(/[{}]/g, "").trim().toLowerCase();
 
         const headers = {
@@ -237,7 +271,7 @@ const CCP_OPRP_DAL = {
     // 5b. Save/Create parent tour session
     saveTourSession: async function (tourData) {
         const token = await this.getAccessToken();
-        const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
         const apiVersion = "9.2";
         const tableName = QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR;
 
@@ -252,8 +286,9 @@ const CCP_OPRP_DAL = {
         let url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}`;
         let method = "POST";
 
-        if (tourData.cr3ea_prod_rajpura_quality_tourid) {
-            url += `(${tourData.cr3ea_prod_rajpura_quality_tourid})`;
+        const tourId = QualityRajpura_Config.getTourId(tourData);
+        if (tourId) {
+            url += `(${tourId})`;
             method = "PATCH";
         }
 
@@ -264,7 +299,7 @@ const CCP_OPRP_DAL = {
                 tourData.cr3ea_prod_rajpura_quality_tourid = "mock-tour-guid-" + Math.floor(Math.random() * 1000000);
             }
             this.updateMockParentTour(tourData.cr3ea_prod_rajpura_quality_tourid, tourData);
-            return tourData;
+            return normalizeTourRecord(tourData);
         }
 
         const response = await this.fetchWithToken(url, {
@@ -278,9 +313,10 @@ const CCP_OPRP_DAL = {
         }
 
         if (method === "PATCH") {
-            return tourData;
+            return normalizeTourRecord(tourData);
         } else {
-            return await response.json();
+            const data = await response.json();
+            return normalizeTourRecord(data);
         }
     },
 
@@ -292,7 +328,7 @@ const CCP_OPRP_DAL = {
         }
 
         const apiVersion = "9.2";
-        const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
         const cleanId = String(tourId).replace(/[{}]/g, "").trim().toLowerCase();
         const tableName = type === "CCP" 
             ? QualityRajpura_Config.DATAVERSE_TABLES.CCP_OPRP_SIEVES_MAGNETS.CHILD_CCP
@@ -323,7 +359,7 @@ const CCP_OPRP_DAL = {
         }
 
         const apiVersion = "9.2";
-        const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
         const tableName = type === "CCP" 
             ? QualityRajpura_Config.DATAVERSE_TABLES.CCP_OPRP_SIEVES_MAGNETS.CHILD_CCP
             : QualityRajpura_Config.DATAVERSE_TABLES.CCP_OPRP_SIEVES_MAGNETS.CHILD_SIEVES;
@@ -337,12 +373,20 @@ const CCP_OPRP_DAL = {
         };
 
         // Determine GUID parameter key
-        const idField = type === "CCP" ? "cr3ea_prod_rajpura_ccpoprpid" : "cr3ea_prod_rajpura_sievesmagnetsid";
+        const isProd = tableName.includes("_prod_");
+        const idField = type === "CCP" 
+            ? (isProd ? "cr3ea_prod_rajpura_ccpoprpid" : "cr3ea_rajpura_ccpoprpid")
+            : (isProd ? "cr3ea_prod_rajpura_sievesmagnetsid" : "cr3ea_rajpura_sievesmagnetsid");
         let url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}`;
         let method = "POST";
 
-        if (payload[idField]) {
-            url += `(${payload[idField]})`;
+        const existingId = payload[idField] || 
+            (type === "CCP" 
+                ? (payload.cr3ea_prod_rajpura_ccpoprpid || payload.cr3ea_rajpura_ccpoprpid)
+                : (payload.cr3ea_prod_rajpura_sievesmagnetsid || payload.cr3ea_rajpura_sievesmagnetsid));
+
+        if (existingId) {
+            url += `(${existingId})`;
             method = "PATCH";
         }
 
@@ -359,7 +403,18 @@ const CCP_OPRP_DAL = {
         if (method === "PATCH") {
             return payload;
         } else {
-            return await response.json();
+            const resData = await response.json();
+            const childId = resData[idField] || existingId;
+            if (childId) {
+                if (type === "CCP") {
+                    resData.cr3ea_prod_rajpura_ccpoprpid = childId;
+                    resData.cr3ea_rajpura_ccpoprpid = childId;
+                } else {
+                    resData.cr3ea_prod_rajpura_sievesmagnetsid = childId;
+                    resData.cr3ea_rajpura_sievesmagnetsid = childId;
+                }
+            }
+            return resData;
         }
     },
 
@@ -371,7 +426,7 @@ const CCP_OPRP_DAL = {
         }
 
         const apiVersion = "9.2";
-        const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
         const tableName = type === "CCP" 
             ? QualityRajpura_Config.DATAVERSE_TABLES.CCP_OPRP_SIEVES_MAGNETS.CHILD_CCP
             : QualityRajpura_Config.DATAVERSE_TABLES.CCP_OPRP_SIEVES_MAGNETS.CHILD_SIEVES;

@@ -12,29 +12,131 @@ const QualityRajpura_Config = {
     get QUALITY_DEPT_IDS() {
         return this.getCurrentConfig().QUALITY_DEPT_IDS;
     },
+    get DATAVERSE_URL() {
+        return this.getCurrentConfig().DATAVERSE_URL || "https://org487f0635.crm8.dynamics.com";
+    },
+    get FLOW_URL() {
+        return this.getCurrentConfig().FLOW_URL;
+    },
+    get DATAVERSE_TABLES() {
+        return this.getCurrentConfig().DATAVERSE_TABLES;
+    },
 
     // Environment configurations for DEV, UAT, and PROD
     ENVIRONMENTS: {
         DEV: {
             TENANT_URL: "https://aufaitcloud.sharepoint.com/sites/Mrs_Bectors_PTMS",
-            FLOW_URL: "https://prod-23.northcentralus.logic.azure.com:443/workflows/placeholder-dev-flow", // Replace with actual Dev Flow URL
+            DATAVERSE_URL: "https://org487f0635.crm8.dynamics.com",
+            FLOW_URL: "https://prod-23.northcentralus.logic.azure.com:443/workflows/placeholder-dev-flow", // Replace with actual Dev Notification Flow URL
             PLANT_ID: "14",
             PLANT_NAME: "Rajpura",
-            QUALITY_DEPT_IDS: ["80", "81", "135"]
+            QUALITY_DEPT_IDS: ["80", "81", "135"],
+            DATAVERSE_TABLES: {
+                PARENT_TOUR: "cr3ea_prod_rajpura_quality_tours",
+                ALC: {
+                    PARENT: "cr3ea_prod_rajpura_quality_tours",
+                    CHILD: "cr3ea_rajpura_alcses"
+                },
+                FOOD_SAFETY: {
+                    PARENT: "cr3ea_prod_rajpura_quality_tours",
+                    CHILD: "cr3ea_foodsafetychecklistforrajpuras"
+                },
+                MIXING_BAKING: {
+                    PARENT: "cr3ea_prod_rajpura_quality_tours",
+                    CHILD: "cr3ea_prod_rajpura_mixingandbakings"
+                },
+                PACKAGING_OPERATIONS: {
+                    PARENT: "cr3ea_prod_rajpura_quality_tours",
+                    CHILD_TEMP_HUMIDITY: "cr3ea_prod_rajpura_pkgops_temphumidities",
+                    CHILD_CODE_VERIFICATION: "cr3ea_prod_rajpura_pkgops_codeverifications",
+                    CHILD_PAPA: "cr3ea_prod_rajpura_pkgops_papas",
+                    CHILD_PQI_NET_WEIGHT: "cr3ea_prod_rajpura_pkgops_pqi_netweights",
+                    CHILD_PQI_EVALUATION: "cr3ea_prod_rajpura_pkgops_pqi_evaluations",
+                    CHILD_SEAL_INTEGRITY: "cr3ea_prod_rajpura_pkgops_sealintegrities",
+                    CHILD_QUALITY_WALL: "cr3ea_prod_rajpura_pkgops_qualitywalls"
+                },
+                CCP_OPRP_SIEVES_MAGNETS: {
+                    PARENT: "cr3ea_prod_rajpura_quality_tours",
+                    CHILD_CCP: "cr3ea_prod_rajpura_ccpoprps",
+                    CHILD_SIEVES: "cr3ea_prod_rajpura_sievesmagnetses"
+                }
+            }
         },
         UAT: {
             TENANT_URL: "https://bectors.sharepoint.com/sites/PTMS_UAT",
-            FLOW_URL: "https://prod-15.northcentralus.logic.azure.com:443/workflows/placeholder-uat-flow", // Replace with actual UAT Flow URL
-            PLANT_ID: "14",
+            DATAVERSE_URL: "https://orgea61b289.crm8.dynamics.com",
+            FLOW_URL: "https://prod-15.northcentralus.logic.azure.com:443/workflows/placeholder-uat-flow", // Replace with actual UAT Notification Flow URL
+            PLANT_ID: "2",
             PLANT_NAME: "Rajpura",
-            QUALITY_DEPT_IDS: ["80", "81", "135"]
+            QUALITY_DEPT_IDS: ["18", "81", "135"],
+            DATAVERSE_TABLES: {
+                PARENT_TOUR: "cr3ea_rajpura_quality_tours",
+                ALC: {
+                    PARENT: "cr3ea_rajpura_quality_tours",
+                    CHILD: "cr3ea_rajpura_alcses"
+                },
+                FOOD_SAFETY: {
+                    PARENT: "cr3ea_rajpura_quality_tours",
+                    CHILD: "cr3ea_foodsafetychecklistforrajpuras"
+                },
+                MIXING_BAKING: {
+                    PARENT: "cr3ea_rajpura_quality_tours",
+                    CHILD: "cr3ea_rajpura_mixingandbakings"
+                },
+                PACKAGING_OPERATIONS: {
+                    PARENT: "cr3ea_rajpura_quality_tours",
+                    CHILD_TEMP_HUMIDITY: "cr3ea_rajpura_pkgops_temphumidities",
+                    CHILD_CODE_VERIFICATION: "cr3ea_rajpura_pkgops_codeverifications",
+                    CHILD_PAPA: "cr3ea_rajpura_pkgops_papas",
+                    CHILD_PQI_NET_WEIGHT: "cr3ea_rajpura_pkgops_pqi_netweights",
+                    CHILD_PQI_EVALUATION: "cr3ea_rajpura_pkgops_pqi_evaluations",
+                    CHILD_SEAL_INTEGRITY: "cr3ea_rajpura_pkgops_sealintegrities",
+                    CHILD_QUALITY_WALL: "cr3ea_rajpura_pkgops_qualitywalls"
+                },
+                CCP_OPRP_SIEVES_MAGNETS: {
+                    PARENT: "cr3ea_rajpura_quality_tours",
+                    CHILD_CCP: "cr3ea_rajpura_ccpoprps",
+                    CHILD_SIEVES: "cr3ea_rajpura_sievesmagnetses"
+                }
+            }
         },
         PROD: {
             TENANT_URL: "https://bectors.sharepoint.com/sites/PTMS_PRD",
+            DATAVERSE_URL: "https://orgea61b289.crm8.dynamics.com",
             FLOW_URL: "https://default8efa5ce286e44882840cf2578cdf09.4c.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/14/workflows/a60198cce93940a2b4ab778d1ba39e04/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=kJNXOOocZbvwbjuFQx2uNiZ_TXNWnX7wfBpH6nk_Ilg",
             PLANT_ID: "14",
             PLANT_NAME: "Rajpura",
-            QUALITY_DEPT_IDS: ["80", "81", "135"]
+            QUALITY_DEPT_IDS: ["80", "81", "135"],
+            DATAVERSE_TABLES: {
+                PARENT_TOUR: "cr3ea_prod_rajpura_quality_tours",
+                ALC: {
+                    PARENT: "cr3ea_prod_rajpura_quality_tours",
+                    CHILD: "cr3ea_prod_rajpura_alcses"
+                },
+                FOOD_SAFETY: {
+                    PARENT: "cr3ea_prod_rajpura_quality_tours",
+                    CHILD: "cr3ea_prod_foodsafetychecklistforrajpuras"
+                },
+                MIXING_BAKING: {
+                    PARENT: "cr3ea_prod_rajpura_quality_tours",
+                    CHILD: "cr3ea_prod_rajpura_mixingandbakings"
+                },
+                PACKAGING_OPERATIONS: {
+                    PARENT: "cr3ea_prod_rajpura_quality_tours",
+                    CHILD_TEMP_HUMIDITY: "cr3ea_prod_rajpura_pkgops_temphumidities",
+                    CHILD_CODE_VERIFICATION: "cr3ea_prod_rajpura_pkgops_codeverifications",
+                    CHILD_PAPA: "cr3ea_prod_rajpura_pkgops_papas",
+                    CHILD_PQI_NET_WEIGHT: "cr3ea_prod_rajpura_pkgops_pqi_netweights",
+                    CHILD_PQI_EVALUATION: "cr3ea_prod_rajpura_pkgops_pqi_evaluations",
+                    CHILD_SEAL_INTEGRITY: "cr3ea_prod_rajpura_pkgops_sealintegrities",
+                    CHILD_QUALITY_WALL: "cr3ea_prod_rajpura_pkgops_qualitywalls"
+                },
+                CCP_OPRP_SIEVES_MAGNETS: {
+                    PARENT: "cr3ea_prod_rajpura_quality_tours",
+                    CHILD_CCP: "cr3ea_prod_rajpura_ccpoprps",
+                    CHILD_SIEVES: "cr3ea_prod_rajpura_sievesmagnetses"
+                }
+            }
         }
     },
 
@@ -54,6 +156,28 @@ const QualityRajpura_Config = {
     getCurrentConfig: function () {
         const env = this.getEnvironment();
         return this.ENVIRONMENTS[env];
+    },
+
+    // Resolves tour GUID across schemas
+    getTourId: function (record) {
+        if (!record || typeof record !== "object") return "";
+        return record.cr3ea_prod_rajpura_quality_tourid || 
+               record.cr3ea_rajpura_quality_tourid || 
+               record.cr3ea_prod_rajpura_quality_toursid || 
+               record.cr3ea_rajpura_quality_toursid || 
+               record.cr3ea_qualitytourid || 
+               "";
+    },
+
+    // Synchronizes both prod and uat tourid properties on the record
+    normalizeTourRecord: function (record) {
+        if (!record || typeof record !== "object") return record;
+        const id = this.getTourId(record);
+        if (id) {
+            record.cr3ea_prod_rajpura_quality_tourid = id;
+            record.cr3ea_rajpura_quality_tourid = id;
+        }
+        return record;
     },
 
     // Resolves current server-relative site URL based on environment (DEV, UAT, PROD)
@@ -86,46 +210,30 @@ const QualityRajpura_Config = {
         CCP_OPRP_CORRECTIVE_ACTIONS: "CCP_OPRP_CorrectiveActions_Docs",
         MIXING_BAKING: "MixingBaking_Docs",
         PACKAGING_OPERATIONS: "PackagingOperations_Docs"
-    },
-
-    // Dataverse Table Names categorized by form
-    DATAVERSE_TABLES: {
-        // Parent Tour table used by all quality checklist forms
-        PARENT_TOUR: "cr3ea_prod_rajpura_quality_tours",
-
-        // Individual form configurations
-        ALC: {
-            PARENT: "cr3ea_prod_rajpura_quality_tours",
-            CHILD: "cr3ea_rajpura_alcses"
-        },
-        FOOD_SAFETY: {
-            PARENT: "cr3ea_prod_rajpura_quality_tours",
-            CHILD: "cr953_foodsafetychecklistforrajpuras"
-        },
-        MIXING_BAKING: {
-            PARENT: "cr3ea_prod_rajpura_quality_tours",
-            CHILD: "cr3ea_prod_rajpura_mixingandbakings"
-        },
-        PACKAGING_OPERATIONS: {
-            PARENT: "cr3ea_prod_rajpura_quality_tours",
-            CHILD_TEMP_HUMIDITY: "cr3ea_prod_rajpura_pkgops_temphumidities",
-            CHILD_CODE_VERIFICATION: "cr3ea_prod_rajpura_pkgops_codeverifications",
-            CHILD_PAPA: "cr3ea_prod_rajpura_pkgops_papas",
-            CHILD_PQI_NET_WEIGHT: "cr3ea_prod_rajpura_pkgops_pqi_netweights",
-            CHILD_PQI_EVALUATION: "cr3ea_prod_rajpura_pkgops_pqi_evaluations",
-            CHILD_SEAL_INTEGRITY: "cr3ea_prod_rajpura_pkgops_sealintegrities",
-            CHILD_QUALITY_WALL: "cr3ea_prod_rajpura_pkgops_qualitywalls"
-        },
-        CCP_OPRP_SIEVES_MAGNETS: {
-            PARENT: "cr3ea_prod_rajpura_quality_tours",
-            CHILD_CCP: "cr3ea_prod_rajpura_ccpoprps",      // logical name: cr3ea_prod_rajpura_ccpoprp
-            CHILD_SIEVES: "cr3ea_prod_rajpura_sievesmagnetses" // logical name: cr3ea_prod_rajpura_sievesmagnets
-        }
     }
 };
 
 // Export globally for standard script tags
 window.QualityRajpura_Config = QualityRajpura_Config;
+
+// Automatically sync environmentUrl for Dataverse operations across all quality modules
+if (typeof window !== "undefined") {
+    try {
+        Object.defineProperty(window, "environmentUrl", {
+            get: function () {
+                return (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.DATAVERSE_URL)
+                    ? QualityRajpura_Config.DATAVERSE_URL
+                    : "https://orgea61b289.crm8.dynamics.com";
+            },
+            set: function () {},
+            configurable: true
+        });
+    } catch (e) {
+        window.environmentUrl = QualityRajpura_Config.DATAVERSE_URL;
+    }
+}
+
+
 
 // Example: function to handle date formatting
 function formatRajpuraDate(dateString) {

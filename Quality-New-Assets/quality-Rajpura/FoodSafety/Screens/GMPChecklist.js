@@ -296,20 +296,20 @@ const GMPChecklistScreen = {
                     }
 
                     const childPayload = {
-                        cr953_food_safety_title: `GMP_${FoodSafety_Main.state.selectedSite}_${FoodSafety_Main.state.selectedLine}_${dateStr}`,
-                        cr953_food_safety_checklisttype: "GMP Checklist",
-                        cr953_food_safety_manufacturingsite: FoodSafety_Main.state.selectedSite,
-                        cr953_food_safety_line: FoodSafety_Main.state.selectedLine,
-                        cr953_food_safety_qaexecutive: FoodSafety_Main.state.qaExecutive,
-                        cr953_food_safety_productionincharge: FoodSafety_Main.state.productionIncharge,
-                        cr953_food_safety_area: secName,
-                        "cr953_food_safety_tourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${FoodSafety_Main.state.varTourID})`,
-                        cr953_food_safety_criteria: item.text,
-                        cr953_food_safety_cycle: FoodSafety_Main.state.selectedCycle,
-                        cr953_food_safety_status: status,
-                        cr953_food_safety_defectremarks: remarks,
-                        cr953_food_safety_date: dateStr,
-                        cr953_food_safety_time: timeStr
+                        cr3ea_food_safety_title: `GMP_${FoodSafety_Main.state.selectedSite}_${FoodSafety_Main.state.selectedLine}_${dateStr}`,
+                        cr3ea_food_safety_checklisttype: "GMP Checklist",
+                        cr3ea_food_safety_manufacturingsite: FoodSafety_Main.state.selectedSite,
+                        cr3ea_food_safety_line: FoodSafety_Main.state.selectedLine,
+                        cr3ea_food_safety_qaexecutive: FoodSafety_Main.state.qaExecutive,
+                        cr3ea_food_safety_productionincharge: FoodSafety_Main.state.productionIncharge,
+                        cr3ea_food_safety_area: secName,
+                        "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${FoodSafety_Main.state.varTourID})`,
+                        cr3ea_food_safety_criteria: item.text,
+                        cr3ea_food_safety_cycle: FoodSafety_Main.state.selectedCycle,
+                        cr3ea_food_safety_status: status,
+                        cr3ea_food_safety_defectremarks: remarks,
+                        cr3ea_food_safety_date: dateStr,
+                        cr3ea_food_safety_time: timeStr
                     };
                     childRecords.push(childPayload);
                 });
@@ -337,7 +337,8 @@ const GMPChecklistScreen = {
                 try {
                     await FoodSafety_DAL.saveChecklistItem(childRecords[i]);
                 } catch (err) {
-                    throw new Error(`Failed to save checkpoint item #${i + 1} (${childRecords[i].cr953_food_safety_criteria}): ${err.message}`);
+                    const criteria = childRecords[i].cr3ea_food_safety_criteria || childRecords[i].cr953_food_safety_criteria;
+                    throw new Error(`Failed to save checkpoint item #${i + 1} (${criteria}): ${err.message}`);
                 }
             }
             if (typeof ShowProgressLoader === "function") {
@@ -399,20 +400,20 @@ const GMPChecklistScreen = {
                             totalOkay++;
                         }
                         const childPayload = {
-                            cr953_food_safety_title: `GMP_${FoodSafety_Main.state.selectedSite}_${FoodSafety_Main.state.selectedLine}_${dateStr}`,
-                            cr953_food_safety_checklisttype: "GMP Checklist",
-                            cr953_food_safety_manufacturingsite: FoodSafety_Main.state.selectedSite,
-                            cr953_food_safety_line: FoodSafety_Main.state.selectedLine,
-                            cr953_food_safety_qaexecutive: FoodSafety_Main.state.qaExecutive,
-                            cr953_food_safety_productionincharge: FoodSafety_Main.state.productionIncharge,
-                            cr953_food_safety_area: secName,
-                            "cr953_food_safety_tourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${FoodSafety_Main.state.varTourID})`,
-                            cr953_food_safety_criteria: item.text,
-                            cr953_food_safety_cycle: FoodSafety_Main.state.selectedCycle,
-                            cr953_food_safety_status: status,
-                            cr953_food_safety_defectremarks: remarks,
-                            cr953_food_safety_date: dateStr,
-                            cr953_food_safety_time: timeStr
+                            cr3ea_food_safety_title: `GMP_${FoodSafety_Main.state.selectedSite}_${FoodSafety_Main.state.selectedLine}_${dateStr}`,
+                            cr3ea_food_safety_checklisttype: "GMP Checklist",
+                            cr3ea_food_safety_manufacturingsite: FoodSafety_Main.state.selectedSite,
+                            cr3ea_food_safety_line: FoodSafety_Main.state.selectedLine,
+                            cr3ea_food_safety_qaexecutive: FoodSafety_Main.state.qaExecutive,
+                            cr3ea_food_safety_productionincharge: FoodSafety_Main.state.productionIncharge,
+                            cr3ea_food_safety_area: secName,
+                            "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${FoodSafety_Main.state.varTourID})`,
+                            cr3ea_food_safety_criteria: item.text,
+                            cr3ea_food_safety_cycle: FoodSafety_Main.state.selectedCycle,
+                            cr3ea_food_safety_status: status,
+                            cr3ea_food_safety_defectremarks: remarks,
+                            cr3ea_food_safety_date: dateStr,
+                            cr3ea_food_safety_time: timeStr
                         };
                         childRecords.push(childPayload);
                     }
@@ -481,18 +482,19 @@ const GMPChecklistScreen = {
                 Object.keys(this.sections).forEach(secName => {
                     const list = this.sections[secName];
                     list.forEach(item => {
-                        const match = savedItems.find(i => i.cr953_food_safety_criteria === item.text);
+                        const match = savedItems.find(i => (i.cr3ea_food_safety_criteria === item.text || i.cr953_food_safety_criteria === item.text));
                         if (match) {
                             const statusSelect = document.getElementById(`gmp-status-${item.id}`);
                             const remarksInput = document.getElementById(`gmp-remarks-${item.id}`);
                             
                             if (statusSelect) {
-                                const statusVal = match.cr953_food_safety_status || "";
+                                const statusVal = match.cr3ea_food_safety_status || match.cr953_food_safety_status || "";
                                 $(statusSelect).val(statusVal).trigger("change");
                             }
                             if (remarksInput) {
-                                remarksInput.value = match.cr953_food_safety_defectremarks || "";
-                                if (match.cr953_food_safety_status === "Not Okay") {
+                                remarksInput.value = match.cr3ea_food_safety_defectremarks || match.cr953_food_safety_defectremarks || "";
+                                const effectiveStatus = match.cr3ea_food_safety_status || match.cr953_food_safety_status;
+                                if (effectiveStatus === "Not Okay") {
                                     remarksInput.style.display = "block";
                                 }
                             }

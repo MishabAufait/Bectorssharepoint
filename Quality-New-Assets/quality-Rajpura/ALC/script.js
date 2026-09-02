@@ -78,7 +78,7 @@ async function handleALCSubmit() {
 
                     // 3. Map to Dataverse Schema
                     collectedData.push({
-                        "cr3ea_qualitytourid@odata.bind": tourId && tourId !== "N/A" ? `/cr3ea_prod_rajpura_quality_tours(${String(tourId).replace(/[{}]/g, "").trim().toLowerCase()})` : null,
+                        "cr3ea_qualitytourid@odata.bind": tourId && tourId !== "N/A" ? `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${String(tourId).replace(/[{}]/g, "").trim().toLowerCase()})` : null,
                         "cr3ea_title": `ALC_${tourStartDate}`,
                         "cr3ea_cycle": `Cycle-1`, // Hardcoded to Cycle 1 as per new UI
                         "cr3ea_shift": headerData.shift,
@@ -132,7 +132,7 @@ async function handleALCSubmit() {
         };
 
         const apiVersion = "9.2";
-        const tableName = "cr3ea_rajpura_alcses"; // Dataverse Web API expects the plural entity set name
+        const tableName = QualityRajpura_Config.DATAVERSE_TABLES.ALC.CHILD;
         const apiUrl = `${typeof environmentUrl !== 'undefined' ? environmentUrl : ''}/api/data/v${apiVersion}/${tableName}`;
 
         const total = collectedData.length;

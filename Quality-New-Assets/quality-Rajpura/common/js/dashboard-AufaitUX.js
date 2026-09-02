@@ -850,8 +850,9 @@ const ALC_Dashboard = {
         };
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
-        const filter = `?$filter=cr3ea_qualitytourid eq '${tourId}'`;
-        const url = `${baseApiUrl}/api/data/v${apiVersion}/cr3ea_rajpura_alcses${filter}`;
+        const tableName = QualityRajpura_Config.DATAVERSE_TABLES.ALC.CHILD;
+        const filter = `?$filter=_cr3ea_qualitytourid_value eq '${tourId}'`;
+        const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}${filter}`;
 
         const response = await fetch(url, { headers: headers });
         if (!response.ok) {

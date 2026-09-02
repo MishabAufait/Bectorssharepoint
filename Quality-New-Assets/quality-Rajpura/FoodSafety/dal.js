@@ -1,6 +1,40 @@
 // Data Access Layer for Food Safety Checklist (Dataverse & SharePoint)
 console.log("Food Safety DAL loaded");
 
+// Defensive helper for tour ID normalization (self-heals even if older utils.js is cached)
+function normalizeTourRecord(record) {
+    if (!record || typeof record !== 'object') return record;
+    if (typeof QualityRajpura_Config !== 'undefined' && typeof QualityRajpura_Config.normalizeTourRecord === 'function') {
+        return QualityRajpura_Config.normalizeTourRecord(record);
+    }
+    const id = record.cr3ea_prod_rajpura_quality_tourid || 
+               record.cr3ea_rajpura_quality_tourid || 
+               record.cr3ea_prod_rajpura_quality_toursid || 
+               record.cr3ea_rajpura_quality_toursid || 
+               record.cr3ea_qualitytourid || "";
+    if (id) {
+        record.cr3ea_prod_rajpura_quality_tourid = id;
+        record.cr3ea_rajpura_quality_tourid = id;
+    }
+    return record;
+}
+
+if (typeof QualityRajpura_Config !== 'undefined') {
+    if (typeof QualityRajpura_Config.normalizeTourRecord !== 'function') {
+        QualityRajpura_Config.normalizeTourRecord = normalizeTourRecord;
+    }
+    if (typeof QualityRajpura_Config.getTourId !== 'function') {
+        QualityRajpura_Config.getTourId = function (record) {
+            if (!record || typeof record !== 'object') return '';
+            return record.cr3ea_prod_rajpura_quality_tourid || 
+                   record.cr3ea_rajpura_quality_tourid || 
+                   record.cr3ea_prod_rajpura_quality_toursid || 
+                   record.cr3ea_rajpura_quality_toursid || 
+                   record.cr3ea_qualitytourid || '';
+        };
+    }
+}
+
 const FoodSafety_DAL = {
     // 1. Get SharePoint Config (for QA Executives listing)
     getConfig: async function () {
@@ -112,9 +146,10 @@ const FoodSafety_DAL = {
             if (options.method === "POST" || options.method === "PATCH") {
                 console.log(`Mock-save success for URL: ${url}`);
                 const requestBody = options.body ? JSON.parse(options.body) : {};
-                const idField = url.includes("cr3ea_prod_rajpura_quality_tours") 
-                    ? "cr3ea_prod_rajpura_quality_tourid" 
-                    : "cr953_foodsafetychecklistforrajpuraid";
+                const isParentTour = url.includes(QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR) || url.includes("quality_tour");
+                const idField = isParentTour
+                    ? (url.includes("_prod_") ? "cr3ea_prod_rajpura_quality_tourid" : "cr3ea_rajpura_quality_tourid")
+                    : (url.includes("_prod_") ? "cr3ea_prod_foodsafetychecklistforrajpuraid" : "cr3ea_foodsafetychecklistforrajpuraid");
                 
                 return {
                     ok: true,
@@ -139,10 +174,10 @@ const FoodSafety_DAL = {
         return response;
     },
 
-    // 4. Save Tour Session (Parent Record)
+    // 4. Save/Update Tour Session (Parent Record)
     saveTourSession: async function (tourData) {
         const token = await this.getAccessToken();
-        const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
         const apiVersion = "9.2";
         const tableName = QualityRajpura_Config.DATAVERSE_TABLES.FOOD_SAFETY.PARENT; // Entity set plural name
 
@@ -157,8 +192,9 @@ const FoodSafety_DAL = {
         let url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}`;
         let method = "POST";
 
-        if (tourData.cr3ea_prod_rajpura_quality_tourid) {
-            url += `(${tourData.cr3ea_prod_rajpura_quality_tourid})`;
+        const tourId = QualityRajpura_Config.getTourId(tourData);
+        if (tourId) {
+            url += `(${tourId})`;
             method = "PATCH";
         }
 
@@ -170,7 +206,7 @@ const FoodSafety_DAL = {
             }
             // Save to localStorage for dashboard history mapping
             this.saveToMockTourHistory(tourData);
-            return tourData;
+            return normalizeTourRecord(tourData);
         }
 
         const response = await this.fetchWithToken(url, {
@@ -185,16 +221,17 @@ const FoodSafety_DAL = {
         }
 
         if (method === "PATCH") {
-            return tourData;
+            return normalizeTourRecord(tourData);
         } else {
-            return await response.json();
+            const data = await response.json();
+            return normalizeTourRecord(data);
         }
     },
 
     // 5. Save Checklist Item Row (Child Record)
     saveChecklistItem: async function (itemData) {
         const token = await this.getAccessToken();
-        const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
         const apiVersion = "9.2";
         const tableName = QualityRajpura_Config.DATAVERSE_TABLES.FOOD_SAFETY.CHILD; // Entity set plural name
 
@@ -209,24 +246,41 @@ const FoodSafety_DAL = {
         let url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}`;
         let method = "POST";
 
-        if (itemData.cr953_foodsafetychecklistforrajpuraid) {
-            url += `(${itemData.cr953_foodsafetychecklistforrajpuraid})`;
+        const rowId = itemData.cr3ea_foodsafetychecklistforrajpuraid || itemData.cr3ea_prod_foodsafetychecklistforrajpuraid || itemData.cr953_foodsafetychecklistforrajpuraid || itemData.cr953_prod_foodsafetychecklistforrajpuraid;
+        if (rowId) {
+            url += `(${rowId})`;
             method = "PATCH";
         }
 
         if (!baseApiUrl || token.startsWith("mock-token")) {
             console.log(`Simulating SaveChecklistItem (${method}) locally:`, itemData);
             if (method === "POST") {
-                itemData.cr953_foodsafetychecklistforrajpuraid = "mock-child-guid-" + Math.floor(Math.random() * 1000000);
+                itemData.cr3ea_foodsafetychecklistforrajpuraid = "mock-child-guid-" + Math.floor(Math.random() * 1000000);
+                itemData.cr953_foodsafetychecklistforrajpuraid = itemData.cr3ea_foodsafetychecklistforrajpuraid;
             }
             this.saveToMockItemHistory(itemData);
             return itemData;
         }
 
+        const payload = Object.assign({}, itemData);
+        // Normalize Tour lookup binding for Dataverse table (supports cr3ea_qualitytourid like other modules)
+        if (tableName.includes("cr3ea_")) {
+            const bindUri = payload["cr3ea_qualitytourid@odata.bind"]
+                         || payload["cr3ea_food_safety_tourid@odata.bind"] 
+                         || payload["cr3ea_rajpura_quality_tour@odata.bind"] 
+                         || payload["cr953_food_safety_tourid@odata.bind"];
+            if (bindUri) {
+                delete payload["cr3ea_food_safety_tourid@odata.bind"];
+                delete payload["cr3ea_rajpura_quality_tour@odata.bind"];
+                delete payload["cr953_food_safety_tourid@odata.bind"];
+                payload["cr3ea_qualitytourid@odata.bind"] = bindUri;
+            }
+        }
+
         const response = await this.fetchWithToken(url, {
             method: method,
             headers: headers,
-            body: JSON.stringify(itemData)
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
@@ -237,14 +291,22 @@ const FoodSafety_DAL = {
         if (method === "PATCH") {
             return itemData;
         } else {
-            return await response.json();
+            const data = await response.json();
+            const childId = data.cr3ea_foodsafetychecklistforrajpuraid || data.cr3ea_prod_foodsafetychecklistforrajpuraid || data.cr953_foodsafetychecklistforrajpuraid || data.cr953_prod_foodsafetychecklistforrajpuraid;
+            if (childId) {
+                data.cr3ea_foodsafetychecklistforrajpuraid = childId;
+                data.cr3ea_prod_foodsafetychecklistforrajpuraid = childId;
+                data.cr953_foodsafetychecklistforrajpuraid = childId;
+                data.cr953_prod_foodsafetychecklistforrajpuraid = childId;
+            }
+            return data;
         }
     },
 
     // 6. Get Tour History (for Dashboard and analytics)
     getTourHistory: async function () {
         const token = await this.getAccessToken();
-        const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
         const apiVersion = "9.2";
         const tableName = QualityRajpura_Config.DATAVERSE_TABLES.FOOD_SAFETY.PARENT;
 
@@ -258,8 +320,7 @@ const FoodSafety_DAL = {
             "OData-Version": "4.0"
         };
 
-        // Fetch last 100 tours where checklist type is PPE, GMP or PCI
-        const filter = `?$filter=(contains(cr3ea_food_safety_checklisttype,'Checklist') or cr3ea_food_safety_checklisttype eq 'PPE Checklist' or cr3ea_food_safety_checklisttype eq 'GMP Checklist' or cr3ea_food_safety_checklisttype eq 'PCI Checklist')&$orderby=cr3ea_tourstartdate desc&$top=100`;
+        const filter = `?$filter=cr3ea_plantid eq '${QualityRajpura_Config.PLANT_ID}'&$orderby=cr3ea_tourstartdate desc&$top=100`;
         const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}${filter}`;
 
         const response = await this.fetchWithToken(url, {
@@ -273,13 +334,13 @@ const FoodSafety_DAL = {
         }
 
         const data = await response.json();
-        return data.value || [];
+        return (data.value || []).map(t => normalizeTourRecord(t));
     },
 
     // 7. Get Checklist Items for a Tour ID
     getChecklistItems: async function (tourId) {
         const token = await this.getAccessToken();
-        const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
         const apiVersion = "9.2";
         const tableName = QualityRajpura_Config.DATAVERSE_TABLES.FOOD_SAFETY.CHILD;
 
@@ -294,7 +355,7 @@ const FoodSafety_DAL = {
         };
 
         const cleanTourId = tourId ? String(tourId).replace(/[{}]/g, "").trim().toLowerCase() : "";
-        const filter = `?$filter=cr953_food_safety_tourid/cr3ea_prod_rajpura_quality_tourid eq '${cleanTourId}'`;
+        const filter = `?$filter=_cr3ea_qualitytourid_value eq '${cleanTourId}' or cr3ea_qualitytourid/cr3ea_prod_rajpura_quality_tourid eq '${cleanTourId}' or cr3ea_qualitytourid/cr3ea_rajpura_quality_tourid eq '${cleanTourId}' or cr3ea_rajpura_quality_tour/cr3ea_prod_rajpura_quality_tourid eq '${cleanTourId}' or cr3ea_rajpura_quality_tour/cr3ea_rajpura_quality_tourid eq '${cleanTourId}' or _cr3ea_rajpura_quality_tour_value eq '${cleanTourId}' or _cr3ea_food_safety_tourid_value eq '${cleanTourId}' or cr3ea_food_safety_tourid/cr3ea_prod_rajpura_quality_tourid eq '${cleanTourId}' or cr3ea_food_safety_tourid/cr3ea_rajpura_quality_tourid eq '${cleanTourId}' or cr953_food_safety_tourid/cr3ea_prod_rajpura_quality_tourid eq '${cleanTourId}' or cr953_food_safety_tourid/cr3ea_rajpura_quality_tourid eq '${cleanTourId}'`;
         const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}${filter}`;
 
         const response = await this.fetchWithToken(url, {
@@ -311,36 +372,33 @@ const FoodSafety_DAL = {
         return data.value || [];
     },
 
-    // 8. Delete a Checklist Item Row (Child Record)
+    // 8. Delete a Checklist Item by GUID
     deleteChecklistItem: async function (guid) {
         const token = await this.getAccessToken();
-        const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
         const apiVersion = "9.2";
         const tableName = QualityRajpura_Config.DATAVERSE_TABLES.FOOD_SAFETY.CHILD;
 
+        if (!baseApiUrl || token.startsWith("mock-token")) {
+            this.deleteMockChecklistItem(guid);
+            return true;
+        }
+
         const headers = {
             "Accept": "application/json",
-            "Content-Type": "application/json; charset=utf-8",
             "OData-MaxVersion": "4.0",
             "OData-Version": "4.0"
         };
 
         const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}(${guid})`;
-
-        if (!baseApiUrl || token.startsWith("mock-token")) {
-            console.log(`Simulating DeleteChecklistItem locally: ${guid}`);
-            this.deleteMockChecklistItem(guid);
-            return true;
-        }
-
         const response = await this.fetchWithToken(url, {
             method: "DELETE",
             headers: headers
         });
 
-        if (!response.ok) {
+        if (!response.ok && response.status !== 204) {
             const errorText = await response.text();
-            throw new Error(`Dataverse delete checklist item failed: ${response.status} - ${errorText}`);
+            throw new Error(`Failed to delete Dataverse item: ${response.status} - ${errorText}`);
         }
         return true;
     },
@@ -352,8 +410,9 @@ const FoodSafety_DAL = {
             if (existing && existing.length > 0) {
                 console.log(`Cleaning up ${existing.length} obsolete child records for Tour ID: ${tourId}`);
                 for (const item of existing) {
-                    if (item.cr953_foodsafetychecklistforrajpuraid) {
-                        await this.deleteChecklistItem(item.cr953_foodsafetychecklistforrajpuraid);
+                    const childGuid = item.cr3ea_foodsafetychecklistforrajpuraid || item.cr3ea_prod_foodsafetychecklistforrajpuraid || item.cr953_foodsafetychecklistforrajpuraid || item.cr953_prod_foodsafetychecklistforrajpuraid;
+                    if (childGuid) {
+                        await this.deleteChecklistItem(childGuid);
                     }
                 }
             }
@@ -364,7 +423,7 @@ const FoodSafety_DAL = {
 
     deleteMockChecklistItem: function (guid) {
         let history = JSON.parse(localStorage.getItem("mock_foodsafety_items") || "[]");
-        history = history.filter(i => i.cr953_foodsafetychecklistforrajpuraid !== guid);
+        history = history.filter(i => (i.cr3ea_foodsafetychecklistforrajpuraid !== guid && i.cr953_foodsafetychecklistforrajpuraid !== guid));
         localStorage.setItem("mock_foodsafety_items", JSON.stringify(history));
     },
 
@@ -382,7 +441,10 @@ const FoodSafety_DAL = {
 
     saveToMockItemHistory: function (item) {
         let history = JSON.parse(localStorage.getItem("mock_foodsafety_items") || "[]");
-        const idx = history.findIndex(i => i.cr953_foodsafetychecklistforrajpuraid === item.cr953_foodsafetychecklistforrajpuraid);
+        const idx = history.findIndex(i => (
+            (i.cr3ea_foodsafetychecklistforrajpuraid && i.cr3ea_foodsafetychecklistforrajpuraid === item.cr3ea_foodsafetychecklistforrajpuraid) ||
+            (i.cr953_foodsafetychecklistforrajpuraid && i.cr953_foodsafetychecklistforrajpuraid === item.cr953_foodsafetychecklistforrajpuraid)
+        ));
         if (idx !== -1) {
             history[idx] = { ...history[idx], ...item };
         } else {
@@ -435,9 +497,13 @@ const FoodSafety_DAL = {
         let history = JSON.parse(localStorage.getItem("mock_foodsafety_items") || "[]");
         const cleanId = String(tourId).toLowerCase().trim();
         return history.filter(item => {
-            const itemTourId = item.cr953_food_safety_tourid || "";
+            const itemTourId = item.cr3ea_rajpura_quality_tour || item.cr3ea_food_safety_tourid || item.cr953_food_safety_tourid || "";
             // Handle mock structures
             return String(itemTourId).toLowerCase().includes(cleanId) || 
+                   (item.cr3ea_rajpura_quality_tour && item.cr3ea_rajpura_quality_tour.cr3ea_prod_rajpura_quality_tourid && 
+                    String(item.cr3ea_rajpura_quality_tour.cr3ea_prod_rajpura_quality_tourid).toLowerCase().includes(cleanId)) ||
+                   (item.cr3ea_food_safety_tourid && item.cr3ea_food_safety_tourid.cr3ea_prod_rajpura_quality_tourid && 
+                    String(item.cr3ea_food_safety_tourid.cr3ea_prod_rajpura_quality_tourid).toLowerCase().includes(cleanId)) ||
                    (item.cr953_food_safety_tourid && item.cr953_food_safety_tourid.cr3ea_prod_rajpura_quality_tourid && 
                     String(item.cr953_food_safety_tourid.cr3ea_prod_rajpura_quality_tourid).toLowerCase().includes(cleanId));
         });

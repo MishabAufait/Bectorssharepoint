@@ -163,9 +163,9 @@ const FoodSafety_Summary = {
             
             if (checklistType === "PPE Checklist") {
                 this.ppeItems.forEach((itemText, idx) => {
-                    const match = childItems.find(c => c.cr953_food_safety_criteria === itemText);
-                    const defectCount = match ? (parseInt(match.cr953_food_safety_defectcount) || 0) : 0;
-                    const remarks = match ? (match.cr953_food_safety_defectremarks || "--") : "--";
+                    const match = childItems.find(c => (c.cr3ea_food_safety_criteria === itemText || c.cr953_food_safety_criteria === itemText));
+                    const defectCount = match ? (parseInt(match.cr3ea_food_safety_defectcount !== undefined ? match.cr3ea_food_safety_defectcount : match.cr953_food_safety_defectcount) || 0) : 0;
+                    const remarks = match ? (match.cr3ea_food_safety_defectremarks || match.cr953_food_safety_defectremarks || "--") : "--";
                     
                     const tr = document.createElement("tr");
                     tr.style.borderBottom = "1px solid #cbd5e1";
@@ -240,9 +240,9 @@ const FoodSafety_Summary = {
                 
                 Object.keys(sections).forEach(secName => {
                     sections[secName].forEach(item => {
-                        const match = childItems.find(c => c.cr953_food_safety_criteria === item.text);
-                        const status = match ? (match.cr953_food_safety_status || "Pending") : "Pending";
-                        const remarks = match ? (match.cr953_food_safety_defectremarks || "--") : "--";
+                        const match = childItems.find(c => (c.cr3ea_food_safety_criteria === item.text || c.cr953_food_safety_criteria === item.text));
+                        const status = match ? (match.cr3ea_food_safety_status || match.cr953_food_safety_status || "Pending") : "Pending";
+                        const remarks = match ? (match.cr3ea_food_safety_defectremarks || match.cr953_food_safety_defectremarks || "--") : "--";
                         
                         let statusHtml = "";
                         if (status === "Okay") {
@@ -273,13 +273,13 @@ const FoodSafety_Summary = {
                 
                 locations.forEach((locName, idx) => {
                     // Match child items by location name
-                    const matches = childItems.filter(c => c.cr953_food_safety_location === locName);
+                    const matches = childItems.filter(c => (c.cr3ea_food_safety_location === locName || c.cr953_food_safety_location === locName));
                     
                     let statusHtml = "";
                     let obsText = "--";
                     
                     if (matches.length > 0) {
-                        const isOkay = matches.every(m => m.cr953_food_safety_status === "Okay");
+                        const isOkay = matches.every(m => (m.cr3ea_food_safety_status || m.cr953_food_safety_status) === "Okay");
                         
                         if (isOkay) {
                             statusHtml = `<span class="badge" style="padding: 5px 10px; font-size: 11px; background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; border-radius: 9999px; font-weight: 700; text-transform: uppercase;">Okay</span>`;
@@ -288,8 +288,8 @@ const FoodSafety_Summary = {
                             
                             // Map all non-okay defects (observation types and counts)
                             const obsItems = matches
-                                .filter(m => m.cr953_food_safety_status === "Not Okay")
-                                .map(m => `${m.cr953_food_safety_observationtype || m.cr953_food_safety_criteria || 'Observation'} (${m.cr953_food_safety_defectcount || 1})`);
+                                .filter(m => (m.cr3ea_food_safety_status || m.cr953_food_safety_status) === "Not Okay")
+                                .map(m => `${m.cr3ea_food_safety_observationtype || m.cr953_food_safety_observationtype || m.cr3ea_food_safety_criteria || m.cr953_food_safety_criteria || 'Observation'} (${m.cr3ea_food_safety_defectcount || m.cr953_food_safety_defectcount || 1})`);
                             
                             if (obsItems.length > 0) {
                                 obsText = obsItems.join(", ");

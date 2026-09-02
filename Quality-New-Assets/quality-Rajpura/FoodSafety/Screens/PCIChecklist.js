@@ -226,20 +226,20 @@ const PCIChecklistScreen = {
                 if (status === "Okay") {
                     // Okay location - writes exactly 1 child row with status = Okay
                     childRecords.push({
-                        cr953_food_safety_title: `PCI_${FoodSafety_Main.state.selectedSite}_${FoodSafety_Main.state.selectedLine}_${dateStr}`,
-                        cr953_food_safety_checklisttype: "PCI Checklist",
-                        cr953_food_safety_manufacturingsite: FoodSafety_Main.state.selectedSite,
-                        cr953_food_safety_line: FoodSafety_Main.state.selectedLine,
-                        cr953_food_safety_qaexecutive: FoodSafety_Main.state.qaExecutive,
-                        cr953_food_safety_productionincharge: FoodSafety_Main.state.productionIncharge,
-                        cr953_food_safety_areaincharge: FoodSafety_Main.state.areaIncharge,
-                        cr953_food_safety_area: area,
-                        cr953_food_safety_location: locName,
-                        "cr953_food_safety_tourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${FoodSafety_Main.state.varTourID})`,
-                        cr953_food_safety_cycle: FoodSafety_Main.state.selectedCycle,
-                        cr953_food_safety_status: "Okay",
-                        cr953_food_safety_date: dateStr,
-                        cr953_food_safety_time: timeStr
+                        cr3ea_food_safety_title: `PCI_${FoodSafety_Main.state.selectedSite}_${FoodSafety_Main.state.selectedLine}_${dateStr}`,
+                        cr3ea_food_safety_checklisttype: "PCI Checklist",
+                        cr3ea_food_safety_manufacturingsite: FoodSafety_Main.state.selectedSite,
+                        cr3ea_food_safety_line: FoodSafety_Main.state.selectedLine,
+                        cr3ea_food_safety_qaexecutive: FoodSafety_Main.state.qaExecutive,
+                        cr3ea_food_safety_productionincharge: FoodSafety_Main.state.productionIncharge,
+                        cr3ea_food_safety_areaincharge: FoodSafety_Main.state.areaIncharge,
+                        cr3ea_food_safety_area: area,
+                        cr3ea_food_safety_location: locName,
+                        "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${FoodSafety_Main.state.varTourID})`,
+                        cr3ea_food_safety_cycle: FoodSafety_Main.state.selectedCycle,
+                        cr3ea_food_safety_status: "Okay",
+                        cr3ea_food_safety_date: dateStr,
+                        cr3ea_food_safety_time: timeStr
                     });
                 } else {
                     hasNotOkay = true;
@@ -254,22 +254,22 @@ const PCIChecklistScreen = {
                         const count = parseInt(countInput ? countInput.value : 1) || 1;
 
                         childRecords.push({
-                            cr953_food_safety_title: `PCI_${FoodSafety_Main.state.selectedSite}_${FoodSafety_Main.state.selectedLine}_${dateStr}`,
-                            cr953_food_safety_checklisttype: "PCI Checklist",
-                            cr953_food_safety_manufacturingsite: FoodSafety_Main.state.selectedSite,
-                            cr953_food_safety_line: FoodSafety_Main.state.selectedLine,
-                            cr953_food_safety_qaexecutive: FoodSafety_Main.state.qaExecutive,
-                            cr953_food_safety_productionincharge: FoodSafety_Main.state.productionIncharge,
-                            cr953_food_safety_areaincharge: FoodSafety_Main.state.areaIncharge,
-                            cr953_food_safety_area: area,
-                            cr953_food_safety_location: locName,
-                            "cr953_food_safety_tourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${FoodSafety_Main.state.varTourID})`,
-                            cr953_food_safety_cycle: FoodSafety_Main.state.selectedCycle,
-                            cr953_food_safety_status: "Not Okay",
-                            cr953_food_safety_observationtype: type,
-                            cr953_food_safety_defectcount: count,
-                            cr953_food_safety_date: dateStr,
-                            cr953_food_safety_time: timeStr
+                            cr3ea_food_safety_title: `PCI_${FoodSafety_Main.state.selectedSite}_${FoodSafety_Main.state.selectedLine}_${dateStr}`,
+                            cr3ea_food_safety_checklisttype: "PCI Checklist",
+                            cr3ea_food_safety_manufacturingsite: FoodSafety_Main.state.selectedSite,
+                            cr3ea_food_safety_line: FoodSafety_Main.state.selectedLine,
+                            cr3ea_food_safety_qaexecutive: FoodSafety_Main.state.qaExecutive,
+                            cr3ea_food_safety_productionincharge: FoodSafety_Main.state.productionIncharge,
+                            cr3ea_food_safety_areaincharge: FoodSafety_Main.state.areaIncharge,
+                            cr3ea_food_safety_area: area,
+                            cr3ea_food_safety_location: locName,
+                            "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${FoodSafety_Main.state.varTourID})`,
+                            cr3ea_food_safety_cycle: FoodSafety_Main.state.selectedCycle,
+                            cr3ea_food_safety_status: "Not Okay",
+                            cr3ea_food_safety_observationtype: type,
+                            cr3ea_food_safety_defectcount: count,
+                            cr3ea_food_safety_date: dateStr,
+                            cr3ea_food_safety_time: timeStr
                         });
                     });
                 }
@@ -296,7 +296,8 @@ const PCIChecklistScreen = {
                 try {
                     await FoodSafety_DAL.saveChecklistItem(childRecords[i]);
                 } catch (err) {
-                    throw new Error(`Failed to save location observation #${i + 1} (${childRecords[i].cr953_food_safety_location}): ${err.message}`);
+                    const loc = childRecords[i].cr3ea_food_safety_location || childRecords[i].cr953_food_safety_location;
+                    throw new Error(`Failed to save location observation #${i + 1} (${loc}): ${err.message}`);
                 }
             }
             if (typeof ShowProgressLoader === "function") {
@@ -416,20 +417,20 @@ const PCIChecklistScreen = {
                 if (status) {
                     if (status === "Okay") {
                         childRecords.push({
-                            cr953_food_safety_title: `PCI_${FoodSafety_Main.state.selectedSite}_${FoodSafety_Main.state.selectedLine}_${dateStr}`,
-                            cr953_food_safety_checklisttype: "PCI Checklist",
-                            cr953_food_safety_manufacturingsite: FoodSafety_Main.state.selectedSite,
-                            cr953_food_safety_line: FoodSafety_Main.state.selectedLine,
-                            cr953_food_safety_qaexecutive: FoodSafety_Main.state.qaExecutive,
-                            cr953_food_safety_productionincharge: FoodSafety_Main.state.productionIncharge,
-                            cr953_food_safety_areaincharge: FoodSafety_Main.state.areaIncharge,
-                            cr953_food_safety_area: area,
-                            cr953_food_safety_location: locName,
-                            "cr953_food_safety_tourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${FoodSafety_Main.state.varTourID})`,
-                            cr953_food_safety_cycle: FoodSafety_Main.state.selectedCycle,
-                            cr953_food_safety_status: "Okay",
-                            cr953_food_safety_date: dateStr,
-                            cr953_food_safety_time: timeStr
+                            cr3ea_food_safety_title: `PCI_${FoodSafety_Main.state.selectedSite}_${FoodSafety_Main.state.selectedLine}_${dateStr}`,
+                            cr3ea_food_safety_checklisttype: "PCI Checklist",
+                            cr3ea_food_safety_manufacturingsite: FoodSafety_Main.state.selectedSite,
+                            cr3ea_food_safety_line: FoodSafety_Main.state.selectedLine,
+                            cr3ea_food_safety_qaexecutive: FoodSafety_Main.state.qaExecutive,
+                            cr3ea_food_safety_productionincharge: FoodSafety_Main.state.productionIncharge,
+                            cr3ea_food_safety_areaincharge: FoodSafety_Main.state.areaIncharge,
+                            cr3ea_food_safety_area: area,
+                            cr3ea_food_safety_location: locName,
+                            "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${FoodSafety_Main.state.varTourID})`,
+                            cr3ea_food_safety_cycle: FoodSafety_Main.state.selectedCycle,
+                            cr3ea_food_safety_status: "Okay",
+                            cr3ea_food_safety_date: dateStr,
+                            cr3ea_food_safety_time: timeStr
                         });
                     } else {
                         hasNotOkay = true;
@@ -444,22 +445,22 @@ const PCIChecklistScreen = {
                             const count = parseInt(countInput ? countInput.value : 1) || 1;
 
                             childRecords.push({
-                                cr953_food_safety_title: `PCI_${FoodSafety_Main.state.selectedSite}_${FoodSafety_Main.state.selectedLine}_${dateStr}`,
-                                cr953_food_safety_checklisttype: "PCI Checklist",
-                                cr953_food_safety_manufacturingsite: FoodSafety_Main.state.selectedSite,
-                                cr953_food_safety_line: FoodSafety_Main.state.selectedLine,
-                                cr953_food_safety_qaexecutive: FoodSafety_Main.state.qaExecutive,
-                                cr953_food_safety_productionincharge: FoodSafety_Main.state.productionIncharge,
-                                cr953_food_safety_areaincharge: FoodSafety_Main.state.areaIncharge,
-                                cr953_food_safety_area: area,
-                                cr953_food_safety_location: locName,
-                                "cr953_food_safety_tourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${FoodSafety_Main.state.varTourID})`,
-                                cr953_food_safety_cycle: FoodSafety_Main.state.selectedCycle,
-                                cr953_food_safety_status: "Not Okay",
-                                cr953_food_safety_observationtype: type,
-                                cr953_food_safety_defectcount: count,
-                                cr953_food_safety_date: dateStr,
-                                cr953_food_safety_time: timeStr
+                                cr3ea_food_safety_title: `PCI_${FoodSafety_Main.state.selectedSite}_${FoodSafety_Main.state.selectedLine}_${dateStr}`,
+                                cr3ea_food_safety_checklisttype: "PCI Checklist",
+                                cr3ea_food_safety_manufacturingsite: FoodSafety_Main.state.selectedSite,
+                                cr3ea_food_safety_line: FoodSafety_Main.state.selectedLine,
+                                cr3ea_food_safety_qaexecutive: FoodSafety_Main.state.qaExecutive,
+                                cr3ea_food_safety_productionincharge: FoodSafety_Main.state.productionIncharge,
+                                cr3ea_food_safety_areaincharge: FoodSafety_Main.state.areaIncharge,
+                                cr3ea_food_safety_area: area,
+                                cr3ea_food_safety_location: locName,
+                                "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${FoodSafety_Main.state.varTourID})`,
+                                cr3ea_food_safety_cycle: FoodSafety_Main.state.selectedCycle,
+                                cr3ea_food_safety_status: "Not Okay",
+                                cr3ea_food_safety_observationtype: type,
+                                cr3ea_food_safety_defectcount: count,
+                                cr3ea_food_safety_date: dateStr,
+                                cr3ea_food_safety_time: timeStr
                             });
                         });
                     }
@@ -519,7 +520,7 @@ const PCIChecklistScreen = {
             if (savedItems && savedItems.length > 0) {
                 // Populate Site configuration values
                 const first = savedItems[0];
-                const area = first.cr953_food_safety_area || "New Block";
+                const area = first.cr3ea_food_safety_area || first.cr953_food_safety_area || "New Block";
                 FoodSafety_Main.state.selectedArea = area;
                 
                 document.getElementById("pci-checklist-panel").style.display = "block";
@@ -529,13 +530,13 @@ const PCIChecklistScreen = {
                 // Group savedItems by location to load repeatable observations
                 const locations = area === "New Block" ? this.newBlockLocations : this.oldBlockLocations;
                 locations.forEach((locName, idx) => {
-                    const matches = savedItems.filter(i => i.cr953_food_safety_location === locName);
+                    const matches = savedItems.filter(i => (i.cr3ea_food_safety_location === locName || i.cr953_food_safety_location === locName));
                     if (matches.length > 0) {
                         const statusSelect = document.getElementById(`pci-status-${idx}`);
                         const firstMatch = matches[0];
                         
                         if (statusSelect) {
-                            const statusVal = firstMatch.cr953_food_safety_status || "";
+                            const statusVal = firstMatch.cr3ea_food_safety_status || firstMatch.cr953_food_safety_status || "";
                             $(statusSelect).val(statusVal).trigger("change");
                             
                             if (statusVal === "Not Okay") {
@@ -552,24 +553,27 @@ const PCIChecklistScreen = {
                                     row.style.gap = "10px";
                                     row.style.marginBottom = "10px";
 
+                                    const obsType = match.cr3ea_food_safety_observationtype || match.cr953_food_safety_observationtype;
                                     const typeOptions = this.observationTypes.map(t => 
-                                        `<option value="${t}" ${t === match.cr953_food_safety_observationtype ? 'selected' : ''}>${t}</option>`
+                                        `<option value="${t}" ${t === obsType ? 'selected' : ''}>${t}</option>`
                                     ).join("");
+
+                                    const obsCount = match.cr3ea_food_safety_defectcount || match.cr953_food_safety_defectcount || 1;
 
                                     row.innerHTML = `
                                         <div class="select2-parent" style="flex: 2; min-width: 150px;">
-                                            <select class="form-select pci-obs-type" id="pci-obs-type-${idx}-${obsIdx}">
-                                                ${typeOptions}
-                                            </select>
+                                             <select class="form-select pci-obs-type" id="pci-obs-type-${idx}-${obsIdx}">
+                                                 ${typeOptions}
+                                             </select>
                                         </div>
                                         <div style="flex: 1; min-width: 80px;">
-                                            <input type="number" class="form-control pci-obs-count" id="pci-obs-count-${idx}-${obsIdx}" 
-                                                   min="1" value="${match.cr953_food_safety_defectcount || 1}" style="height: 42px; text-align: center;">
+                                             <input type="number" class="form-control pci-obs-count" id="pci-obs-count-${idx}-${obsIdx}" 
+                                                    min="1" value="${obsCount}" style="height: 42px; text-align: center;">
                                         </div>
                                         <div style="width: 45px; display: flex; align-items: center; justify-content: center;">
-                                            <button type="button" style="background: transparent; border: none; padding: 0; width: 42px; height: 42px; font-size: 20px; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center;" onclick="PCIChecklistScreen.removeObservation(${idx}, ${obsIdx})">
-                                                🗑
-                                            </button>
+                                             <button type="button" style="background: transparent; border: none; padding: 0; width: 42px; height: 42px; font-size: 20px; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center;" onclick="PCIChecklistScreen.removeObservation(${idx}, ${obsIdx})">
+                                                 🗑
+                                             </button>
                                         </div>
                                     `;
                                     list.appendChild(row);

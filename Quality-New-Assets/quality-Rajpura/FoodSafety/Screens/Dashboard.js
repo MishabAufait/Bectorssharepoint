@@ -195,25 +195,31 @@ const DashboardScreen = {
                 let remarks = "";
 
                 if (tourRecord.cr3ea_food_safety_checklisttype === "PPE Checklist") {
-                    statusText = item.cr953_food_safety_defectcategory || "Compliant";
+                    statusText = item.cr3ea_food_safety_defectcategory || item.cr953_food_safety_defectcategory || "Compliant";
                     badgeStyle = statusText === "Compliant" ? "badge-success" : "badge-error";
-                    remarks = `Defect Count: ${item.cr953_food_safety_defectcount || 0}`;
+                    const count = item.cr3ea_food_safety_defectcount !== undefined ? item.cr3ea_food_safety_defectcount : (item.cr953_food_safety_defectcount || 0);
+                    remarks = `Defect Count: ${count}`;
                 } else if (tourRecord.cr3ea_food_safety_checklisttype === "GMP Checklist") {
-                    statusText = item.cr953_food_safety_status || "Okay";
+                    statusText = item.cr3ea_food_safety_status || item.cr953_food_safety_status || "Okay";
                     badgeStyle = statusText === "Okay" ? "badge-success" : "badge-error";
-                    remarks = item.cr953_food_safety_defectremarks || "N/A";
+                    remarks = item.cr3ea_food_safety_defectremarks || item.cr953_food_safety_defectremarks || "N/A";
                 } else { // PCI
-                    statusText = item.cr953_food_safety_status || "Okay";
+                    statusText = item.cr3ea_food_safety_status || item.cr953_food_safety_status || "Okay";
                     badgeStyle = statusText === "Okay" ? "badge-success" : "badge-error";
-                    remarks = item.cr953_food_safety_observationtype 
-                        ? `${item.cr953_food_safety_observationtype} (Count: ${item.cr953_food_safety_defectcount || 0})` 
+                    const obsType = item.cr3ea_food_safety_observationtype || item.cr953_food_safety_observationtype;
+                    const obsCount = item.cr3ea_food_safety_defectcount !== undefined ? item.cr3ea_food_safety_defectcount : (item.cr953_food_safety_defectcount || 0);
+                    remarks = obsType 
+                        ? `${obsType} (Count: ${obsCount})` 
                         : "N/A";
                 }
 
+                const areaName = item.cr3ea_food_safety_area || item.cr953_food_safety_area || 'General';
+                const locOrCriteria = item.cr3ea_food_safety_location || item.cr953_food_safety_location || item.cr3ea_food_safety_criteria || item.cr953_food_safety_criteria;
+
                 tr.innerHTML = `
                     <td style="padding: 10px;">${index + 1}</td>
-                    <td style="padding: 10px; font-weight: 500; text-align: left;">${item.cr953_food_safety_area || 'General'}</td>
-                    <td style="padding: 10px; text-align: left;">${item.cr953_food_safety_location || item.cr953_food_safety_criteria}</td>
+                    <td style="padding: 10px; font-weight: 500; text-align: left;">${areaName}</td>
+                    <td style="padding: 10px; text-align: left;">${locOrCriteria}</td>
                     <td style="padding: 10px;"><span class="badge ${badgeStyle}">${statusText}</span></td>
                     <td style="padding: 10px; color: #475569; font-size: 13px; text-align: left;">${remarks}</td>
                 `;
@@ -223,7 +229,7 @@ const DashboardScreen = {
             // 2. Aggregate Area-wise observation counts and "Not Okay" findings
             const areaMap = {};
             items.forEach(item => {
-                const area = item.cr953_food_safety_area || "General";
+                const area = item.cr3ea_food_safety_area || item.cr953_food_safety_area || "General";
                 if (!areaMap[area]) {
                     areaMap[area] = { total: 0, notOkay: 0 };
                 }
@@ -232,11 +238,14 @@ const DashboardScreen = {
                 
                 // Evaluate Not Okay states
                 if (tourRecord.cr3ea_food_safety_checklisttype === "PPE Checklist") {
-                    if (item.cr953_food_safety_defectcategory === "Non-Compliant" || (item.cr953_food_safety_defectcount && item.cr953_food_safety_defectcount > 0)) {
+                    const defectCat = item.cr3ea_food_safety_defectcategory || item.cr953_food_safety_defectcategory;
+                    const defectCnt = item.cr3ea_food_safety_defectcount !== undefined ? item.cr3ea_food_safety_defectcount : item.cr953_food_safety_defectcount;
+                    if (defectCat === "Non-Compliant" || (defectCnt && defectCnt > 0)) {
                         areaMap[area].notOkay++;
                     }
                 } else {
-                    if (item.cr953_food_safety_status === "Not Okay") {
+                    const st = item.cr3ea_food_safety_status || item.cr953_food_safety_status;
+                    if (st === "Not Okay") {
                         areaMap[area].notOkay++;
                     }
                 }

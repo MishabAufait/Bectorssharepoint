@@ -310,8 +310,8 @@ const ALC_Main = {
     // Fetch existing tour session and transition state
     resumeSessionState: async function () {
         const AccessToken = await ALC_DAL.getAccessToken();
-        const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
-        const url = `${baseApiUrl}/api/data/v9.2/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`;
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
+        const url = `${baseApiUrl}/api/data/v9.2/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`;
 
         const headers = { "Accept": "application/json" };
         if (AccessToken) headers["Authorization"] = `Bearer ${AccessToken}`;
@@ -320,7 +320,10 @@ const ALC_Main = {
             const response = await fetch(url, { headers: headers });
             if (!response.ok) throw new Error(`Session fetch failed with status ${response.status}`);
 
-            const session = await response.json();
+            const rawData = await response.json();
+            const session = (typeof QualityRajpura_Config !== 'undefined' && typeof QualityRajpura_Config.normalizeTourRecord === 'function')
+                ? QualityRajpura_Config.normalizeTourRecord(rawData)
+                : (typeof normalizeTourRecord === 'function' ? normalizeTourRecord(rawData) : rawData);
             const status = session.cr3ea_processstatus || "In Progress";
 
             console.log(`Resuming session ${this.currentTourId} with Dataverse status: ${status}`);

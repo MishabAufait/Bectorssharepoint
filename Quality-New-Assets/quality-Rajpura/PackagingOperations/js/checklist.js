@@ -757,7 +757,7 @@ const PKGOPS_Checklist = {
                     cr3ea_sku: sku,
                     cr3ea_averageweight: String(avg),
                     cr3ea_giveaway: String(giveAway),
-                    "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
+                    "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
                 };
 
                 // Add weights
@@ -855,7 +855,7 @@ const PKGOPS_Checklist = {
                         cr3ea_defectcategory: cat,
                         cr3ea_defectdetail: detail,
                         cr3ea_batchcodepictureurl: pictureUrl,
-                        "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
+                        "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
                     };
 
                     await PKGOPS_DAL.saveSubChecklistRow("CHILD_PQI_EVALUATION", evalRecord);
@@ -1114,7 +1114,7 @@ const PKGOPS_Checklist = {
                     cr3ea_coldroom2obtemp: document.getElementById("th-coldroom2temp").value,
                     cr3ea_coldroom3obtemp: document.getElementById("th-coldroom3temp").value,
                     cr3ea_deepfreezeryeasttemp: document.getElementById("th-deepfreezeryeasttemp").value,
-                    "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
+                    "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
                 };
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_TEMP_HUMIDITY", this.currentTourId);
                 await PKGOPS_DAL.saveSubChecklistRow("CHILD_TEMP_HUMIDITY", record);
@@ -1222,7 +1222,7 @@ const PKGOPS_Checklist = {
                         cr3ea_defectcount: String(count),
                         cr3ea_codepictureurl: pictureUrl,
                         cr3ea_deviationstatus: status === "Not Okay" ? "Open" : "None",
-                        "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
+                        "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
                     };
                     await PKGOPS_DAL.saveSubChecklistRow("CHILD_CODE_VERIFICATION", cvRecord);
                 }
@@ -1304,7 +1304,7 @@ const PKGOPS_Checklist = {
                             cr3ea_defectcount: String(count),
                             cr3ea_defectwisepercentage: `${((count / sampleSize) * 100).toFixed(2)}%`,
                             cr3ea_deviationstatus: "Open",
-                            "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
+                            "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
                         };
                         await PKGOPS_DAL.saveSubChecklistRow("CHILD_PAPA", papaRecord);
                     }
@@ -1321,7 +1321,7 @@ const PKGOPS_Checklist = {
                         cr3ea_defectcount: String(overallDefectCount),
                         cr3ea_overalldefectpercentage: `${((overallDefectCount / sampleSize) * 100).toFixed(2)}%`,
                         cr3ea_deviationstatus: "None",
-                        "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
+                        "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
                     };
                     await PKGOPS_DAL.saveSubChecklistRow("CHILD_PAPA", finalPapaRecord);
                 }
@@ -1429,7 +1429,7 @@ const PKGOPS_Checklist = {
                     cr3ea_noofleakage: String(leakage),
                     cr3ea_leakagetype: type,
                     cr3ea_deviationstatus: leakage > 0 ? "Open" : "None",
-                    "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
+                    "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
                 };
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_SEAL_INTEGRITY", this.currentTourId);
                 await PKGOPS_DAL.saveSubChecklistRow("CHILD_SEAL_INTEGRITY", sealRecord);
@@ -1505,7 +1505,7 @@ const PKGOPS_Checklist = {
                     cr3ea_codingrating: String(cod),
                     cr3ea_overallrating: String(ratingVal),
                     cr3ea_remarks: remarks,
-                    "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
+                    "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
                 };
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_QUALITY_WALL", this.currentTourId);
                 await PKGOPS_DAL.saveSubChecklistRow("CHILD_QUALITY_WALL", wallRecord);
@@ -1568,7 +1568,7 @@ const PKGOPS_Checklist = {
                     cr3ea_coldroom2obtemp: document.getElementById("th-coldroom2temp")?.value || "",
                     cr3ea_coldroom3obtemp: document.getElementById("th-coldroom3temp")?.value || "",
                     cr3ea_deepfreezeryeasttemp: document.getElementById("th-deepfreezeryeasttemp")?.value || "",
-                    "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
+                    "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
                 };
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_TEMP_HUMIDITY", this.currentTourId);
                 await PKGOPS_DAL.saveSubChecklistRow("CHILD_TEMP_HUMIDITY", record);
@@ -1603,7 +1603,7 @@ const PKGOPS_Checklist = {
                         cr3ea_defectcount: String(count),
                         cr3ea_codepictureurl: pictureUrl,
                         cr3ea_deviationstatus: status === "Not Okay" ? "Open" : "None",
-                        "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
+                        "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
                     };
                     if (pkd) cvRecord.cr3ea_pkd = pkd;
                     if (expiry) cvRecord.cr3ea_expirydate = expiry;
@@ -1638,7 +1638,7 @@ const PKGOPS_Checklist = {
                             cr3ea_defectcount: String(count),
                             cr3ea_defectwisepercentage: `${((count / sampleSize) * 100).toFixed(2)}%`,
                             cr3ea_deviationstatus: "Open",
-                            "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
+                            "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
                         };
                         await PKGOPS_DAL.saveSubChecklistRow("CHILD_PAPA", papaRecord);
                     }
@@ -1653,7 +1653,7 @@ const PKGOPS_Checklist = {
                     cr3ea_defectcount: String(overallDefectCount),
                     cr3ea_overalldefectpercentage: `${((overallDefectCount / sampleSize) * 100).toFixed(2)}%`,
                     cr3ea_deviationstatus: "None",
-                    "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
+                    "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
                 };
                 await PKGOPS_DAL.saveSubChecklistRow("CHILD_PAPA", finalPapaRecord);
             } 
@@ -1674,7 +1674,7 @@ const PKGOPS_Checklist = {
                     cr3ea_noofleakage: String(leakage),
                     cr3ea_leakagetype: type,
                     cr3ea_deviationstatus: leakage > 0 ? "Open" : "None",
-                    "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
+                    "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
                 };
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_SEAL_INTEGRITY", this.currentTourId);
                 await PKGOPS_DAL.saveSubChecklistRow("CHILD_SEAL_INTEGRITY", sealRecord);
@@ -1704,7 +1704,7 @@ const PKGOPS_Checklist = {
                     cr3ea_codingrating: String(cod),
                     cr3ea_overallrating: String(ratingVal),
                     cr3ea_remarks: remarks,
-                    "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`
+                    "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
                 };
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_QUALITY_WALL", this.currentTourId);
                 await PKGOPS_DAL.saveSubChecklistRow("CHILD_QUALITY_WALL", wallRecord);

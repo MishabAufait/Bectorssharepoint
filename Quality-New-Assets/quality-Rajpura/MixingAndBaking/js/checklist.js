@@ -772,7 +772,7 @@ const MixingBaking_Checklist = {
 
             // Associate with parent quality tour
             if (MixingBaking_Main.state.varTourID) {
-                record["cr3ea_qualitytourid@odata.bind"] = `/cr3ea_prod_rajpura_quality_tours(${MixingBaking_Main.state.varTourID})`;
+                record["cr3ea_qualitytourid@odata.bind"] = `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${MixingBaking_Main.state.varTourID})`;
             }
 
             // Ingredient temperatures

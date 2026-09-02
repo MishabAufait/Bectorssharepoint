@@ -494,7 +494,7 @@ const CCP_OPRP_Checklist = {
         let initRecord = {};
         if (category === "CCP") {
             initRecord = {
-                "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${tourId})`,
+                "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${tourId})`,
                 "cr3ea_title": `OPRP_CCP_${moment().format("DD-MM-YYYY")}_Line${startData.location}_Cycle-${cycleNum}_INIT`,
                 "cr3ea_cycle": `Cycle-${cycleNum}`,
                 "cr3ea_shift": shift,
@@ -508,7 +508,7 @@ const CCP_OPRP_Checklist = {
             };
         } else {
             initRecord = {
-                "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${tourId})`,
+                "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${tourId})`,
                 "cr3ea_title": `Sieves_${moment().format("DD-MM-YYYY")}_Cycle-${cycleNum}_INIT`,
                 "cr3ea_cycle": `Cycle-${cycleNum}`,
                 "cr3ea_frequency": CCP_OPRP_Main.state.frequency,
@@ -1029,7 +1029,7 @@ const CCP_OPRP_Checklist = {
                             }
 
                             let checkRecord = {
-                                "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${tourId})`,
+                                "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${tourId})`,
                                 "cr3ea_title": `OPRP_CCP_${moment().format("DD-MM-YYYY")}_Line${location}_Cycle-${cycleNum}`,
                                 "cr3ea_cycle": `Cycle-${cycleNum}`,
                                 "cr3ea_shift": shift,
@@ -1068,7 +1068,7 @@ const CCP_OPRP_Checklist = {
                     const remarks = isNotOkay ? (row.querySelector(".defect-remarks-field input")?.value || "No remarks") : "";
 
                     const record = {
-                        "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${tourId})`,
+                        "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${tourId})`,
                         "cr3ea_title": `Sieves_${moment().format("DD-MM-YYYY")}_Cycle-${cycleNum}`,
                         "cr3ea_cycle": `Cycle-${cycleNum}`,
                         "cr3ea_criteria": isNotOkay ? "Not Okay" : "Okay",
@@ -1086,7 +1086,7 @@ const CCP_OPRP_Checklist = {
                 let initRecord = {};
                 if (category === "CCP") {
                     initRecord = {
-                        "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${tourId})`,
+                        "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${tourId})`,
                         "cr3ea_title": `OPRP_CCP_${moment().format("DD-MM-YYYY")}_Line${location}_Cycle-${cycleNum}_INIT`,
                         "cr3ea_cycle": `Cycle-${cycleNum}`,
                         "cr3ea_shift": shift,
@@ -1100,7 +1100,7 @@ const CCP_OPRP_Checklist = {
                     };
                 } else {
                     initRecord = {
-                        "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${tourId})`,
+                        "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${tourId})`,
                         "cr3ea_title": `Sieves_${moment().format("DD-MM-YYYY")}_Cycle-${cycleNum}_INIT`,
                         "cr3ea_cycle": `Cycle-${cycleNum}`,
                         "cr3ea_frequency": CCP_OPRP_Main.state.frequency,
@@ -1156,7 +1156,7 @@ const CCP_OPRP_Checklist = {
 
         try {
             const shutdownRecord = {
-                "cr3ea_qualitytourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${tourId})`,
+                "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${tourId})`,
                 "cr3ea_title": `OPRP_CCP_${moment().format("DD-MM-YYYY")}_Line${startData.location}_Cycle-${cycleNum}_SHUTDOWN`,
                 "cr3ea_cycle": `Cycle-${cycleNum}`,
                 "cr3ea_shift": shift,

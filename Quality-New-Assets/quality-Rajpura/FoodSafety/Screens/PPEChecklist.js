@@ -186,23 +186,23 @@ const PPEChecklistScreen = {
                 totalDefects += count;
 
                 const childPayload = {
-                    cr953_food_safety_title: `PPE_${FoodSafety_Main.state.selectedSite}_${FoodSafety_Main.state.selectedLine}_${dateStr}`,
-                    cr953_food_safety_checklisttype: "PPE Checklist",
-                    cr953_food_safety_manufacturingsite: FoodSafety_Main.state.selectedSite,
-                    cr953_food_safety_line: FoodSafety_Main.state.selectedLine,
-                    cr953_food_safety_qaexecutive: FoodSafety_Main.state.qaExecutive,
-                    cr953_food_safety_productionincharge: FoodSafety_Main.state.productionIncharge,
-                    cr953_food_safety_area: area,
+                    cr3ea_food_safety_title: `PPE_${FoodSafety_Main.state.selectedSite}_${FoodSafety_Main.state.selectedLine}_${dateStr}`,
+                    cr3ea_food_safety_checklisttype: "PPE Checklist",
+                    cr3ea_food_safety_manufacturingsite: FoodSafety_Main.state.selectedSite,
+                    cr3ea_food_safety_line: FoodSafety_Main.state.selectedLine,
+                    cr3ea_food_safety_qaexecutive: FoodSafety_Main.state.qaExecutive,
+                    cr3ea_food_safety_productionincharge: FoodSafety_Main.state.productionIncharge,
+                    cr3ea_food_safety_area: area,
                     // OData Lookup Binding for parent Tour Record
-                    "cr953_food_safety_tourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${FoodSafety_Main.state.varTourID})`,
-                    cr953_food_safety_criteria: itemText,
-                    cr953_food_safety_cycle: FoodSafety_Main.state.selectedCycle,
-                    cr953_food_safety_defectcategory: count === 0 ? "Compliant" : "Non-Compliant",
-                    cr953_food_safety_defectcount: count,
-                    cr953_food_safety_samplesize: sampleSize,
-                    cr953_food_safety_totalpossibledefects: possibleDefects,
-                    cr953_food_safety_date: dateStr,
-                    cr953_food_safety_time: timeStr
+                    "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${FoodSafety_Main.state.varTourID})`,
+                    cr3ea_food_safety_criteria: itemText,
+                    cr3ea_food_safety_cycle: FoodSafety_Main.state.selectedCycle,
+                    cr3ea_food_safety_defectcategory: count === 0 ? "Compliant" : "Non-Compliant",
+                    cr3ea_food_safety_defectcount: count,
+                    cr3ea_food_safety_samplesize: sampleSize,
+                    cr3ea_food_safety_totalpossibledefects: possibleDefects,
+                    cr3ea_food_safety_date: dateStr,
+                    cr3ea_food_safety_time: timeStr
                 };
                 childRecords.push(childPayload);
             });
@@ -290,22 +290,22 @@ const PPEChecklistScreen = {
                 totalDefects += count;
 
                 const childPayload = {
-                    cr953_food_safety_title: `PPE_${FoodSafety_Main.state.selectedSite}_${FoodSafety_Main.state.selectedLine}_${dateStr}`,
-                    cr953_food_safety_checklisttype: "PPE Checklist",
-                    cr953_food_safety_manufacturingsite: FoodSafety_Main.state.selectedSite,
-                    cr953_food_safety_line: FoodSafety_Main.state.selectedLine,
-                    cr953_food_safety_qaexecutive: FoodSafety_Main.state.qaExecutive,
-                    cr953_food_safety_productionincharge: FoodSafety_Main.state.productionIncharge,
-                    cr953_food_safety_area: area,
-                    "cr953_food_safety_tourid@odata.bind": `/cr3ea_prod_rajpura_quality_tours(${FoodSafety_Main.state.varTourID})`,
-                    cr953_food_safety_criteria: itemText,
-                    cr953_food_safety_cycle: FoodSafety_Main.state.selectedCycle,
-                    cr953_food_safety_defectcategory: count === 0 ? "Compliant" : "Non-Compliant",
-                    cr953_food_safety_defectcount: count,
-                    cr953_food_safety_samplesize: sampleSize,
-                    cr953_food_safety_totalpossibledefects: possibleDefects,
-                    cr953_food_safety_date: dateStr,
-                    cr953_food_safety_time: timeStr
+                    cr3ea_food_safety_title: `PPE_${FoodSafety_Main.state.selectedSite}_${FoodSafety_Main.state.selectedLine}_${dateStr}`,
+                    cr3ea_food_safety_checklisttype: "PPE Checklist",
+                    cr3ea_food_safety_manufacturingsite: FoodSafety_Main.state.selectedSite,
+                    cr3ea_food_safety_line: FoodSafety_Main.state.selectedLine,
+                    cr3ea_food_safety_qaexecutive: FoodSafety_Main.state.qaExecutive,
+                    cr3ea_food_safety_productionincharge: FoodSafety_Main.state.productionIncharge,
+                    cr3ea_food_safety_area: area,
+                    "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${FoodSafety_Main.state.varTourID})`,
+                    cr3ea_food_safety_criteria: itemText,
+                    cr3ea_food_safety_cycle: FoodSafety_Main.state.selectedCycle,
+                    cr3ea_food_safety_defectcategory: count === 0 ? "Compliant" : "Non-Compliant",
+                    cr3ea_food_safety_defectcount: count,
+                    cr3ea_food_safety_samplesize: sampleSize,
+                    cr3ea_food_safety_totalpossibledefects: possibleDefects,
+                    cr3ea_food_safety_date: dateStr,
+                    cr3ea_food_safety_time: timeStr
                 };
                 childRecords.push(childPayload);
             });
@@ -374,18 +374,18 @@ const PPEChecklistScreen = {
             if (savedItems && savedItems.length > 0) {
                 // Populate Site configuration values
                 const first = savedItems[0];
-                document.getElementById("ppeAreaSelect").value = first.cr953_food_safety_area || "Mixing + Oven";
-                document.getElementById("ppe-sample-size-input").value = first.cr953_food_safety_samplesize || 50;
-                document.getElementById("ppe-possible-defects-input").value = first.cr953_food_safety_totalpossibledefects || 2;
+                document.getElementById("ppeAreaSelect").value = first.cr3ea_food_safety_area || first.cr953_food_safety_area || "Mixing + Oven";
+                document.getElementById("ppe-sample-size-input").value = first.cr3ea_food_safety_samplesize || first.cr953_food_safety_samplesize || 50;
+                document.getElementById("ppe-possible-defects-input").value = first.cr3ea_food_safety_totalpossibledefects || first.cr953_food_safety_totalpossibledefects || 2;
                 
                 DropdownComponent.init("ppeAreaSelect");
 
                 // Populate row inputs matching criteria
                 this.items.forEach((itemText, idx) => {
-                    const match = savedItems.find(item => item.cr953_food_safety_criteria === itemText);
+                    const match = savedItems.find(item => (item.cr3ea_food_safety_criteria === itemText || item.cr953_food_safety_criteria === itemText));
                     if (match) {
                         const input = document.getElementById(`ppe-defect-count-${idx}`);
-                        if (input) input.value = match.cr953_food_safety_defectcount || 0;
+                        if (input) input.value = (match.cr3ea_food_safety_defectcount !== undefined ? match.cr3ea_food_safety_defectcount : match.cr953_food_safety_defectcount) || 0;
                     }
                 });
             }
