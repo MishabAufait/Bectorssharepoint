@@ -350,7 +350,7 @@ const CCP_OPRP_Checklist = {
                     <div id="session-metadata-fields-${cycleNum}">
                         <div class="form-group" style="margin-bottom: 12px;">
                             <label class="form-label">Product Name</label>
-                            <input type="text" class="form-control" id="product-name-${cycleNum}" ${disabledAttr} placeholder="Enter Product Name..." />
+                            <input type="text" class="form-control" id="product-name-${cycleNum}" ${disabledAttr} value="${CCP_OPRP_Main.state.product || (CCP_OPRP_Main.state.tourData && (CCP_OPRP_Main.state.tourData.cr3ea_runningvariety || CCP_OPRP_Main.state.tourData.cr3ea_productname)) || ''}" placeholder="Enter Product Name..." />
                         </div>
                         <div class="form-group" style="margin-bottom: 12px;">
                             <label class="form-label">Shift Executive (Production)</label>
@@ -519,15 +519,24 @@ const CCP_OPRP_Checklist = {
 
         try {
             await CCP_OPRP_DAL.saveChecklistItem(initRecord, category);
-            HideLoader();
-            
-            // Reload page or re-init history to load checklist view
-            await CCP_OPRP_Main.init();
         } catch (err) {
+            console.warn("Failed to persist initial metadata record to Dataverse: ", err);
+        } finally {
             HideLoader();
-            console.error("Failed to save initial metadata: ", err);
-            alert("Failed to initialize session: " + err.message);
         }
+
+        const cycleData = {
+            cycleNum: cycleNum,
+            productName: startData.productName,
+            executiveName: startData.executiveName,
+            location: startData.location,
+            sessionTime: startData.sessionTime,
+            response: startData.response,
+            rows: [initRecord]
+        };
+
+        // Smoothly transition UI into Checklist Filling state
+        this.initializeChecklistSession(cycleNum, cycleData);
     },
 
     // Resumes active checklist filling state from Dataverse record on page load
@@ -581,6 +590,21 @@ const CCP_OPRP_Checklist = {
         document.getElementById(`start-step-${cycleNum}`).style.display = "none";
         infoWrapper.style.display = "block";
         formContainer.style.display = "block";
+
+        // Update stepper to Step 2 (Checklist Fill) and badge to Checklist Filling
+        const panel = document.getElementById(`cycle-${cycleNum}`);
+        if (panel) {
+            const stepperContainer = panel.querySelector(".tour-workflow-stepper");
+            if (stepperContainer) {
+                stepperContainer.outerHTML = this.generateStepperHtml("Checklist Filling");
+            }
+            const badge = panel.querySelector(".bs-card-header .badge");
+            if (badge) {
+                badge.innerText = "Checklist Filling";
+                badge.style.backgroundColor = "#fef3c7";
+                badge.style.color = "#d97706";
+            }
+        }
 
         // Generate checklists
         this.generateChecklistUI(cycleNum);
@@ -946,7 +970,12 @@ const CCP_OPRP_Checklist = {
             
             if (category === "CCP") {
                 const paneElements = document.querySelectorAll(`#tabs-panes-${cycleNum} .tab-pane-content`);
-                for (let pane of paneElements) {
+                const line = CCP_OPRP_Main.state.selectedLine;
+                const checkpoints = this.lineCheckpoints[line] || ["CCP (Metal Detector)"];
+
+                for (let tabIdx = 0; tabIdx < paneElements.length; tabIdx++) {
+                    const pane = paneElements[tabIdx];
+                    const cpName = pane.dataset.checkpoint || checkpoints[tabIdx] || `Tab ${tabIdx + 1}`;
                     const rows = pane.querySelectorAll(".checkpoint-inner-row");
                     for (let row of rows) {
                         const checkRows = row.querySelectorAll(".checkpoint-check-row");
@@ -958,9 +987,10 @@ const CCP_OPRP_Checklist = {
                                 const remarksEl = check.querySelector(".check-remarks-input");
                                 const remarksVal = remarksEl?.value?.trim() || "";
                                 if (!remarksVal || remarksVal.toLowerCase() === "no remarks") {
+                                    this.switchTab(cycleNum, tabIdx, checkpoints.length);
                                     if (remarksEl) CCP_OPRP_Validator.highlight(remarksEl, true);
                                     if (typeof HideLoader === "function") HideLoader();
-                                    alert("Please enter defect remarks for all 'Not Okay' checkpoints.");
+                                    alert(`Please enter defect remarks for all 'Not Okay' checkpoints under tab: "${cpName}".`);
                                     if (remarksEl) remarksEl.focus();
                                     return;
                                 }
@@ -970,9 +1000,10 @@ const CCP_OPRP_Checklist = {
                                 const sensEl = check.querySelector(".check-val-input");
                                 const sensVal = sensEl?.value?.trim() || "";
                                 if (!sensVal || sensVal.toUpperCase() === "N/A") {
+                                    this.switchTab(cycleNum, tabIdx, checkpoints.length);
                                     if (sensEl) CCP_OPRP_Validator.highlight(sensEl, true);
                                     if (typeof HideLoader === "function") HideLoader();
-                                    alert("Please enter a valid sensitivity value for Metal Detector check.");
+                                    alert(`Please enter a valid sensitivity value for Metal Detector check under tab: "${cpName}".`);
                                     if (sensEl) sensEl.focus();
                                     return;
                                 }
@@ -1629,8 +1660,7 @@ const CCP_OPRP_Checklist = {
             const payload = {
                 cr3ea_prod_rajpura_quality_tourid: CCP_OPRP_Main.state.varTourID,
                 cr3ea_status: "Completed",
-                cr3ea_processstatus: "Completed",
-                cr3ea_tourcompletiondate: new Date().toISOString()
+                cr3ea_processstatus: "Completed"
             };
 
             await CCP_OPRP_DAL.saveTourSession(payload);

@@ -175,6 +175,7 @@ const PKGOPS_DAL = {
         delete payload.cr3ea_rajpura_quality_tourid;
         delete payload.cr3ea_prod_rajpura_quality_toursid;
         delete payload.cr3ea_rajpura_quality_toursid;
+        delete payload.cr3ea_tourcompletiondate;
 
         let url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}`;
         let method = "POST";
@@ -201,6 +202,15 @@ const PKGOPS_DAL = {
             const data = await response.json();
             return normalizeTourRecord(data);
         }
+    },
+
+    updateTour: async function (tourId, payload) {
+        const data = { ...payload };
+        if (tourId) {
+            data.cr3ea_prod_rajpura_quality_tourid = tourId;
+            data.cr3ea_rajpura_quality_tourid = tourId;
+        }
+        return this.saveTour(data);
     },
 
     // 5. Retrieve Active/Recent Tours for the Dashboard/State
@@ -235,6 +245,14 @@ const PKGOPS_DAL = {
     },
 
     // 6. Retrieve Single Tour by ID
+    getTour: async function (tourId) {
+        return this.getTourById(tourId);
+    },
+
+    getParentTour: async function (tourId) {
+        return this.getTourById(tourId);
+    },
+
     getTourById: async function (tourId) {
         const AccessToken = await this.getAccessToken();
         if (!AccessToken || !tourId) return null;

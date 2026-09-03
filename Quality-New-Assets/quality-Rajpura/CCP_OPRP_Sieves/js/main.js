@@ -94,6 +94,7 @@ const CCP_OPRP_Main = {
                     this.state.category = pType === "CCP & OPRP" ? "CCP" : "SIEVES";
                     this.state.frequency = this.state.tourData.cr3ea_ccp_oprp_sieves_frequency || "4hrs";
                     this.state.selectedLine = this.state.tourData.cr3ea_lineno || this.state.tourData.cr3ea_lineid || "";
+                    this.state.product = this.state.tourData.cr3ea_runningvariety || this.state.tourData.cr3ea_productname || "";
                     this.state.qaExecutive = this.state.tourData.cr3ea_assigned_qa || "";
                     this.state.productionIncharge = this.state.tourData.cr3ea_shiftexecutiveproduction || "";
                     this.state.site = this.state.tourData.cr3ea_plantid || "Rajpura";
@@ -509,8 +510,16 @@ const CCP_OPRP_Main = {
                     CCP_OPRP_Checklist.renderCycleSection(cData.cycleNum, true, cData);
                 });
                 
-                // Set the counter to the next open slot
+                const lastCycle = cyclesList[cyclesList.length - 1];
+                const lastStatus = CCP_OPRP_Checklist.getCycleStatus(lastCycle);
+                const isLastCycleFinished = lastStatus === "Completed" || lastStatus === "Not Operational" || lastStatus === "Escalated";
+
                 this.state.cycleCounter = Math.max(...cyclesList.map(c => c.cycleNum)) + 1;
+
+                // Render next cycle slot ONLY if preceding cycles are finished and parent tour is open
+                if (!isTourCompleted && isLastCycleFinished) {
+                    CCP_OPRP_Checklist.renderCycleSection(this.state.cycleCounter, false);
+                }
             } else {
                 this.state.cycleCounter = 1;
                 if (isTourCompleted && (this.state.tourData?.cr3ea_status === "Closed - Expired" || String(this.state.tourData?.cr3ea_status).includes("Expired"))) {
@@ -522,12 +531,9 @@ const CCP_OPRP_Main = {
                             </div>
                         `;
                     }
+                } else if (!isTourCompleted) {
+                    CCP_OPRP_Checklist.renderCycleSection(1, false);
                 }
-            }
-
-            // Render current active cycle ONLY if parent tour is not completed
-            if (!isTourCompleted) {
-                CCP_OPRP_Checklist.renderCycleSection(this.state.cycleCounter, false);
             }
             
         } catch (e) {

@@ -1408,8 +1408,7 @@ const MixingBaking_Checklist = {
             // Mark parent tour as Completed in Dataverse
             const payload = {
                 cr3ea_status: "Completed",
-                cr3ea_processstatus: "Completed",
-                cr3ea_tourcompletiondate: new Date().toISOString()
+                cr3ea_processstatus: "Completed"
             };
 
             await MixingBaking_DAL.updateParentTour(MixingBaking_Main.state.varTourID, payload);

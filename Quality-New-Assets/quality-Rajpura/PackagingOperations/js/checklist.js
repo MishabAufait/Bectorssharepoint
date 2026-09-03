@@ -1545,7 +1545,7 @@ const PKGOPS_Checklist = {
         } catch (e) {
             if (typeof HideLoader === "function") HideLoader();
             console.error("Failed to submit checklist: ", e);
-            alert("Submission failed. Please check entries and try again.");
+            alert("Submission failed: " + (e.message || "Please check entries and try again."));
         }
     },
 

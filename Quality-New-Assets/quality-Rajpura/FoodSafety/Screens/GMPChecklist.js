@@ -350,8 +350,7 @@ const GMPChecklistScreen = {
                 cr3ea_prod_rajpura_quality_tourid: FoodSafety_Main.state.varTourID,
                 cr3ea_overall_score: gmpScore.toFixed(2) + "%",
                 cr3ea_checklist_result: resultStatus,
-                cr3ea_status: "Submitted",
-                cr3ea_tourcompletiondate: new Date().toISOString()
+                cr3ea_status: "Submitted"
             };
 
             console.log("Updating parent tour session record metadata:", parentUpdatePayload);

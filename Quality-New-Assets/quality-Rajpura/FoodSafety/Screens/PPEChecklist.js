@@ -241,7 +241,6 @@ const PPEChecklistScreen = {
                 cr3ea_overall_score: compliance.toFixed(2) + "%",
                 cr3ea_checklist_result: resultStatus,
                 cr3ea_status: "Submitted",
-                cr3ea_tourcompletiondate: new Date().toISOString(),
                 cr3ea_food_safety_area: area,
                 cr3ea_food_safety_samplesize: sampleSize,
                 cr3ea_food_safety_totalpossibledefects: possibleDefects,

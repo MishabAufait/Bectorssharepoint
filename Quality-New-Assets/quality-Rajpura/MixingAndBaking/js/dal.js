@@ -511,11 +511,22 @@ const MixingBaking_DAL = {
             "Authorization": `Bearer ${token}`
         };
 
+        const cleanPayload = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.sanitizeParentTourPayload)
+            ? QualityRajpura_Config.sanitizeParentTourPayload(payload)
+            : { ...payload };
+        delete cleanPayload.cr3ea_tourcompletiondate;
+        delete cleanPayload.cr3ea_prod_rajpura_quality_tourid;
+        delete cleanPayload.cr3ea_rajpura_quality_tourid;
+        delete cleanPayload.cr3ea_prod_rajpura_quality_toursid;
+        delete cleanPayload.cr3ea_rajpura_quality_toursid;
+        delete cleanPayload.cr3ea_lineid;
+        delete cleanPayload.cr3ea_departmentid;
+
         const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}(${cleanId})`;
         const response = await fetch(url, {
             method: "PATCH",
             headers: headers,
-            body: JSON.stringify(payload)
+            body: JSON.stringify(cleanPayload)
         });
 
         if (!response.ok) {
@@ -567,6 +578,7 @@ const MixingBaking_DAL = {
         delete payload.cr3ea_rajpura_quality_toursid;
         delete payload.cr3ea_lineid;
         delete payload.cr3ea_departmentid;
+        delete payload.cr3ea_tourcompletiondate;
 
         const response = await this.fetchWithToken(url, {
             method: method,

@@ -255,11 +255,22 @@ const CCP_OPRP_DAL = {
             "Prefer": "return=representation"
         };
 
+        const cleanPayload = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.sanitizeParentTourPayload)
+            ? QualityRajpura_Config.sanitizeParentTourPayload(payload)
+            : { ...payload };
+        delete cleanPayload.cr3ea_tourcompletiondate;
+        delete cleanPayload.cr3ea_prod_rajpura_quality_tourid;
+        delete cleanPayload.cr3ea_rajpura_quality_tourid;
+        delete cleanPayload.cr3ea_prod_rajpura_quality_toursid;
+        delete cleanPayload.cr3ea_rajpura_quality_toursid;
+        delete cleanPayload.cr3ea_lineid;
+        delete cleanPayload.cr3ea_departmentid;
+
         const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}(${cleanId})`;
         const response = await this.fetchWithToken(url, {
             method: "PATCH",
             headers,
-            body: JSON.stringify(payload)
+            body: JSON.stringify(cleanPayload)
         });
 
         if (!response.ok) {
@@ -310,6 +321,7 @@ const CCP_OPRP_DAL = {
         delete payload.cr3ea_prod_rajpura_quality_toursid;
         delete payload.cr3ea_rajpura_quality_toursid;
         delete payload.cr3ea_ccp_oprp_sieves_productvariety;
+        delete payload.cr3ea_tourcompletiondate;
 
         const response = await this.fetchWithToken(url, {
             method: method,

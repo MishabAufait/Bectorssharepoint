@@ -220,6 +220,7 @@ const FoodSafety_DAL = {
         delete payload.cr3ea_food_safety_cycle;
         delete payload.cr3ea_request_time;
         delete payload.cr3ea_checklist_result;
+        delete payload.cr3ea_tourcompletiondate;
 
         const response = await this.fetchWithToken(url, {
             method: method,
@@ -313,6 +314,39 @@ const FoodSafety_DAL = {
             }
             return data;
         }
+    },
+
+    // 5.b Retrieve Single Tour by ID
+    getTour: async function (tourId) {
+        return this.getTourById(tourId);
+    },
+
+    getParentTour: async function (tourId) {
+        return this.getTourById(tourId);
+    },
+
+    getTourById: async function (tourId) {
+        const token = await this.getAccessToken();
+        if (!token || !tourId) return null;
+
+        const apiVersion = "9.2";
+        const tableName = QualityRajpura_Config.DATAVERSE_TABLES.FOOD_SAFETY.PARENT;
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
+        const cleanId = String(tourId).replace(/[{}]/g, "").trim().toLowerCase();
+
+        const headers = {
+            "Accept": "application/json",
+            "OData-MaxVersion": "4.0",
+            "OData-Version": "4.0"
+        };
+
+        const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}(${cleanId})`;
+        const response = await this.fetchWithToken(url, { method: "GET", headers });
+        if (!response.ok) {
+            throw new Error(`Failed to fetch Food Safety tour by ID: ${response.statusText}`);
+        }
+        const data = await response.json();
+        return normalizeTourRecord(data);
     },
 
     // 6. Get Tour History (for Dashboard and analytics)

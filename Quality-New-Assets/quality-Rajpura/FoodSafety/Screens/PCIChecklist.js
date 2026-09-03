@@ -309,7 +309,6 @@ const PCIChecklistScreen = {
                 cr3ea_prod_rajpura_quality_tourid: FoodSafety_Main.state.varTourID,
                 cr3ea_checklist_result: hasNotOkay ? "Fail" : "Pass",
                 cr3ea_status: "Submitted",
-                cr3ea_tourcompletiondate: new Date().toISOString(),
                 cr3ea_food_safety_area: area
             };
 
