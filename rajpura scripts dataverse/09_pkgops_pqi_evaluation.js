@@ -4,94 +4,128 @@
 // • Lookup Logical Name : cr3ea_qualitytourid
 // • Lookup Schema Name  : cr3ea_qualitytourid
 // • Display Name        : Quality Tour
-// • Related / Target Table : 
-//     - UAT  : Rajpura Quality Tour (cr3ea_rajpura_quality_tour)
-//     - PROD : Prod Rajpura Quality Tour (cr3ea_prod_rajpura_quality_tour)
+// • Related / Target Table : Rajpura Quality Tour (cr3ea_rajpura_quality_tour)
 // • Relationship Type   : Many-to-One (N:1)
 // =============================================================
+
+// =============================================================
+// MANUAL CONFIGURATION (NON-PROD / UAT)
+// =============================================================
+const baseUrl = "https://orgea61b289.crm8.dynamics.com";
+const accessToken = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6IlQ1aDQwcTdHMHg0OXFuNDFsTTkta0tqcEQ5OCIsImtpZCI6IlQ1aDQwcTdHMHg0OXFuNDFsTTkta0tqcEQ5OCJ9.eyJhdWQiOiJodHRwczovL29yZ2VhNjFiMjg5LmFwaS5jcm04LmR5bmFtaWNzLmNvbSIsImlzcyI6Imh0dHBzOi8vc3RzLndpbmRvd3MubmV0L2FhNDRjNWMxLTU0NDgtNGU3NC04OGQ5LTE3ODM4YTZmOWQ1YS8iLCJpYXQiOjE3ODg0MzQ2NzQsIm5iZiI6MTc4ODQzNDY3NCwiZXhwIjoxNzg4NDM4NTc0LCJhaW8iOiJrMkZnWUhqMHUvSWpML3U2SUdHSjFFLzErdytjeWtndkVWUHRaSDVvZSt2UnA0VERQak1CIiwiYXBwaWQiOiJmODNiMmU2OC00MzZjLTQxN2ItYjgwNy04NGVjYmNlYzhjYTMiLCJhcHBpZGFjciI6IjEiLCJpZHAiOiJodHRwczovL3N0cy53aW5kb3dzLm5ldC9hYTQ0YzVjMS01NDQ4LTRlNzQtODhkOS0xNzgzOGE2ZjlkNWEvIiwiaWR0eXAiOiJhcHAiLCJvaWQiOiI1NGFhMTdlNS1mN2NiLTQ3NWEtYmE5Mi04Y2EyYTMwMjA5ZTgiLCJyaCI6IjEuQVZVQXdjVkVxa2hVZEU2STJSZURpbS1kV2djQUFBQUFBQUFBd0FBQUFBQUFBQUFBQUFCVkFBLiIsInN1YiI6IjU0YWExN2U1LWY3Y2ItNDc1YS1iYTkyLThjYTJhMzAyMDllOCIsInRlbmFudF9yZWdpb25fc2NvcGUiOiJBUyIsInRpZCI6ImFhNDRjNWMxLTU0NDgtNGU3NC04OGQ5LTE3ODM4YTZmOWQ1YSIsInV0aSI6IlVqN3FQc3NjZ0VTLVRwbXhuZjVuQUEiLCJ2ZXIiOiIxLjAiLCJ4bXNfYWN0X2ZjdCI6IjMgOSIsInhtc19mdGQiOiIyZHZIWUNjeU5pMXEwMW52VnNMLWpLMTNab292aWEtYzA4NHBVMmRaa1FvQmEyOXlaV0ZqWlc1MGNtRnNMV1J6YlhNIiwieG1zX2lkcmVsIjoiMTYgNyIsInhtc19yZCI6IjAuNDJMbFlCSmlEQlVTNFdBWEVqaXdjLTZ2aDBLZkhLZkVNbDFuX1hXSVRVaUVnMU5JNEloYjg0YklaV2Etcy1mVnNtVC1XdjVRU0lTRFEwaUFuUUVDRGtCcElSRU9iaUdCOHBzcDVxSVJ6MTQxaGV4aFhsSDhaakVBIiwieG1zX3N1Yl9mY3QiOiIzIDkifQ.YUkkBudqRuGXr7DbxHYfPuTmhRsLxhNGORv55pBG7n4krngDTafmOx3B9kZ-1A0jZUlBIPxgr6CLpCh_0nTPT00vKqwk84MtMIJ5AQpWFZumNRIqOV484gFmk21IINbzEUY_xpateSUEAL0noeQXUmbYzlOW0Kl6c2JNgDJqBFUQF1188SThH5F8MUl6yFqR4HAuIozhGGcUMEk_RB9NhhXrekCXvMjC1mKOJOdCawTYYd1_ABkpSHS2r7xXw1yjNQfF6LZBathsbGIpuMpKpfc4048Wh50yfiDbuZAcKzOxzou7yJjLSxduvNcmVJV3EuL0YeQ122BJ4aMfG1tf5A";
+const tableLogicalName = "cr3ea_rajpura_pkgops_pqi_evaluation";
 
 const columns = [
   {
     "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
     "SchemaName": "cr3ea_name",
-    "DisplayName": {
-      "LocalizedLabels": [{ "Label": "Name", "LanguageCode": 1033 }]
-    },
+    "DisplayName": { "LocalizedLabels": [{ "Label": "Name", "LanguageCode": 1033 }] },
     "RequiredLevel": { "Value": "None" },
     "MaxLength": 250
   },
   {
     "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
+    "SchemaName": "cr3ea_evaluationtype",
+    "DisplayName": { "LocalizedLabels": [{ "Label": "Evaluation Type", "LanguageCode": 1033 }] },
+    "RequiredLevel": { "Value": "None" },
+    "MaxLength": 50
+  },
+  {
+    "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
     "SchemaName": "cr3ea_productname",
-    "DisplayName": {
-      "LocalizedLabels": [{ "Label": "Product Name", "LanguageCode": 1033 }]
-    },
+    "DisplayName": { "LocalizedLabels": [{ "Label": "Product Name", "LanguageCode": 1033 }] },
     "RequiredLevel": { "Value": "None" },
     "MaxLength": 150
   },
   {
     "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
+    "SchemaName": "cr3ea_sku",
+    "DisplayName": { "LocalizedLabels": [{ "Label": "SKU", "LanguageCode": 1033 }] },
+    "RequiredLevel": { "Value": "None" },
+    "MaxLength": 100
+  },
+  {
+    "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
+    "SchemaName": "cr3ea_pkd",
+    "DisplayName": { "LocalizedLabels": [{ "Label": "PKD", "LanguageCode": 1033 }] },
+    "RequiredLevel": { "Value": "None" },
+    "MaxLength": 100
+  },
+  {
+    "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
+    "SchemaName": "cr3ea_batchcode",
+    "DisplayName": { "LocalizedLabels": [{ "Label": "Batch Code", "LanguageCode": 1033 }] },
+    "RequiredLevel": { "Value": "None" },
+    "MaxLength": 100
+  },
+  {
+    "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
+    "SchemaName": "cr3ea_samplenumber",
+    "DisplayName": { "LocalizedLabels": [{ "Label": "Sample Number", "LanguageCode": 1033 }] },
+    "RequiredLevel": { "Value": "None" },
+    "MaxLength": 50
+  },
+  {
+    "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
+    "SchemaName": "cr3ea_sampleresult",
+    "DisplayName": { "LocalizedLabels": [{ "Label": "Sample Result", "LanguageCode": 1033 }] },
+    "RequiredLevel": { "Value": "None" },
+    "MaxLength": 50
+  },
+  {
+    "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
     "SchemaName": "cr3ea_defectcategory",
-    "DisplayName": {
-      "LocalizedLabels": [{ "Label": "Defect Category", "LanguageCode": 1033 }]
-    },
+    "DisplayName": { "LocalizedLabels": [{ "Label": "Defect Category", "LanguageCode": 1033 }] },
     "RequiredLevel": { "Value": "None" },
     "MaxLength": 100
   },
   {
     "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
     "SchemaName": "cr3ea_defectdetail",
-    "DisplayName": {
-      "LocalizedLabels": [{ "Label": "Defect Detail", "LanguageCode": 1033 }]
-    },
+    "DisplayName": { "LocalizedLabels": [{ "Label": "Defect Detail", "LanguageCode": 1033 }] },
     "RequiredLevel": { "Value": "None" },
     "MaxLength": 250
   },
   {
     "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
     "SchemaName": "cr3ea_batchcodepictureurl",
-    "DisplayName": {
-      "LocalizedLabels": [{ "Label": "Batch Code Picture URL", "LanguageCode": 1033 }]
-    },
+    "DisplayName": { "LocalizedLabels": [{ "Label": "Batch Code Picture URL", "LanguageCode": 1033 }] },
     "RequiredLevel": { "Value": "None" },
     "MaxLength": 500
+  },
+  {
+    "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
+    "SchemaName": "cr3ea_deviationstatus",
+    "DisplayName": { "LocalizedLabels": [{ "Label": "Deviation Status", "LanguageCode": 1033 }] },
+    "RequiredLevel": { "Value": "None" },
+    "MaxLength": 50
+  },
+  {
+    "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
+    "SchemaName": "cr3ea_actiontaken",
+    "DisplayName": { "LocalizedLabels": [{ "Label": "Action Taken", "LanguageCode": 1033 }] },
+    "RequiredLevel": { "Value": "None" },
+    "MaxLength": 2000
   }
 ];
-
-// =============================================================
-// DATAVERSE CONFIGURATION
-// =============================================================
-
-const baseUrl =  "https://org487f0635.crm8.dynamics.com";
-
-// Paste your active Dataverse Bearer token below (or runs automatically in console if logged into SharePoint)
-const accessToken = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6IlQ1aDQwcTdHMHg0OXFuNDFsTTkta0tqcEQ5OCIsImtpZCI6IlQ1aDQwcTdHMHg0OXFuNDFsTTkta0tqcEQ5OCJ9.eyJhdWQiOiJodHRwczovL29yZzQ4N2YwNjM1LmNybTguZHluYW1pY3MuY29tIiwiaXNzIjoiaHR0cHM6Ly9zdHMud2luZG93cy5uZXQvOGVmYTVjZTItODZlNC00ODgyLTg0MGMtZjI1NzhjZGYwOTRjLyIsImlhdCI6MTc4ODMzOTYwNSwibmJmIjoxNzg4MzM5NjA1LCJleHAiOjE3ODgzNDM1MDUsImFpbyI6IkFTUUEyLzhjQUFBQVhKY2dtYWpreWFhelJRYlhaUVBJZ0ZHeFFMQ3hFM3FVUUNneG5CVkVUS2c9IiwiYXBwaWQiOiJiNzFkMjAzOS1kYWRjLTQzOTMtODc0NC1lN2Y2NDhkMDg1YTEiLCJhcHBpZGFjciI6IjEiLCJpZHAiOiJodHRwczovL3N0cy53aW5kb3dzLm5ldC84ZWZhNWNlMi04NmU0LTQ4ODItODQwYy1mMjU3OGNkZjA5NGMvIiwiaWR0eXAiOiJhcHAiLCJvaWQiOiJiZTAyN2I2My02MzViLTQ0NDAtODA4NS1lYzZiNGE2YjY2ZDAiLCJyaCI6IjEuQVVrQTRsejZqdVNHZ2tpRURQSlhqTjhKVEFjQUFBQUFBQUFBd0FBQUFBQUFBQUFBQUFCSkFBLiIsInN1YiI6ImJlMDI3YjYzLTYzNWItNDQ0MC04MDg1LWVjNmI0YTZiNjZkMCIsInRlbmFudF9yZWdpb25fc2NvcGUiOiJBUyIsInRpZCI6IjhlZmE1Y2UyLTg2ZTQtNDg4Mi04NDBjLWYyNTc4Y2RmMDk0YyIsInV0aSI6IjZuS2V2UWxFejAyMzVhM3Fwd3AwQUEiLCJ2ZXIiOiIxLjAiLCJ4bXNfYWN0X2ZjdCI6IjMgOSIsInhtc19mdGQiOiJSRTFmMXdza2JraTI3MTVDVmViVl9zdGdNZEltVHYxdU0xY1Zxc082SWRrQmFtRndZVzVsWVhOMExXUnpiWE0iLCJ4bXNfaWRyZWwiOiI3IDE4IiwieG1zX3JkIjoiMC40MkxsWUJKaTlCUVM0V0FYRXRoMGN6TTc0LW9GTGwxZlo0WWZTdVc5SUNUQ3dTa2s4TjdfSmxkbTd5RzNCWEdOTC10X3NIWUppWEJ3Q0Ftd00wREFBU2d0Sk1MQkxTUndZZk83dGlsbVU5Uldjal9jNVhOMXd5VUEiLCJ4bXNfc3ViX2ZjdCI6IjMgOSJ9.SgfP0XafiJGe6X1kzdtUop_bWiH--BifWlV0wh1hHTzP-IL-LkFy9A2UKhSwntj5BPf_JngUmGByF1Oy5wJn_aaKN6y0q4ErOMNBm18K2a_ANVExQ-XwjL-1NurVl7et3j4eaoJRqrI6T_uGkSY6V6s8IDBO9_uBZ7R0TQCaUnTA_u2sr5PI_eAq92cL-ioRYLpHnOycfhuwgHF6UpqDv1xRemWknNJ999E6nTZNpIGFhYittcDGDVl8Hv6j8wXRKTBp53qKBtocxxEDpFLNGpMTAVqryKXxtB5pE5GoAz1SdJc76LrPHZ94tJwZYd4FJ_dwn_HLZUMcEVXFCPU8DA"
-
-// Set to cr3ea_rajpura_pkgops_pqi_evaluation for UAT, or cr3ea_prod_rajpura_pkgops_pqi_evaluation for PROD/DEV
-const tableLogicalName = "cr3ea_rajpura_pkgops_pqi_evaluation";
 
 // =============================================================
 // CREATE COLUMNS
 // =============================================================
 
 async function createColumns() {
-  const url =
-    `${baseUrl}/api/data/v9.2/EntityDefinitions` +
-    `(LogicalName='${tableLogicalName}')/Attributes`;
+  if (!accessToken || accessToken === "PASTE_YOUR_ACCESS_TOKEN_HERE") {
+    console.error("❌ Missing valid accessToken. Please paste it into the accessToken variable.");
+    alert("❌ Please paste your valid Dataverse accessToken before running.");
+    return;
+  }
+
+  const url = `${baseUrl}/api/data/v9.2/EntityDefinitions(LogicalName='${tableLogicalName}')/Attributes`;
 
   console.log("==========================================");
-  console.log("Dataverse Column Creation: 09_PKGOPS_PQI_EVALUATION");
+  console.log("Dataverse Column Sync: 09_PKGOPS_PQI_EVALUATION (NON-PROD)");
   console.log("==========================================");
   console.log(`Table: ${tableLogicalName}`);
-  console.log(`Columns to create: ${columns.length}`);
-  console.log("------------------------------------------");
-  console.log("ℹ️  REQUIRED LOOKUPS FOR THIS TABLE:");
-  console.log("   • Lookup Logical Name : cr3ea_qualitytourid");
-  console.log("   • Lookup Schema Name  : cr3ea_qualitytourid");
-  console.log("   • Display Name        : Quality Tour");
-  console.log("   • Target Table        : cr3ea_rajpura_quality_tour (or cr3ea_prod_rajpura_quality_tour)");
-  console.log("   • Type                : Lookup (Many-to-One / N:1)");
-  console.log("------------------------------------------");
 
   for (const column of columns) {
     console.log(`Creating: ${column.SchemaName}`);
@@ -113,23 +147,30 @@ async function createColumns() {
         console.log(`✅ Created successfully: ${column.SchemaName}`);
       } else {
         const errorText = await response.text();
-        console.error(`❌ Failed: ${column.SchemaName}`);
-        console.error(`Status: ${response.status}`);
-        console.error(errorText);
+        if (errorText.includes("already exists") || response.status === 409) {
+          console.log(`ℹ️ Already exists: ${column.SchemaName}`);
+        } else {
+          console.error(`❌ Failed: ${column.SchemaName}`, errorText);
+        }
       }
     } catch (error) {
-      console.error(`❌ Exception: ${column.SchemaName}`);
-      console.error(error);
+      console.error(`❌ Exception: ${column.SchemaName}`, error);
     }
   }
+
+  // Publish
+  try {
+    await fetch(`${baseUrl}/api/data/v9.2/PublishXml`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ ParameterXml: `<importexportxml><entities><entity>${tableLogicalName}</entity></entities></importexportxml>` })
+    });
+    console.log(`📢 Published customizations for ${tableLogicalName}`);
+  } catch (e) { }
 
   console.log("------------------------------------------");
   console.log("Finished 09_PKGOPS_PQI_EVALUATION.");
   console.log("==========================================");
 }
-
-// =============================================================
-// RUN
-// =============================================================
 
 createColumns();

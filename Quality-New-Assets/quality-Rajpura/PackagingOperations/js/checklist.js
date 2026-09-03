@@ -755,14 +755,14 @@ const PKGOPS_Checklist = {
                     cr3ea_name: `PQI_NetWeight_${sku}_${moment().format("DD-MM-YYYY")}`,
                     cr3ea_productname: product,
                     cr3ea_sku: sku,
-                    cr3ea_averageweight: String(avg),
-                    cr3ea_giveaway: String(giveAway),
+                    cr3ea_averageweight: Number(avg.toFixed(2)),
+                    cr3ea_giveaway: Number(giveAway.toFixed(2)),
                     "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
                 };
 
                 // Add weights
                 weights.forEach((w, idx) => {
-                    netWeightRecord[`cr3ea_sampleweight${idx + 1}`] = String(w);
+                    netWeightRecord[`cr3ea_sampleweight${idx + 1}`] = Number(w.toFixed(2));
                 });
 
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_PQI_NET_WEIGHT", this.currentTourId);
