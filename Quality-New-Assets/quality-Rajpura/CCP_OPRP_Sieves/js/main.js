@@ -407,7 +407,7 @@ const CCP_OPRP_Main = {
         const payload = {
             cr3ea_ccp_oprp_sieves_parametertype: typeVal,
             cr3ea_ccp_oprp_sieves_frequency: typeVal === "Sieves and Magnets" ? freqVal : null,
-            cr3ea_ccp_oprp_sieves_productvariety: typeVal === "CCP & OPRP" ? productVal : null,
+            cr3ea_runningvariety: typeVal === "CCP & OPRP" ? productVal : null,
             cr3ea_plantid: siteVal === "Rajpura" ? QualityRajpura_Config.PLANT_ID : siteVal,
             cr3ea_lineno: typeVal === "CCP & OPRP" ? lineVal : null,
             cr3ea_assigned_qa: qaVal,
@@ -425,8 +425,11 @@ const CCP_OPRP_Main = {
             }
             
             const savedTour = await CCP_OPRP_DAL.saveTourSession(payload);
-            if (!this.state.varTourID && savedTour && savedTour.cr3ea_prod_rajpura_quality_tourid) {
-                this.state.varTourID = savedTour.cr3ea_prod_rajpura_quality_tourid;
+            const savedId = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId)
+                ? QualityRajpura_Config.getTourId(savedTour)
+                : (savedTour && (savedTour.cr3ea_prod_rajpura_quality_tourid || savedTour.cr3ea_rajpura_quality_tourid));
+            if (!this.state.varTourID && savedId) {
+                this.state.varTourID = savedId;
             }
             
             // Set active states

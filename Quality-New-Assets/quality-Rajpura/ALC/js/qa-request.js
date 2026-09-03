@@ -173,7 +173,6 @@ const ALC_QARequest = {
             cr3ea_previousrunningvariety: prevProduct,
             cr3ea_runningvariety: newProduct,
             cr3ea_assigned_qa: assignedQaEmail,
-            cr3ea_request_time: requestTime,
             cr3ea_escalation_contacts: escalationEmails.join(","),
             cr3ea_islineclear: false // New request starts as Not Clear (No)
         };
@@ -198,7 +197,8 @@ const ALC_QARequest = {
 
             const unclearedSession = sessions.find(s => {
                 const cleanCurrentId = ALC_StateMachine.currentTourId ? String(ALC_StateMachine.currentTourId).replace(/[{}]/g, "").trim().toLowerCase() : "";
-                const cleanSessionId = s.cr3ea_prod_rajpura_quality_tourid ? String(s.cr3ea_prod_rajpura_quality_tourid).replace(/[{}]/g, "").trim().toLowerCase() : "";
+                const sid = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId) ? QualityRajpura_Config.getTourId(s) : (s.cr3ea_prod_rajpura_quality_tourid || s.cr3ea_rajpura_quality_tourid);
+                const cleanSessionId = sid ? String(sid).replace(/[{}]/g, "").trim().toLowerCase() : "";
                 
                 if (cleanCurrentId && cleanSessionId === cleanCurrentId) {
                     return false;
@@ -277,8 +277,9 @@ const ALC_QARequest = {
                 }
                 ShowLoader();
                 try {
+                    const cancelId = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId) ? QualityRajpura_Config.getTourId(unclearedSession) : (unclearedSession.cr3ea_prod_rajpura_quality_tourid || unclearedSession.cr3ea_rajpura_quality_tourid);
                     await ALC_DAL.saveSession({
-                        cr3ea_prod_rajpura_quality_tourid: unclearedSession.cr3ea_prod_rajpura_quality_tourid,
+                        cr3ea_prod_rajpura_quality_tourid: cancelId,
                         cr3ea_status: "Cancelled",
                         cr3ea_processstatus: "Cancelled"
                     });

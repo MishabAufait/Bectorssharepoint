@@ -142,7 +142,10 @@ const DashboardScreen = {
             tr.style.cursor = "pointer";
             tr.style.borderBottom = "1px solid #e2e8f0";
             tr.title = "Click to view area-wise observation breakdown";
-            tr.onclick = () => this.loadAuditBreakdown(t.cr3ea_prod_rajpura_quality_tourid, t);
+            const tourId = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId)
+                ? QualityRajpura_Config.getTourId(t)
+                : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+            tr.onclick = () => this.loadAuditBreakdown(tourId, t);
 
             const dateStr = t.cr3ea_tourstartdate ? moment(t.cr3ea_tourstartdate).format("DD-MM-YYYY hh:mm A") : "N/A";
             const score = t.cr3ea_overall_score || "N/A";

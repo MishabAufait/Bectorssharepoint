@@ -203,32 +203,33 @@ const ChecklistInformationScreen = {
 
             ShowLoader();
 
-            // Prepare Table 1 OData Payload
+            // Prepare Table 1 OData Payload (Strict Parent Tour Schema)
             const tourPayload = {
                 cr3ea_food_safety_checklisttype: FoodSafety_Main.state.selectedChecklistType,
                 cr3ea_plantid: site === "Rajpura" ? QualityRajpura_Config.PLANT_ID : site,
-                cr3ea_lineid: line,
                 cr3ea_lineno: line,
                 cr3ea_assigned_qa: qaExec,
                 cr3ea_shiftexecutiveproduction: prodIncharge,
                 cr3ea_observedby: prodIncharge, // Writes Prod Incharge to observedby field (ALC standard)
                 cr3ea_tourstartdate: FoodSafety_Main.state.tourStartDate,
                 cr3ea_status: "In Progress",
-                cr3ea_food_safety_cycle: cycle,
+                cr3ea_cycle: cycle,
                 cr3ea_shift: FoodSafety_Main.state.selectedShift,
                 cr3ea_title: `FoodSafety_${FoodSafety_Main.state.selectedChecklistType.replace(" Checklist", "")}_${site}_${line}_${moment(FoodSafety_Main.state.tourStartDate).format("DDMMYYYY")}`
             };
 
             if (FoodSafety_Main.state.selectedChecklistType === "PCI Checklist") {
-                tourPayload.cr3ea_food_safety_areaincharge = areaIncharge;
-                tourPayload.cr3ea_food_safety_area = selectedArea;
+                FoodSafety_Main.state.areaIncharge = areaIncharge;
+                FoodSafety_Main.state.selectedArea = selectedArea;
             }
 
             console.log("Submitting parent tour record payload to Dataverse:", tourPayload);
             
             // Save parent tour and get back generated GUID ID
             const savedTour = await FoodSafety_DAL.saveTourSession(tourPayload);
-            const generatedGUID = savedTour.cr3ea_prod_rajpura_quality_tourid;
+            const generatedGUID = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId)
+                ? QualityRajpura_Config.getTourId(savedTour)
+                : (savedTour && (savedTour.cr3ea_prod_rajpura_quality_tourid || savedTour.cr3ea_rajpura_quality_tourid));
 
             if (!generatedGUID) {
                 throw new Error("Dataverse write succeeded but no Tour GUID ID was returned.");

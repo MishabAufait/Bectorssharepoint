@@ -336,7 +336,12 @@ const ALC_Dashboard = {
 
             if (!response.ok) throw new Error("OData fetch failed");
             const data = await response.json();
-            const list = data.value || [];
+            const rawList = data.value || [];
+            const list = rawList.map(item => {
+                return (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.normalizeTourRecord)
+                    ? QualityRajpura_Config.normalizeTourRecord(item)
+                    : item;
+            });
 
             // Auto-expire previous day's active tours
             const todayLocal = moment().format("YYYY-MM-DD");
@@ -352,10 +357,13 @@ const ALC_Dashboard = {
                         if (parsedDate && parsedDate.isValid()) {
                             const tourDateLocal = parsedDate.local().format("YYYY-MM-DD");
                             if (tourDateLocal !== todayLocal) {
-                                console.log(`Auto-expiring tour from previous day in dashboard: ${t.cr3ea_prod_rajpura_quality_tourid} (Started: ${tourDateLocal})`);
-                                if (t.cr3ea_prod_rajpura_quality_tourid) {
+                                const tourId = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId)
+                                    ? QualityRajpura_Config.getTourId(t)
+                                    : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                                console.log(`Auto-expiring tour from previous day in dashboard: ${tourId} (Started: ${tourDateLocal})`);
+                                if (tourId) {
                                     expirePromises.push(
-                                        ALC_Dashboard.expireTour(t.cr3ea_prod_rajpura_quality_tourid)
+                                        ALC_Dashboard.expireTour(tourId)
                                             .then((success) => {
                                                 if (success) {
                                                     t.cr3ea_status = "Closed - Expired";
@@ -575,11 +583,14 @@ const ALC_Dashboard = {
                 ALC_Dashboard.configs = configs;
 
                 const fetchCheckpointsPromises = toursNeedCheckpoints.map(async t => {
+                    const tourId = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId)
+                        ? QualityRajpura_Config.getTourId(t)
+                        : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
                     try {
-                        const checkpoints = await ALC_Dashboard.fetchCheckpointsDirect(t.cr3ea_prod_rajpura_quality_tourid, token, baseApiUrl, apiVersion);
+                        const checkpoints = await ALC_Dashboard.fetchCheckpointsDirect(tourId, token, baseApiUrl, apiVersion);
                         t.checkpoints = checkpoints || [];
                     } catch (e) {
-                        console.warn(`Failed to fetch checkpoints for tour ${t.cr3ea_prod_rajpura_quality_tourid}:`, e);
+                        console.warn(`Failed to fetch checkpoints for tour ${tourId}:`, e);
                         t.checkpoints = [];
                     }
                 });
@@ -982,7 +993,13 @@ const ALC_Dashboard = {
                     tr.style.cursor = "pointer";
                     tr.title = "Click to open Mixing & Baking checklist";
                     tr.onclick = function () {
-                        window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/MixingAndBaking.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                        const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                            ? QualityRajpura_Config.getTourId(t)
+                            : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                        const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                            ? QualityRajpura_Config.getSiteBaseUrl()
+                            : "/sites/Mrs_Bectors_PTMS";
+                        window.location.href = `${siteBase}/Pages/MixingAndBaking.aspx?TourId=${tourId}`;
                     };
                 } else if (isCCP) {
                     let form = t.cr3ea_ccp_oprp_sieves_parametertype;
@@ -1052,7 +1069,13 @@ const ALC_Dashboard = {
                         tr.style.cursor = "pointer";
                         tr.title = "Click to open CCP/OPRP checklist";
                         tr.onclick = function () {
-                            window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/CCP-OPRP.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                            const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                                ? QualityRajpura_Config.getTourId(t)
+                                : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                            const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                                ? QualityRajpura_Config.getSiteBaseUrl()
+                                : "/sites/Mrs_Bectors_PTMS";
+                            window.location.href = `${siteBase}/Pages/CCP-OPRP.aspx?TourId=${tourId}`;
                         };
                     } else {
                         tr.style.cursor = "default";
@@ -1196,7 +1219,13 @@ const ALC_Dashboard = {
                         tr.style.cursor = "pointer";
                         tr.title = "Click to open Packaging Operations checklist";
                         tr.onclick = function () {
-                            window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/Product-Operation.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                            const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                                ? QualityRajpura_Config.getTourId(t)
+                                : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                            const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                                ? QualityRajpura_Config.getSiteBaseUrl()
+                                : "/sites/Mrs_Bectors_PTMS";
+                            window.location.href = `${siteBase}/Pages/Product-Operation.aspx?TourId=${tourId}`;
                         };
                     } else {
                         tr.style.cursor = "default";
@@ -1406,7 +1435,13 @@ const ALC_Dashboard = {
                         tr.style.cursor = "pointer";
                         tr.title = "Click to open tour clearance form";
                         tr.onclick = function () {
-                            window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/AreaLine.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                            const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                                ? QualityRajpura_Config.getTourId(t)
+                                : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                            const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                                ? QualityRajpura_Config.getSiteBaseUrl()
+                                : "/sites/Mrs_Bectors_PTMS";
+                            window.location.href = `${siteBase}/Pages/AreaLine.aspx?TourId=${tourId}`;
                         };
                     } else {
                         tr.style.cursor = "default";
@@ -1543,7 +1578,13 @@ const ALC_Dashboard = {
                     tr.style.cursor = "pointer";
                     tr.title = "Click to open Mixing & Baking checklist";
                     tr.onclick = function () {
-                        window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/MixingAndBaking.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                        const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                            ? QualityRajpura_Config.getTourId(t)
+                            : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                        const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                            ? QualityRajpura_Config.getSiteBaseUrl()
+                            : "/sites/Mrs_Bectors_PTMS";
+                        window.location.href = `${siteBase}/Pages/MixingAndBaking.aspx?TourId=${tourId}`;
                     };
                 } else if (isCCP) {
                     let form = t.cr3ea_ccp_oprp_sieves_parametertype;
@@ -1585,7 +1626,13 @@ const ALC_Dashboard = {
                     tr.style.cursor = "pointer";
                     tr.title = "Click to open CCP/OPRP checklist";
                     tr.onclick = function () {
-                        window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/CCP-OPRP.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                        const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                            ? QualityRajpura_Config.getTourId(t)
+                            : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                        const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                            ? QualityRajpura_Config.getSiteBaseUrl()
+                            : "/sites/Mrs_Bectors_PTMS";
+                        window.location.href = `${siteBase}/Pages/CCP-OPRP.aspx?TourId=${tourId}`;
                     };
                 } else if (isPkgOps) {
                     const subType = t.cr3ea_pkgops_type || "Packaging Operations";
@@ -1630,7 +1677,13 @@ const ALC_Dashboard = {
                     tr.style.cursor = "pointer";
                     tr.title = "Click to open Packaging Operations checklist";
                     tr.onclick = function () {
-                        window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/Product-Operation.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                        const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                            ? QualityRajpura_Config.getTourId(t)
+                            : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                        const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                            ? QualityRajpura_Config.getSiteBaseUrl()
+                            : "/sites/Mrs_Bectors_PTMS";
+                        window.location.href = `${siteBase}/Pages/Product-Operation.aspx?TourId=${tourId}`;
                     };
                 } else {
                     const titleVal = t.cr3ea_title || "";
@@ -1713,7 +1766,13 @@ const ALC_Dashboard = {
                     tr.style.cursor = "pointer";
                     tr.title = "Click to open tour clearance form";
                     tr.onclick = function () {
-                        window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/AreaLine.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                        const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                            ? QualityRajpura_Config.getTourId(t)
+                            : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                        const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                            ? QualityRajpura_Config.getSiteBaseUrl()
+                            : "/sites/Mrs_Bectors_PTMS";
+                        window.location.href = `${siteBase}/Pages/AreaLine.aspx?TourId=${tourId}`;
                     };
                 }
 

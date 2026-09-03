@@ -491,7 +491,7 @@ const ALC_Summary = {
             if (AccessToken) headers["Authorization"] = `Bearer ${AccessToken}`;
 
             // Fetch last 15 tours to make sure we find at least 5 matching this line
-            const filter = `?$filter=cr3ea_plantid eq '${QualityRajpura_Config.PLANT_ID}'&$orderby=cr3ea_tourstartdate desc&$top=15`;
+            const filter = `?$filter=(cr3ea_plantid eq '${QualityRajpura_Config.PLANT_ID}' or cr3ea_plantid eq 'Rajpura')&$orderby=cr3ea_tourstartdate desc&$top=15`;
             const response = await fetch(`${baseApiUrl}/api/data/v${apiVersion}/${tableName}${filter}`, { headers: headers });
             if (!response.ok) return;
 

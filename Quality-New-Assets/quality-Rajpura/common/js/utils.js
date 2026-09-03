@@ -143,11 +143,14 @@ const QualityRajpura_Config = {
     // Resolves current environment dynamically based on site URL context
     getEnvironment: function () {
         const currentUrl = window.location.href.toLowerCase();
-        if (currentUrl.includes("ptms_uat")) {
-            return "UAT";
-        } else if (currentUrl.includes("ptms_prd")) {
+        if (currentUrl.includes("ptms_prd")) {
             return "PROD";
-        } else if (currentUrl.includes("aufaitcloud") || currentUrl.includes("mrs_bectors_ptms")) {
+        } else if (currentUrl.includes("ptms_uat")) {
+            return "UAT";
+        } else if (currentUrl.includes("bectors.sharepoint.com")) {
+            // Any site collection on the Bectors tenant (e.g. Mrs_Bectors_PTMS) is UAT unless ptms_prd
+            return "UAT";
+        } else if (currentUrl.includes("aufaitcloud") || currentUrl.includes("localhost") || currentUrl.includes("127.0.0.1")) {
             return "DEV";
         }
         return "DEV"; // Default fallback
@@ -178,6 +181,55 @@ const QualityRajpura_Config = {
             record.cr3ea_rajpura_quality_tourid = id;
         }
         return record;
+    },
+
+    // Strict column whitelist for the Parent Tour entity (cr3ea_rajpura_quality_tour / cr3ea_prod_rajpura_quality_tour)
+    PARENT_TOUR_COLUMNS: [
+        "cr3ea_title",
+        "cr3ea_tourstartdate",
+        "cr3ea_plantid",
+        "cr3ea_shift",
+        "cr3ea_lineno",
+        "cr3ea_assigned_qa",
+        "cr3ea_shiftexecutiveproduction",
+        "cr3ea_status",
+        "cr3ea_processstatus",
+        "cr3ea_observedby",
+        "cr3ea_tourby",
+        "cr3ea_previousrunningvariety",
+        "cr3ea_runningvariety",
+        "cr3ea_executivename",
+        "cr3ea_overall_score",
+        "cr3ea_total_checkpoints",
+        "cr3ea_compliant_count",
+        "cr3ea_non_compliant_count",
+        "cr3ea_escalation_contacts",
+        "cr3ea_islineclear",
+        "cr3ea_pkgops_type",
+        "cr3ea_ccp_oprp_sieves_parametertype",
+        "cr3ea_ccp_oprp_sieves_frequency",
+        "cr3ea_food_safety_checklisttype",
+        "cr3ea_batchno",
+        "cr3ea_cycle"
+    ],
+
+    // Strips invalid properties and maps aliases before sending parent tour to Dataverse
+    sanitizeParentTourPayload: function (payload) {
+        if (!payload || typeof payload !== "object") return payload;
+        const clean = {};
+        const validSet = new Set(this.PARENT_TOUR_COLUMNS);
+
+        // Map common aliases to their proper schema column names
+        if (payload.cr3ea_lineid && !payload.cr3ea_lineno) payload.cr3ea_lineno = payload.cr3ea_lineid;
+        if (payload.cr3ea_food_safety_cycle && !payload.cr3ea_cycle) payload.cr3ea_cycle = payload.cr3ea_food_safety_cycle;
+        if (payload.cr3ea_ccp_oprp_sieves_productvariety && !payload.cr3ea_runningvariety) payload.cr3ea_runningvariety = payload.cr3ea_ccp_oprp_sieves_productvariety;
+
+        for (const key of Object.keys(payload)) {
+            if (validSet.has(key)) {
+                clean[key] = payload[key];
+            }
+        }
+        return clean;
     },
 
     // Resolves current server-relative site URL based on environment (DEV, UAT, PROD)

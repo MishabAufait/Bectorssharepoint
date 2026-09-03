@@ -71,7 +71,10 @@ const PKGOPS_StateMachine = {
 
     // Get active state based on Parent Tour entity data
     determineState: function (tourRecord) {
-        if (!tourRecord || !tourRecord.cr3ea_prod_rajpura_quality_tourid) {
+        const tourId = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId)
+            ? QualityRajpura_Config.getTourId(tourRecord)
+            : (tourRecord && (tourRecord.cr3ea_prod_rajpura_quality_tourid || tourRecord.cr3ea_rajpura_quality_tourid));
+        if (!tourRecord || !tourId) {
             this.currentState = PKGOPS_States.SETUP;
             return this.currentState;
         }

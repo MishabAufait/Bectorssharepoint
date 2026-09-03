@@ -167,17 +167,25 @@ const ALC_DAL = {
             "Prefer": "return=representation"
         };
 
-        const payload = { ...sessionData };
+        const tourId = QualityRajpura_Config.getTourId(sessionData);
+        let payload = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.sanitizeParentTourPayload)
+            ? QualityRajpura_Config.sanitizeParentTourPayload(sessionData)
+            : { ...sessionData };
         let url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}`;
         let method = "POST";
 
-        const tourId = QualityRajpura_Config.getTourId(payload);
+        // Ensure non-existent schema properties are stripped before sending to Dataverse
+        delete payload.cr3ea_request_time;
+        delete payload.cr3ea_checklist_result;
+        delete payload.cr3ea_prod_rajpura_quality_tourid;
+        delete payload.cr3ea_rajpura_quality_tourid;
+        delete payload.cr3ea_prod_rajpura_quality_toursid;
+        delete payload.cr3ea_rajpura_quality_toursid;
+
         if (tourId) {
             const cleanId = String(tourId).replace(/[{}]/g, "").trim().toLowerCase();
             url += `(${cleanId})`;
             method = "PATCH";
-            delete payload.cr3ea_prod_rajpura_quality_tourid;
-            delete payload.cr3ea_rajpura_quality_tourid;
         }
 
         // Ensure overall score is sent as a string (Dataverse schema defines it as Edm.String)
@@ -318,7 +326,7 @@ const ALC_DAL = {
             "OData-Version": "4.0"
         };
 
-        const filter = `?$filter=cr3ea_plantid eq '${QualityRajpura_Config.PLANT_ID}'&$orderby=cr3ea_tourstartdate desc&$top=50`;
+        const filter = `?$filter=(cr3ea_plantid eq '${QualityRajpura_Config.PLANT_ID}' or cr3ea_plantid eq 'Rajpura')&$orderby=cr3ea_tourstartdate desc&$top=50`;
         const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}${filter}`;
 
         const response = await this.fetchWithToken(url, {

@@ -141,7 +141,6 @@ const PKGOPS_QARequest = {
             cr3ea_lineno: line,
             cr3ea_shift: shift,
             cr3ea_assigned_qa: assignedQaEmail,
-            cr3ea_request_time: tourStartDate,
             cr3ea_escalation_contacts: escalationEmails.join(","),
             cr3ea_islineclear: false,
             cr3ea_pkgops_type: pkgOpsType
@@ -152,7 +151,9 @@ const PKGOPS_QARequest = {
             console.log("Saving Parent Tour session:", tourData);
             
             const savedTour = await PKGOPS_DAL.saveTour(tourData);
-            const tourId = savedTour.cr3ea_prod_rajpura_quality_tourid;
+            const tourId = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId)
+                ? QualityRajpura_Config.getTourId(savedTour)
+                : (savedTour && (savedTour.cr3ea_prod_rajpura_quality_tourid || savedTour.cr3ea_rajpura_quality_tourid));
             
             // Trigger notification
             if (typeof ALC_Notification !== "undefined") {

@@ -165,10 +165,20 @@ const PKGOPS_DAL = {
             "Prefer": "return=representation"
         };
 
+        const tourId = QualityRajpura_Config.getTourId(tourData);
+        let payload = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.sanitizeParentTourPayload)
+            ? QualityRajpura_Config.sanitizeParentTourPayload(tourData)
+            : { ...tourData };
+        delete payload.cr3ea_request_time;
+        delete payload.cr3ea_checklist_result;
+        delete payload.cr3ea_prod_rajpura_quality_tourid;
+        delete payload.cr3ea_rajpura_quality_tourid;
+        delete payload.cr3ea_prod_rajpura_quality_toursid;
+        delete payload.cr3ea_rajpura_quality_toursid;
+
         let url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}`;
         let method = "POST";
 
-        const tourId = QualityRajpura_Config.getTourId(tourData);
         if (tourId) {
             url += `(${tourId})`;
             method = "PATCH";
@@ -177,7 +187,7 @@ const PKGOPS_DAL = {
         const response = await this.fetchWithToken(url, {
             method: method,
             headers: headers,
-            body: JSON.stringify(tourData)
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
@@ -211,7 +221,7 @@ const PKGOPS_DAL = {
             "OData-Version": "4.0"
         };
 
-        const filter = `?$filter=cr3ea_plantid eq '${QualityRajpura_Config.PLANT_ID}'&$orderby=cr3ea_tourstartdate desc&$top=${topCount}`;
+        const filter = `?$filter=(cr3ea_plantid eq '${QualityRajpura_Config.PLANT_ID}' or cr3ea_plantid eq 'Rajpura')&$orderby=cr3ea_tourstartdate desc&$top=${topCount}`;
         const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}${filter}`;
 
         const response = await this.fetchWithToken(url, { method: "GET", headers });

@@ -578,9 +578,7 @@ const MixingBaking_Checklist = {
                 cr3ea_status: "In Progress",
                 cr3ea_shift: MixingBaking_Main.state.shift || localStorage.getItem("shiftValue") || "Shift-1",
                 cr3ea_lineno: MixingBaking_Main.state.line || "Line 1",
-                cr3ea_lineid: MixingBaking_Main.state.line || "Line 1",
                 cr3ea_plantid: QualityRajpura_Config.PLANT_ID,
-                cr3ea_departmentid: typeof userDepratmentId !== 'undefined' && userDepratmentId ? String(userDepratmentId) : QualityRajpura_Config.QUALITY_DEPT_IDS[0],
                 cr3ea_title: `MixingBaking_${lineLabel}_Cycle-${cycleNum}_${moment().format('DD-MM-YYYY')}`
             };
 
@@ -592,7 +590,9 @@ const MixingBaking_Checklist = {
                 // If it does not exist (action=new), create it now!
                 parentPayload.cr3ea_tourstartdate = new Date().toISOString();
                 const savedTour = await MixingBaking_DAL.saveTourSession(parentPayload);
-                generatedGUID = savedTour.cr3ea_prod_rajpura_quality_tourid;
+                generatedGUID = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId)
+                    ? QualityRajpura_Config.getTourId(savedTour)
+                    : (savedTour && (savedTour.cr3ea_prod_rajpura_quality_tourid || savedTour.cr3ea_rajpura_quality_tourid));
                 MixingBaking_Main.state.varTourID = generatedGUID;
                 console.log("Parent Tour created successfully on start session. GUID resolved:", generatedGUID);
             }

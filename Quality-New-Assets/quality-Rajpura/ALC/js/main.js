@@ -260,7 +260,9 @@ const ALC_Main = {
                     : '<span class="badge badge-error" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">No</span>';
 
                 let actionBtnHtml = "";
-                const tourId = session.cr3ea_prod_rajpura_quality_tourid;
+                const tourId = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId)
+                    ? QualityRajpura_Config.getTourId(session)
+                    : (session.cr3ea_prod_rajpura_quality_tourid || session.cr3ea_rajpura_quality_tourid || session.cr3ea_prod_rajpura_quality_toursid || session.cr3ea_rajpura_quality_toursid || "");
 
                 if (this.userRole === ALC_ROLES.QUALITY) {
                     if (status === "Pending QA") {

@@ -51,7 +51,12 @@ const FoodSafety_Summary = {
             
             // 1. Fetch Tour History to find parent record details
             const tours = await FoodSafety_DAL.getTourHistory();
-            const parent = tours.find(t => String(t.cr3ea_prod_rajpura_quality_tourid).replace(/[{}]/g, "").trim().toLowerCase() === cleanTourId);
+            const parent = tours.find(t => {
+                const tid = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId)
+                    ? QualityRajpura_Config.getTourId(t)
+                    : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                return tid && String(tid).replace(/[{}]/g, "").trim().toLowerCase() === cleanTourId;
+            });
             
             if (!parent) {
                 throw new Error(`Tour session with ID ${tourId} not found in quality tours log.`);

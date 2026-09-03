@@ -302,10 +302,19 @@ const CCP_OPRP_DAL = {
             return normalizeTourRecord(tourData);
         }
 
+        const payload = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.sanitizeParentTourPayload)
+            ? QualityRajpura_Config.sanitizeParentTourPayload(tourData)
+            : { ...tourData };
+        delete payload.cr3ea_prod_rajpura_quality_tourid;
+        delete payload.cr3ea_rajpura_quality_tourid;
+        delete payload.cr3ea_prod_rajpura_quality_toursid;
+        delete payload.cr3ea_rajpura_quality_toursid;
+        delete payload.cr3ea_ccp_oprp_sieves_productvariety;
+
         const response = await this.fetchWithToken(url, {
             method: method,
             headers: headers,
-            body: JSON.stringify(tourData)
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {

@@ -342,15 +342,19 @@ const MixingBaking_DAL = {
         let method = "POST";
 
         // Check if updating
-        if (record.cr3ea_prod_rajpura_mixingandbakingid) {
-            url += `(${record.cr3ea_prod_rajpura_mixingandbakingid})`;
+        const existingCycleId = record.cr3ea_prod_rajpura_mixingandbakingid || record.cr3ea_rajpura_mixingandbakingid;
+        const payload = { ...record };
+        if (existingCycleId) {
+            url += `(${existingCycleId})`;
             method = "PATCH";
+            delete payload.cr3ea_prod_rajpura_mixingandbakingid;
+            delete payload.cr3ea_rajpura_mixingandbakingid;
         }
 
         const response = await this.fetchWithToken(url, {
             method: method,
             headers: headers,
-            body: JSON.stringify(record)
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
@@ -361,7 +365,13 @@ const MixingBaking_DAL = {
         if (method === "PATCH") {
             return record;
         } else {
-            return await response.json();
+            const data = await response.json();
+            const childId = data.cr3ea_prod_rajpura_mixingandbakingid || data.cr3ea_rajpura_mixingandbakingid;
+            if (childId) {
+                data.cr3ea_prod_rajpura_mixingandbakingid = childId;
+                data.cr3ea_rajpura_mixingandbakingid = childId;
+            }
+            return data;
         }
     },
 
@@ -548,10 +558,20 @@ const MixingBaking_DAL = {
             return normalizeTourRecord(tourData);
         }
 
+        const payload = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.sanitizeParentTourPayload)
+            ? QualityRajpura_Config.sanitizeParentTourPayload(tourData)
+            : { ...tourData };
+        delete payload.cr3ea_prod_rajpura_quality_tourid;
+        delete payload.cr3ea_rajpura_quality_tourid;
+        delete payload.cr3ea_prod_rajpura_quality_toursid;
+        delete payload.cr3ea_rajpura_quality_toursid;
+        delete payload.cr3ea_lineid;
+        delete payload.cr3ea_departmentid;
+
         const response = await this.fetchWithToken(url, {
             method: method,
             headers: headers,
-            body: JSON.stringify(tourData)
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {

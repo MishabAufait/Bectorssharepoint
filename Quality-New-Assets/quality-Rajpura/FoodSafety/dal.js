@@ -209,10 +209,22 @@ const FoodSafety_DAL = {
             return normalizeTourRecord(tourData);
         }
 
+        const payload = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.sanitizeParentTourPayload)
+            ? QualityRajpura_Config.sanitizeParentTourPayload(tourData)
+            : { ...tourData };
+        delete payload.cr3ea_prod_rajpura_quality_tourid;
+        delete payload.cr3ea_rajpura_quality_tourid;
+        delete payload.cr3ea_prod_rajpura_quality_toursid;
+        delete payload.cr3ea_rajpura_quality_toursid;
+        delete payload.cr3ea_lineid;
+        delete payload.cr3ea_food_safety_cycle;
+        delete payload.cr3ea_request_time;
+        delete payload.cr3ea_checklist_result;
+
         const response = await this.fetchWithToken(url, {
             method: method,
             headers: headers,
-            body: JSON.stringify(tourData)
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
@@ -320,7 +332,7 @@ const FoodSafety_DAL = {
             "OData-Version": "4.0"
         };
 
-        const filter = `?$filter=cr3ea_plantid eq '${QualityRajpura_Config.PLANT_ID}'&$orderby=cr3ea_tourstartdate desc&$top=100`;
+        const filter = `?$filter=(cr3ea_plantid eq '${QualityRajpura_Config.PLANT_ID}' or cr3ea_plantid eq 'Rajpura')&$orderby=cr3ea_tourstartdate desc&$top=100`;
         const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}${filter}`;
 
         const response = await this.fetchWithToken(url, {
@@ -355,7 +367,7 @@ const FoodSafety_DAL = {
         };
 
         const cleanTourId = tourId ? String(tourId).replace(/[{}]/g, "").trim().toLowerCase() : "";
-        const filter = `?$filter=_cr3ea_qualitytourid_value eq '${cleanTourId}' or cr3ea_qualitytourid/cr3ea_prod_rajpura_quality_tourid eq '${cleanTourId}' or cr3ea_qualitytourid/cr3ea_rajpura_quality_tourid eq '${cleanTourId}' or cr3ea_rajpura_quality_tour/cr3ea_prod_rajpura_quality_tourid eq '${cleanTourId}' or cr3ea_rajpura_quality_tour/cr3ea_rajpura_quality_tourid eq '${cleanTourId}' or _cr3ea_rajpura_quality_tour_value eq '${cleanTourId}' or _cr3ea_food_safety_tourid_value eq '${cleanTourId}' or cr3ea_food_safety_tourid/cr3ea_prod_rajpura_quality_tourid eq '${cleanTourId}' or cr3ea_food_safety_tourid/cr3ea_rajpura_quality_tourid eq '${cleanTourId}' or cr953_food_safety_tourid/cr3ea_prod_rajpura_quality_tourid eq '${cleanTourId}' or cr953_food_safety_tourid/cr3ea_rajpura_quality_tourid eq '${cleanTourId}'`;
+        const filter = `?$filter=_cr3ea_qualitytourid_value eq '${cleanTourId}'`;
         const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}${filter}`;
 
         const response = await this.fetchWithToken(url, {
