@@ -33,11 +33,72 @@ $(document).ready(function () {
 const ALC_Dashboard = {
     qaList: [],
     selectedCategory: (() => {
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const rawParam = urlParams.get("ChecklistName") || 
+                             urlParams.get("checklistname") || 
+                             urlParams.get("ChecklistType") || 
+                             urlParams.get("checklisttype") || 
+                             urlParams.get("ParentChecklistType") || 
+                             urlParams.get("parentchecklisttype") || 
+                             urlParams.get("Checklist") || 
+                             urlParams.get("checklist") || 
+                             urlParams.get("category") || 
+                             urlParams.get("cat");
+            if (rawParam) {
+                const norm = rawParam.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+                if (norm.includes("foodsafety") || norm === "foodsafety" || norm.includes("food")) return "FoodSafety";
+                if (norm.includes("arealineclearance") || norm === "alc" || norm.includes("lineclearance")) return "ALC";
+                if (norm.includes("ccp") || norm.includes("oprp") || norm.includes("sieve") || norm.includes("magnet")) return "CCP_OPRP_Sieves";
+                if (norm.includes("mixing") || norm.includes("baking")) return "MixingAndBaking";
+                if (norm.includes("packaging") || norm.includes("pkgops") || norm.includes("packagingoperations")) return "PackagingOperations";
+            }
+        } catch (e) {}
+
         const val = localStorage.getItem("lastVisitedDashboard");
         const valid = ["ALC", "FoodSafety", "CCP_OPRP_Sieves", "MixingAndBaking", "PackagingOperations"];
         return valid.includes(val) ? val : "ALC";
     })(),
     allToursRaw: [],
+
+    resolveCategoryFromUrl: function () {
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const rawParam = urlParams.get("ChecklistName") || 
+                             urlParams.get("checklistname") || 
+                             urlParams.get("ChecklistType") || 
+                             urlParams.get("checklisttype") || 
+                             urlParams.get("ParentChecklistType") || 
+                             urlParams.get("parentchecklisttype") || 
+                             urlParams.get("Checklist") || 
+                             urlParams.get("checklist") || 
+                             urlParams.get("category") || 
+                             urlParams.get("cat");
+                             
+            if (!rawParam) return null;
+
+            const normalized = rawParam.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+            
+            if (normalized.includes("foodsafety") || normalized === "foodsafety" || normalized.includes("food")) {
+                return "FoodSafety";
+            }
+            if (normalized.includes("arealineclearance") || normalized === "alc" || normalized.includes("lineclearance")) {
+                return "ALC";
+            }
+            if (normalized.includes("ccp") || normalized.includes("oprp") || normalized.includes("sieve") || normalized.includes("magnet")) {
+                return "CCP_OPRP_Sieves";
+            }
+            if (normalized.includes("mixing") || normalized.includes("baking")) {
+                return "MixingAndBaking";
+            }
+            if (normalized.includes("packaging") || normalized.includes("pkgops") || normalized.includes("packagingoperations")) {
+                return "PackagingOperations";
+            }
+        } catch (e) {
+            console.warn("Error parsing checklist category from URL:", e);
+        }
+        return null;
+    },
 
     loadConfig: async function () {
         try {
@@ -190,7 +251,13 @@ const ALC_Dashboard = {
 
             // 4. Strict Rajpura Quality qualification
             const isRajpuraQuality = isPlantRajpura && isQualityDept;
-            const isRajpuraAuthorized = isPlantRajpura && (isQualityDept || isProdDept);
+            let isRajpuraAuthorized = isPlantRajpura && (isQualityDept || isProdDept);
+
+            // If a specific checklist category was requested via URL query param (e.g. from email notification), authorize dashboard activation
+            const urlCategory = ALC_Dashboard.resolveCategoryFromUrl();
+            if (urlCategory) {
+                isRajpuraAuthorized = true;
+            }
 
             console.log(`Evaluating Dashboard: Plant=${plant}, SelectedDept=${deptId}, isPlantRajpura=${isPlantRajpura}, isRajpuraQuality=${isRajpuraQuality}, isRajpuraAuthorized=${isRajpuraAuthorized}`);
 
@@ -257,6 +324,13 @@ const ALC_Dashboard = {
                 return;
             }
 
+            // If URL specified a checklist category, ensure it is active
+            const urlCategory = ALC_Dashboard.resolveCategoryFromUrl();
+            if (urlCategory) {
+                ALC_Dashboard.selectedCategory = urlCategory;
+                localStorage.setItem("lastVisitedDashboard", urlCategory);
+            }
+
             // 1. Hide generic default dashboards and prevent horizontal overflow
             $('#ShowObservation').hide();
             $('#tblTourScores, #tblOpenObservationInner, #divtblDepartmentScores, .tblTourScores').hide();
@@ -311,6 +385,16 @@ const ALC_Dashboard = {
 
             // 5. Load all tours and split them
             await ALC_Dashboard.loadAllTours();
+
+            // Smooth scroll to dashboard if opened via URL query parameter
+            if (urlCategory) {
+                setTimeout(() => {
+                    const dashboardEl = document.getElementById("rajpuraQualityDashboard");
+                    if (dashboardEl) {
+                        dashboardEl.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }
+                }, 300);
+            }
         } catch (e) {
             console.error("Error in activateDashboard: ", e);
         }

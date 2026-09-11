@@ -116,7 +116,16 @@ const ALC_StateMachine = {
                     }
                     const escalationPanel = document.getElementById("escalation-alert-panel");
                     if (escalationPanel) {
-                        escalationPanel.innerHTML = `<strong>ESCALATION LOGGED:</strong> QA Executive did not accept the request within the 5-minute limit. This request has been escalated. QA acceptance is locked. The Shift Executive who started the tour can reassign the QA Executive to restart the inspection.`;
+                        escalationPanel.innerHTML = `
+                            <div style="font-size: 14px; margin-bottom: 12px;">
+                                <strong>ESCALATION LOGGED:</strong> QA Executive did not accept the request within the 5-minute limit. This request has been escalated. QA acceptance is locked. The Shift Executive who started the tour can reassign the QA Executive to restart the inspection.
+                            </div>
+                            <div>
+                                <button type="button" class="bs-btn bs-btn-primary" onclick="ALC_Main.reassignQaExecutive()" style="padding: 8px 18px; font-weight: 600; font-size: 14px; cursor: pointer; border-radius: 4px; display: inline-flex; align-items: center; gap: 6px;">
+                                    <i class="fa fa-refresh"></i> Reassign QA Executive &amp; Restart Request
+                                </button>
+                            </div>
+                        `;
                     }
                     const acceptBtn = document.getElementById("btn-accept-request");
                     if (acceptBtn) {

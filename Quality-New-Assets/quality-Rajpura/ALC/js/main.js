@@ -504,12 +504,40 @@ const ALC_Main = {
 
         // Determine if the current user is the shift executive on this tour (case-insensitive, trimmed comparison)
         const currentUserName = (typeof currentUser !== "undefined" ? currentUser : "").trim().toLowerCase();
-        const currentUserLogin = (typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : "").trim().toLowerCase();
+        const currentUserLogin = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName ? _spPageContextInfo.userDisplayName : "").trim().toLowerCase();
+        const currentUserEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail ? _spPageContextInfo.userEmail : (typeof currentUserEmail !== 'undefined' ? currentUserEmail : "")).trim().toLowerCase();
+        const currentUserLoginName = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userLoginName ? _spPageContextInfo.userLoginName : "").trim().toLowerCase();
         const shiftExecDb = (session && session.cr3ea_shiftexecutiveproduction ? session.cr3ea_shiftexecutiveproduction : "").trim().toLowerCase();
 
-        const isShiftExec = shiftExecDb && (
+        const cleanUserToken = (val) => {
+            if (!val) return "";
+            let s = String(val).toLowerCase().trim();
+            if (s.includes("\\")) s = s.split("\\").pop();
+            if (s.includes("|")) s = s.split("|").pop();
+            if (s.includes("@")) s = s.split("@")[0];
+            return s.trim();
+        };
+
+        const shiftExecToken = cleanUserToken(shiftExecDb);
+        const nameToken = cleanUserToken(currentUserName);
+        const loginToken = cleanUserToken(currentUserLogin);
+        const emailToken = cleanUserToken(currentUserEmail);
+        const loginNameToken = cleanUserToken(currentUserLoginName);
+
+        const isShiftExec = !shiftExecDb || (
             shiftExecDb === currentUserName ||
-            shiftExecDb === currentUserLogin
+            shiftExecDb === currentUserLogin ||
+            shiftExecDb === currentUserEmail ||
+            shiftExecDb === currentUserLoginName ||
+            (shiftExecToken && (
+                shiftExecToken === nameToken ||
+                shiftExecToken === loginToken ||
+                shiftExecToken === emailToken ||
+                shiftExecToken === loginNameToken
+            )) ||
+            (currentUserEmail && shiftExecDb.includes(currentUserEmail)) ||
+            (currentUserLogin && shiftExecDb.includes(currentUserLogin)) ||
+            (currentUserName && shiftExecDb.includes(currentUserName))
         );
 
         // Update granular flags dynamically based on the session executive
@@ -614,49 +642,6 @@ const ALC_Main = {
 
             const hasAcceptAction = ALC_StateMachine.isQaUser;
             ALC_StateMachine.isReadOnly = !hasAcceptAction;
-
-            // Check if current user is an escalation manager for this tour
-            const currentUserEmail = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userEmail : "";
-            const currentUserName = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : "";
-            const escalationContactsStr = session.cr3ea_escalation_contacts || "";
-            const escalationEmails = escalationContactsStr.toLowerCase().split(",").map(e => e.trim());
-
-            // Also resolve from config row matching QA email (since Escalation Manager is multiperson select)
-            const qaEmailVal = (session.cr3ea_assigned_qa || session.cr3ea_tourby || "").toLowerCase().trim();
-            try {
-                const configList = await ALC_DAL.getConfig();
-                if (qaEmailVal && configList) {
-                    const matchConfig = configList.find(c =>
-                        c.AssignedUser && c.AssignedUser.results &&
-                        c.AssignedUser.results.some(u => u.EMail && u.EMail.toLowerCase().trim() === qaEmailVal)
-                    );
-                    if (matchConfig && matchConfig.EscalationManager && matchConfig.EscalationManager.results) {
-                        matchConfig.EscalationManager.results.forEach(m => {
-                            if (m.EMail) {
-                                const emailLower = m.EMail.toLowerCase().trim();
-                                if (!escalationEmails.includes(emailLower)) {
-                                    escalationEmails.push(emailLower);
-                                }
-                            }
-                        });
-                    }
-                }
-            } catch (e) {
-                console.error("Failed to fetch config list for main.js escalation check:", e);
-            }
-
-            const isUserEscalationManager = currentUserEmail && escalationEmails.includes(currentUserEmail.toLowerCase().trim());
-            const isUserEscalationManagerByName = currentUserName && escalationEmails.some(email => email.includes(currentUserName.toLowerCase().trim()));
-
-            const isEscalationManagerForThisTour = isUserEscalationManager || isUserEscalationManagerByName;
-
-            // If the user is the escalation manager, override routing to show the request details in read-only mode
-            if (isEscalationManagerForThisTour) {
-                ALC_StateMachine.isReadOnly = true;
-                ALC_StateMachine.init(this.userRole, ALC_STATES.INIT_PRODUCTION, this.currentTourId);
-                await ALC_QARequest.init();
-                return;
-            }
 
             ALC_StateMachine.init(this.userRole, ALC_STATES.PENDING_QA_ACCEPTANCE, this.currentTourId);
             ALC_QARequest.startTimer(ALC_QARequest.requestTimeResolved || session.cr3ea_tourstartdate || session.cr3ea_request_time, session.cr3ea_tourby);
@@ -917,6 +902,30 @@ const ALC_Main = {
 
         // Step 13 QA Re-verification submit
         bindClick("btn-submit-reverification", () => ALC_ReVerification.submitReverification());
+    },
+
+    // Reassign QA Executive and restart inspection request for an escalated tour
+    reassignQaExecutive: async function () {
+        console.log("ALC_Main: Reassigning QA Executive for tour:", this.currentTourId);
+        
+        if (typeof ALC_QARequest !== "undefined" && ALC_QARequest.timerInterval) {
+            clearInterval(ALC_QARequest.timerInterval);
+        }
+
+        ALC_StateMachine.isProductionUser = true;
+        ALC_StateMachine.isReadOnly = false;
+
+        ALC_StateMachine.init(this.userRole, ALC_STATES.INIT_PRODUCTION, this.currentTourId);
+        await ALC_QARequest.init();
+
+        const submitReqBtn = document.getElementById("btn-submit-request");
+        if (submitReqBtn) {
+            submitReqBtn.style.display = "block";
+            const wrapper = submitReqBtn.closest(".tour-cyle-btn-wrapper");
+            if (wrapper) wrapper.style.display = "flex";
+        }
+
+        window.scrollTo({ top: 0, behavior: "smooth" });
     }
 };
 

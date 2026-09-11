@@ -41,7 +41,7 @@ const ALC_Notification = {
         if (!session) {
             return {
                 prefix: "ALC_",
-                parentType: "Area Line Clearance",
+                parentType: "Area_Line_Clearance",
                 type: "Area Line Clearance"
             };
         }
@@ -52,14 +52,14 @@ const ALC_Notification = {
         if (session.cr3ea_pkgops_type) {
             return {
                 prefix: "PKGOPS_",
-                parentType: "Packaging Operations",
+                parentType: "Packaging_Operations",
                 type: session.cr3ea_pkgops_type
             };
         }
         if (title.startsWith("pkgops_") || title.includes("pkgops")) {
             return {
                 prefix: "PKGOPS_",
-                parentType: "Packaging Operations",
+                parentType: "Packaging_Operations",
                 type: "Packaging Operations"
             };
         }
@@ -68,7 +68,7 @@ const ALC_Notification = {
         if (session.cr3ea_food_safety_checklisttype) {
             return {
                 prefix: "FOODSAFETY_",
-                parentType: "Food Safety Checklist",
+                parentType: "Food_Safety",
                 type: session.cr3ea_food_safety_checklisttype
             };
         }
@@ -79,7 +79,7 @@ const ALC_Notification = {
             else if (title.includes("pci_")) type = "PCI Checklist";
             return {
                 prefix: "FOODSAFETY_",
-                parentType: "Food Safety Checklist",
+                parentType: "Food_Safety",
                 type: type
             };
         }
@@ -88,26 +88,26 @@ const ALC_Notification = {
         if (session.cr3ea_ccp_oprp_sieves_parametertype) {
             return {
                 prefix: "CCP_",
-                parentType: "CCP, OPRP & Sieves Monitoring",
+                parentType: "CCP_OPRP_Sieves_Magnets",
                 type: session.cr3ea_ccp_oprp_sieves_parametertype
             };
         }
-        if (title.includes("ccp_") || title.includes("sieves_")) {
+        if (title.includes("ccp_") || title.includes("sieves_") || title.includes("sieves") || title.includes("magnet")) {
             let type = "CCP, OPRP & Sieves Monitoring";
-            if (title.includes("sieves_")) type = "Sieves & Magnets Monitoring";
-            else if (title.includes("ccp_")) type = "CCP & OPRP Checklist";
+            if (title.includes("sieves_") || title.includes("sieves") || title.includes("magnet")) type = "Sieves & Magnets Monitoring";
+            else if (title.includes("ccp_") || title.includes("oprp")) type = "CCP & OPRP Checklist";
             return {
                 prefix: "CCP_",
-                parentType: "CCP, OPRP & Sieves Monitoring",
+                parentType: "CCP_OPRP_Sieves_Magnets",
                 type: type
             };
         }
 
         // 4. Mixing & Baking
-        if (title.startsWith("mixingbaking_") || title.includes("mixingbaking")) {
+        if (title.startsWith("mixingbaking_") || title.includes("mixingbaking") || title.includes("mixing_baking") || title.includes("mixing") || title.includes("baking")) {
             return {
                 prefix: "MIXINGBAKING_",
-                parentType: "Mixing & Baking Checklist",
+                parentType: "Mixing_Baking",
                 type: "Mixing & Baking"
             };
         }
@@ -115,7 +115,7 @@ const ALC_Notification = {
         // 5. Default is Area Line Clearance (ALC)
         return {
             prefix: "ALC_",
-            parentType: "Area Line Clearance",
+            parentType: "Area_Line_Clearance",
             type: "Area Line Clearance"
         };
     },
@@ -323,6 +323,21 @@ const ALC_Notification = {
         const prodName = session.cr3ea_shiftexecutiveproduction || session.cr3ea_observedby || "Unknown";
         const prodEmail = this.resolveProductionExecutiveEmail(session);
 
+        let escList = Array.isArray(escalationEmails) && escalationEmails.length > 0
+            ? escalationEmails
+            : this.parseEscalationEmails(session);
+
+        const resolvedQaEmail = qaEmail || session.cr3ea_tourby || session.cr3ea_assigned_qa || "";
+
+        // Build recipient list: Escalation Managers are primary recipients, with Production Executive and QA Executive included
+        const recipients = [...escList];
+        if (prodEmail && !recipients.includes(prodEmail)) {
+            recipients.push(prodEmail);
+        }
+        if (resolvedQaEmail && !recipients.includes(resolvedQaEmail)) {
+            recipients.push(resolvedQaEmail);
+        }
+
         const meta = this.resolveChecklistMeta(session);
         const payload = {
             "Scenario": meta.prefix + "ESCALATION",
@@ -335,12 +350,15 @@ const ALC_Notification = {
             "NewProduct": session.cr3ea_runningvariety || "N/A",
             "ProductionExecutiveName": prodName,
             "ProductionExecutiveEmail": prodEmail,
-            "QAExecutiveEmail": qaEmail || session.cr3ea_tourby || session.cr3ea_assigned_qa || "",
+            "QAExecutiveEmail": resolvedQaEmail,
             "Score": "0.00",
             "Result": "Escalated",
             "IsPass": false,
-            "RecipientEmails": [qaEmail || session.cr3ea_tourby || session.cr3ea_assigned_qa].filter(Boolean),
-            "EscalationEmails": escalationEmails || []
+            "NotificationType": "Informational",
+            "ActionRequired": "None - Informational Only. Shift Executive can reassign QA Executive.",
+            "RecipientEmails": recipients.length > 0 ? recipients : [resolvedQaEmail].filter(Boolean),
+            "EscalationEmails": escList,
+            "Comments": "QA Executive did not accept the clearance request within the 5-minute limit. This notification is sent to the Escalation Manager for informational purposes only. No action is required from the Escalation Manager."
         };
         await this.sendNotificationFlow(payload);
     }

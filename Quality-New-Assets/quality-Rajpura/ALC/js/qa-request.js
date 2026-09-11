@@ -278,7 +278,16 @@ const ALC_QARequest = {
                 const escalationPanel = document.getElementById("escalation-alert-panel");
                 if (escalationPanel) {
                     escalationPanel.style.display = "block";
-                    escalationPanel.innerHTML = `<strong>ESCALATION LOGGED:</strong> QA Executive did not accept the request within the 5-minute limit. This request has been escalated and QA acceptance is locked. The Shift Executive who started the tour can reassign the QA Executive below to restart the tour.`;
+                    escalationPanel.innerHTML = `
+                        <div style="font-size: 14px; margin-bottom: 12px;">
+                            <strong>ESCALATION LOGGED:</strong> QA Executive did not accept the request within the 5-minute limit. This request has been escalated. QA acceptance is locked. The Shift Executive who started the tour can reassign the QA Executive to restart the inspection.
+                        </div>
+                        <div>
+                            <button type="button" class="bs-btn bs-btn-primary" onclick="ALC_Main.reassignQaExecutive()" style="padding: 8px 18px; font-weight: 600; font-size: 14px; cursor: pointer; border-radius: 4px; display: inline-flex; align-items: center; gap: 6px;">
+                                <i class="fa fa-refresh"></i> Reassign QA Executive &amp; Restart Request
+                            </button>
+                        </div>
+                    `;
                 }
                 const qaAcceptPanel = document.getElementById("qa-accept-panel");
                 if (qaAcceptPanel) qaAcceptPanel.style.display = "none";
@@ -585,11 +594,38 @@ const ALC_QARequest = {
         }
 
         try {
-            const configList = await ALC_DAL.getConfig();
-            const configRow = configList.find(c => c.Title === qaName || c.AssignedUser === qaName);
-            if (configRow && configRow.EscalationManager && configRow.EscalationManager.results) {
-                this.escalationEmailsResolved = configRow.EscalationManager.results.map(em => em.EMail);
-                return this.escalationEmailsResolved;
+            // First check if already resolved in qaMatrix
+            if (this.qaMatrix && this.qaMatrix.length > 0) {
+                const emails = [];
+                this.qaMatrix.forEach(row => {
+                    if (row.EscalationManager && row.EscalationManager.results) {
+                        row.EscalationManager.results.forEach(em => {
+                            if (em && em.EMail && !emails.includes(em.EMail)) {
+                                emails.push(em.EMail);
+                            }
+                        });
+                    }
+                });
+                if (emails.length > 0) {
+                    this.escalationEmailsResolved = emails;
+                    return emails;
+                }
+            }
+
+            const matrixList = await ALC_DAL.getQaShiftMatrix();
+            const emails = [];
+            (matrixList || []).forEach(row => {
+                if (row.EscalationManager && row.EscalationManager.results) {
+                    row.EscalationManager.results.forEach(em => {
+                        if (em && em.EMail && !emails.includes(em.EMail)) {
+                            emails.push(em.EMail);
+                        }
+                    });
+                }
+            });
+            if (emails.length > 0) {
+                this.escalationEmailsResolved = emails;
+                return emails;
             }
         } catch (e) {
             console.error("Failed to dynamically resolve escalation contacts:", e);
@@ -614,7 +650,16 @@ const ALC_QARequest = {
         const escalationPanel = document.getElementById("escalation-alert-panel");
         if (escalationPanel) {
             escalationPanel.style.display = "block";
-            escalationPanel.innerHTML = `<strong>ESCALATION LOGGED:</strong> QA Executive did not accept the request within the 5-minute limit. This request has been escalated. QA acceptance is locked. The Shift Executive who started the tour can reassign the QA Executive to restart the inspection.`;
+            escalationPanel.innerHTML = `
+                <div style="font-size: 14px; margin-bottom: 12px;">
+                    <strong>ESCALATION LOGGED:</strong> QA Executive did not accept the request within the 5-minute limit. This request has been escalated. QA acceptance is locked. The Shift Executive who started the tour can reassign the QA Executive to restart the inspection.
+                </div>
+                <div>
+                    <button type="button" class="bs-btn bs-btn-primary" onclick="ALC_Main.reassignQaExecutive()" style="padding: 8px 18px; font-weight: 600; font-size: 14px; cursor: pointer; border-radius: 4px; display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa fa-refresh"></i> Reassign QA Executive &amp; Restart Request
+                    </button>
+                </div>
+            `;
         }
 
         const timerDisplay = document.getElementById("escalation-timer");
@@ -646,7 +691,13 @@ const ALC_QARequest = {
                         ...session,
                         ...updatePayload
                     };
-                    const escalationEmails = this.escalationEmailsResolved || [];
+                    let escalationEmails = this.escalationEmailsResolved || [];
+                    if (escalationEmails.length === 0 && session.cr3ea_escalation_contacts) {
+                        escalationEmails = session.cr3ea_escalation_contacts.split(",").map(e => e.trim()).filter(Boolean);
+                    }
+                    if (escalationEmails.length === 0) {
+                        escalationEmails = await this.resolveEscalationContacts();
+                    }
                     const qaEmail = session.cr3ea_tourby || session.cr3ea_assigned_qa || "";
                     await ALC_Notification.sendEscalationNotification(mergedSession, qaEmail, escalationEmails);
                 }
