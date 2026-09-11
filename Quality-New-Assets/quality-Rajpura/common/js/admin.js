@@ -1261,7 +1261,7 @@ const Rajpura_Admin = {
                         </button>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                        <button type="button" id="admin-btn-seed-alc" class="admin-btn-secondary" style="font-size: 12px; padding: 6px 14px; display: inline-flex; align-items: center; gap: 5px; font-weight: 600; border-color: #93c5fd; color: #1d4ed8; background: #eff6ff; border-radius: 8px; cursor: pointer;" onclick="Rajpura_Admin.seedAlcMasterData()" title="Populate standard master records">
+                        <button type="button" id="admin-btn-seed-alc" class="admin-btn-secondary" style="font-size: 12px; padding: 6px 14px; display: inline-flex; align-items: center; gap: 5px; font-weight: 600; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; border-radius: 8px; cursor: not-allowed !important; opacity: 0.6; pointer-events: none;" disabled title="Seeding is disabled">
                             ⚡ Seed Master Data
                         </button>
                     </div>
@@ -1302,7 +1302,7 @@ const Rajpura_Admin = {
                         </button>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <button type="button" id="admin-btn-seed-pkg" class="admin-btn-secondary" style="font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 8px; border-color: #c084fc; color: #7e22ce; background: #faf5ff; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" onclick="Rajpura_Admin.seedPkgProductMasterData()" title="Populate standard Product Master records">
+                        <button type="button" id="admin-btn-seed-pkg" class="admin-btn-secondary" style="font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 8px; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none; display: inline-flex; align-items: center; gap: 5px;" disabled title="Seeding is disabled">
                             ⚡ Seed Products (1,105)
                         </button>
                     </div>
@@ -1360,7 +1360,7 @@ const Rajpura_Admin = {
                         </button>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <button type="button" id="admin-btn-seed-mb" class="admin-btn-secondary" style="font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 8px; border-color: #f87171; color: #dc2626; background: #fff5f5; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" onclick="Rajpura_Admin.seedMbRecipesMasterData()" title="Populate standard Master Product Recipes">
+                        <button type="button" id="admin-btn-seed-mb" class="admin-btn-secondary" style="font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 8px; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none; display: inline-flex; align-items: center; gap: 5px;" disabled title="Seeding is disabled">
                             ⚡ Seed Recipes (9)
                         </button>
                     </div>
@@ -1408,7 +1408,7 @@ const Rajpura_Admin = {
                         </button>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <button type="button" id="admin-btn-seed-ccp" class="admin-btn-secondary" style="font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 8px; border-color: #f59e0b; color: #b45309; background: #fffbeb; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" onclick="Rajpura_Admin.seedCcpProductMasterData()" title="Populate standard Product Master records">
+                        <button type="button" id="admin-btn-seed-ccp" class="admin-btn-secondary" style="font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 8px; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none; display: inline-flex; align-items: center; gap: 5px;" disabled title="Seeding is disabled">
                             ⚡ Seed Products (13)
                         </button>
                     </div>
@@ -1479,10 +1479,11 @@ const Rajpura_Admin = {
             const q = this.searchFilter.toLowerCase().trim();
             matrixRows = matrixRows.filter(r => {
                 const titleMatch = (r.title || "").toLowerCase().includes(q);
+                const lineMatch = (r.lineName || "").toLowerCase().includes(q);
                 const shiftMatch = (r.shiftCode || "").toLowerCase().includes(q) || (r.shiftName || "").toLowerCase().includes(q);
                 const userMatch = (r.assignedUsers || []).some(u => (u.title || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q));
                 const mgrMatch = (r.escalationManagers || []).some(m => (m.title || "").toLowerCase().includes(q) || (m.email || "").toLowerCase().includes(q));
-                return titleMatch || shiftMatch || userMatch || mgrMatch;
+                return titleMatch || lineMatch || shiftMatch || userMatch || mgrMatch;
             });
         }
 
@@ -1493,10 +1494,6 @@ const Rajpura_Admin = {
                         <h3 class="admin-panel-title">🛡️ QA Shift Assignment Matrix</h3>
                     </div>
                     <div class="admin-panel-actions">
-                        <div class="admin-search-wrapper">
-                            <span class="admin-search-icon">🔍</span>
-                            <input type="text" class="admin-search-input" placeholder="Search line, shift, or QA user..." value="${this.escapeHtml(this.searchFilter)}" oninput="Rajpura_Admin.onSearchInput(this.value)" />
-                        </div>
                         <button type="button" class="admin-btn-product-add" onclick="Rajpura_Admin.openAddAlcQaMatrixModal()">
                             ➕ Add Shift Assignment
                         </button>
@@ -1593,7 +1590,8 @@ const Rajpura_Admin = {
                 const titleMatch = (r.title || "").toLowerCase().includes(q);
                 const areaMatch = (r.area || "").toLowerCase().includes(q);
                 const userMatch = (r.assignedUsers || []).some(u => (u.title || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q));
-                return titleMatch || areaMatch || userMatch;
+                const mgrMatch = (r.escalationManagers || []).some(m => (m.title || "").toLowerCase().includes(q) || (m.email || "").toLowerCase().includes(q));
+                return titleMatch || areaMatch || userMatch || mgrMatch;
             });
         }
 
@@ -1602,12 +1600,6 @@ const Rajpura_Admin = {
                 <div class="admin-panel-header">
                     <div class="admin-panel-title-area">
                         <h3 class="admin-panel-title">🔍 Area Inspector Assignment (7 Factory Areas)</h3>
-                    </div>
-                    <div class="admin-panel-actions">
-                        <div class="admin-search-wrapper">
-                            <span class="admin-search-icon">🔍</span>
-                            <input type="text" class="admin-search-input" placeholder="Search area or inspector..." value="${this.escapeHtml(this.searchFilter)}" oninput="Rajpura_Admin.onSearchInput(this.value)" />
-                        </div>
                     </div>
                 </div>
 
@@ -1682,10 +1674,6 @@ const Rajpura_Admin = {
                         <h3 class="admin-panel-title">🏭 Production Line Master (8 Lines)</h3>
                     </div>
                     <div class="admin-panel-actions">
-                        <div class="admin-search-wrapper">
-                            <span class="admin-search-icon">🔍</span>
-                            <input type="text" class="admin-search-input" placeholder="Search line number or machine name..." value="${this.escapeHtml(this.searchFilter)}" oninput="Rajpura_Admin.onSearchInput(this.value)" />
-                        </div>
                         <button type="button" class="admin-btn-product-add" onclick="Rajpura_Admin.openAddAlcLineModal()">
                             ➕ Add Line
                         </button>
@@ -1727,9 +1715,6 @@ const Rajpura_Admin = {
                                             <button type="button" class="admin-btn-action" onclick="Rajpura_Admin.openEditAlcLineModal(${r.id})" title="Edit Line">
                                                 ✏️ Edit
                                             </button>
-                                            <button type="button" class="admin-btn-action" style="color: #dc2626;" onclick="Rajpura_Admin.confirmDeleteRow('ALC', ${r.id})" title="Delete Line">
-                                                🗑️
-                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -1755,7 +1740,7 @@ const Rajpura_Admin = {
 
         if (this.searchFilter.trim() !== "") {
             const q = this.searchFilter.toLowerCase().trim();
-            shiftRows = shiftRows.filter(r => (r.shiftCode || "").toLowerCase().includes(q) || (r.shiftName || "").toLowerCase().includes(q) || (r.title || "").toLowerCase().includes(q));
+            shiftRows = shiftRows.filter(r => (r.shiftCode || "").toLowerCase().includes(q) || (r.shiftName || "").toLowerCase().includes(q) || (r.title || "").toLowerCase().includes(q) || (r.shiftStart || "").toLowerCase().includes(q) || (r.shiftEnd || "").toLowerCase().includes(q));
         }
 
         return `
@@ -1765,10 +1750,6 @@ const Rajpura_Admin = {
                         <h3 class="admin-panel-title">⏰ Shift Master (4 Operating Shifts)</h3>
                     </div>
                     <div class="admin-panel-actions">
-                        <div class="admin-search-wrapper">
-                            <span class="admin-search-icon">🔍</span>
-                            <input type="text" class="admin-search-input" placeholder="Search shift code or name..." value="${this.escapeHtml(this.searchFilter)}" oninput="Rajpura_Admin.onSearchInput(this.value)" />
-                        </div>
                         <button type="button" class="admin-btn-product-add" onclick="Rajpura_Admin.openAddAlcShiftModal()">
                             ➕ Add Shift
                         </button>
@@ -1814,9 +1795,6 @@ const Rajpura_Admin = {
                                             <button type="button" class="admin-btn-action" onclick="Rajpura_Admin.openEditAlcShiftModal(${r.id})" title="Edit Shift">
                                                 ✏️ Edit
                                             </button>
-                                            <button type="button" class="admin-btn-action" style="color: #dc2626;" onclick="Rajpura_Admin.confirmDeleteRow('ALC', ${r.id})" title="Delete Shift">
-                                                🗑️
-                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -1842,7 +1820,7 @@ const Rajpura_Admin = {
 
         if (this.searchFilter.trim() !== "") {
             const q = this.searchFilter.toLowerCase().trim();
-            prodRows = prodRows.filter(r => (r.title || "").toLowerCase().includes(q) || (r.productCode || "").toLowerCase().includes(q));
+            prodRows = prodRows.filter(r => (r.title || "").toLowerCase().includes(q) || (r.productCode || "").toLowerCase().includes(q) || (r.productCategory || "").toLowerCase().includes(q));
         }
 
         return `
@@ -1852,10 +1830,6 @@ const Rajpura_Admin = {
                         <h3 class="admin-panel-title">📦 Changeover Product Catalogue</h3>
                     </div>
                     <div class="admin-panel-actions">
-                        <div class="admin-search-wrapper">
-                            <span class="admin-search-icon">🔍</span>
-                            <input type="text" class="admin-search-input" placeholder="Search product name or code..." value="${this.escapeHtml(this.searchFilter)}" oninput="Rajpura_Admin.onSearchInput(this.value)" />
-                        </div>
                         <button type="button" class="admin-btn-product-add" onclick="Rajpura_Admin.openAddAlcProductModal()">
                             ➕ Add Product
                         </button>
@@ -1940,7 +1914,7 @@ const Rajpura_Admin = {
                         <h3 class="admin-panel-title">📦 Product Master Catalogue <span class="admin-badge" id="pkg-product-counter-badge" style="font-size: 13px; font-weight: 600; color: #7c3aed; background: #f5f3ff; padding: 2px 10px; border-radius: 12px; border: 1px solid #ddd6fe; margin-left: 8px;">${allProducts.length} items</span></h3>
                     </div>
                     <div class="admin-panel-actions">
-                        <button type="button" id="admin-btn-seed-pkg-inline" class="admin-btn-secondary" style="font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 8px; border-color: #c084fc; color: #7e22ce; background: #faf5ff; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" onclick="Rajpura_Admin.seedPkgProductMasterData()" title="Populate 1,105 Product Master records to server">
+                        <button type="button" id="admin-btn-seed-pkg-inline" class="admin-btn-secondary" style="font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 8px; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none; display: inline-flex; align-items: center; gap: 6px;" disabled title="Seeding is disabled">
                             ⚡ Seed Products (1,105)
                         </button>
                         <button type="button" class="admin-btn-product-add" onclick="Rajpura_Admin.openAddPkgProductModal()">
@@ -1952,10 +1926,6 @@ const Rajpura_Admin = {
                 <!-- Dynamic Multi-Criteria Filter Bar -->
                 <div class="admin-dynamic-filter-bar">
                     <div class="admin-filter-group">
-                        <div class="admin-search-wrapper" style="min-width: 250px;">
-                            <span class="admin-search-icon">🔍</span>
-                            <input type="text" id="pkg-product-search-input" class="admin-search-input" placeholder="Search product name or code..." value="${this.escapeHtml(st.searchTerm)}" oninput="Rajpura_Admin.onPkgProductSearchInput(this.value)" />
-                        </div>
                         <div class="admin-filter-item">
                             <span class="admin-filter-label">Line:</span>
                             <select class="admin-filter-select" id="pkg-filter-line" onchange="Rajpura_Admin.onPkgLineFilterChange(this.value)">
@@ -2259,10 +2229,23 @@ const Rajpura_Admin = {
     onPkgProductSearchInput: function (val) {
         this.pkgProductState.searchTerm = val;
         this.pkgProductState.currentPage = 1;
+        const clearBtn = document.getElementById("pkg-product-search-clear");
+        if (clearBtn) clearBtn.style.display = val ? "inline-flex" : "none";
         if (this._pkgSearchTimeout) clearTimeout(this._pkgSearchTimeout);
         this._pkgSearchTimeout = setTimeout(() => {
             this.updatePkgProductTable();
         }, 120);
+    },
+
+    clearPkgProductSearch: function () {
+        this.pkgProductState.searchTerm = "";
+        this.pkgProductState.currentPage = 1;
+        const inp = document.getElementById("pkg-product-search-input");
+        if (inp) inp.value = "";
+        const clearBtn = document.getElementById("pkg-product-search-clear");
+        if (clearBtn) clearBtn.style.display = "none";
+        this.updatePkgProductTable();
+        if (inp) inp.focus();
     },
 
     onPkgLineFilterChange: function (val) {
@@ -2371,7 +2354,7 @@ const Rajpura_Admin = {
                         <h3 class="admin-panel-title">📦 Product Master Catalogue <span class="admin-badge" id="ccp-product-counter-badge" style="font-size: 13px; font-weight: 600; color: #d97706; background: #fffbeb; padding: 2px 10px; border-radius: 12px; border: 1px solid #fde68a; margin-left: 8px;">${allProducts.length} items</span></h3>
                     </div>
                     <div class="admin-panel-actions">
-                        <button type="button" id="admin-btn-seed-ccp-inline" class="admin-btn-secondary" style="font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 8px; border-color: #f59e0b; color: #b45309; background: #fffbeb; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" onclick="Rajpura_Admin.seedCcpProductMasterData()" title="Populate plant-wide Product Master records to server">
+                        <button type="button" id="admin-btn-seed-ccp-inline" class="admin-btn-secondary" style="font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 8px; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none; display: inline-flex; align-items: center; gap: 6px;" disabled title="Seeding is disabled">
                             ⚡ Seed Products (13)
                         </button>
                         <button type="button" class="admin-btn-product-add" style="background: #d97706; border-color: #d97706;" onclick="Rajpura_Admin.openAddCcpProductModal()">
@@ -2383,10 +2366,6 @@ const Rajpura_Admin = {
                 <!-- Dynamic Multi-Criteria Filter Bar -->
                 <div class="admin-dynamic-filter-bar">
                     <div class="admin-filter-group">
-                        <div class="admin-search-wrapper" style="min-width: 250px;">
-                            <span class="admin-search-icon">🔍</span>
-                            <input type="text" id="ccp-product-search-input" class="admin-search-input" placeholder="Search product name or code..." value="${this.escapeHtml(st.searchTerm)}" oninput="Rajpura_Admin.onCcpProductSearchInput(this.value)" />
-                        </div>
                         <div class="admin-filter-item">
                             <span class="admin-filter-label">Line:</span>
                             <select class="admin-filter-select" id="ccp-filter-line" onchange="Rajpura_Admin.onCcpLineFilterChange(this.value)">
@@ -2690,10 +2669,23 @@ const Rajpura_Admin = {
     onCcpProductSearchInput: function (val) {
         this.ccpProductState.searchTerm = val;
         this.ccpProductState.currentPage = 1;
+        const clearBtn = document.getElementById("ccp-product-search-clear");
+        if (clearBtn) clearBtn.style.display = val ? "inline-flex" : "none";
         if (this._ccpSearchTimeout) clearTimeout(this._ccpSearchTimeout);
         this._ccpSearchTimeout = setTimeout(() => {
             this.updateCcpProductTable();
         }, 120);
+    },
+
+    clearCcpProductSearch: function () {
+        this.ccpProductState.searchTerm = "";
+        this.ccpProductState.currentPage = 1;
+        const inp = document.getElementById("ccp-product-search-input");
+        if (inp) inp.value = "";
+        const clearBtn = document.getElementById("ccp-product-search-clear");
+        if (clearBtn) clearBtn.style.display = "none";
+        this.updateCcpProductTable();
+        if (inp) inp.focus();
     },
 
     onCcpLineFilterChange: function (val) {
@@ -2779,10 +2771,6 @@ const Rajpura_Admin = {
                         <h3 class="admin-panel-title">🏷️ SKU / Weight Master</h3>
                     </div>
                     <div class="admin-panel-actions">
-                        <div class="admin-search-wrapper">
-                            <span class="admin-search-icon">🔍</span>
-                            <input type="text" class="admin-search-input" placeholder="Search SKU weight (e.g. 50g)..." value="${this.escapeHtml(this.searchFilter)}" oninput="Rajpura_Admin.onSearchInput(this.value)" />
-                        </div>
                         <button type="button" class="admin-btn-product-add" onclick="Rajpura_Admin.openAddPkgSkuModal()">
                             ➕ Add SKU Weight
                         </button>
@@ -2818,9 +2806,6 @@ const Rajpura_Admin = {
                                         <div class="admin-product-actions">
                                             <button type="button" class="admin-btn-action" onclick="Rajpura_Admin.openEditPkgSkuModal(${r.id})" title="Edit SKU">
                                                 ✏️ Edit
-                                            </button>
-                                            <button type="button" class="admin-btn-action" style="color: #dc2626;" onclick="Rajpura_Admin.confirmDeleteRow('PackagingOperations', ${r.id})" title="Delete SKU">
-                                                🗑️
                                             </button>
                                         </div>
                                     </td>
@@ -2905,16 +2890,11 @@ const Rajpura_Admin = {
                             <label for="modal-line-active" style="cursor: pointer; font-size: 13.5px; font-weight: 500; margin: 0;">Is Active (Available in ALC dropdown)</label>
                         </div>
                     </div>
-                    <div class="admin-modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
-                        <button type="button" class="admin-btn-secondary" style="color: #dc2626; border-color: #fecaca; background: #fff5f5;" onclick="Rajpura_Admin.confirmDeleteRow('ALC', ${rowId})">
-                            🗑️ Delete Line
+                    <div class="admin-modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+                        <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
+                        <button type="button" class="admin-btn-primary" id="btn-save-line" onclick="Rajpura_Admin.saveAlcLine(${rowId})">
+                            💾 Save Changes
                         </button>
-                        <div style="display: flex; gap: 8px;">
-                            <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
-                            <button type="button" class="admin-btn-primary" id="btn-save-line" onclick="Rajpura_Admin.saveAlcLine(${rowId})">
-                                💾 Save Changes
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -3038,16 +3018,11 @@ const Rajpura_Admin = {
                             <label for="modal-shift-active" style="cursor: pointer; font-size: 13.5px; font-weight: 500; margin: 0;">Is Active</label>
                         </div>
                     </div>
-                    <div class="admin-modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
-                        <button type="button" class="admin-btn-secondary" style="color: #dc2626; border-color: #fecaca; background: #fff5f5;" onclick="Rajpura_Admin.confirmDeleteRow('ALC', ${rowId})">
-                            🗑️ Delete Shift
+                    <div class="admin-modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+                        <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
+                        <button type="button" class="admin-btn-primary" id="btn-save-shift" onclick="Rajpura_Admin.saveAlcShift(${rowId})">
+                            💾 Save Changes
                         </button>
-                        <div style="display: flex; gap: 8px;">
-                            <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
-                            <button type="button" class="admin-btn-primary" id="btn-save-shift" onclick="Rajpura_Admin.saveAlcShift(${rowId})">
-                                💾 Save Changes
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -3353,16 +3328,11 @@ const Rajpura_Admin = {
                             <label for="modal-matrix-active" style="cursor: pointer; font-size: 13.5px; font-weight: 500; margin: 0;">Is Active</label>
                         </div>
                     </div>
-                    <div class="admin-modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
-                        <button type="button" class="admin-btn-secondary" style="color: #dc2626; border-color: #fecaca; background: #fff5f5;" onclick="Rajpura_Admin.confirmDeleteRow('ALC', ${rowId})">
-                            🗑️ Delete Assignment
+                    <div class="admin-modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+                        <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
+                        <button type="button" class="admin-btn-primary" id="btn-save-matrix" onclick="Rajpura_Admin.saveAlcQaMatrix(${rowId})">
+                            💾 Save Changes
                         </button>
-                        <div style="display: flex; gap: 8px;">
-                            <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
-                            <button type="button" class="admin-btn-primary" id="btn-save-matrix" onclick="Rajpura_Admin.saveAlcQaMatrix(${rowId})">
-                                💾 Save Changes
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -3456,16 +3426,11 @@ const Rajpura_Admin = {
                             <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">Search from master EmployeeList to assign inspectors. Click &times; on chip to remove.</div>
                         </div>
                     </div>
-                    <div class="admin-modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
-                        <button type="button" class="admin-btn-secondary" style="color: #dc2626; border-color: #fecaca; background: #fff5f5;" onclick="Rajpura_Admin.confirmDeleteRow('ALC', ${rowId})">
-                            🗑️ Delete Area Card
+                    <div class="admin-modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+                        <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
+                        <button type="button" class="admin-btn-primary" id="btn-save-area" onclick="Rajpura_Admin.saveAlcAreaInspector(${rowId})">
+                            💾 Save Area Inspectors
                         </button>
-                        <div style="display: flex; gap: 8px;">
-                            <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
-                            <button type="button" class="admin-btn-primary" id="btn-save-area" onclick="Rajpura_Admin.saveAlcAreaInspector(${rowId})">
-                                💾 Save Area Inspectors
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -3724,16 +3689,11 @@ const Rajpura_Admin = {
                             <label for="modal-pkg-sku-active" style="cursor: pointer; font-size: 13.5px; font-weight: 500; margin: 0;">Is Active</label>
                         </div>
                     </div>
-                    <div class="admin-modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
-                        <button type="button" class="admin-btn-secondary" style="color: #dc2626; border-color: #fecaca; background: #fff5f5;" onclick="Rajpura_Admin.confirmDeleteRow('PackagingOperations', ${rowId})">
-                            🗑️ Delete SKU
+                    <div class="admin-modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+                        <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
+                        <button type="button" class="admin-btn-primary" id="btn-save-pkg-sku" onclick="Rajpura_Admin.savePkgSku(${rowId})">
+                            💾 Save Changes
                         </button>
-                        <div style="display: flex; gap: 8px;">
-                            <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
-                            <button type="button" class="admin-btn-primary" id="btn-save-pkg-sku" onclick="Rajpura_Admin.savePkgSku(${rowId})">
-                                💾 Save Changes
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -3793,14 +3753,10 @@ const Rajpura_Admin = {
             <div class="admin-panel-card">
                 <div class="admin-panel-header">
                     <div class="admin-panel-title-area">
-                        <h3 class="admin-panel-title">🍪 Product Recipes Master Catalogue <span style="font-size: 13px; font-weight: 600; color: #dc2626; background: #fff1f2; padding: 2px 10px; border-radius: 12px; border: 1px solid #fecdd3; margin-left: 8px;">${recipeRows.length}${this.searchFilter ? ` / ${totalCount}` : ''} items</span></h3>
+                        <h3 class="admin-panel-title">🍪 Product Recipes Master Catalogue <span style="font-size: 13px; font-weight: 600; color: #dc2626; background: #fff1f2; padding: 2px 10px; border-radius: 12px; border: 1px solid #fecdd3; margin-left: 8px;">${recipeRows.length} items</span></h3>
                     </div>
                     <div class="admin-panel-actions">
-                        <div class="admin-search-wrapper">
-                            <span class="admin-search-icon">🔍</span>
-                            <input type="text" class="admin-search-input" placeholder="Search product recipe, category, or parameter..." value="${this.escapeHtml(this.searchFilter)}" oninput="Rajpura_Admin.onSearchInput(this.value)" />
-                        </div>
-                        <button type="button" id="admin-btn-seed-mb-inline" class="admin-btn-secondary" style="font-size: 13px; font-weight: 700; padding: 7px 14px; border-radius: 8px; border-color: #f87171; color: #dc2626; background: #fff5f5; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" onclick="Rajpura_Admin.seedMbRecipesMasterData()" title="Populate standard Master Product Recipes">
+                        <button type="button" id="admin-btn-seed-mb-inline" class="admin-btn-secondary" style="font-size: 13px; font-weight: 700; padding: 7px 14px; border-radius: 8px; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none; display: inline-flex; align-items: center; gap: 6px;" disabled title="Seeding is disabled">
                             ⚡ Seed Recipes (9)
                         </button>
                         <button type="button" class="admin-btn-product-add" onclick="Rajpura_Admin.openAddMbRecipeModal()">
@@ -3868,9 +3824,6 @@ const Rajpura_Admin = {
                                             <button type="button" class="admin-btn-action" onclick="Rajpura_Admin.openEditMbRecipeModal(${r.id})" title="Edit Recipe Standards">
                                                 ✏️ Edit
                                             </button>
-                                            <button type="button" class="admin-btn-action" style="color: #dc2626;" onclick="Rajpura_Admin.confirmDeleteRow('MixingAndBaking', ${r.id})" title="Delete Recipe">
-                                                🗑️
-                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -3878,7 +3831,7 @@ const Rajpura_Admin = {
                             }).join("") : `
                                 <tr>
                                     <td colspan="6" style="text-align: center; padding: 36px; color: #64748b;">
-                                        No product recipes found. Click "+ Add Product Recipe" or "⚡ Seed Recipes (9)" to initialize standard recipes.
+                                        No product recipes found. Click "+ Add Product Recipe" to initialize standard recipes.
                                     </td>
                                 </tr>
                             `}
@@ -4268,18 +4221,11 @@ const Rajpura_Admin = {
                         </div>
                     </div>
 
-                    <div class="admin-modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
-                        ${isEdit ? `
-                            <button type="button" class="admin-btn-secondary" style="color: #dc2626; border-color: #fecaca; background: #fff5f5;" onclick="Rajpura_Admin.confirmDeleteRow('MixingAndBaking', ${rowId})">
-                                🗑️ Delete Recipe
-                            </button>
-                        ` : '<div></div>'}
-                        <div style="display: flex; gap: 8px;">
-                            <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
-                            <button type="button" class="admin-btn-primary" id="btn-save-mb-recipe" style="background: #dc2626; border-color: #dc2626;" onclick="Rajpura_Admin.saveMbRecipe(${rowId || 'null'})">
-                                💾 ${isEdit ? 'Save Recipe Changes' : 'Save Product Recipe'}
-                            </button>
-                        </div>
+                    <div class="admin-modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+                        <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
+                        <button type="button" class="admin-btn-primary" id="btn-save-mb-recipe" style="background: #dc2626; border-color: #dc2626;" onclick="Rajpura_Admin.saveMbRecipe(${rowId || 'null'})">
+                            💾 ${isEdit ? 'Save Recipe Changes' : 'Save Product Recipe'}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -4645,11 +4591,9 @@ const Rajpura_Admin = {
     },
 
     seedMbRecipesMasterData: async function () {
-        const btn = document.getElementById("admin-btn-seed-mb") || document.getElementById("admin-btn-seed-mb-inline");
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = `⏳ Seeding 9 Master Recipes to SharePoint...`;
-        }
+        console.warn("Seeding functionality is disabled in the admin panel.");
+        this.showToast("Seeding master data is currently disabled.", "warning");
+        return;
 
         const siteUrl = this.getSiteUrl();
         const listName = "Quality-Rajpura-MixingBaking";
@@ -4761,12 +4705,9 @@ const Rajpura_Admin = {
      * Seeds initial 1,105 Product Master records into SharePoint list: Quality-Rajpura-PackagingOperations.
      */
     seedPkgProductMasterData: async function () {
-        const btn1 = document.getElementById("admin-btn-seed-pkg");
-        const btn2 = document.getElementById("admin-btn-seed-pkg-inline");
-        const updateBtns = (text, disabled) => {
-            if (btn1) { btn1.innerHTML = text; btn1.disabled = disabled; }
-            if (btn2) { btn2.innerHTML = text; btn2.disabled = disabled; }
-        };
+        console.warn("Seeding functionality is disabled in the admin panel.");
+        this.showToast("Seeding master data is currently disabled.", "warning");
+        return;
 
         let rawSeedList = (typeof PKG_PRODUCTS_SEED_DATA !== "undefined" && Array.isArray(PKG_PRODUCTS_SEED_DATA) && PKG_PRODUCTS_SEED_DATA.length > 0)
             ? PKG_PRODUCTS_SEED_DATA
@@ -5151,12 +5092,9 @@ const Rajpura_Admin = {
      * Seeds initial 13 Plant-Wide Product Master records into SharePoint list: Quality-Rajpura-CCPOPRP.
      */
     seedCcpProductMasterData: async function () {
-        const btn1 = document.getElementById("admin-btn-seed-ccp");
-        const btn2 = document.getElementById("admin-btn-seed-ccp-inline");
-        const updateBtns = (text, disabled) => {
-            if (btn1) { btn1.innerHTML = text; btn1.disabled = disabled; }
-            if (btn2) { btn2.innerHTML = text; btn2.disabled = disabled; }
-        };
+        console.warn("Seeding functionality is disabled in the admin panel.");
+        this.showToast("Seeding master data is currently disabled.", "warning");
+        return;
 
         let rawSeedList = (typeof CCP_PRODUCTS_SEED_DATA !== "undefined" && Array.isArray(CCP_PRODUCTS_SEED_DATA) && CCP_PRODUCTS_SEED_DATA.length > 0)
             ? CCP_PRODUCTS_SEED_DATA
@@ -5547,11 +5485,9 @@ const Rajpura_Admin = {
      * Product Catalogue, and QA Assignment Matrix into SharePoint list: Quality-Rajpura-ALC.
      */
     seedAlcMasterData: async function () {
-        const btn = document.getElementById("admin-btn-seed-alc");
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = `⏳ Populating Master Data...`;
-        }
+        console.warn("Seeding functionality is disabled in the admin panel.");
+        this.showToast("Seeding master data is currently disabled.", "warning");
+        return;
 
         const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
         const siteUrl = this.getSiteUrl();
@@ -5702,12 +5638,6 @@ const Rajpura_Admin = {
                 <div class="admin-panel-header">
                     <div class="admin-panel-title-area">
                         <h3 class="admin-panel-title">${form.name} &bull; User Assignments</h3>
-                    </div>
-                    <div class="admin-panel-actions">
-                        <div class="admin-search-wrapper">
-                            <span class="admin-search-icon">🔍</span>
-                            <input type="text" class="admin-search-input" placeholder="Search role, user, or line..." value="${this.escapeHtml(this.searchFilter)}" oninput="Rajpura_Admin.onSearchInput(this.value)" />
-                        </div>
                     </div>
                 </div>
 
@@ -5946,10 +5876,6 @@ const Rajpura_Admin = {
 
                     <!-- Toolbar for Products -->
                     <div class="admin-product-toolbar">
-                        <div class="admin-product-search-box">
-                            <span class="search-icon">🔍</span>
-                            <input type="text" id="adminProductSearchInput" class="admin-product-search-input" placeholder="Search product name, SKU, or code..." oninput="Rajpura_Admin.onProductSearch(this.value)" />
-                        </div>
                         <div class="admin-product-filters">
                             <select id="adminProductFilterLine" class="admin-product-filter-select" onchange="Rajpura_Admin.onProductFilterChange()">
                                 <option value="">All Production Lines</option>
@@ -6116,11 +6042,41 @@ const Rajpura_Admin = {
     },
 
     /**
-     * Search filter handler with debouncing
+     * Search filter handler with debouncing and seamless focus restoration
      */
     onSearchInput: function (val) {
         this.searchFilter = val;
+        if (this._searchDebounceTimer) clearTimeout(this._searchDebounceTimer);
+        this._searchDebounceTimer = setTimeout(() => {
+            const activeEl = document.activeElement;
+            const isSearchFocused = activeEl && activeEl.classList && activeEl.classList.contains("admin-search-input");
+            const cursorStart = isSearchFocused ? activeEl.selectionStart : null;
+            const cursorEnd = isSearchFocused ? activeEl.selectionEnd : null;
+
+            this.renderCurrentTab();
+
+            if (isSearchFocused) {
+                const newSearchInput = document.querySelector(".admin-search-input");
+                if (newSearchInput) {
+                    newSearchInput.focus();
+                    if (cursorStart !== null && cursorEnd !== null) {
+                        try {
+                            newSearchInput.setSelectionRange(cursorStart, cursorEnd);
+                        } catch (e) {
+                            const len = newSearchInput.value.length;
+                            newSearchInput.setSelectionRange(len, len);
+                        }
+                    }
+                }
+            }
+        }, 120);
+    },
+
+    clearSearch: function () {
+        this.searchFilter = "";
         this.renderCurrentTab();
+        const newSearchInput = document.querySelector(".admin-search-input");
+        if (newSearchInput) newSearchInput.focus();
     },
 
     /**
@@ -6395,18 +6351,11 @@ const Rajpura_Admin = {
                             </div>
                         ` : ""}
                     </div>
-                    <div class="admin-modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <button type="button" class="admin-btn-secondary" style="color: #dc2626; border-color: #fecaca; background: #fff5f5;" onclick="Rajpura_Admin.confirmDeleteRow('${formKey}', ${rowId})" title="Permanently delete this configuration row from SharePoint">
-                                🗑️ Delete Role
-                            </button>
-                        </div>
-                        <div style="display: flex; gap: 8px;">
-                            <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
-                            <button type="button" class="admin-btn-primary" id="btn-save-assignment" onclick="Rajpura_Admin.submitUpdateAssignment('${formKey}', ${rowId})">
-                                💾 Save User Assignments
-                            </button>
-                        </div>
+                    <div class="admin-modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+                        <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
+                        <button type="button" class="admin-btn-primary" id="btn-save-assignment" onclick="Rajpura_Admin.submitUpdateAssignment('${formKey}', ${rowId})">
+                            💾 Save User Assignments
+                        </button>
                     </div>
                 </div>
             </div>
@@ -6747,7 +6696,13 @@ const Rajpura_Admin = {
         const row = (this.configs[formKey] || []).find(r => r.id === rowId);
         if (!row) return;
 
-        if (!confirm(`Are you sure you want to delete assignment for '${row.title}' (${row.configType}) from ${form.name}?`)) {
+        // Safety guard: only allow deleting Product Master items
+        if (row.configType !== "Product Master") {
+            this.showToast("Deleting non-product master records is disabled.", "warning");
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to delete product '${row.title}' from ${form ? form.name : formKey}?`)) {
             return;
         }
 

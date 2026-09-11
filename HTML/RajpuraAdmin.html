@@ -13,7 +13,7 @@
         href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
         rel="stylesheet">
 
-    <!-- Dynamic Stylesheet & Script Loader (DEV, UAT, PROD) -->
+    <!-- Dynamic Stylesheet Loader (DEV, UAT, PROD) -->
     <script type="text/javascript">
         (function () {
             var isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
@@ -47,8 +47,8 @@
                 prefix + "/Quality-New-Assets/css/main.min.css?v=2.0",
                 prefix + "/Quality-New-Assets/css/home-page.min.css?v=3.7",
                 prefix + "/Quality-New-Assets/css/style.css?v=2.0",
-                prefix + "/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=3.7",
-                prefix + "/Quality-New-Assets/quality-Rajpura/common/css/admin.css?v=5.1"
+                prefix + "/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=5.8",
+                prefix + "/Quality-New-Assets/quality-Rajpura/common/css/admin.css?v=6.0"
             ];
 
             for (var i = 0; i < cssLinks.length; i++) {
@@ -58,46 +58,8 @@
                     var link = document.createElement("link");
                     link.rel = "stylesheet";
                     link.href = cssLinks[i];
-                    document.head.appendChild(link);
+                    (document.head || document.documentElement).appendChild(link);
                 }
-            }
-
-            var jsScripts = [
-                prefix + "/JS/CommonJS/libraries/jquery-3.7.1.min.js",
-                prefix + "/JS/CommonJS/libraries/moment.min.js",
-                prefix + "/JS/CommonJS/CommonDAL.js",
-                prefix + "/JS/CommonJS/Common.js",
-                prefix + "/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=5.8",
-                prefix + "/Quality-New-Assets/quality-Rajpura/common/js/pkg-products-seed.js?v=5.8",
-                prefix + "/Quality-New-Assets/quality-Rajpura/common/js/mb-recipes-seed.js?v=5.8",
-                prefix + "/Quality-New-Assets/quality-Rajpura/common/js/admin.js?v=6.0"
-            ];
-
-            if (document.readyState === "loading") {
-                for (var j = 0; j < jsScripts.length; j++) {
-                    document.write('<script type="text/javascript" src="' + jsScripts[j] + '"><\/script>');
-                }
-            } else {
-                var loadScriptIndex = function (idx) {
-                    if (idx >= jsScripts.length) {
-                        if (typeof Rajpura_Admin !== 'undefined' && Rajpura_Admin.activateAdminPanel) {
-                            Rajpura_Admin.activateAdminPanel();
-                        }
-                        return;
-                    }
-                    var script = document.createElement("script");
-                    script.type = "text/javascript";
-                    script.src = jsScripts[idx];
-                    script.onload = function () {
-                        loadScriptIndex(idx + 1);
-                    };
-                    script.onerror = function () {
-                        console.warn("Failed to load script: " + jsScripts[idx]);
-                        loadScriptIndex(idx + 1);
-                    };
-                    document.body.appendChild(script);
-                };
-                loadScriptIndex(0);
             }
         })();
     </script>
@@ -108,12 +70,85 @@
     <!-- Rajpura Admin Panel Mount Container -->
     <div id="rajpuraAdminPanel" style="max-width: 1300px; margin: 0 auto;"></div>
 
+    <!-- Dynamic Script Loader & Safe Initializer (DEV, UAT, PROD) -->
     <script type="text/javascript">
-        $(document).ready(function () {
-            if (typeof Rajpura_Admin !== 'undefined' && Rajpura_Admin.activateAdminPanel) {
-                Rajpura_Admin.activateAdminPanel();
+        (function () {
+            var isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+            var siteBaseUrl = "/sites/Mrs_Bectors_PTMS";
+            if (typeof _spPageContextInfo !== "undefined" && _spPageContextInfo.webServerRelativeUrl) {
+                siteBaseUrl = _spPageContextInfo.webServerRelativeUrl.replace(/\/+$/, "");
+            } else {
+                var currentUrl = window.location.href.toLowerCase();
+                if (currentUrl.indexOf("ptms_uat") !== -1) {
+                    siteBaseUrl = "/sites/PTMS_UAT";
+                } else if (currentUrl.indexOf("ptms_prd") !== -1) {
+                    siteBaseUrl = "/sites/PTMS_PRD";
+                } else {
+                    siteBaseUrl = "/sites/Mrs_Bectors_PTMS";
+                }
             }
-        });
+
+            var prefix = isLocal ? ".." : (siteBaseUrl + "/BectorsSourceCode");
+
+            var jsScripts = [
+                prefix + "/JS/CommonJS/libraries/jquery-3.7.1.min.js",
+                prefix + "/JS/CommonJS/libraries/moment.min.js",
+                prefix + "/JS/CommonJS/CommonDAL.js",
+                prefix + "/JS/CommonJS/Common.js",
+                prefix + "/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=5.8",
+                prefix + "/Quality-New-Assets/quality-Rajpura/common/js/pkg-products-seed.js?v=5.8",
+                prefix + "/Quality-New-Assets/quality-Rajpura/common/js/mb-recipes-seed.js?v=5.8",
+                prefix + "/Quality-New-Assets/quality-Rajpura/common/js/ccp-products-seed.js?v=5.8",
+                prefix + "/Quality-New-Assets/quality-Rajpura/common/js/admin.js?v=6.4"
+            ];
+
+            function startAdminPanel() {
+                try {
+                    if (typeof Rajpura_Admin !== 'undefined' && Rajpura_Admin.activateAdminPanel) {
+                        Rajpura_Admin.activateAdminPanel();
+                    } else {
+                        console.warn("Rajpura_Admin object not found yet, retrying in 200ms...");
+                        setTimeout(startAdminPanel, 200);
+                    }
+                } catch (e) {
+                    console.error("Error activating Rajpura Admin Panel:", e);
+                }
+            }
+
+            if (document.readyState === "loading") {
+                for (var j = 0; j < jsScripts.length; j++) {
+                    document.write('<script type="text/javascript" src="' + jsScripts[j] + '"><\/script>');
+                }
+                if (window.addEventListener) {
+                    window.addEventListener("DOMContentLoaded", function () {
+                        startAdminPanel();
+                    });
+                } else {
+                    window.onload = function () {
+                        startAdminPanel();
+                    };
+                }
+            } else {
+                var loadScriptIndex = function (idx) {
+                    if (idx >= jsScripts.length) {
+                        startAdminPanel();
+                        return;
+                    }
+                    var script = document.createElement("script");
+                    script.type = "text/javascript";
+                    script.src = jsScripts[idx];
+                    script.onload = function () {
+                        loadScriptIndex(idx + 1);
+                    };
+                    script.onerror = function (err) {
+                        console.warn("Failed to load script: " + jsScripts[idx], err);
+                        loadScriptIndex(idx + 1);
+                    };
+                    (document.head || document.body || document.documentElement).appendChild(script);
+                };
+                loadScriptIndex(0);
+            }
+        })();
     </script>
 </body>
 
