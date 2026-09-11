@@ -107,16 +107,37 @@
 }
 
 /* Inputs and Select element styling overrides */
-#rajpura-alc-main-container select {
+#rajpura-alc-main-container select,
+#rajpura-alc-main-container .form-select {
+    width: 100% !important;
+    min-width: 130px !important;
     border: 1px solid #cbd5e1 !important;
-    padding: 10px 36px 10px 14px !important;
+    padding: 8px 36px 8px 12px !important;
     font-size: 14px !important;
-    height: 42px !important;
+    height: 38px !important;
+    min-height: 38px !important;
     background-color: #ffffff !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%2364748b'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 12px center !important;
+    background-size: 12px 10px !important;
     color: #1e293b !important;
+    border-radius: 6px !important;
     -webkit-appearance: none !important;
     -moz-appearance: none !important;
     appearance: none !important;
+    cursor: pointer !important;
+    text-align: left !important;
+    text-align-last: left !important;
+    box-sizing: border-box !important;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out !important;
+}
+
+#rajpura-alc-main-container select:focus,
+#rajpura-alc-main-container .form-select:focus {
+    border-color: #3b82f6 !important;
+    outline: 0 !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
 }
 
 #rajpura-alc-main-container select::-ms-expand {
@@ -139,40 +160,48 @@
 }
 
 /* Select2 specific overrides inside our container */
+#rajpura-alc-main-container .select2-container {
+    width: 100% !important;
+}
+
+#rajpura-alc-main-container .select2-container .select2-selection--single,
 #rajpura-alc-main-container .select2-container--default .select2-selection--single {
-    height: 42px !important;
+    height: 38px !important;
+    min-height: 38px !important;
     border: 1px solid #cbd5e1 !important;
     border-radius: 6px !important;
+    background-color: #ffffff !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%2364748b'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 12px center !important;
+    background-size: 12px 10px !important;
+    padding-right: 36px !important;
     display: flex !important;
     align-items: center !important;
+    cursor: pointer !important;
+    box-sizing: border-box !important;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out !important;
 }
 
 #rajpura-alc-main-container .select2-container--default .select2-selection--single .select2-selection__rendered {
-    line-height: 42px !important;
-    padding-left: 14px !important;
+    line-height: 38px !important;
+    padding-left: 12px !important;
+    padding-right: 0 !important;
     color: #1e293b !important;
+    text-align: left !important;
+    width: 100% !important;
+    font-size: 14px !important;
 }
 
 #rajpura-alc-main-container .select2-container--default .select2-selection--single .select2-selection__arrow {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    top: 0 !important;
-    height: 100% !important;
-    right: 10px !important;
-    width: 20px !important;
-}
-
-#rajpura-alc-main-container .select2-container--default .select2-selection--single .select2-selection__arrow::before {
-    position: relative !important;
-    top: 18px !important;
-    margin-top: 0 !important;
-    margin-left: 0 !important;
-    display: inline-block !important;
-}
-
-#rajpura-alc-main-container .select2-container--default .select2-selection--single .select2-selection__arrow b {
     display: none !important;
+}
+
+#rajpura-alc-main-container .select2-container--default .select2-selection--single:focus,
+#rajpura-alc-main-container .select2-container--open .select2-selection--single {
+    border-color: #3b82f6 !important;
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
 }
 
 /* Alert banner styling overrides */
@@ -197,11 +226,15 @@
 /* Styled states for read-only and disabled input fields */
 #rajpura-alc-main-container input[readonly],
 #rajpura-alc-main-container input[disabled],
-#rajpura-alc-main-container select[disabled] {
+#rajpura-alc-main-container select[disabled],
+#rajpura-alc-main-container select:disabled,
+#rajpura-alc-main-container .form-select:disabled,
+#rajpura-alc-main-container .select2-container--disabled .select2-selection--single {
     background-color: #f1f5f9 !important;
     color: #64748b !important;
     cursor: not-allowed !important;
     border-color: #cbd5e1 !important;
+    opacity: 0.8 !important;
 }
 
 /* Layout overrides to prevent double scrollbars and allow full height rendering */

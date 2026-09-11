@@ -98,8 +98,34 @@ const ALC_StateMachine = {
 
             case ALC_STATES.PENDING_QA_ACCEPTANCE:
                 this.showElement("#section-pending-qa");
-                // QA team should see "Accept" controls, Production sees "Waiting"
-                if (ALC_StateMachine.isQaUser && !this.isReadOnly) {
+
+                const currentSess = ALC_StateMachine.currentSession;
+                const sessStatus = (currentSess?.cr3ea_processstatus || currentSess?.cr3ea_status || "").trim().toLowerCase();
+                const isAlreadyEscalated = (sessStatus === "escalated") || 
+                    (typeof ALC_QARequest !== "undefined" && ALC_QARequest.isRequestExpired && ALC_QARequest.isRequestExpired());
+
+                if (isAlreadyEscalated) {
+                    // When escalated or expired, QA must NOT be able to accept
+                    this.hideElement("#qa-accept-panel");
+                    this.hideElement("#production-wait-panel");
+                    this.showElement("#escalation-alert-panel");
+
+                    const timerDisplay = document.getElementById("escalation-timer");
+                    if (timerDisplay) {
+                        timerDisplay.innerHTML = `<span class="text-danger font-weight-bold" style="font-size: 16px;">Escalated to Next Level (Acceptance Window Expired)</span>`;
+                    }
+                    const escalationPanel = document.getElementById("escalation-alert-panel");
+                    if (escalationPanel) {
+                        escalationPanel.innerHTML = `<strong>ESCALATION LOGGED:</strong> QA Executive did not accept the request within the 5-minute limit. This request has been escalated. QA acceptance is locked. The Shift Executive who started the tour can reassign the QA Executive to restart the inspection.`;
+                    }
+                    const acceptBtn = document.getElementById("btn-accept-request");
+                    if (acceptBtn) {
+                        acceptBtn.disabled = true;
+                        acceptBtn.style.display = "none";
+                    }
+                    const diagEl = document.getElementById("qa-diagnostic-msg");
+                    if (diagEl) diagEl.style.display = "none";
+                } else if (ALC_StateMachine.isQaUser && !this.isReadOnly) {
                     this.showElement("#qa-accept-panel");
                     this.hideElement("#production-wait-panel");
                     const diagEl = document.getElementById("qa-diagnostic-msg");
@@ -225,17 +251,15 @@ const ALC_StateMachine = {
                     }
                 }
 
-                // Let Production/Product Incharge edit corrective actions if they have pending actions
-                const hasActionAccess = (this.isProductionUser || this.isProductUser);
-                this.setFieldsDisabled("#section-result-fail", this.isReadOnly || !hasActionAccess);
+                // In QA Re-Verification stage, production corrective actions are already submitted; disable fail section and hide button
+                this.setFieldsDisabled("#section-result-fail", true);
                 
                 const correctiveSubmitBtn = document.getElementById("btn-submit-corrective-actions");
                 if (correctiveSubmitBtn) {
-                    const isCorrectiveHidden = (this.isReadOnly || !hasActionAccess);
-                    correctiveSubmitBtn.style.display = isCorrectiveHidden ? "none" : "block";
+                    correctiveSubmitBtn.style.display = "none";
                     const wrapper2 = correctiveSubmitBtn.closest(".tour-cyle-btn-wrapper");
                     if (wrapper2) {
-                        wrapper2.style.display = isCorrectiveHidden ? "none" : "flex";
+                        wrapper2.style.display = "none";
                     }
                 }
 

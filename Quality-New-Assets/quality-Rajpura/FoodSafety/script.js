@@ -55,7 +55,7 @@ const FoodSafety_Main = {
 
         // Check URL parameters for resuming an existing session
         const urlParams = new URLSearchParams(window.location.search);
-        const tourId = urlParams.get("TourId");
+        const tourId = urlParams.get("TourId") || urlParams.get("tourId") || urlParams.get("tourid");
 
         if (tourId) {
             this.state.varTourID = tourId;
@@ -109,21 +109,38 @@ const FoodSafety_Main = {
         // Add listeners for custom navigation if any
     },
 
+    // Return to home dashboard when clicking Back on active checklist
+    handleBack: function () {
+        const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+            ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+            : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
+        window.location.href = homeUrl;
+    },
+
     // Resume session from TourId
     resumeSession: async function (tourId) {
         try {
             ShowLoader();
             console.log(`Resuming Tour Session: ${tourId}`);
             
-            // Get tour records from local database / mock
-            const tours = await FoodSafety_DAL.getTourHistory();
-            const cleanTargetId = tourId ? String(tourId).replace(/[{}]/g, "").trim().toLowerCase() : "";
-            const tour = tours.find(t => {
-                const tid = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId)
-                    ? QualityRajpura_Config.getTourId(t)
-                    : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid || "");
-                return String(tid).replace(/[{}]/g, "").trim().toLowerCase() === cleanTargetId;
-            });
+            // Get tour record by direct ID lookup first, then fallback to tour history
+            let tour = null;
+            try {
+                tour = await FoodSafety_DAL.getParentTour(tourId);
+            } catch (fetchErr) {
+                console.warn("Direct getParentTour lookup failed, checking tour history:", fetchErr);
+            }
+
+            if (!tour) {
+                const tours = await FoodSafety_DAL.getTourHistory();
+                const cleanTargetId = tourId ? String(tourId).replace(/[{}]/g, "").trim().toLowerCase() : "";
+                tour = tours.find(t => {
+                    const tid = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId)
+                        ? QualityRajpura_Config.getTourId(t)
+                        : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid || "");
+                    return String(tid).replace(/[{}]/g, "").trim().toLowerCase() === cleanTargetId;
+                });
+            }
             
             if (!tour) {
                 alert("Dataverse Connection Failed: Tour session not found in database.");
@@ -135,6 +152,18 @@ const FoodSafety_Main = {
             }
 
             this.state.currentTourRecord = tour;
+
+            // Check if tour is Cancelled
+            const rawTourStatus = String(tour.cr3ea_processstatus || tour.cr3ea_status || tour.cr3ea_checklist_result || "").toLowerCase().trim();
+            if (rawTourStatus.includes("cancel")) {
+                if (typeof HideLoader === "function") HideLoader();
+                alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                const welcomeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                    ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                    : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
+                window.location.href = welcomeUrl;
+                return;
+            }
 
             // Expiry Check: Check if tour was created on a previous day and is not terminal
             const creationTime = tour.createdon || tour.cr3ea_tourstartdate;
@@ -176,12 +205,37 @@ const FoodSafety_Main = {
                 }
             }
 
-            this.state.selectedChecklistType = tour.cr3ea_food_safety_checklisttype;
+            // Normalize checklist type from tour record or title fallback
+            let checklistType = tour.cr3ea_food_safety_checklisttype;
+            if (!checklistType && tour.cr3ea_title) {
+                let cleanTitle = tour.cr3ea_title.split("||")[0].trim();
+                if (cleanTitle.startsWith("FoodSafety_")) cleanTitle = cleanTitle.replace("FoodSafety_", "");
+                if (cleanTitle.startsWith("Food_Safety_")) cleanTitle = cleanTitle.replace("Food_Safety_", "");
+                
+                if (cleanTitle.startsWith("PPE_") || cleanTitle.includes("PPE")) checklistType = "PPE Checklist";
+                else if (cleanTitle.startsWith("GMP_") || cleanTitle.includes("GMP")) checklistType = "GMP Checklist";
+                else if (cleanTitle.startsWith("PCI_") || cleanTitle.includes("PCI")) checklistType = "PCI Checklist";
+            }
+
+            if (checklistType) {
+                const upper = String(checklistType).toUpperCase().trim();
+                if (upper.includes("PPE")) checklistType = "PPE Checklist";
+                else if (upper.includes("GMP")) checklistType = "GMP Checklist";
+                else if (upper.includes("PCI")) checklistType = "PCI Checklist";
+            }
+
+            if (!checklistType) {
+                console.warn("Could not determine checklist type for tour, defaulting to PPE Checklist");
+                checklistType = "PPE Checklist";
+            }
+
+            this.state.selectedChecklistType = checklistType;
             this.state.selectedShift = tour.cr3ea_shift || "Shift 1";
             this.state.selectedSite = tour.cr3ea_plantid || "Rajpura";
             this.state.selectedLine = tour.cr3ea_lineno || "Line 1";
             this.state.qaExecutive = tour.cr3ea_assigned_qa || "";
             this.state.productionIncharge = tour.cr3ea_shiftexecutiveproduction || "";
+            this.state.observedBy = tour.cr3ea_observedby || tour.cr3ea_shiftexecutive || "";
             this.state.areaIncharge = tour.cr3ea_food_safety_areaincharge || "";
             this.state.selectedArea = tour.cr3ea_food_safety_area || "";
             this.state.selectedCycle = tour.cr3ea_food_safety_cycle || "Cycle-1";
@@ -218,8 +272,11 @@ const FoodSafety_Main = {
                     await PCIChecklistScreen.resume();
                 }
             } else {
-                alert("Unknown checklist type resolved from Tour.");
-                this.navigateTo("screen-welcome");
+                console.warn(`Unmatched checklist type "${this.state.selectedChecklistType}". Defaulting to PPE Checklist screen.`);
+                this.navigateTo("screen-ppe-checklist");
+                if (typeof PPEChecklistScreen !== 'undefined' && PPEChecklistScreen.resume) {
+                    await PPEChecklistScreen.resume();
+                }
             }
         } catch (e) {
             console.error("Error resuming session:", e);

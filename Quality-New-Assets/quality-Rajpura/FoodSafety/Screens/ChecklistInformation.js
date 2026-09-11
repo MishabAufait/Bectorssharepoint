@@ -51,6 +51,18 @@ const ChecklistInformationScreen = {
         try {
             const configItems = await FoodSafety_DAL.getConfig();
 
+            // Helper to clear highlights on input change
+            const clearInputHighlight = (el) => {
+                if (typeof FoodSafety_Validator !== 'undefined') {
+                    FoodSafety_Validator.highlight(el, false);
+                    FoodSafety_Validator.hideBanner("info-validation-banner");
+                }
+            };
+
+            $("#infoSiteSelect, #infoLineSelect, #infoCycleSelect, #infoChecklistTypeSelect, #infoPCIAreaSelect").off("change.validation").on("change.validation", function() {
+                clearInputHighlight(this);
+            });
+
             const updatePersonnelDropdowns = () => {
                 const selectedSite = document.getElementById("infoSiteSelect")?.value || "";
                 const selectedTypeFull = document.getElementById("infoChecklistTypeSelect")?.value || "";
@@ -59,22 +71,27 @@ const ChecklistInformationScreen = {
                 if (selectedTypeFull === "GMP Checklist") mappedType = "GMP";
                 else if (selectedTypeFull === "PCI Checklist") mappedType = "PCI";
 
-                const matchingConfigs = configItems.filter(c => {
-                    const matchPlant = c.Plant === selectedSite;
-                    const matchType = c.ChecklistType === mappedType;
+                let matchingConfigs = configItems.filter(c => {
+                    const matchPlant = !selectedSite || !c.Plant || (c.Plant && c.Plant.toLowerCase() === selectedSite.toLowerCase());
+                    const matchType = !c.ChecklistType || (c.ChecklistType && c.ChecklistType.toUpperCase().includes(mappedType.toUpperCase()));
                     return matchPlant && matchType;
                 });
+
+                if (matchingConfigs.length === 0) {
+                    matchingConfigs = configItems;
+                }
 
                 // Extract distinct QA Executives
                 const qaExecutives = [{ value: "", text: "Select QA Executive" }];
                 const qaEmails = new Set();
                 matchingConfigs.forEach(item => {
-                    if (item.QAExecutives && Array.isArray(item.QAExecutives)) {
-                        item.QAExecutives.forEach(user => {
-                            if (user && user.Title && !qaEmails.has(user.EMail)) {
-                                qaEmails.add(user.EMail);
+                    const qaList = item.QAExecutives || (item.AssignedQA && item.AssignedQA.results) || (item.AssignedUser && item.AssignedUser.results) || [];
+                    if (Array.isArray(qaList)) {
+                        qaList.forEach(user => {
+                            if (user && user.Title && (!user.EMail || !qaEmails.has(user.EMail.toLowerCase()))) {
+                                if (user.EMail) qaEmails.add(user.EMail.toLowerCase());
                                 qaExecutives.push({
-                                    value: user.EMail,
+                                    value: user.EMail || user.Title,
                                     text: user.Title
                                 });
                             }
@@ -83,15 +100,16 @@ const ChecklistInformationScreen = {
                 });
 
                 // Extract distinct Production Incharges
-                const prodIncharges = [{ value: "", text: "Select Production Incharge" }];
+                const prodIncharges = [{ value: "", text: "Select Production Executive" }];
                 const prodEmails = new Set();
                 matchingConfigs.forEach(item => {
-                    if (item.ProductionIncharges && Array.isArray(item.ProductionIncharges)) {
-                        item.ProductionIncharges.forEach(user => {
-                            if (user && user.Title && !prodEmails.has(user.EMail)) {
-                                prodEmails.add(user.EMail);
+                    const prodList = item.ProductionIncharges || item.ProductionExecutive || (item.ProductionIncharge && item.ProductionIncharge.results) || (item.EscalationManager && item.EscalationManager.results) || [];
+                    if (Array.isArray(prodList)) {
+                        prodList.forEach(user => {
+                            if (user && user.Title && (!user.EMail || !prodEmails.has(user.EMail.toLowerCase()))) {
+                                if (user.EMail) prodEmails.add(user.EMail.toLowerCase());
                                 prodIncharges.push({
-                                    value: user.EMail,
+                                    value: user.EMail || user.Title,
                                     text: user.Title
                                 });
                             }
@@ -103,28 +121,28 @@ const ChecklistInformationScreen = {
                 DropdownComponent.populate("info-qa-exec-select", qaExecutives, FoodSafety_Main.state.qaExecutive);
                 DropdownComponent.init("info-qa-exec-select");
 
-                // Populate Production Incharge Dropdown
+                // Populate Production Executive Dropdown
                 DropdownComponent.populate("info-prod-incharge-select", prodIncharges, FoodSafety_Main.state.productionIncharge);
                 DropdownComponent.init("info-prod-incharge-select");
 
-                validateStartButton();
+                $("#info-qa-exec-select, #info-prod-incharge-select").off("change.validation").on("change.validation", function() {
+                    clearInputHighlight(this);
+                });
             };
 
-            // Validation logic for the Start Checklist button
-            const validateStartButton = () => {
-                const qaVal = document.getElementById("info-qa-exec-select")?.value || "";
-                const prodVal = document.getElementById("info-prod-incharge-select")?.value || "";
-                const btn = document.getElementById("info-start-checklist-btn");
-                if (btn) {
-                    btn.disabled = (!qaVal || !prodVal);
-                }
-            };
+            // Populate Shift Executive (logged-in user who starts the tour)
+            const shiftExecInput = document.getElementById("info-shift-exec");
+            if (shiftExecInput) {
+                const shiftExec = (FoodSafety_Main.state.currentTourRecord && (FoodSafety_Main.state.currentTourRecord.cr3ea_observedby || FoodSafety_Main.state.currentTourRecord.cr3ea_shiftexecutive))
+                    ? (FoodSafety_Main.state.currentTourRecord.cr3ea_observedby || FoodSafety_Main.state.currentTourRecord.cr3ea_shiftexecutive)
+                    : ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? _spPageContextInfo.userDisplayName
+                    : (typeof EmployeeName !== 'undefined' && EmployeeName ? EmployeeName : (typeof currentUser !== "undefined" ? currentUser : (typeof UserName !== 'undefined' ? UserName : "Shift Executive"))));
+                shiftExecInput.value = (typeof FoodSafety_Summary !== 'undefined' && FoodSafety_Summary.resolveUserName) ? FoodSafety_Summary.resolveUserName(shiftExec) : shiftExec;
+            }
 
             // Bind change hooks to trigger updates
             $("#infoSiteSelect").off("change.pers").on("change.pers", updatePersonnelDropdowns);
             $("#infoChecklistTypeSelect").off("change.pers").on("change.pers", updatePersonnelDropdowns);
-            
-            $("#info-qa-exec-select, #info-prod-incharge-select").off("change.validation").on("change.validation", validateStartButton);
 
             // Populate initially
             updatePersonnelDropdowns();
@@ -171,37 +189,105 @@ const ChecklistInformationScreen = {
     // Submit Common Header (Create Parent Record in Dataverse)
     submit: async function () {
         try {
-            const checklistType = document.getElementById("infoChecklistTypeSelect").value;
+            if (typeof FoodSafety_Validator !== 'undefined') {
+                FoodSafety_Validator.clearAll("screen-checklist-info");
+                FoodSafety_Validator.hideBanner("info-validation-banner");
+            }
+
+            const checklistTypeEl = document.getElementById("infoChecklistTypeSelect");
+            const checklistType = checklistTypeEl ? checklistTypeEl.value : "";
             FoodSafety_Main.state.selectedChecklistType = checklistType;
             
-            const site = document.getElementById("infoSiteSelect").value;
-            const line = document.getElementById("infoLineSelect").value;
-            const qaExec = document.getElementById("info-qa-exec-select").value;
-            const prodIncharge = document.getElementById("info-prod-incharge-select").value;
-            const cycle = document.getElementById("infoCycleSelect").value;
+            const siteEl = document.getElementById("infoSiteSelect");
+            const site = siteEl ? siteEl.value : "";
+            const lineEl = document.getElementById("infoLineSelect");
+            const line = lineEl ? lineEl.value : "";
+            const qaExecEl = document.getElementById("info-qa-exec-select");
+            const qaExec = qaExecEl ? qaExecEl.value : "";
+            const prodInchargeEl = document.getElementById("info-prod-incharge-select");
+            const prodIncharge = prodInchargeEl ? prodInchargeEl.value : "";
+            const shiftEl = document.getElementById("info-shift-exec");
+            const shiftExec = shiftEl?.value?.trim() || ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? _spPageContextInfo.userDisplayName : (typeof currentUser !== "undefined" ? currentUser : "Shift Executive"));
+            const cycleEl = document.getElementById("infoCycleSelect");
+            const cycle = cycleEl ? cycleEl.value : "";
             
             let areaIncharge = "";
             let selectedArea = "";
+            const pciAreaEl = document.getElementById("infoPCIAreaSelect");
             if (checklistType === "PCI Checklist") {
-                areaIncharge = document.getElementById("info-area-incharge-input").value.trim();
-                // Fall back to Production Incharge if Area Incharge is blank
-                if (!areaIncharge) {
-                    areaIncharge = prodIncharge;
-                }
-                selectedArea = document.getElementById("infoPCIAreaSelect").value;
+                areaIncharge = document.getElementById("info-area-incharge-input")?.value?.trim() || prodIncharge;
+                selectedArea = pciAreaEl ? pciAreaEl.value : "";
             }
 
-            // Input Validations
+            // Comprehensive Required Fields Validation
+            const missingFields = [];
+            let firstInvalidEl = null;
+
+            if (!checklistType) {
+                missingFields.push("Checklist Type");
+                if (typeof FoodSafety_Validator !== 'undefined') FoodSafety_Validator.highlight(checklistTypeEl, true);
+                if (!firstInvalidEl) firstInvalidEl = checklistTypeEl;
+            }
+            if (!site) {
+                missingFields.push("Manufacturing Site");
+                if (typeof FoodSafety_Validator !== 'undefined') FoodSafety_Validator.highlight(siteEl, true);
+                if (!firstInvalidEl) firstInvalidEl = siteEl;
+            }
+            if (!line) {
+                missingFields.push("Line");
+                if (typeof FoodSafety_Validator !== 'undefined') FoodSafety_Validator.highlight(lineEl, true);
+                if (!firstInvalidEl) firstInvalidEl = lineEl;
+            }
             if (!qaExec) {
-                alert("Please select a QA Executive.");
-                return;
+                missingFields.push("QA Executive");
+                if (typeof FoodSafety_Validator !== 'undefined') FoodSafety_Validator.highlight(qaExecEl, true);
+                if (!firstInvalidEl) firstInvalidEl = qaExecEl;
             }
             if (!prodIncharge) {
-                alert("Please select a Production Incharge.");
+                missingFields.push("Production Executive");
+                if (typeof FoodSafety_Validator !== 'undefined') FoodSafety_Validator.highlight(prodInchargeEl, true);
+                if (!firstInvalidEl) firstInvalidEl = prodInchargeEl;
+            }
+            if (checklistType === "PCI Checklist" && !selectedArea) {
+                missingFields.push("Inspection Block/Area");
+                if (typeof FoodSafety_Validator !== 'undefined') FoodSafety_Validator.highlight(pciAreaEl, true);
+                if (!firstInvalidEl) firstInvalidEl = pciAreaEl;
+            }
+            if (!cycle) {
+                missingFields.push("Cycle");
+                if (typeof FoodSafety_Validator !== 'undefined') FoodSafety_Validator.highlight(cycleEl, true);
+                if (!firstInvalidEl) firstInvalidEl = cycleEl;
+            }
+
+            if (missingFields.length > 0) {
+                const errorMsg = "Please complete all required fields to start the checklist: " + missingFields.join(", ") + ".";
+                if (typeof FoodSafety_Validator !== 'undefined') {
+                    FoodSafety_Validator.showBanner("info-validation-banner", errorMsg);
+                }
+                alert(errorMsg);
+                if (firstInvalidEl) {
+                    firstInvalidEl.focus();
+                }
                 return;
             }
 
             ShowLoader();
+
+            // Check if active session already exists for this line and checklist type today and prompt for override
+            if (!FoodSafety_Main.state.varTourID && line) {
+                const token = await FoodSafety_DAL.getAccessToken();
+                const proceed = await QualityRajpura_Config.checkAndPromptLineOverride({
+                    moduleKey: "FOOD_SAFETY",
+                    line: line,
+                    subType: FoodSafety_Main.state.selectedChecklistType,
+                    currentTourId: FoodSafety_Main.state.varTourID,
+                    token: token
+                });
+                if (!proceed) {
+                    HideLoader();
+                    return;
+                }
+            }
 
             // Prepare Table 1 OData Payload (Strict Parent Tour Schema)
             const tourPayload = {
@@ -210,7 +296,7 @@ const ChecklistInformationScreen = {
                 cr3ea_lineno: line,
                 cr3ea_assigned_qa: qaExec,
                 cr3ea_shiftexecutiveproduction: prodIncharge,
-                cr3ea_observedby: prodIncharge, // Writes Prod Incharge to observedby field (ALC standard)
+                cr3ea_observedby: shiftExec, // Shift Executive who started the tour
                 cr3ea_tourstartdate: FoodSafety_Main.state.tourStartDate,
                 cr3ea_status: "In Progress",
                 cr3ea_cycle: cycle,
@@ -241,6 +327,7 @@ const ChecklistInformationScreen = {
             FoodSafety_Main.state.selectedLine = line;
             FoodSafety_Main.state.qaExecutive = qaExec;
             FoodSafety_Main.state.productionIncharge = prodIncharge;
+            FoodSafety_Main.state.observedBy = shiftExec;
             if (FoodSafety_Main.state.selectedChecklistType === "PCI Checklist") {
                 FoodSafety_Main.state.areaIncharge = areaIncharge;
                 FoodSafety_Main.state.selectedArea = selectedArea;
@@ -250,23 +337,8 @@ const ChecklistInformationScreen = {
             console.log(`Parent Tour record saved. GUID resolved: ${generatedGUID}`);
             alert("Tour Session started successfully!");
 
-            // Route to Screen 3 (whichever checklist is selected)
-            if (FoodSafety_Main.state.selectedChecklistType === "PPE Checklist") {
-                FoodSafety_Main.navigateTo("screen-ppe-checklist");
-                if (typeof PPEChecklistScreen !== 'undefined' && PPEChecklistScreen.init) {
-                    PPEChecklistScreen.init();
-                }
-            } else if (FoodSafety_Main.state.selectedChecklistType === "GMP Checklist") {
-                FoodSafety_Main.navigateTo("screen-gmp-checklist");
-                if (typeof GMPChecklistScreen !== 'undefined' && GMPChecklistScreen.init) {
-                    GMPChecklistScreen.init();
-                }
-            } else if (FoodSafety_Main.state.selectedChecklistType === "PCI Checklist") {
-                FoodSafety_Main.navigateTo("screen-pci-checklist");
-                if (typeof PCIChecklistScreen !== 'undefined' && PCIChecklistScreen.init) {
-                    PCIChecklistScreen.init();
-                }
-            }
+            // Redirect cleanly to active tour view with TourId so the URL reflects the TourId and leaves action=new
+            window.location.href = `?TourId=${generatedGUID}`;
         } catch (error) {
             console.error("Failed to start checklist tour:", error);
             alert(`Error starting checklist: ${error.message}`);

@@ -34,8 +34,8 @@
             var cssLinks = [
                 siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/main.min.css?v=2.0",
                 siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/home-page.min.css?v=2.0",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=2.0",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/style.css?v=2.0"
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=2.2",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/style.css?v=2.2"
             ];
 
             for (var i = 0; i < cssLinks.length; i++) {
@@ -105,11 +105,7 @@
                     <label class="form-label">Product Variety</label>
                     <div class="select2-parent">
                         <select id="setup-product" class="form-select">
-                            <option value="Speciality Sauces">Speciality Sauces</option>
-                            <option value="Zesty Wasabi">Zesty Wasabi</option>
-                            <option value="Mayonnaise">Mayonnaise</option>
-                            <option value="Sandwich Spread">Sandwich Spread</option>
-                            <option value="Indian Chutneys">Indian Chutneys</option>
+                            <option value="">Select Product Variety...</option>
                         </select>
                     </div>
                 </div>
@@ -125,7 +121,12 @@
                 </div>
 
                 <div class="form-group" style="margin-bottom: 15px;">
-                    <label class="form-label">Shift Executive (Production)</label>
+                    <label class="form-label">Shift Executive</label>
+                    <input type="text" id="setup-shift-exec" class="form-control" style="height: 40px; border-radius: 6px; border: 1px solid #cbd5e1; background-color: #f1f5f9; color: #334155; font-weight: 600; padding: 8px 12px;" disabled readonly />
+                </div>
+
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Production Executive</label>
                     <div class="select2-parent">
                         <select id="setup-prod" class="form-select"></select>
                     </div>
@@ -147,7 +148,7 @@
             <div class="plan-tour-header">
                 <div class="tour-header-info-wrapper">
                     <h3 class="tour-header-title">CCP, OPRP & Sieves/Magnets (Rajpura)</h3>
-                    <div class="tour-header-meta">
+                    <div class="tour-header-meta" style="display: flex; align-items: center; gap: 8px;">
                         <span class="badge" id="shiftBadge">Shift 1</span>
                         <span class="tour-date" id="currentDay">--/--/----</span>
                     </div>
@@ -238,12 +239,13 @@
                 siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/libraries/moment.min.js",
                 siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/CommonDAL.js",
                 siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/Common.js",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=3.6",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/js/dal.js?v=3.6",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/js/main.js?v=3.6",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/js/checklist.js?v=3.6",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/js/workflow.js?v=3.6",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/script.js?v=3.6"
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=4.8",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/ccp-products-seed.js?v=5.8",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/js/dal.js?v=8.5",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/js/main.js?v=8.5",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/js/checklist.js?v=8.5",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/js/workflow.js?v=8.5",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/CCP_OPRP_Sieves/script.js?v=8.5"
             ];
 
             if (document.readyState === "loading") {
@@ -280,7 +282,7 @@
             jQuery(function ($) {
                 $('#setup-type, #setup-site, #setup-line, #setup-product, #setup-freq, #shiftSelect').select2({
                     minimumResultsForSearch: -1,
-                    dropdownAutoWidth: true,
+                    dropdownAutoWidth: false,
                     width: '100%'
                 });
                 var dayEl = document.getElementById("currentDay");

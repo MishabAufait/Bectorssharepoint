@@ -22,8 +22,8 @@
             }
 
             var cssLinks = [
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=2.0",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/style.css?v=2.0"
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=2.2",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/style.css?v=5.4"
             ];
 
             for (var i = 0; i < cssLinks.length; i++) {
@@ -113,7 +113,19 @@
                     </div>
                 </div>
                 <div class="row g-3 mt-3">
-                    <div class="col-md-4 form-group">
+                    <div class="col-md-3 form-group">
+                        <label class="form-label">Shift Executive</label>
+                        <input type="text" class="form-control" id="setup-shift-exec" disabled readonly style="background-color: #f1f5f9; color: #334155; font-weight: 600; height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 6px 12px;">
+                    </div>
+                    <div class="col-md-3 form-group">
+                        <label class="form-label">Production Executive</label>
+                        <div class="select2-parent">
+                            <select class="form-select" id="setup-exec-prod">
+                                <!-- Loaded dynamically -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3 form-group">
                         <label class="form-label">Assign QA Executive</label>
                         <div class="select2-parent">
                             <select class="form-select" id="setup-qa-executive">
@@ -121,11 +133,7 @@
                             </select>
                         </div>
                     </div>
-                    <div class="col-md-4 form-group">
-                        <label class="form-label">Shift Executive Production</label>
-                        <input type="text" class="form-control" id="setup-exec-prod" placeholder="Production Executive Name">
-                    </div>
-                    <div class="col-md-4 form-group">
+                    <div class="col-md-3 form-group">
                         <label class="form-label">Shift</label>
                         <div class="select2-parent">
                             <select class="form-select" id="setup-shift">
@@ -249,16 +257,17 @@
                 siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/libraries/moment.min.js",
                 siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/CommonDAL.js",
                 siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/Common.js",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=3.7",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/notification.js?v=3.7",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/dal.js?v=3.7",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/state-machine.js?v=3.7",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/qa-request.js?v=3.7",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/checklist.js?v=3.7",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/corrective-action.js?v=3.7",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/re-verify.js?v=3.7",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/summary.js?v=3.7",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/main.js?v=3.7"
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=4.2",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/notification.js?v=4.2",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/pkg-products-seed.js?v=4.6",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/dal.js?v=8.11",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/state-machine.js?v=8.11",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/qa-request.js?v=8.11",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/checklist.js?v=8.11",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/corrective-action.js?v=8.11",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/re-verify.js?v=8.11",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/summary.js?v=8.11",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/PackagingOperations/js/main.js?v=8.11"
             ];
 
             if (document.readyState === "loading") {

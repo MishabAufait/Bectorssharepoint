@@ -44,7 +44,7 @@ const ALC_Main = {
 
         // 1. URL parameters check for TourId
         const urlParams = new URLSearchParams(window.location.search);
-        this.currentTourId = urlParams.get('TourId');
+        this.currentTourId = urlParams.get('TourId') || urlParams.get('tourId') || urlParams.get('tourid');
 
         // 2. Identify User Role based on SharePoint Config list
         await this.identifyUserRole();
@@ -72,67 +72,71 @@ const ALC_Main = {
         try {
             const configs = await ALC_DAL.getConfig();
 
-            // Check if current user is listed under QA User config
+            const cleanMyEmail = (currentUserEmail || "").toLowerCase().trim();
+            const myEmailUserPart = cleanMyEmail.includes("@") ? cleanMyEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : cleanMyEmail.replace(/[^a-z0-9]/g, "");
+            const cleanName1 = (currentUserName || "").toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+            const cleanName2 = (currentUserLogin || "").toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+
+            // Helper to check if a user object matches current user
+            const isUserMatch = (u) => {
+                if (!u) return false;
+                const uTitle = (u.Title || "").toLowerCase().trim();
+                const uEmail = (u.EMail || "").toLowerCase().trim();
+                const uTitleClean = uTitle.replace(/[^a-z0-9]/g, "");
+                const uEmailUserPart = uEmail.includes("@") ? uEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : uEmail.replace(/[^a-z0-9]/g, "");
+
+                return (uTitle && (uTitle === (currentUserName || "").toLowerCase() || uTitle === (currentUserLogin || "").toLowerCase())) ||
+                       (uTitleClean && (uTitleClean === cleanName1 || uTitleClean === cleanName2)) ||
+                       (uEmail && cleanMyEmail && uEmail === cleanMyEmail) ||
+                       (uEmailUserPart && myEmailUserPart && uEmailUserPart === myEmailUserPart && myEmailUserPart.length > 0);
+            };
+
+            // Check if current user is listed under QA User / QA Assignment config
             const isQaUser = configs.some(c =>
-                c.ConfigType === "QA User" &&
+                (c.ConfigType === "QA User" || c.Title === "QA User" || c.ConfigType === "QA HOD" || c.Title === "QA HOD" || c.ConfigType === "QA Assignment") &&
                 c.AssignedUser &&
                 c.AssignedUser.results &&
-                c.AssignedUser.results.some(u => {
-                    const uTitle = (u.Title || "").toLowerCase().trim();
-                    const uEmail = (u.EMail || "").toLowerCase().trim();
-                    const uTitleClean = uTitle.replace(/[^a-z0-9]/g, "");
-                    const uEmailUserPart = uEmail.includes("@") ? uEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : uEmail.replace(/[^a-z0-9]/g, "");
-
-                    const cleanMyEmail = (currentUserEmail || "").toLowerCase().trim();
-                    const myEmailUserPart = cleanMyEmail.includes("@") ? cleanMyEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : cleanMyEmail.replace(/[^a-z0-9]/g, "");
-                    const cleanName1 = (currentUserName || "").toLowerCase().trim().replace(/[^a-z0-9]/g, "");
-                    const cleanName2 = (currentUserLogin || "").toLowerCase().trim().replace(/[^a-z0-9]/g, "");
-
-                    return uTitle === (currentUserName || "").toLowerCase() || uTitle === (currentUserLogin || "").toLowerCase() || 
-                           uTitleClean === cleanName1 || uTitleClean === cleanName2 ||
-                           (uEmail && uEmail === cleanMyEmail) || 
-                           (uEmailUserPart && uEmailUserPart === myEmailUserPart && myEmailUserPart.length > 0);
-                })
+                c.AssignedUser.results.some(isUserMatch)
             );
 
-            // Check if current user is listed under Product Incharge config
+            // Check if current user is listed under Area Inspector / Product Incharge / Product User config
+            const isAreaConfig = (c) => {
+                const ct = (c.ConfigType || "").toLowerCase().trim();
+                const t = (c.Title || "").toLowerCase().trim();
+                return ct === "area inspector" || ct === "product user" || ct === "product incharge" || ct === "production user" ||
+                       t.startsWith("product incharge") || t.startsWith("area-");
+            };
+
             const isProductIncharge = configs.some(c =>
-                c.ConfigType === "Product User" &&
+                isAreaConfig(c) &&
                 c.AssignedUser &&
                 c.AssignedUser.results &&
-                c.AssignedUser.results.some(u => {
-                    const uTitle = (u.Title || "").toLowerCase().trim();
-                    const uEmail = (u.EMail || "").toLowerCase().trim();
-                    const uTitleClean = uTitle.replace(/[^a-z0-9]/g, "");
-                    const uEmailUserPart = uEmail.includes("@") ? uEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : uEmail.replace(/[^a-z0-9]/g, "");
-
-                    const cleanMyEmail = (currentUserEmail || "").toLowerCase().trim();
-                    const myEmailUserPart = cleanMyEmail.includes("@") ? cleanMyEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : cleanMyEmail.replace(/[^a-z0-9]/g, "");
-                    const cleanName1 = (currentUserName || "").toLowerCase().trim().replace(/[^a-z0-9]/g, "");
-                    const cleanName2 = (currentUserLogin || "").toLowerCase().trim().replace(/[^a-z0-9]/g, "");
-
-                    return uTitle === (currentUserName || "").toLowerCase() || uTitle === (currentUserLogin || "").toLowerCase() || 
-                           uTitleClean === cleanName1 || uTitleClean === cleanName2 ||
-                           (uEmail && uEmail === cleanMyEmail) || 
-                           (uEmailUserPart && uEmailUserPart === myEmailUserPart && myEmailUserPart.length > 0);
-                })
+                c.AssignedUser.results.some(isUserMatch)
             );
 
-            // Always parse and assign areas the user owns if they match any Product User configurations
+            // Always parse and assign areas the user owns if they match any Area / Product User configurations
             const userAreas = configs
                 .filter(c =>
-                    c.ConfigType === "Product User" &&
+                    isAreaConfig(c) &&
                     c.AssignedUser &&
                     c.AssignedUser.results &&
-                    c.AssignedUser.results.some(u => u.Title === currentUserName || u.Title === currentUserLogin || (u.EMail && u.EMail.toLowerCase() === currentUserEmail.toLowerCase()))
+                    c.AssignedUser.results.some(isUserMatch)
                 )
-                .map(c => c.Area);
-            ALC_StateMachine.userAreas = userAreas || [];
-            console.log(`Assigned areas resolved: ${JSON.stringify(userAreas)}`);
+                .map(c => {
+                    if (c.Area && c.Area.trim() !== "") return c.Area.trim();
+                    const title = (c.Title || "").trim();
+                    if (title.includes(" - ")) return title.split(" - ")[1].trim();
+                    return title.replace(/^AREA-\d+\s*•?\s*/i, "").trim();
+                })
+                .filter(Boolean);
+
+            // Deduplicate areas
+            ALC_StateMachine.userAreas = [...new Set(userAreas)];
+            console.log(`Assigned areas resolved: ${JSON.stringify(ALC_StateMachine.userAreas)}`);
 
             if (isQaUser) {
                 this.userRole = ALC_ROLES.QUALITY;
-            } else if (isProductIncharge || userAreas.length > 0) {
+            } else if (isProductIncharge || ALC_StateMachine.userAreas.length > 0) {
                 this.userRole = ALC_ROLES.PRODUCT;
             } else {
                 this.userRole = ALC_ROLES.PRODUCTION;
@@ -146,10 +150,10 @@ const ALC_Main = {
             }
 
             // Set granular flags on ALC_StateMachine
-            ALC_StateMachine.isQaUser = isQaUser;
+            ALC_StateMachine.isQaUser = (this.userRole === ALC_ROLES.QUALITY);
             ALC_StateMachine.isGeneralQaUser = isQaUser;
-            ALC_StateMachine.isProductUser = (userAreas.length > 0);
-            ALC_StateMachine.isProductionUser = (!isQaUser && userAreas.length === 0);
+            ALC_StateMachine.isProductUser = (ALC_StateMachine.userAreas.length > 0);
+            ALC_StateMachine.isProductionUser = (!isQaUser && ALC_StateMachine.userAreas.length === 0);
 
             // Align granular flags if role override is requested via URL parameter
             if (urlRole) {
@@ -159,7 +163,7 @@ const ALC_Main = {
                 ALC_StateMachine.isProductionUser = (upperRole === ALC_ROLES.PRODUCTION);
             }
 
-            console.log(`Current User Role Resolved to: ${this.userRole}`);
+            console.log(`Current User Role Resolved to: ${this.userRole}, isQaUser=${ALC_StateMachine.isQaUser}, isProductUser=${ALC_StateMachine.isProductUser}, isProductionUser=${ALC_StateMachine.isProductionUser}`);
 
             // Populate visual diagnostics banner (commented out)
             /*
@@ -395,7 +399,12 @@ const ALC_Main = {
 
                 ALC_StateMachine.isQaUser = isAssignedQA;
                 if (!isAssignedQA) {
-                    this.userRole = ALC_ROLES.PRODUCTION;
+                    if (ALC_StateMachine.userAreas && ALC_StateMachine.userAreas.length > 0) {
+                        this.userRole = ALC_ROLES.PRODUCT;
+                        ALC_StateMachine.isProductUser = true;
+                    } else {
+                        this.userRole = ALC_ROLES.PRODUCTION;
+                    }
                 }
                 console.log(`QA User Access Check: Assigned QA = ${assignedQAString}, My Email = ${myEmail}, My Name1 = ${myName1}, My Name2 = ${myName2}. Is Assigned QA = ${isAssignedQA}`);
             }
@@ -470,6 +479,19 @@ const ALC_Main = {
 
     // Route state machine and bootstrap necessary modules based on status
     transitionByStatus: async function (status, session) {
+        // Check if tour is Cancelled
+        const statusStr = String(status || "").toLowerCase().trim();
+        const procStatusStr = String(session && session.cr3ea_processstatus || "").toLowerCase().trim();
+        if (statusStr.includes("cancel") || procStatusStr.includes("cancel")) {
+            if (typeof HideLoader === "function") HideLoader();
+            alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+            const welcomeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
+            window.location.href = welcomeUrl;
+            return;
+        }
+
         // Fetch checkpoints first so we can check roles/actions
         let checkpoints = [];
         try {
@@ -496,6 +518,7 @@ const ALC_Main = {
         } else {
             ALC_StateMachine.isProductionUser = false;
         }
+        ALC_StateMachine.isProductUser = (ALC_StateMachine.userAreas && ALC_StateMachine.userAreas.length > 0);
 
         // Define terminal statuses
         if (status === "Completed" || status === "Closed" || status === "Success") {
@@ -507,6 +530,32 @@ const ALC_Main = {
 
         // Direct routing for initial and acceptance statuses to completely avoid summary redirects
         if (status === "In Progress") {
+            // Check if checkpoints or observations already exist for this tour
+            if (checkpoints && checkpoints.length > 0) {
+                const isQa = ALC_StateMachine.isQaUser;
+                const hasPendingProd = (ALC_StateMachine.isProductionUser || ALC_StateMachine.isProductUser) && 
+                    this.hasPendingProductionActions(checkpoints, ALC_StateMachine.isProductionUser, ALC_StateMachine.isProductUser, ALC_StateMachine.userAreas);
+
+                if (hasPendingProd) {
+                    console.log("In Progress tour has pending production actions. Routing to PRODUCTION_ACTION.");
+                    ALC_StateMachine.isReadOnly = false;
+                    ALC_StateMachine.init(this.userRole, ALC_STATES.PRODUCTION_ACTION, this.currentTourId);
+                    await ALC_CorrectiveAction.loadFailedItems();
+                    return;
+                } else if (isQa) {
+                    console.log("In Progress tour with checkpoints opened by QA. Routing to QA_CHECKLIST.");
+                    ALC_StateMachine.isReadOnly = false;
+                    ALC_StateMachine.init(this.userRole, ALC_STATES.QA_CHECKLIST, this.currentTourId);
+                    return;
+                } else {
+                    console.log("In Progress tour with checkpoints opened in read-only. Routing to SUMMARY.");
+                    ALC_StateMachine.isReadOnly = true;
+                    ALC_StateMachine.init(this.userRole, ALC_STATES.SUMMARY, this.currentTourId);
+                    await ALC_Summary.init(this.currentTourId, "In Progress - Checkpoints recorded");
+                    return;
+                }
+            }
+
             const hasInitAction = (ALC_StateMachine.isProductionUser || ALC_StateMachine.isProductUser);
             ALC_StateMachine.isReadOnly = !hasInitAction;
             ALC_StateMachine.init(this.userRole, ALC_STATES.INIT_PRODUCTION, this.currentTourId);
@@ -515,14 +564,54 @@ const ALC_Main = {
         }
 
         if (status === "Escalated") {
-            const hasReassignAction = ALC_StateMachine.isProductionUser;
-            ALC_StateMachine.isReadOnly = !hasReassignAction;
-            ALC_StateMachine.init(this.userRole, ALC_STATES.INIT_PRODUCTION, this.currentTourId);
-            await ALC_QARequest.init();
-            return;
+            if (ALC_StateMachine.isProductionUser) {
+                ALC_StateMachine.isReadOnly = false;
+                ALC_StateMachine.init(this.userRole, ALC_STATES.INIT_PRODUCTION, this.currentTourId);
+                await ALC_QARequest.init();
+                return;
+            } else {
+                // QA or other user viewing escalated tour: route to PENDING_QA_ACCEPTANCE in locked escalated state
+                ALC_StateMachine.isReadOnly = true;
+                ALC_StateMachine.init(this.userRole, ALC_STATES.PENDING_QA_ACCEPTANCE, this.currentTourId);
+                return;
+            }
         }
 
         if (status === "Pending QA") {
+            // Check if 5-minute acceptance window has already expired
+            const reqTimeStr = ALC_QARequest.requestTimeResolved || session.cr3ea_tourstartdate || session.cr3ea_request_time;
+            let isExpiredReq = false;
+            if (reqTimeStr) {
+                const reqTime = new Date(reqTimeStr).getTime();
+                if (!isNaN(reqTime)) {
+                    const elapsedSeconds = Math.floor((Date.now() - reqTime) / 1000);
+                    if (elapsedSeconds >= (ALC_QARequest.escalationTimeLimit || 300)) {
+                        isExpiredReq = true;
+                    }
+                }
+            }
+
+            if (isExpiredReq) {
+                console.warn("ALC main.js: Request has exceeded 5 minutes while in 'Pending QA'. Escalating.");
+                session.cr3ea_status = "Escalated";
+                session.cr3ea_processstatus = "Escalated";
+                status = "Escalated";
+
+                // Trigger escalation in background / Dataverse if not already escalated
+                ALC_QARequest.triggerEscalation();
+
+                if (ALC_StateMachine.isProductionUser) {
+                    ALC_StateMachine.isReadOnly = false;
+                    ALC_StateMachine.init(this.userRole, ALC_STATES.INIT_PRODUCTION, this.currentTourId);
+                    await ALC_QARequest.init();
+                    return;
+                } else {
+                    ALC_StateMachine.isReadOnly = true;
+                    ALC_StateMachine.init(this.userRole, ALC_STATES.PENDING_QA_ACCEPTANCE, this.currentTourId);
+                    return;
+                }
+            }
+
             const hasAcceptAction = ALC_StateMachine.isQaUser;
             ALC_StateMachine.isReadOnly = !hasAcceptAction;
 
@@ -596,9 +685,7 @@ const ALC_Main = {
                 pendingMsg = `Pending with: Production Team for Corrective Actions`;
             }
         } else if (status === "Pending Re-Verification" || status === "Success - Pending Re-Verification") {
-            const isProdOrProduct = (ALC_StateMachine.isProductionUser || ALC_StateMachine.isProductUser);
-            const hasPendingProd = isProdOrProduct && this.hasPendingProductionActions(checkpoints, ALC_StateMachine.isProductionUser, ALC_StateMachine.isProductUser, ALC_StateMachine.userAreas);
-            if (ALC_StateMachine.isQaUser || hasPendingProd) {
+            if (ALC_StateMachine.isQaUser) {
                 hasAction = true;
             } else {
                 pendingMsg = `Pending with: QA Executive for Re-Verification`;
@@ -636,24 +723,27 @@ const ALC_Main = {
         if (hasAction) {
             ALC_StateMachine.isReadOnly = false;
             if (status === "Pending QA") {
-                ALC_StateMachine.init(this.userRole, ALC_STATES.PENDING_QA_ACCEPTANCE, this.currentTourId);
-                ALC_QARequest.startTimer(ALC_QARequest.requestTimeResolved || session.cr3ea_tourstartdate || session.cr3ea_request_time, session.cr3ea_tourby);
+                if (typeof ALC_QARequest !== "undefined" && ALC_QARequest.isRequestExpired && ALC_QARequest.isRequestExpired()) {
+                    ALC_StateMachine.isReadOnly = true;
+                    ALC_StateMachine.init(this.userRole, ALC_STATES.PENDING_QA_ACCEPTANCE, this.currentTourId);
+                } else {
+                    ALC_StateMachine.init(this.userRole, ALC_STATES.PENDING_QA_ACCEPTANCE, this.currentTourId);
+                    ALC_QARequest.startTimer(ALC_QARequest.requestTimeResolved || session.cr3ea_tourstartdate || session.cr3ea_request_time, session.cr3ea_tourby);
+                }
             } else if (status === "QA In Progress") {
                 ALC_StateMachine.init(this.userRole, ALC_STATES.QA_CHECKLIST, this.currentTourId);
             } else if (status === "Failed - Pending Production" || status === "Success - Pending Production") {
                 ALC_StateMachine.init(this.userRole, ALC_STATES.PRODUCTION_ACTION, this.currentTourId);
                 await ALC_CorrectiveAction.loadFailedItems();
             } else if (status === "Pending Re-Verification" || status === "Success - Pending Re-Verification") {
-                const isProdOrProduct = (ALC_StateMachine.isProductionUser || ALC_StateMachine.isProductUser);
-                const hasPendingProd = isProdOrProduct && this.hasPendingProductionActions(checkpoints, ALC_StateMachine.isProductionUser, ALC_StateMachine.isProductUser, ALC_StateMachine.userAreas);
-                if (hasPendingProd) {
-                    console.log("Conflict detected: User has pending production actions. Prioritizing PRODUCTION_ACTION state.");
-                    ALC_StateMachine.init(this.userRole, ALC_STATES.PRODUCTION_ACTION, this.currentTourId);
-                    await ALC_CorrectiveAction.loadFailedItems();
-                } else {
+                if (ALC_StateMachine.isQaUser) {
                     ALC_StateMachine.init(this.userRole, ALC_STATES.QA_REVERIFYING, this.currentTourId);
                     await ALC_CorrectiveAction.loadFailedItems();
                     await ALC_ReVerification.loadReverificationItems();
+                } else {
+                    ALC_StateMachine.isReadOnly = true;
+                    ALC_StateMachine.init(this.userRole, ALC_STATES.SUMMARY, this.currentTourId);
+                    await ALC_Summary.init(this.currentTourId);
                 }
             } else {
                 ALC_StateMachine.init(this.userRole, ALC_STATES.INIT_PRODUCTION, this.currentTourId);

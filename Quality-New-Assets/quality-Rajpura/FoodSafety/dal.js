@@ -36,80 +36,162 @@ if (typeof QualityRajpura_Config !== 'undefined') {
 }
 
 const FoodSafety_DAL = {
-    // 1. Get SharePoint Config (for QA Executives listing)
+    // 1. Get SharePoint Config (for QA Executives & Production Incharges listing)
     getConfig: async function () {
-        const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-        const listName = QualityRajpura_Config.SHAREPOINT_LISTS.FOOD_SAFETY;
+        const webUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getSiteBaseUrl)
+            ? QualityRajpura_Config.getSiteBaseUrl()
+            : ((typeof _spPageContextInfo !== 'undefined' && (_spPageContextInfo.webAbsoluteUrl || _spPageContextInfo.webServerRelativeUrl))
+                ? (_spPageContextInfo.webAbsoluteUrl || _spPageContextInfo.webServerRelativeUrl)
+                : "");
+        const listName = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.SHAREPOINT_LISTS && QualityRajpura_Config.SHAREPOINT_LISTS.FOOD_SAFETY)
+            ? QualityRajpura_Config.SHAREPOINT_LISTS.FOOD_SAFETY
+            : "Quality-Rajpura-FoodSafety";
 
-        let query = "?$select=Id,Title,Plant,ChecklistType," +
-            "QAExecutive/Title,QAExecutive/EMail,QAExecutive/Id," +
-            "ProductionIncharge/Title,ProductionIncharge/EMail,ProductionIncharge/Id" +
-            "&$expand=QAExecutive,ProductionIncharge";
-
-        let url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
-        let response;
+        if (!webUrl) {
+            console.warn("No SharePoint context. Returning mock Food Safety configurations.");
+            return this.getMockConfig();
+        }
 
         try {
-            response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
-        } catch (e) {
-            console.warn("Could not reach SharePoint config. Simulating local config.");
-            return this.getMockConfig();
-        }
-
-        if (!response || !response.ok) {
-            console.warn("SharePoint config response not OK. Simulating local config.");
-            return this.getMockConfig();
-        }
-
-        const data = await response.json();
-        const results = data.d.results;
-
-        return results.map(item => {
-            let qaList = [];
-            if (item.QAExecutive && item.QAExecutive.results && Array.isArray(item.QAExecutive.results)) {
-                qaList = item.QAExecutive.results.map(u => ({ Title: u.Title, EMail: u.EMail, Id: u.Id }));
-            } else if (item.QAExecutive && item.QAExecutive.Title) {
-                qaList = [{ Title: item.QAExecutive.Title, EMail: item.QAExecutive.EMail, Id: item.QAExecutive.Id }];
+            // Dynamic schema probing to resolve field internal names
+            const fieldsUrl = `${webUrl}/_api/web/lists/getByTitle('${listName}')/Fields?$select=InternalName,Title,TypeAsString`;
+            let listFields = [];
+            try {
+                const fieldsRes = await fetch(fieldsUrl, { headers: { "Accept": "application/json; odata=verbose" } });
+                if (fieldsRes.ok) {
+                    const fieldsData = await fieldsRes.json();
+                    listFields = (fieldsData && fieldsData.d && fieldsData.d.results) ? fieldsData.d.results : [];
+                }
+            } catch (errFields) {
+                console.warn("FoodSafety_DAL: Schema probing failed, using fallback:", errFields);
             }
 
-            let prodList = [];
-            if (item.ProductionIncharge && item.ProductionIncharge.results && Array.isArray(item.ProductionIncharge.results)) {
-                prodList = item.ProductionIncharge.results.map(u => ({ Title: u.Title, EMail: u.EMail, Id: u.Id }));
-            } else if (item.ProductionIncharge && item.ProductionIncharge.Title) {
-                prodList = [{ Title: item.ProductionIncharge.Title, EMail: item.ProductionIncharge.EMail, Id: item.ProductionIncharge.Id }];
-            }
-
-            return {
-                Id: item.Id,
-                Title: item.Title,
-                Plant: item.Plant || "",
-                ChecklistType: item.ChecklistType || "",
-                QAExecutives: qaList,
-                ProductionIncharges: prodList
+            const findField = (possibleNames, displayNames) => {
+                const pNames = Array.isArray(possibleNames) ? possibleNames : [possibleNames];
+                let match = listFields.find(f => pNames.some(pn => pn.toLowerCase() === f.InternalName.toLowerCase()));
+                if (match) return match;
+                if (displayNames) {
+                    const dNames = Array.isArray(displayNames) ? displayNames : [displayNames];
+                    match = listFields.find(f => dNames.some(dn => dn.toLowerCase() === f.Title.toLowerCase()));
+                }
+                return match;
             };
-        });
+
+            const plantField = findField(["Plant"], ["Plant"]);
+            const checklistTypeField = findField(["ChecklistType", "Checklist_x0020_Type"], ["Checklist Type", "ChecklistType"]);
+            const userField = findField(["QAExecutive", "QA_x0020_Executive", "AssignedUser", "Assigned_x0020_User", "AssignedQA"], ["QA Executive", "Assigned User", "QAExecutive"]);
+            const prodField = findField(["ProductionIncharge", "Production_x0020_Incharge", "ProductionExecutive", "Production_x0020_Executive"], ["Production Incharge", "Production Executive"]);
+
+            const selectParts = ["Id", "Title"];
+            const expandParts = [];
+
+            if (plantField) selectParts.push(plantField.InternalName);
+            if (checklistTypeField) selectParts.push(checklistTypeField.InternalName);
+
+            if (userField) {
+                const uName = userField.InternalName;
+                selectParts.push(`${uName}/Title`, `${uName}/EMail`, `${uName}/Id`);
+                expandParts.push(uName);
+            }
+            if (prodField) {
+                const pName = prodField.InternalName;
+                selectParts.push(`${pName}/Title`, `${pName}/EMail`, `${pName}/Id`);
+                expandParts.push(pName);
+            }
+
+            let query = `?$select=${selectParts.join(",")}&$top=500`;
+            if (expandParts.length > 0) query += `&$expand=${expandParts.join(",")}`;
+
+            const url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
+            const response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
+
+            if (!response.ok) {
+                throw new Error(`SharePoint fetch failed with status ${response.status}`);
+            }
+
+            const data = await response.json();
+            const results = (data && data.d && data.d.results) ? data.d.results : [];
+
+            if (results.length === 0) {
+                return this.getMockConfig();
+            }
+
+            const normalizeUsers = (raw) => {
+                if (!raw) return [];
+                if (raw.results && Array.isArray(raw.results)) {
+                    return raw.results.map(u => ({ Title: u.Title || u.title || "", EMail: u.EMail || u.email || "", Id: u.Id || u.id || "" }));
+                }
+                if (Array.isArray(raw)) {
+                    return raw.map(u => ({ Title: u.Title || u.title || "", EMail: u.EMail || u.email || "", Id: u.Id || u.id || "" }));
+                }
+                if (raw.Title || raw.EMail || raw.title || raw.email) {
+                    return [{ Title: raw.Title || raw.title || "", EMail: raw.EMail || raw.email || "", Id: raw.Id || raw.id || "" }];
+                }
+                return [];
+            };
+
+            return results.map(item => {
+                const rawQA = (userField && item[userField.InternalName]) || item.QAExecutive || item.QA_x0020_Executive || item.AssignedUser;
+                const rawProd = (prodField && item[prodField.InternalName]) || item.ProductionIncharge || item.Production_x0020_Incharge;
+                const plantVal = (plantField && item[plantField.InternalName]) || item.Plant || "Rajpura";
+                const typeVal = (checklistTypeField && item[checklistTypeField.InternalName]) || item.ChecklistType || item.Checklist_x0020_Type || item.Title || "";
+
+                return {
+                    Id: item.Id,
+                    Title: item.Title || "",
+                    Plant: plantVal,
+                    ChecklistType: typeVal,
+                    QAExecutives: normalizeUsers(rawQA),
+                    ProductionIncharges: normalizeUsers(rawProd)
+                };
+            });
+        } catch (e) {
+            console.warn("FoodSafety SharePoint config fetch failed. Falling back to mock config:", e);
+            return this.getMockConfig();
+        }
     },
 
     getMockConfig: function () {
         return [
             {
                 Id: 1,
-                Title: "QA Config 1",
+                Title: "PPE Checklist",
+                Plant: "Rajpura",
+                ChecklistType: "PPE",
                 QAExecutives: [
-                    { Title: "Mishab Muhammed", EMail: "mishab@bectors.com" }
+                    { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 },
+                    { Title: "Gokul K", EMail: "gokul.k@bectorfoods.com", Id: 108 },
+                    { Title: "Babifas P", EMail: "babifas.p@bectorfoods.com", Id: 112 }
                 ],
                 ProductionIncharges: [
-                    { Title: "Mishab Muhammed", EMail: "mishab@bectors.com" }
+                    { Title: "Shaan Arshaqu", EMail: "shaan.arshaqu@bectorfoods.com", Id: 111 },
+                    { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 }
                 ]
             },
             {
                 Id: 2,
-                Title: "QA Config 2",
+                Title: "GMP Checklist",
+                Plant: "Rajpura",
+                ChecklistType: "GMP",
                 QAExecutives: [
-                    { Title: "Gokul K", EMail: "gokul@bectors.com" }
+                    { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 },
+                    { Title: "Gokul K", EMail: "gokul.k@bectorfoods.com", Id: 108 }
                 ],
                 ProductionIncharges: [
-                    { Title: "Shaan Arshaqu", EMail: "shaan@bectors.com" }
+                    { Title: "Shaan Arshaqu", EMail: "shaan.arshaqu@bectorfoods.com", Id: 111 },
+                    { Title: "Ajith K", EMail: "ajith.k@bectorfoods.com", Id: 110 }
+                ]
+            },
+            {
+                Id: 3,
+                Title: "PCI Checklist",
+                Plant: "Rajpura",
+                ChecklistType: "PCI",
+                QAExecutives: [
+                    { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 }
+                ],
+                ProductionIncharges: [
+                    { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 }
                 ]
             }
         ];
@@ -236,8 +318,27 @@ const FoodSafety_DAL = {
         if (method === "PATCH") {
             return normalizeTourRecord(tourData);
         } else {
-            const data = await response.json();
-            return normalizeTourRecord(data);
+            let data = {};
+            try {
+                const text = await response.text();
+                if (text && text.trim().length > 0) {
+                    data = JSON.parse(text);
+                }
+            } catch (e) {
+                console.warn("Could not parse JSON response from Dataverse saveTourSession:", e);
+            }
+
+            // Extract created ID from OData-EntityId or Location header if not in body
+            const entityIdHeader = response.headers.get("OData-EntityId") || response.headers.get("Location") || "";
+            const guidMatch = entityIdHeader.match(/\(([0-9a-fA-F-]{36})\)/);
+            const headerGuid = guidMatch ? guidMatch[1] : null;
+
+            const normalized = normalizeTourRecord(data);
+            if (!normalized.cr3ea_prod_rajpura_quality_tourid && headerGuid) {
+                normalized.cr3ea_prod_rajpura_quality_tourid = headerGuid;
+                normalized.cr3ea_rajpura_quality_tourid = headerGuid;
+            }
+            return normalized;
         }
     },
 
@@ -253,7 +354,7 @@ const FoodSafety_DAL = {
             "Content-Type": "application/json; charset=utf-8",
             "OData-MaxVersion": "4.0",
             "OData-Version": "4.0",
-            "Prefer": "return=representation"
+            "Prefer": "return=minimal"
         };
 
         let url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}`;
@@ -301,7 +402,17 @@ const FoodSafety_DAL = {
             throw new Error(`Dataverse save checklist item failed: ${response.status} - ${errorText}`);
         }
 
-        if (method === "PATCH") {
+        if (response.status === 204 || method === "PATCH") {
+            const entityIdHeader = response.headers ? response.headers.get("OData-EntityId") : null;
+            if (entityIdHeader) {
+                const match = entityIdHeader.match(/\(([0-9a-fA-F-]{36})\)/);
+                if (match && match[1]) {
+                    itemData.cr3ea_foodsafetychecklistforrajpuraid = match[1];
+                    itemData.cr3ea_prod_foodsafetychecklistforrajpuraid = match[1];
+                    itemData.cr953_foodsafetychecklistforrajpuraid = match[1];
+                    itemData.cr953_prod_foodsafetychecklistforrajpuraid = match[1];
+                }
+            }
             return itemData;
         } else {
             const data = await response.json();
@@ -465,6 +576,153 @@ const FoodSafety_DAL = {
         } catch (e) {
             console.warn("Failed to clean up old checklist items, proceeding with save:", e);
         }
+    },
+
+    // 10. Upload proof document / image to SharePoint Document Library FoodSafetyRajpuraDocs
+    uploadAttachmentFile: async function (fileObject, tourId, checklistType, checkpointId, actionRemarks) {
+        if (!fileObject) return "";
+
+        // Client-side image compression
+        if (typeof window.compressImageFile === "function" && fileObject.type && fileObject.type.startsWith("image/")) {
+            try {
+                fileObject = await window.compressImageFile(fileObject);
+            } catch (e) {
+                console.warn("Image compression failed, using original: ", e);
+            }
+        }
+
+        const webUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getSiteBaseUrl)
+            ? QualityRajpura_Config.getSiteBaseUrl()
+            : ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl) ? _spPageContextInfo.webAbsoluteUrl : "");
+        const webServerRelativeUrl = typeof _spPageContextInfo !== 'undefined' ? (_spPageContextInfo.webServerRelativeUrl || "") : "";
+        const libraryName = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.SHAREPOINT_DOCS && QualityRajpura_Config.SHAREPOINT_DOCS.FOOD_SAFETY)
+            ? QualityRajpura_Config.SHAREPOINT_DOCS.FOOD_SAFETY
+            : "FoodSafetyRajpuraDocs";
+
+        if (!webUrl || webUrl.startsWith("http://localhost") || webUrl.startsWith("file://")) {
+            console.log("Mock file upload in local environment:", fileObject.name);
+            return `/sites/Mrs_Bectors_PTMS/${libraryName}/mock_${Date.now()}_${fileObject.name}`;
+        }
+
+        const serverRelativeUrl = webServerRelativeUrl === "/" || !webServerRelativeUrl
+            ? `/${libraryName}`
+            : `${webServerRelativeUrl}/${libraryName}`;
+
+        let requestDigest = "";
+        const requestDigestEl = document.getElementById("__REQUESTDIGEST");
+        if (requestDigestEl && requestDigestEl.value) {
+            requestDigest = requestDigestEl.value;
+        } else if (this._cachedDigest) {
+            requestDigest = this._cachedDigest;
+        } else {
+            try {
+                const digestResponse = await $.ajax({
+                    url: `${webUrl}/_api/contextinfo`,
+                    method: "POST",
+                    headers: { "Accept": "application/json; odata=verbose" }
+                });
+                requestDigest = digestResponse.d.GetContextWebInformation.FormDigestValue;
+                this._cachedDigest = requestDigest;
+                setTimeout(() => { this._cachedDigest = null; }, 20 * 60 * 1000);
+            } catch (dErr) {
+                console.warn("Failed fetching digest from contextinfo:", dErr);
+            }
+        }
+
+        const fileBuffer = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.onerror = err => reject(err);
+            reader.readAsArrayBuffer(fileObject);
+        });
+
+        const dotIndex = fileObject.name.lastIndexOf(".");
+        let baseName = fileObject.name;
+        let extension = "";
+        if (dotIndex !== -1) {
+            baseName = fileObject.name.substring(0, dotIndex);
+            extension = fileObject.name.substring(dotIndex);
+        }
+        baseName = baseName.replace(/[^a-zA-Z0-9_-]/g, "_");
+        const timestamp = typeof moment !== 'undefined' ? moment().format("YYYYMMDD_HHmmss") : Date.now();
+        const safeCheckpointId = checkpointId ? String(checkpointId).replace(/[^a-zA-Z0-9_-]/g, "_") : "";
+        const uniqueFileName = safeCheckpointId
+            ? `${baseName}_${timestamp}_${safeCheckpointId}${extension}`
+            : `${baseName}_${timestamp}${extension}`;
+
+        const fileAddUrl = `${webUrl}/_api/web/GetFolderByServerRelativeUrl('${serverRelativeUrl}')/Files/add(url='${uniqueFileName}', overwrite=true)?$expand=ListItemAllFields`;
+        const uploadResponse = await $.ajax({
+            url: fileAddUrl,
+            method: "POST",
+            data: fileBuffer,
+            processData: false,
+            contentType: "application/octet-stream",
+            headers: {
+                "Accept": "application/json; odata=verbose",
+                "X-RequestDigest": requestDigest
+            }
+        });
+
+        let fileItemId = null;
+        if (uploadResponse.d && uploadResponse.d.ListItemAllFields && uploadResponse.d.ListItemAllFields.Id) {
+            fileItemId = uploadResponse.d.ListItemAllFields.Id;
+        } else if (uploadResponse.d && uploadResponse.d.ServerRelativeUrl) {
+            try {
+                const fileUrl = uploadResponse.d.ServerRelativeUrl;
+                const itemResponse = await $.ajax({
+                    url: `${webUrl}/_api/web/getFileByServerRelativeUrl('${fileUrl}')/ListItemAllFields`,
+                    method: "GET",
+                    headers: { "Accept": "application/json; odata=verbose" }
+                });
+                fileItemId = itemResponse.d.Id;
+            } catch (itemErr) {
+                console.warn("Could not retrieve ListItemAllFields:", itemErr);
+            }
+        }
+
+        // Optional metadata tagging (safe fallback if custom columns are not yet provisioned on library)
+        if (fileItemId) {
+            try {
+                if (!this._cachedEntityType) this._cachedEntityType = {};
+                let listItemEntityType = this._cachedEntityType[libraryName];
+                if (!listItemEntityType) {
+                    const entityResponse = await $.ajax({
+                        url: `${webUrl}/_api/web/lists/getByTitle('${libraryName}')?$select=ListItemEntityTypeFullName`,
+                        method: "GET",
+                        headers: { "Accept": "application/json; odata=verbose" }
+                    });
+                    listItemEntityType = entityResponse.d.ListItemEntityTypeFullName;
+                    this._cachedEntityType[libraryName] = listItemEntityType;
+                }
+
+                const metadataPayload = {
+                    "__metadata": { "type": listItemEntityType },
+                    "Title": uniqueFileName
+                };
+                if (tourId) metadataPayload["QualityTourId"] = tourId;
+                if (checklistType) metadataPayload["ChecklistType"] = checklistType;
+                if (checkpointId) metadataPayload["CheckpointID"] = String(checkpointId);
+                if (actionRemarks) metadataPayload["ActionRemarks"] = String(actionRemarks);
+
+                const updateUrl = `${webUrl}/_api/web/lists/getByTitle('${libraryName}')/items(${fileItemId})`;
+                await $.ajax({
+                    url: updateUrl,
+                    method: "POST",
+                    data: JSON.stringify(metadataPayload),
+                    headers: {
+                        "Accept": "application/json; odata=verbose",
+                        "Content-Type": "application/json; odata=verbose",
+                        "X-RequestDigest": requestDigest,
+                        "X-HTTP-Method": "MERGE",
+                        "IF-MATCH": "*"
+                    }
+                });
+            } catch (metaErr) {
+                console.warn("Metadata tagging optional update skipped or failed:", metaErr);
+            }
+        }
+
+        return uploadResponse.d.ServerRelativeUrl;
     },
 
     deleteMockChecklistItem: function (guid) {

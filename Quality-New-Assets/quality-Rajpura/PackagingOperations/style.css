@@ -131,3 +131,162 @@
     font-weight: 600 !important;
 }
 
+/* ==========================================================================
+   People Picker Components (Packaging Operations)
+   ========================================================================== */
+.pkgops-user-picker-container {
+    position: relative;
+    width: 100%;
+}
+
+.pkgops-selected-chips-box {
+    min-height: 38px;
+    padding: 3px 8px;
+    background-color: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    cursor: text;
+}
+
+.pkgops-selected-chips-box:focus-within {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+    outline: 0;
+}
+
+.pkgops-user-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px 3px 4px;
+    border-radius: 20px;
+    font-size: 12.5px;
+    font-weight: 500;
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.pkgops-user-chip.facilitator {
+    background: #faf5ff;
+    color: #6b21a8;
+    border-color: #e9d5ff;
+}
+
+.pkgops-user-chip.facilitator .pkgops-user-avatar {
+    background: #9333ea;
+}
+
+.pkgops-user-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #2563eb;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+
+.pkgops-user-chip-remove {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 15px;
+    line-height: 1;
+    padding: 0 2px;
+    margin-left: 2px;
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.pkgops-user-chip-remove:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.pkgops-picker-search-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #0f172a;
+    font-size: 13px;
+    flex: 1;
+    min-width: 140px;
+    padding: 4px 4px;
+}
+
+.pkgops-picker-search-input::placeholder {
+    color: #94a3b8;
+    font-size: 12.5px;
+}
+
+.pkgops-picker-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    z-index: 1050;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.pkgops-picker-item {
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background 0.15s ease;
+}
+
+.pkgops-picker-item:last-child {
+    border-bottom: none;
+}
+
+.pkgops-picker-item:hover {
+    background: #f8fafc;
+}
+
+.pkgops-picker-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.pkgops-picker-item-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pkgops-picker-item-sub {
+    font-size: 11.5px;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+

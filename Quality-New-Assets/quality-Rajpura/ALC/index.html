@@ -25,8 +25,8 @@
                 siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/css/main.min.css?v=2.0",
                 siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/css/home-page.min.css?v=2.0",
                 siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/css/style.css?v=2.0",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=2.0",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/style.css?v=2.0"
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=2.2",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/style.css?v=2.1"
             ];
 
             for (var i = 0; i < cssLinks.length; i++) {
@@ -151,9 +151,15 @@
                                                 <label class="form-label">Line</label>
                                                 <div class="select2-parent">
                                                     <select class="form-select" id="header-line">
-                                                        <option>Select Line</option>
-                                                        <option>Line 1</option>
-                                                        <option>Line 2</option>
+                                                        <option value="">Select Line</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label class="form-label">Shift</label>
+                                                <div class="select2-parent">
+                                                    <select class="form-select" id="header-shift">
+                                                        <option value="">Select Shift</option>
                                                     </select>
                                                 </div>
                                             </div>
@@ -161,23 +167,13 @@
                                                 <label class="form-label">Assign QA Executive</label>
                                                 <div class="select2-parent">
                                                     <select class="form-select" id="select-qa-executive">
-                                                        <!-- Loaded dynamically -->
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div class="form-group" style="display: none;">
-                                                <label class="form-label">Shift</label>
-                                                <div class="select2-parent">
-                                                    <select class="form-select" id="header-shift">
-                                                        <option>Shift 1</option>
-                                                        <option>Shift 2</option>
-                                                        <option>Shift 3</option>
+                                                        <!-- Loaded dynamically based on Line & Shift -->
                                                     </select>
                                                 </div>
                                             </div>
                                             <div class="form-group">
-                                                <label class="form-label">Shift Executive Production</label>
-                                                <input type="text" class="form-control" id="header-exec-prod" readonly placeholder="Enter Name">
+                                                 <label class="form-label">Shift Executive</label>
+                                                 <input type="text" class="form-control" id="header-exec-prod" readonly placeholder="Enter Name">
                                             </div>
                                             <div class="form-group">
                                                 <label class="form-label">Previous Product run on line Name</label>
@@ -1076,8 +1072,8 @@
                                 <!-- Area-wise compliance summary -->
                                 <div style="margin-bottom: 25px;">
                                     <h4 style="font-weight: bold; color: #1e293b; margin-bottom: 12px; font-size: 15px;">Area-wise Performance Summary</h4>
-                                    <div style="overflow-x: auto;">
-                                        <table class="bs-table" border="1" style="width: 100%; border-collapse: collapse; text-align: center; font-size: 13px;">
+                                    <div style="overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch;">
+                                        <table class="bs-table" border="1" style="width: 100%; min-width: 650px; border-collapse: collapse; text-align: center; font-size: 13px;">
                                             <thead>
                                                 <tr style="background-color: #f8fafc; font-weight: 600;">
                                                     <th style="padding: 10px;">Area Name</th>
@@ -1133,16 +1129,16 @@
                 siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/libraries/moment.min.js",
                 siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/CommonDAL.js",
                 siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/Common.js",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=3.5",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/notification.js?v=3.5",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/dal.js?v=3.5",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/state-machine.js?v=3.5",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/qa-request.js?v=3.5",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/checklist.js?v=3.5",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/corrective-action.js?v=3.5",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/re-verify.js?v=3.5",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/summary.js?v=3.5",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/main.js?v=3.5"
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=4.2",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/notification.js?v=4.2",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/dal.js?v=5.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/state-machine.js?v=5.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/qa-request.js?v=5.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/checklist.js?v=5.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/corrective-action.js?v=5.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/re-verify.js?v=5.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/summary.js?v=5.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/ALC/js/main.js?v=5.0"
             ];
 
             if (document.readyState === "loading") {

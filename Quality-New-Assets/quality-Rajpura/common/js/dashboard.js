@@ -14,6 +14,19 @@ $(document).ready(function () {
         link.href = `${webUrl}/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css`;
         document.head.appendChild(link);
     }
+
+    // Dynamically inject common/js/admin.js if not yet loaded
+    const adminScriptId = "rajpura-quality-admin-js";
+    if (!document.getElementById(adminScriptId) && typeof window.Rajpura_Admin === 'undefined') {
+        const script = document.createElement("script");
+        script.id = adminScriptId;
+        const webUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webServerRelativeUrl)
+            ? _spPageContextInfo.webServerRelativeUrl.replace(/\/+$/, '')
+            : (window.location.href.toLowerCase().indexOf("ptms_uat") !== -1 ? "/sites/PTMS_UAT" :
+              (window.location.href.toLowerCase().indexOf("ptms_prd") !== -1 ? "/sites/PTMS_PRD" : "/sites/Mrs_Bectors_PTMS"));
+        script.src = `${webUrl}/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/admin.js?v=2.0`;
+        document.body.appendChild(script);
+    }
     ALC_Dashboard.init();
 });
 
@@ -157,13 +170,49 @@ const ALC_Dashboard = {
             const dropdownEl = document.getElementById("DepartmentDropDownId");
             const deptId = (dropdownEl && dropdownEl.value !== "All") ? dropdownEl.value.toString() : (typeof userDepratmentId !== 'undefined' ? userDepratmentId.toString() : "");
 
-            const isQualityDept = QualityRajpura_Config.QUALITY_DEPT_IDS.includes(deptId);
-            const isRajpura = (plant === QualityRajpura_Config.PLANT_NAME || pId === QualityRajpura_Config.PLANT_ID || isQualityDept);
+            // 1. Check if department is Quality
+            const isQualityDept = (typeof isQualityDepartment === 'function' && isQualityDepartment()) ||
+                QualityRajpura_Config.QUALITY_DEPT_IDS.includes(deptId) ||
+                (typeof DepartmentNameLeftNavi === "string" && DepartmentNameLeftNavi.toLowerCase().includes("quality"));
 
-            console.log(`Evaluating Dashboard: Plant=${plant}, SelectedDept=${deptId}, isRajpura=${isRajpura}, isQualityDept=${isQualityDept}`);
+            // 2. Check if department is Production (authorized for line tour tracking only)
+            const isProdDept = (typeof DepartmentNameLeftNavi === "string" && (DepartmentNameLeftNavi.toLowerCase().includes("prod") || DepartmentNameLeftNavi.toLowerCase().includes("baking") || DepartmentNameLeftNavi.toLowerCase().includes("mixing"))) ||
+                (typeof RoleName === "string" && RoleName.toLowerCase().includes("prod")) ||
+                deptId === "82";
 
-            if (isRajpura && isQualityDept) {
-                await ALC_Dashboard.activateDashboard();
+            // 3. Check if plant is strictly Rajpura
+            const isPlantRajpura = (typeof isRajpuraPlant === 'function' && isRajpuraPlant()) ||
+                (typeof plant === 'string' && plant.toLowerCase().indexOf('rajpura') !== -1) ||
+                pId === QualityRajpura_Config.PLANT_ID ||
+                pId === "14" ||
+                pId === "2" ||
+                (plant === "" && pId === ""); // Local / offline fallback when not initialized
+
+            // 4. Strict Rajpura Quality qualification
+            const isRajpuraQuality = isPlantRajpura && isQualityDept;
+            const isRajpuraAuthorized = isPlantRajpura && (isQualityDept || isProdDept);
+
+            console.log(`Evaluating Dashboard: Plant=${plant}, SelectedDept=${deptId}, isPlantRajpura=${isPlantRajpura}, isRajpuraQuality=${isRajpuraQuality}, isRajpuraAuthorized=${isRajpuraAuthorized}`);
+
+            if (isRajpuraAuthorized) {
+                // Admin Panel is strictly available under Rajpura Quality section only for authorized Admins
+                if (isRajpuraQuality && typeof Rajpura_Admin !== 'undefined' && Rajpura_Admin.detectAdminUrl && Rajpura_Admin.detectAdminUrl()) {
+                    const isAdmin = (typeof Rajpura_Admin.checkAdminAccess === "function") ? await Rajpura_Admin.checkAdminAccess() : false;
+                    if (isAdmin) {
+                        await Rajpura_Admin.activateAdminPanel();
+                    } else {
+                        console.warn("User attempted Admin view without AdminPanel list authorization. Redirecting to Quality Dashboard.");
+                        try {
+                            const url = new URL(window.location.href);
+                            url.searchParams.delete("view");
+                            url.searchParams.delete("admin");
+                            window.history.replaceState({}, "", url.toString());
+                        } catch (e) {}
+                        await ALC_Dashboard.activateDashboard(isRajpuraQuality);
+                    }
+                } else {
+                    await ALC_Dashboard.activateDashboard(isRajpuraQuality);
+                }
             } else {
                 ALC_Dashboard.deactivateDashboard();
             }
@@ -172,9 +221,35 @@ const ALC_Dashboard = {
         }
     },
 
-    activateDashboard: async function () {
+    activateDashboard: async function (isRajpuraQualityParam) {
         try {
             console.log("Activating Rajpura Common Quality Dashboard");
+
+            const plant = typeof userPlantId !== 'undefined' ? userPlantId : "";
+            const pId = typeof Plantid !== 'undefined' ? Plantid.toString() : "";
+            const dropdownEl = document.getElementById("DepartmentDropDownId");
+            const deptId = (dropdownEl && dropdownEl.value !== "All") ? dropdownEl.value.toString() : (typeof userDepratmentId !== 'undefined' ? userDepratmentId.toString() : "");
+
+            const isRajpuraQuality = (typeof isRajpuraQualityParam === 'boolean') ? isRajpuraQualityParam : (
+                ((typeof isRajpuraPlant === 'function' && isRajpuraPlant()) || (typeof plant === 'string' && plant.toLowerCase().indexOf('rajpura') !== -1) || pId === QualityRajpura_Config.PLANT_ID || pId === "14" || pId === "2" || (plant === "" && pId === "")) &&
+                ((typeof isQualityDepartment === 'function' && isQualityDepartment()) || QualityRajpura_Config.QUALITY_DEPT_IDS.includes(deptId) || (typeof DepartmentNameLeftNavi === "string" && DepartmentNameLeftNavi.toLowerCase().includes("quality")))
+            );
+
+            // Safeguard: if URL requests admin panel AND is strictly Rajpura Quality, render admin panel instead if authorized
+            if (isRajpuraQuality && typeof Rajpura_Admin !== 'undefined' && Rajpura_Admin.detectAdminUrl && Rajpura_Admin.detectAdminUrl()) {
+                const isAdmin = (typeof Rajpura_Admin.checkAdminAccess === "function") ? await Rajpura_Admin.checkAdminAccess() : false;
+                if (isAdmin) {
+                    await Rajpura_Admin.activateAdminPanel();
+                    return;
+                } else {
+                    try {
+                        const url = new URL(window.location.href);
+                        url.searchParams.delete("view");
+                        url.searchParams.delete("admin");
+                        window.history.replaceState({}, "", url.toString());
+                    } catch (e) {}
+                }
+            }
 
             const dashboardEl = document.getElementById("rajpuraQualityDashboard");
             if (!dashboardEl) {
@@ -182,14 +257,44 @@ const ALC_Dashboard = {
                 return;
             }
 
-            // 1. Hide generic default dashboards
+            // 1. Hide generic default dashboards and prevent horizontal overflow
             $('#ShowObservation').hide();
-            $('#tblTourScores').hide();
+            $('#tblTourScores, #tblOpenObservationInner, #divtblDepartmentScores, .tblTourScores').hide();
+            $('#tblOpenObservationInner').closest('.container-fluid').hide();
             $('#ShowCategory').hide();
             $('#ShowGraph').hide();
 
-            // 2. Show the Rajpura Dashboard wrapper
+            // 2. Hide Admin Panel container when viewing standard Quality Dashboard
+            $('#rajpuraAdminPanel').hide();
+
+            // 3. Show the Rajpura Dashboard wrapper and Dashboard view
             $(dashboardEl).show();
+            $('#rajpuraDashboardView').show();
+
+            // 4. Inject Admin Panel button into header ONLY for Rajpura Quality section AND if user is in AdminPanel list
+            if (isRajpuraQuality) {
+                const isAdmin = (typeof Rajpura_Admin !== 'undefined' && typeof Rajpura_Admin.checkAdminAccess === 'function') 
+                    ? await Rajpura_Admin.checkAdminAccess() 
+                    : false;
+
+                if (isAdmin) {
+                    if (!document.getElementById("btn-goto-admin-panel")) {
+                        const headerRight = $(dashboardEl).find(".bs-card-header > div").first();
+                        if (headerRight.length) {
+                            const adminBtnHtml = `
+                                <button type="button" id="btn-goto-admin-panel" onclick="Rajpura_Admin.switchToAdmin()" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; font-size: 13px; font-weight: 600; border-radius: 6px; background-color: #1e40af; color: #ffffff; border: none; cursor: pointer; box-shadow: 0 2px 4px rgba(30, 64, 175, 0.2); transition: all 0.15s ease;">
+                                    ⚙️ Admin Panel
+                                </button>
+                            `;
+                            headerRight.append(adminBtnHtml);
+                        }
+                    }
+                } else {
+                    $('#btn-goto-admin-panel').remove();
+                }
+            } else {
+                $('#btn-goto-admin-panel').remove();
+            }
 
             // Bind category selector if present in DOM
             const categoryDropdown = document.getElementById("dashboardCategorySelect");
@@ -204,7 +309,7 @@ const ALC_Dashboard = {
                 $(categoryDropdown).val(ALC_Dashboard.selectedCategory).trigger("change");
             }
 
-            // 3. Load all tours and split them
+            // 5. Load all tours and split them
             await ALC_Dashboard.loadAllTours();
         } catch (e) {
             console.error("Error in activateDashboard: ", e);
@@ -214,12 +319,16 @@ const ALC_Dashboard = {
     deactivateDashboard: function () {
         console.log("Deactivating Rajpura Common Quality Dashboard");
 
-        // 1. Hide the Rajpura Dashboard wrapper
+        // 1. Hide the Rajpura Dashboard, Admin Panel wrappers and button
         $('#rajpuraQualityDashboard').hide();
+        $('#rajpuraDashboardView').hide();
+        $('#rajpuraAdminPanel').hide();
+        $('#btn-goto-admin-panel').remove();
 
         // 2. Restore visibility of default SharePoint dashboards
         $('#ShowObservation').show();
-        $('#tblTourScores').show();
+        $('#tblTourScores, #tblOpenObservationInner, #divtblDepartmentScores, .tblTourScores').show();
+        $('#tblOpenObservationInner').closest('.container-fluid').show();
         $('#ShowCategory').show();
         $('#ShowGraph').show();
     },
@@ -473,11 +582,14 @@ const ALC_Dashboard = {
 
         for (const t of filteredList) {
             let status = t.cr3ea_processstatus || t.cr3ea_status || "In Progress";
-            const isTerminal = status === "Completed" || status === "Closed" || status === "Closed - Expired" || status === "Success" || status === "Success - Expired" || status === "Submitted";
+            const isCancelled = String(status).toLowerCase().includes("cancel");
+            const isTerminal = isCancelled || status === "Completed" || status === "Closed" || status === "Closed - Expired" || status === "Success" || status === "Success - Expired" || status === "Submitted";
             
             if (isTerminal) {
                 closedList.push(t);
-                if (isFS) {
+                if (isCancelled) {
+                    // Cancelled tours are archived, do not count towards success/pass metrics
+                } else if (isFS) {
                     if (t.cr3ea_checklist_result === "Pass") {
                         metric4++;
                     } else if (t.cr3ea_checklist_result === "Fail") {
@@ -731,7 +843,8 @@ const ALC_Dashboard = {
     // Resolve Pending With Name dynamically based on status
     getPendingWith: function (t) {
         let status = t.cr3ea_processstatus || t.cr3ea_status || "Pending QA";
-        const prodName = t.cr3ea_shiftexecutiveproduction || "Production Team";
+        const prodNameRaw = t.cr3ea_shiftexecutiveproduction || t.cr3ea_observedby || "Production Team";
+        const prodName = prodNameRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(prodNameRaw) : prodNameRaw;
         const qaNameRaw = t.cr3ea_tourby || "QA Team";
         const qaName = qaNameRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaNameRaw) : qaNameRaw;
 
@@ -751,7 +864,7 @@ const ALC_Dashboard = {
 
         switch (status) {
             case "Escalated":
-                return `Escalation Manager`;
+                return `Shift Executive (${prodName})`;
             case "Pending QA":
                 return `QA Incharge (${qaName})`;
             case "QA In Progress":
@@ -922,8 +1035,11 @@ const ALC_Dashboard = {
                         tr.classList.add("my-task-row");
                     }
  
+                    const isFsCancelled = String(status).toLowerCase().includes("cancel") || String(t.cr3ea_processstatus || "").toLowerCase().includes("cancel");
                     let isClickable = true;
-                    if ((status === "In Progress" || status === "InProgress-paused") && !isMyTask) {
+                    if (isFsCancelled) {
+                        isClickable = false;
+                    } else if ((status === "In Progress" || status === "InProgress-paused") && !isMyTask) {
                         isClickable = false;
                     }
  
@@ -941,8 +1057,17 @@ const ALC_Dashboard = {
                         };
                     } else {
                         tr.style.cursor = "default";
-                        tr.title = "This tour is in progress by another QA and is only accessible to the assigned QA Executive.";
-                        tr.onclick = null;
+                        tr.title = isFsCancelled 
+                            ? "This observation has been cancelled and cannot be accessed." 
+                            : "This tour is in progress by another QA and is only accessible to the assigned QA Executive.";
+                        tr.onclick = function (e) {
+                            if (e) e.stopPropagation();
+                            if (isFsCancelled) {
+                                alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                            } else {
+                                alert("Access Denied: This tour is currently in progress by QA. Only the assigned QA Executive can enter.");
+                            }
+                        };
                     }
                 } else if (isMB) {
                     const form = "Mixing & Baking";
@@ -990,17 +1115,40 @@ const ALC_Dashboard = {
                         tr.classList.add("my-task-row");
                     }
 
-                    tr.style.cursor = "pointer";
-                    tr.title = "Click to open Mixing & Baking checklist";
-                    tr.onclick = function () {
-                        const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
-                            ? QualityRajpura_Config.getTourId(t)
-                            : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
-                        const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
-                            ? QualityRajpura_Config.getSiteBaseUrl()
-                            : "/sites/Mrs_Bectors_PTMS";
-                        window.location.href = `${siteBase}/Pages/MixingAndBaking.aspx?TourId=${tourId}`;
-                    };
+                    const isMbCancelled = String(status).toLowerCase().includes("cancel") || String(t.cr3ea_processstatus || "").toLowerCase().includes("cancel");
+                    let isClickable = true;
+                    if (isMbCancelled) {
+                        isClickable = false;
+                    } else if (isQaStatus && !isMyTask) {
+                        isClickable = false;
+                    }
+
+                    if (isClickable) {
+                        tr.style.cursor = "pointer";
+                        tr.title = "Click to open Mixing & Baking checklist";
+                        tr.onclick = function () {
+                            const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                                ? QualityRajpura_Config.getTourId(t)
+                                : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                            const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                                ? QualityRajpura_Config.getSiteBaseUrl()
+                                : "/sites/Mrs_Bectors_PTMS";
+                            window.location.href = `${siteBase}/Pages/MixingAndBaking.aspx?TourId=${tourId}`;
+                        };
+                    } else {
+                        tr.style.cursor = "default";
+                        tr.title = isMbCancelled 
+                            ? "This observation has been cancelled and cannot be accessed." 
+                            : "This tour is currently in progress by QA and is only accessible to the assigned QA Executive.";
+                        tr.onclick = function (e) {
+                            if (e) e.stopPropagation();
+                            if (isMbCancelled) {
+                                alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                            } else {
+                                alert("Access Denied: This tour is currently in progress by QA. Only the assigned QA Executive can enter.");
+                            }
+                        };
+                    }
                 } else if (isCCP) {
                     let form = t.cr3ea_ccp_oprp_sieves_parametertype;
                     if (!form && t.cr3ea_title) {
@@ -1024,13 +1172,20 @@ const ALC_Dashboard = {
                     const freqText = t.cr3ea_ccp_oprp_sieves_frequency || t.cr3ea_ccp_oprp_sieves_productvariety || "2-Hour Check";
                     const clearBadgeHtml = `<span class="badge badge-warning" style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">${freqText}</span>`;
                     
-                    let status = t.cr3ea_status || "In Progress";
+                    let status = t.cr3ea_processstatus || t.cr3ea_status || "In Progress";
                     let badgeClass = "badge-warning";
-                    if (status === "Submitted" || status === "Completed") badgeClass = "badge-success";
+                    if (status === "Submitted" || status === "Completed" || status === "Success") badgeClass = "badge-success";
                     else if (status === "Escalated") badgeClass = "badge-error";
+                    else if (status === "Pending Production Action" || status.includes("Pending Production") || status.includes("Pending Observation")) badgeClass = "badge-error";
+                    else if (status === "Pending QA Re-Verification" || status.includes("Re-Verification")) badgeClass = "badge-primary";
                     
                     const isProgress = (String(status).toLowerCase() === "in-progress" || String(status).toLowerCase() === "in progress" || String(status).toLowerCase() === "inprogress-paused");
-                    const pendingWith = isProgress ? `QA Executive (${qaExec})` : status;
+                    let pendingWith = isProgress ? `QA Executive (${qaExec})` : status;
+                    if (status === "Pending Production Action" || status.includes("Pending Production")) {
+                        pendingWith = `Production Incharge (${prodIncharge})`;
+                    } else if (status === "Pending QA Re-Verification" || status.includes("Re-Verification")) {
+                        pendingWith = `QA Executive (${qaExec})`;
+                    }
 
                     tr.innerHTML = `
                         <td>${date}</td>
@@ -1045,7 +1200,7 @@ const ALC_Dashboard = {
                     `;
                     
                     let isMyTask = false;
-                    const isQaStatus = (status === "In Progress" || status === "InProgress-paused" || status === "Escalated");
+                    const isQaStatus = (status === "In Progress" || status === "InProgress-paused" || status === "Escalated" || status === "Pending QA Re-Verification" || status === "Pending QA");
                     if (isQaStatus) {
                         const qaEmail = String(t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
                         const qaResolvedName = (typeof qaEmail === "string" && qaEmail.includes("@")) ? ALC_Dashboard.resolveQaNameFromEmail(qaEmail).toLowerCase().trim() : qaEmail;
@@ -1056,12 +1211,37 @@ const ALC_Dashboard = {
                         }
                     }
 
+                    // Also check if current user is Production team for this tour or in general
+                    const prodExecRawVal = String(t.cr3ea_shiftexecutiveproduction || t.cr3ea_production_incharge || t.cr3ea_observedby || "").toLowerCase().trim();
+                    const prodExecResolvedVal = (typeof prodExecRawVal === "string" && prodExecRawVal.includes("@")) ? ALC_Dashboard.resolveQaNameFromEmail(prodExecRawVal).toLowerCase().trim() : prodExecRawVal;
+                    const isUserProdExec = (currentUserEmail && prodExecRawVal && (currentUserEmail === prodExecRawVal || currentUserEmail.includes(prodExecRawVal) || prodExecRawVal.includes(currentUserEmail))) ||
+                        (currentUserName && prodExecRawVal && (currentUserName === prodExecRawVal || currentUserName.includes(prodExecRawVal) || prodExecRawVal.includes(currentUserName))) ||
+                        (currentUserName && prodExecResolvedVal && (currentUserName === prodExecResolvedVal || currentUserName.includes(prodExecResolvedVal) || prodExecResolvedVal.includes(currentUserName))) ||
+                        (typeof DepartmentNameLeftNavi === "string" && (DepartmentNameLeftNavi.toLowerCase().includes("prod") || DepartmentNameLeftNavi.toLowerCase().includes("baking") || DepartmentNameLeftNavi.toLowerCase().includes("mixing"))) ||
+                        (typeof RoleName === "string" && RoleName.toLowerCase().includes("prod"));
+
+                    const isProdPending = (status === "Pending Production Action" || status.includes("Pending Production") || status.includes("Pending Observation") || status === "Escalated");
+                    const isReverifyStatus = (status === "Pending QA Re-Verification" || status.includes("Re-Verification") || status.includes("Re-verify"));
+
+                    const isCcpCancelled = String(status).toLowerCase().includes("cancel") || String(t.cr3ea_processstatus || "").toLowerCase().includes("cancel");
+
+                    // Re-verification, In Progress, and Cancelled are strictly QA's responsibility / terminal. Production person does NOT have pending task!
+                    if (!isReverifyStatus && !isProgress && !isCcpCancelled && isUserProdExec && isProdPending) {
+                        isMyTask = true;
+                    }
+
                     if (isMyTask) {
                         tr.classList.add("my-task-row");
                     }
 
                     let isClickable = true;
-                    if ((status === "In Progress" || status === "InProgress-paused") && !isMyTask) {
+                    if (isCcpCancelled) {
+                        isClickable = false;
+                    } else if (isProgress && !isMyTask) {
+                        isClickable = false;
+                    } else if (isReverifyStatus && isUserProdExec && !isMyTask) {
+                        isClickable = false;
+                    } else if (isProdPending && !isUserProdExec) {
                         isClickable = false;
                     }
 
@@ -1075,12 +1255,30 @@ const ALC_Dashboard = {
                             const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
                                 ? QualityRajpura_Config.getSiteBaseUrl()
                                 : "/sites/Mrs_Bectors_PTMS";
-                            window.location.href = `${siteBase}/Pages/CCP-OPRP.aspx?TourId=${tourId}`;
+                            const roleParam = isProdPending ? "&role=PRODUCTION" : (isReverifyStatus || isProgress ? "&role=QA" : "");
+                            window.location.href = `${siteBase}/Pages/CCP-OPRP.aspx?TourId=${tourId}${roleParam}`;
                         };
                     } else {
                         tr.style.cursor = "default";
-                        tr.title = "This tour is in progress by another QA and is only accessible to the assigned QA Executive.";
-                        tr.onclick = null;
+                        tr.title = isCcpCancelled
+                            ? "This observation has been cancelled and cannot be accessed."
+                            : (isProdPending
+                                ? "This tour is in Pending Production Action stage and is accessible only to the assigned Production Incharge."
+                                : (isReverifyStatus 
+                                    ? "This tour is in QA Re-Verification stage and awaiting QA Executive action." 
+                                    : "This tour is currently in progress by QA and is only accessible to the assigned QA Executive."));
+                        tr.onclick = function (e) {
+                            if (e) e.stopPropagation();
+                            if (isCcpCancelled) {
+                                alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                            } else if (isProdPending) {
+                                alert("Access Denied: This tour is currently in Pending Production Action stage. Only the assigned Production Incharge can enter and submit corrective actions.");
+                            } else if (isReverifyStatus) {
+                                alert("Access Denied: This tour is currently in QA Re-Verification stage. Production team cannot enter or take actions at this time.");
+                            } else {
+                                alert("Access Denied: This tour is currently in progress by QA. Only the assigned QA Executive can enter.");
+                            }
+                        };
                     }
                 } else if (isPkgOps) {
                     const subType = t.cr3ea_pkgops_type || "Packaging Operations";
@@ -1138,15 +1336,49 @@ const ALC_Dashboard = {
                     let badgeClass = "badge-warning";
                     let isMyTask = false;
 
-                    const isQaStatus = (status === "Pending QA" || status === "QA In Progress" || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
-                    if (isQaStatus) {
-                        const qaEmail = (t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
-                        const qaResolvedName = qaEmail.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaEmail).toLowerCase().trim() : qaEmail;
-                        if ((currentUserEmail && qaEmail && (currentUserEmail === qaEmail || currentUserEmail.includes(qaEmail))) ||
-                            (currentUserName && qaEmail && (currentUserName === qaEmail || currentUserName.includes(qaEmail) || qaEmail.includes(currentUserName))) ||
-                            (currentUserName && qaResolvedName && (currentUserName === qaResolvedName || currentUserName.includes(qaResolvedName) || qaResolvedName.includes(currentUserName)))) {
+                    const qaEmail = (t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
+                    const qaResolvedName = qaEmail.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaEmail).toLowerCase().trim() : qaEmail;
+                    const isAssignedQA = Boolean(
+                        (currentUserEmail && qaEmail && (currentUserEmail === qaEmail || currentUserEmail.includes(qaEmail))) ||
+                        (currentUserName && qaEmail && (currentUserName === qaEmail || currentUserName.includes(qaEmail) || qaEmail.includes(currentUserName))) ||
+                        (currentUserName && qaResolvedName && (currentUserName === qaResolvedName || currentUserName.includes(qaResolvedName) || qaResolvedName.includes(currentUserName)))
+                    );
+
+                    const isQaStatus = (status === "Pending QA" || status === "QA In Progress" || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification" || status === "In Progress" || status === "InProgress-paused");
+                    if (isQaStatus && isAssignedQA) {
+                        isMyTask = true;
+                    }
+
+                    const prodExecRawVal = (t.cr3ea_shiftexecutiveproduction || t.cr3ea_observedby || "").toLowerCase().trim();
+                    const prodExecResolvedVal = prodExecRawVal.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(prodExecRawVal).toLowerCase().trim() : prodExecRawVal;
+                    const isUserProdExec = Boolean(
+                        (currentUserName && prodExecRawVal && (prodExecRawVal === currentUserName || prodExecRawVal.includes(currentUserName) || currentUserName.includes(prodExecRawVal))) ||
+                        (currentUserName && prodExecResolvedVal && (prodExecResolvedVal === currentUserName || prodExecResolvedVal.includes(currentUserName) || currentUserName.includes(prodExecResolvedVal))) ||
+                        (currentUserEmail && prodExecRawVal && (currentUserEmail === prodExecRawVal || currentUserEmail.includes(prodExecRawVal.replace(/\s+/g, ".")))) ||
+                        (currentUserEmail && prodExecRawVal.includes("@") && currentUserEmail === prodExecRawVal)
+                    );
+
+                    const isUserProd = Boolean(
+                        isUserProdExec ||
+                        (typeof DepartmentNameLeftNavi === "string" && DepartmentNameLeftNavi.toLowerCase().includes("prod")) ||
+                        (typeof RoleName === "string" && RoleName.toLowerCase().includes("prod"))
+                    );
+
+                    const isUserQA = Boolean(
+                        isAssignedQA ||
+                        (typeof DepartmentNameLeftNavi === "string" && (DepartmentNameLeftNavi.toLowerCase().includes("qa") || DepartmentNameLeftNavi.toLowerCase().includes("quality"))) ||
+                        (typeof RoleName === "string" && (RoleName.toLowerCase().includes("qa") || RoleName.toLowerCase().includes("quality")))
+                    );
+
+                    if (status === "Escalated") {
+                        if (isUserProdExec) {
                             isMyTask = true;
                         }
+                    }
+
+                    const isProdStatus = (status.includes("Pending Production") || status.includes("Pending Observation") || status === "Failed - Pending Production" || status === "Success - Pending Production");
+                    if (isProdStatus && isUserProdExec) {
+                        isMyTask = true;
                     }
 
                     if (isMyTask) {
@@ -1210,14 +1442,28 @@ const ALC_Dashboard = {
                         <td style="font-weight: 500; color: #1e293b;">${pendingWith}</td>
                     `;
 
+                    const isPkgReverify = (status.includes("Pending Re-Verification") || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
+                    const isPkgCancelled = String(status).toLowerCase().includes("cancel") || String(t.cr3ea_processstatus || "").toLowerCase().includes("cancel");
+                    const isPkgInProgress = (status === "QA In Progress" || status === "In Progress" || status === "InProgress-paused" || status === "Pending QA");
+                    const isPkgProdPending = (status.includes("Pending Production") || status.includes("Pending Observation") || status === "Failed - Pending Production" || status === "Success - Pending Production" || status === "Production Action Needed");
                     let isClickable = true;
-                    if (status === "QA In Progress" && !isMyTask) {
+                    if (isPkgCancelled) {
+                        isClickable = false;
+                    } else if (isPkgInProgress && !isAssignedQA && !isUserQA && !isMyTask) {
+                        isClickable = false;
+                    } else if (isPkgReverify && !isAssignedQA && !isUserQA && !isMyTask) {
+                        isClickable = false;
+                    } else if (isPkgProdPending && !isUserProdExec && !isUserProd && !isMyTask) {
                         isClickable = false;
                     }
 
                     if (isClickable) {
                         tr.style.cursor = "pointer";
-                        tr.title = "Click to open Packaging Operations checklist";
+                        if (status === "Escalated" && isUserProdExec) {
+                            tr.title = "Action Required: QA acceptance timed out. Click to reassign QA Executive.";
+                        } else {
+                            tr.title = "Click to open Packaging Operations checklist";
+                        }
                         tr.onclick = function () {
                             const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
                                 ? QualityRajpura_Config.getTourId(t)
@@ -1225,12 +1471,30 @@ const ALC_Dashboard = {
                             const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
                                 ? QualityRajpura_Config.getSiteBaseUrl()
                                 : "/sites/Mrs_Bectors_PTMS";
-                            window.location.href = `${siteBase}/Pages/Product-Operation.aspx?TourId=${tourId}`;
+                            const roleParam = isPkgProdPending ? "&role=PRODUCTION" : (isPkgReverify || isPkgInProgress ? "&role=QA" : "");
+                            window.location.href = `${siteBase}/Pages/Product-Operation.aspx?TourId=${tourId}${roleParam}`;
                         };
                     } else {
                         tr.style.cursor = "default";
-                        tr.title = "This tour is paused by QA and is only accessible to the assigned QA Executive.";
-                        tr.onclick = null;
+                        tr.title = isPkgCancelled
+                            ? "This observation has been cancelled and cannot be accessed."
+                            : (isPkgReverify 
+                                ? "This tour is in QA Re-Verification stage and awaiting QA Executive action." 
+                                : (isPkgProdPending 
+                                    ? "This tour is in Pending Observation stage and awaiting Production action." 
+                                    : "This tour is currently in progress by QA and is only accessible to the assigned QA Executive."));
+                        tr.onclick = function (e) {
+                            if (e) e.stopPropagation();
+                            if (isPkgCancelled) {
+                                alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                            } else if (isPkgReverify) {
+                                alert("Access Denied: This tour is currently in QA Re-Verification stage. Only the assigned QA Executive can enter.");
+                            } else if (isPkgProdPending) {
+                                alert("Access Denied: This tour is currently in Pending Observation stage. Only authorized Production personnel can enter.");
+                            } else {
+                                alert("Access Denied: This tour is currently in progress by QA. Only the assigned QA Executive can enter.");
+                            }
+                        };
                     }
                 } else {
                     const titleVal = t.cr3ea_title || "";
@@ -1327,17 +1591,27 @@ const ALC_Dashboard = {
 
                     const isEscalatedForMe = isEscalated && (isUserEscalationManager || isUserEscalationManagerByName);
 
+                    const prodExecRawVal = (t.cr3ea_shiftexecutiveproduction || t.cr3ea_observedby || "").toLowerCase().trim();
+                    const prodExecResolvedVal = prodExecRawVal.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(prodExecRawVal).toLowerCase().trim() : prodExecRawVal;
+                    const isUserProdExec = (currentUserName && prodExecRawVal && (prodExecRawVal === currentUserName || prodExecRawVal.includes(currentUserName) || currentUserName.includes(prodExecRawVal))) ||
+                        (currentUserName && prodExecResolvedVal && (prodExecResolvedVal === currentUserName || prodExecResolvedVal.includes(currentUserName) || currentUserName.includes(prodExecResolvedVal))) ||
+                        (currentUserEmail && prodExecRawVal && (currentUserEmail === prodExecRawVal || currentUserEmail.includes(prodExecRawVal.replace(/\s+/g, ".")))) ||
+                        (currentUserEmail && prodExecRawVal.includes("@") && currentUserEmail === prodExecRawVal);
+
+                    if (status === "Escalated") {
+                        if (isUserProdExec) {
+                            isMyTask = true;
+                        }
+                    }
+
                     const isProdStatus = (status === "Failed - Pending Production" || status === "Success - Pending Production");
                     const isReverifyStatus = (status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
+                    let isAlcAssigneeMatch = false;
 
                     if (isProdStatus || isReverifyStatus) {
-                        const prodExecName = (t.cr3ea_shiftexecutiveproduction || "").toLowerCase().trim();
                         const assignees = ALC_Dashboard.getAreaAssigneesForFailedCheckpoints(t);
 
-                        const isUserProdExec = (currentUserName && prodExecName && (prodExecName === currentUserName || prodExecName.includes(currentUserName) || currentUserName.includes(prodExecName))) ||
-                            (currentUserEmail && prodExecName && currentUserEmail.includes(prodExecName.replace(/\s+/g, ".")));
-
-                        const isAssigneeMatch = assignees && assignees.some(name => {
+                        isAlcAssigneeMatch = assignees && assignees.some(name => {
                             const cleanName = name.toLowerCase().trim();
                             return cleanName === currentUserName ||
                                 (currentUserName && (cleanName.includes(currentUserName) || currentUserName.includes(cleanName))) ||
@@ -1345,15 +1619,12 @@ const ALC_Dashboard = {
                         });
 
                         if (isProdStatus) {
-                            const hasNoPendingForThisAreaOwner = assignees && assignees.length > 0 && !isAssigneeMatch;
+                            const hasNoPendingForThisAreaOwner = assignees && assignees.length > 0 && !isAlcAssigneeMatch;
                             if (isUserProdExec || !hasNoPendingForThisAreaOwner) {
                                 isMyTask = true;
                             }
                         } else if (isReverifyStatus) {
-                            const hasPendingProdCheckpoints = assignees && assignees.length > 0;
-                            if (hasPendingProdCheckpoints && (isUserProdExec || isAssigneeMatch)) {
-                                isMyTask = true;
-                            }
+                            // Re-verification is strictly QA's responsibility. Production person does NOT have pending task during re-verification!
                         }
                     }
 
@@ -1361,7 +1632,7 @@ const ALC_Dashboard = {
                         tr.classList.add("my-task-row");
                     }
 
-                    if (isEscalatedForMe) {
+                    if (isEscalatedForMe && !isMyTask) {
                         tr.classList.add("escalated-task-row");
                         tr.title = "CRITICAL: This tour has escalated! Click to view details.";
                     }
@@ -1426,14 +1697,25 @@ const ALC_Dashboard = {
                         <td style="font-weight: 500; color: #1e293b;">${pendingWith}</td>
                     `;
 
+                    const isAlcCancelled = String(status).toLowerCase().includes("cancel") || String(t.cr3ea_processstatus || "").toLowerCase().includes("cancel");
                     let isClickable = true;
-                    if (status === "QA In Progress" && !isMyTask) {
+                    if (isAlcCancelled) {
+                        isClickable = false;
+                    } else if (status === "QA In Progress" && !isMyTask) {
+                        isClickable = false;
+                    } else if (isReverifyStatus && (isUserProdExec || isAlcAssigneeMatch) && !isMyTask) {
                         isClickable = false;
                     }
 
                     if (isClickable) {
                         tr.style.cursor = "pointer";
-                        tr.title = "Click to open tour clearance form";
+                        if (status === "Escalated" && isUserProdExec) {
+                            tr.title = "Action Required: QA acceptance timed out. Click to reassign QA Executive.";
+                        } else if (isEscalatedForMe) {
+                            tr.title = "CRITICAL: This tour has escalated! Click to view details.";
+                        } else {
+                            tr.title = "Click to open tour clearance form";
+                        }
                         tr.onclick = function () {
                             const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
                                 ? QualityRajpura_Config.getTourId(t)
@@ -1445,8 +1727,19 @@ const ALC_Dashboard = {
                         };
                     } else {
                         tr.style.cursor = "default";
-                        tr.title = "This tour is paused by QA and is only accessible to the assigned QA Executive.";
-                        tr.onclick = null;
+                        tr.title = isAlcCancelled
+                            ? "This observation has been cancelled and cannot be accessed."
+                            : (isReverifyStatus ? "This tour is in QA Re-Verification stage and awaiting QA Executive action." : "This tour is currently in progress by QA and is only accessible to the assigned QA Executive.");
+                        tr.onclick = function (e) {
+                            if (e) e.stopPropagation();
+                            if (isAlcCancelled) {
+                                alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                            } else if (isReverifyStatus) {
+                                alert("Access Denied: This tour is currently in QA Re-Verification stage. Production team cannot enter or take actions at this time.");
+                            } else {
+                                alert("Access Denied: This tour is currently in progress by QA. Only the assigned QA Executive can enter.");
+                            }
+                        };
                     }
                 }
 
@@ -1524,9 +1817,17 @@ const ALC_Dashboard = {
                     
                     const clearBadgeHtml = `<span class="badge badge-warning" style="background-color: #fef3c7; color: #d97706; border: 1px solid #fde68a; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">${t.cr3ea_food_safety_cycle || "Cycle-1"}</span>`;
                     
-                    const status = t.cr3ea_checklist_result || t.cr3ea_status || "Completed";
+                    const rawStatus = t.cr3ea_processstatus || t.cr3ea_status || t.cr3ea_checklist_result || "";
+                    const isCancelled = String(rawStatus).toLowerCase().includes("cancel");
+
+                    let status = t.cr3ea_checklist_result || t.cr3ea_status || "Completed";
                     let badgeClass = "badge-success";
-                    if (status === "Fail") badgeClass = "badge-error";
+                    if (isCancelled) {
+                        status = "Cancelled";
+                        badgeClass = "badge-error";
+                    } else if (status === "Fail") {
+                        badgeClass = "badge-error";
+                    }
 
                     tr.innerHTML = `
                         <td>${date}</td>
@@ -1539,17 +1840,25 @@ const ALC_Dashboard = {
                         <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
                     `;
                     
-                    tr.style.cursor = "pointer";
-                    tr.title = "Click to open Food Safety checklist";
-                    tr.onclick = function () {
-                        const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
-                            ? QualityRajpura_Config.getTourId(t)
-                            : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
-                        const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
-                            ? QualityRajpura_Config.getSiteBaseUrl()
-                            : "/sites/Mrs_Bectors_PTMS";
-                        window.location.href = `${siteBase}/Pages/FoodSafety.aspx?TourId=${tourId}`;
-                    };
+                    if (isCancelled) {
+                        tr.style.cursor = "default";
+                        tr.title = "This observation has been cancelled and cannot be accessed.";
+                        tr.onclick = function () {
+                            alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                        };
+                    } else {
+                        tr.style.cursor = "pointer";
+                        tr.title = "Click to open Food Safety checklist";
+                        tr.onclick = function () {
+                            const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                                ? QualityRajpura_Config.getTourId(t)
+                                : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                            const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                                ? QualityRajpura_Config.getSiteBaseUrl()
+                                : "/sites/Mrs_Bectors_PTMS";
+                            window.location.href = `${siteBase}/Pages/FoodSafety.aspx?TourId=${tourId}`;
+                        };
+                    }
                 } else if (isMB) {
                     const form = "Mixing & Baking";
                     const qaName = t.cr3ea_assigned_qa || t.cr3ea_tourby || "N/A";
@@ -1561,8 +1870,13 @@ const ALC_Dashboard = {
                     const score = "-";
                     const clearBadgeHtml = `<span class="badge badge-warning" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Mixing & Baking</span>`;
                     
-                    const status = t.cr3ea_status || "Completed";
+                    const isCancelled = String(t.cr3ea_processstatus || t.cr3ea_status || "").toLowerCase().includes("cancel");
+                    let status = t.cr3ea_status || "Completed";
                     let badgeClass = "badge-success";
+                    if (isCancelled) {
+                        status = "Cancelled";
+                        badgeClass = "badge-error";
+                    }
 
                     tr.innerHTML = `
                         <td>${date}</td>
@@ -1575,17 +1889,25 @@ const ALC_Dashboard = {
                         <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
                     `;
                     
-                    tr.style.cursor = "pointer";
-                    tr.title = "Click to open Mixing & Baking checklist";
-                    tr.onclick = function () {
-                        const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
-                            ? QualityRajpura_Config.getTourId(t)
-                            : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
-                        const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
-                            ? QualityRajpura_Config.getSiteBaseUrl()
-                            : "/sites/Mrs_Bectors_PTMS";
-                        window.location.href = `${siteBase}/Pages/MixingAndBaking.aspx?TourId=${tourId}`;
-                    };
+                    if (isCancelled) {
+                        tr.style.cursor = "default";
+                        tr.title = "This observation has been cancelled and cannot be accessed.";
+                        tr.onclick = function () {
+                            alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                        };
+                    } else {
+                        tr.style.cursor = "pointer";
+                        tr.title = "Click to open Mixing & Baking checklist";
+                        tr.onclick = function () {
+                            const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                                ? QualityRajpura_Config.getTourId(t)
+                                : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                            const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                                ? QualityRajpura_Config.getSiteBaseUrl()
+                                : "/sites/Mrs_Bectors_PTMS";
+                            window.location.href = `${siteBase}/Pages/MixingAndBaking.aspx?TourId=${tourId}`;
+                        };
+                    }
                 } else if (isCCP) {
                     let form = t.cr3ea_ccp_oprp_sieves_parametertype;
                     if (!form && t.cr3ea_title) {
@@ -1609,8 +1931,13 @@ const ALC_Dashboard = {
                     const freqText = t.cr3ea_ccp_oprp_sieves_frequency || t.cr3ea_ccp_oprp_sieves_productvariety || "2-Hour Check";
                     const clearBadgeHtml = `<span class="badge badge-warning" style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">${freqText}</span>`;
                     
-                    const status = t.cr3ea_status || "Completed";
+                    const isCancelled = String(t.cr3ea_processstatus || t.cr3ea_status || "").toLowerCase().includes("cancel");
+                    let status = t.cr3ea_status || "Completed";
                     let badgeClass = "badge-success";
+                    if (isCancelled) {
+                        status = "Cancelled";
+                        badgeClass = "badge-error";
+                    }
 
                     tr.innerHTML = `
                         <td>${date}</td>
@@ -1623,17 +1950,25 @@ const ALC_Dashboard = {
                         <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
                     `;
                     
-                    tr.style.cursor = "pointer";
-                    tr.title = "Click to open CCP/OPRP checklist";
-                    tr.onclick = function () {
-                        const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
-                            ? QualityRajpura_Config.getTourId(t)
-                            : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
-                        const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
-                            ? QualityRajpura_Config.getSiteBaseUrl()
-                            : "/sites/Mrs_Bectors_PTMS";
-                        window.location.href = `${siteBase}/Pages/CCP-OPRP.aspx?TourId=${tourId}`;
-                    };
+                    if (isCancelled) {
+                        tr.style.cursor = "default";
+                        tr.title = "This observation has been cancelled and cannot be accessed.";
+                        tr.onclick = function () {
+                            alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                        };
+                    } else {
+                        tr.style.cursor = "pointer";
+                        tr.title = "Click to open CCP/OPRP checklist";
+                        tr.onclick = function () {
+                            const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                                ? QualityRajpura_Config.getTourId(t)
+                                : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                            const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                                ? QualityRajpura_Config.getSiteBaseUrl()
+                                : "/sites/Mrs_Bectors_PTMS";
+                            window.location.href = `${siteBase}/Pages/CCP-OPRP.aspx?TourId=${tourId}`;
+                        };
+                    }
                 } else if (isPkgOps) {
                     const subType = t.cr3ea_pkgops_type || "Packaging Operations";
                     const form = `Packaging - ${subType}`;
@@ -1660,8 +1995,13 @@ const ALC_Dashboard = {
                         ? '<span class="badge badge-success" style="background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Yes</span>'
                         : '<span class="badge badge-error" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">No</span>';
                     
-                    const status = t.cr3ea_status || "Completed";
+                    const isCancelled = String(t.cr3ea_processstatus || t.cr3ea_status || "").toLowerCase().includes("cancel");
+                    let status = t.cr3ea_status || "Completed";
                     let badgeClass = "badge-success";
+                    if (isCancelled) {
+                        status = "Cancelled";
+                        badgeClass = "badge-error";
+                    }
 
                     tr.innerHTML = `
                         <td>${date}</td>
@@ -1674,17 +2014,25 @@ const ALC_Dashboard = {
                         <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
                     `;
                     
-                    tr.style.cursor = "pointer";
-                    tr.title = "Click to open Packaging Operations checklist";
-                    tr.onclick = function () {
-                        const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
-                            ? QualityRajpura_Config.getTourId(t)
-                            : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
-                        const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
-                            ? QualityRajpura_Config.getSiteBaseUrl()
-                            : "/sites/Mrs_Bectors_PTMS";
-                        window.location.href = `${siteBase}/Pages/Product-Operation.aspx?TourId=${tourId}`;
-                    };
+                    if (isCancelled) {
+                        tr.style.cursor = "default";
+                        tr.title = "This observation has been cancelled and cannot be accessed.";
+                        tr.onclick = function () {
+                            alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                        };
+                    } else {
+                        tr.style.cursor = "pointer";
+                        tr.title = "Click to open Packaging Operations checklist";
+                        tr.onclick = function () {
+                            const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                                ? QualityRajpura_Config.getTourId(t)
+                                : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                            const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                                ? QualityRajpura_Config.getSiteBaseUrl()
+                                : "/sites/Mrs_Bectors_PTMS";
+                            window.location.href = `${siteBase}/Pages/Product-Operation.aspx?TourId=${tourId}`;
+                        };
+                    }
                 } else {
                     const titleVal = t.cr3ea_title || "";
                     const cleanTitle = titleVal.split("||")[0].trim();
@@ -1712,12 +2060,16 @@ const ALC_Dashboard = {
                         result = resultPart || result;
                     }
 
+                    const isCancelled = String(t.cr3ea_processstatus || t.cr3ea_status || "").toLowerCase().includes("cancel");
                     let status = t.cr3ea_processstatus || t.cr3ea_status || "Completed";
                     if (status === "Completed") {
                         status = "Success";
                     }
                     let badgeClass = "badge-success";
-                    if (status === "Closed - Expired") {
+                    if (isCancelled) {
+                        status = "Cancelled";
+                        badgeClass = "badge-error";
+                    } else if (status === "Closed - Expired") {
                         const scoreVal = t.cr3ea_overall_score ? parseFloat(t.cr3ea_overall_score) : 0;
                         if (scoreVal >= 80) {
                             status = "Success - Expired";
@@ -1763,17 +2115,25 @@ const ALC_Dashboard = {
                         <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
                     `;
                     
-                    tr.style.cursor = "pointer";
-                    tr.title = "Click to open tour clearance form";
-                    tr.onclick = function () {
-                        const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
-                            ? QualityRajpura_Config.getTourId(t)
-                            : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
-                        const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
-                            ? QualityRajpura_Config.getSiteBaseUrl()
-                            : "/sites/Mrs_Bectors_PTMS";
-                        window.location.href = `${siteBase}/Pages/AreaLine.aspx?TourId=${tourId}`;
-                    };
+                    if (isCancelled) {
+                        tr.style.cursor = "default";
+                        tr.title = "This observation has been cancelled and cannot be accessed.";
+                        tr.onclick = function () {
+                            alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                        };
+                    } else {
+                        tr.style.cursor = "pointer";
+                        tr.title = "Click to open tour clearance form";
+                        tr.onclick = function () {
+                            const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                                ? QualityRajpura_Config.getTourId(t)
+                                : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                            const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                                ? QualityRajpura_Config.getSiteBaseUrl()
+                                : "/sites/Mrs_Bectors_PTMS";
+                            window.location.href = `${siteBase}/Pages/AreaLine.aspx?TourId=${tourId}`;
+                        };
+                    }
                 }
 
                 tbody.appendChild(tr);

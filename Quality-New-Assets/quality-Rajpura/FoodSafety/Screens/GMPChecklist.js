@@ -94,6 +94,13 @@ const GMPChecklistScreen = {
                         <td style="padding: 10px; width: 30%;">
                             <input type="text" class="form-control gmp-remarks-input" id="gmp-remarks-${item.id}" 
                                    placeholder="Remarks (required if Not Okay)" style="display: none; width: 100%;">
+                            <div class="gmp-file-wrapper" id="gmp-file-wrapper-${item.id}" style="display: none; margin-top: 6px; text-align: left;">
+                                <label class="form-label" style="font-size: 11px; margin-bottom: 2px; color: #64748b; font-weight: 600; display: block;">
+                                    📷 Proof Image/Doc (Optional):
+                                </label>
+                                <input type="file" class="form-control gmp-proof-file" id="gmp-proof-${item.id}" accept="image/*,application/pdf" style="font-size: 12px; padding: 4px 8px; height: auto;">
+                                <div id="gmp-existing-proof-${item.id}" style="display: none; margin-top: 4px;"></div>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -103,7 +110,7 @@ const GMPChecklistScreen = {
                 { text: "No.", style: "width: 5%;" },
                 { text: "Checkpoint Criteria", style: "width: 45%; text-align: left;" },
                 { text: "Status", style: "width: 20%;" },
-                { text: "Remarks", style: "width: 30%;" }
+                { text: "Remarks & Proof", style: "width: 30%;" }
             ], rowsHtml);
 
             const div = document.createElement("div");
@@ -113,6 +120,14 @@ const GMPChecklistScreen = {
             // Initialize Select2 on the newly rendered selects
             itemsList.forEach(item => {
                 DropdownComponent.init(`gmp-status-${item.id}`);
+                const remInput = document.getElementById(`gmp-remarks-${item.id}`);
+                if (remInput) {
+                    remInput.addEventListener("input", function() {
+                        if (typeof FoodSafety_Validator !== "undefined") {
+                            FoodSafety_Validator.highlight(this, false);
+                        }
+                    });
+                }
             });
         });
 
@@ -121,16 +136,35 @@ const GMPChecklistScreen = {
 
     // Show/hide and validate remarks field based on Status value
     handleStatusChange: function (itemId) {
-        const status = document.getElementById(`gmp-status-${itemId}`).value;
+        const statusSelect = document.getElementById(`gmp-status-${itemId}`);
+        const status = statusSelect ? statusSelect.value : "";
         const remarksInput = document.getElementById(`gmp-remarks-${itemId}`);
+        const fileWrap = document.getElementById(`gmp-file-wrapper-${itemId}`);
+        const fileInp = document.getElementById(`gmp-proof-${itemId}`);
+        const existProof = document.getElementById(`gmp-existing-proof-${itemId}`);
         
+        if (typeof FoodSafety_Validator !== "undefined" && statusSelect) {
+            FoodSafety_Validator.highlight(statusSelect, false);
+        }
+
         if (remarksInput) {
             if (status === "Not Okay") {
                 remarksInput.style.display = "block";
+                if (fileWrap) fileWrap.style.display = "block";
                 remarksInput.focus();
             } else {
                 remarksInput.style.display = "none";
                 remarksInput.value = "";
+                if (fileWrap) fileWrap.style.display = "none";
+                if (fileInp) fileInp.value = "";
+                if (existProof) {
+                    existProof.style.display = "none";
+                    existProof.innerHTML = "";
+                    existProof.removeAttribute("data-url");
+                }
+                if (typeof FoodSafety_Validator !== "undefined") {
+                    FoodSafety_Validator.highlight(remarksInput, false);
+                }
             }
         }
         
@@ -149,7 +183,7 @@ const GMPChecklistScreen = {
             const list = this.sections[secName];
             list.forEach(item => {
                 const statusSelect = document.getElementById(`gmp-status-${item.id}`);
-                const isOkay = statusSelect ? statusSelect.value === "Okay" : true;
+                const isOkay = statusSelect && statusSelect.value === "Okay";
                 
                 if (isOkay) {
                     totalOkay++;
@@ -248,31 +282,61 @@ const GMPChecklistScreen = {
     // Submit GMP Checklist
     submit: async function () {
         try {
+            if (typeof FoodSafety_Validator !== "undefined") {
+                FoodSafety_Validator.clearAll("screen-gmp-checklist");
+                FoodSafety_Validator.hideBanner("gmp-validation-banner");
+            }
+
             // Validate: All 46 checkpoints must be filled, and remarks required if Not Okay
             let unansweredCount = 0;
             let missingRemarksCount = 0;
+            let firstInvalidEl = null;
+
             Object.keys(this.sections).forEach(secName => {
                 const list = this.sections[secName];
                 list.forEach(item => {
-                    const status = document.getElementById(`gmp-status-${item.id}`).value;
-                    const remarks = document.getElementById(`gmp-remarks-${item.id}`).value.trim();
+                    const statusSelect = document.getElementById(`gmp-status-${item.id}`);
+                    const remarksInput = document.getElementById(`gmp-remarks-${item.id}`);
+                    const status = statusSelect ? statusSelect.value : "";
+                    const remarks = remarksInput ? remarksInput.value.trim() : "";
+
                     if (!status) {
                         unansweredCount++;
+                        if (typeof FoodSafety_Validator !== "undefined" && statusSelect) {
+                            FoodSafety_Validator.highlight(statusSelect, true);
+                        }
+                        if (!firstInvalidEl) firstInvalidEl = statusSelect;
                     } else if (status === "Not Okay" && !remarks) {
                         missingRemarksCount++;
+                        if (typeof FoodSafety_Validator !== "undefined" && remarksInput) {
+                            FoodSafety_Validator.highlight(remarksInput, true);
+                        }
+                        if (!firstInvalidEl) firstInvalidEl = remarksInput;
                     }
                 });
             });
 
             if (unansweredCount > 0 || missingRemarksCount > 0) {
-                let msg = "";
+                const missingList = [];
                 if (unansweredCount > 0) {
-                    msg += `Please select a status for the remaining ${unansweredCount} checkpoint(s).\n`;
+                    missingList.push(`Status selection for ${unansweredCount} checkpoint(s)`);
                 }
                 if (missingRemarksCount > 0) {
-                    msg += `Please enter remarks for ${missingRemarksCount} checkpoint(s) marked as "Not Okay".`;
+                    missingList.push(`Defect remarks for ${missingRemarksCount} checkpoint(s) marked as "Not Okay"`);
                 }
-                alert(msg.trim());
+
+                if (typeof FoodSafety_Validator !== "undefined") {
+                    FoodSafety_Validator.showBanner("gmp-validation-banner", missingList);
+                }
+
+                let alertMsg = "Please complete all required fields before submitting:\n";
+                missingList.forEach(item => alertMsg += `• ${item}\n`);
+                alert(alertMsg.trim());
+
+                if (firstInvalidEl) {
+                    firstInvalidEl.scrollIntoView({ behavior: "smooth", block: "center" });
+                    firstInvalidEl.focus();
+                }
                 return;
             }
 
@@ -284,16 +348,49 @@ const GMPChecklistScreen = {
             const dateStr = moment(tourDate).format("MM-DD-YYYY");
             const timeStr = moment(tourDate).format("hh:mm A");
 
-            // Prepare checklist payload rows
-            Object.keys(this.sections).forEach(secName => {
+            // Prepare checklist payload rows with proof uploads
+            for (const secName of Object.keys(this.sections)) {
                 const list = this.sections[secName];
-                list.forEach(item => {
+                for (const item of list) {
                     const status = document.getElementById(`gmp-status-${item.id}`).value;
                     const remarks = document.getElementById(`gmp-remarks-${item.id}`).value.trim();
                     
                     if (status === "Okay") {
                         totalOkay++;
                     }
+
+                    let cleanRemarks = remarks;
+                    let proofUrl = "";
+                    if (status === "Not Okay") {
+                        const fileInput = document.getElementById(`gmp-proof-${item.id}`);
+                        const existingProofEl = document.getElementById(`gmp-existing-proof-${item.id}`);
+                        const existingUrl = existingProofEl ? existingProofEl.getAttribute("data-url") : "";
+
+                        // Strip any previous Proof: path if text input contained it
+                        const parsed = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.parseRemarksAndProof)
+                            ? QualityRajpura_Config.parseRemarksAndProof(remarks)
+                            : { remarks: remarks.replace(/\|?\s*Proof:\s*.*$/i, "").trim(), proofUrl: "" };
+                        cleanRemarks = parsed.remarks;
+
+                        if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                            if (typeof ShowProgressLoader === "function") {
+                                ShowProgressLoader(10, `Uploading proof document for ${secName} item ${item.id}...`);
+                            }
+                            try {
+                                proofUrl = await FoodSafety_DAL.uploadAttachmentFile(fileInput.files[0], FoodSafety_Main.state.varTourID, "GMP", `GMP_${item.id}`, cleanRemarks);
+                            } catch (upErr) {
+                                console.warn(`Failed to upload proof for GMP item ${item.id}:`, upErr);
+                            }
+                        } else if (existingUrl) {
+                            proofUrl = existingUrl;
+                        } else if (parsed.proofUrl) {
+                            proofUrl = parsed.proofUrl;
+                        }
+                    }
+
+                    const finalRemarks = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.formatRemarksWithProof)
+                        ? QualityRajpura_Config.formatRemarksWithProof(cleanRemarks, proofUrl)
+                        : (proofUrl ? (cleanRemarks ? `${cleanRemarks} | Proof: ${proofUrl}` : `Proof: ${proofUrl}`) : cleanRemarks);
 
                     const childPayload = {
                         cr3ea_food_safety_title: `GMP_${FoodSafety_Main.state.selectedSite}_${FoodSafety_Main.state.selectedLine}_${dateStr}`,
@@ -307,13 +404,13 @@ const GMPChecklistScreen = {
                         cr3ea_food_safety_criteria: item.text,
                         cr3ea_food_safety_cycle: FoodSafety_Main.state.selectedCycle,
                         cr3ea_food_safety_status: status,
-                        cr3ea_food_safety_defectremarks: remarks,
+                        cr3ea_food_safety_defectremarks: finalRemarks,
                         cr3ea_food_safety_date: dateStr,
                         cr3ea_food_safety_time: timeStr
                     };
                     childRecords.push(childPayload);
-                });
-            });
+                }
+            }
 
             const gmpScore = (totalOkay / 46) * 100;
             const resultStatus = gmpScore >= 80 ? "Pass" : "Fail";
@@ -327,19 +424,17 @@ const GMPChecklistScreen = {
 
             console.log(`Submitting ${childRecords.length} child GMP checkpoints to Dataverse...`);
 
-            // Sequentially write all 46 child records to the Dataverse database
+            // Save all child records in parallel chunks of 8
+            const CHUNK_SIZE = 8;
             const total = childRecords.length;
-            for (let i = 0; i < total; i++) {
-                const percent = Math.round((i / total) * 100);
+            for (let i = 0; i < total; i += CHUNK_SIZE) {
+                const chunk = childRecords.slice(i, i + CHUNK_SIZE);
+                const currentCount = Math.min(i + CHUNK_SIZE, total);
+                const percent = Math.round((currentCount / total) * 100);
                 if (typeof ShowProgressLoader === "function") {
-                    ShowProgressLoader(percent, `Submitting checkpoints... (${i + 1} of ${total})`);
+                    ShowProgressLoader(percent, `Submitting checkpoints (${currentCount} of ${total})...`);
                 }
-                try {
-                    await FoodSafety_DAL.saveChecklistItem(childRecords[i]);
-                } catch (err) {
-                    const criteria = childRecords[i].cr3ea_food_safety_criteria || childRecords[i].cr953_food_safety_criteria;
-                    throw new Error(`Failed to save checkpoint item #${i + 1} (${criteria}): ${err.message}`);
-                }
+                await Promise.all(chunk.map(rec => FoodSafety_DAL.saveChecklistItem(rec)));
             }
             if (typeof ShowProgressLoader === "function") {
                 ShowProgressLoader(100, "Finalizing submission...");
@@ -386,9 +481,9 @@ const GMPChecklistScreen = {
             const timeStr = moment(tourDate).format("hh:mm A");
 
             // Prepare child checklist items payloads only for selected ones
-            Object.keys(this.sections).forEach(secName => {
+            for (const secName of Object.keys(this.sections)) {
                 const list = this.sections[secName];
-                list.forEach(item => {
+                for (const item of list) {
                     const statusSelect = document.getElementById(`gmp-status-${item.id}`);
                     const status = statusSelect ? statusSelect.value : "";
                     const remarksInput = document.getElementById(`gmp-remarks-${item.id}`);
@@ -398,6 +493,40 @@ const GMPChecklistScreen = {
                         if (status === "Okay") {
                             totalOkay++;
                         }
+
+                        let cleanRemarks = remarks;
+                        let proofUrl = "";
+                        if (status === "Not Okay") {
+                            const fileInput = document.getElementById(`gmp-proof-${item.id}`);
+                            const existingProofEl = document.getElementById(`gmp-existing-proof-${item.id}`);
+                            const existingUrl = existingProofEl ? existingProofEl.getAttribute("data-url") : "";
+
+                            // Strip any previous Proof: path if text input contained it
+                            const parsed = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.parseRemarksAndProof)
+                                ? QualityRajpura_Config.parseRemarksAndProof(remarks)
+                                : { remarks: remarks.replace(/\|?\s*Proof:\s*.*$/i, "").trim(), proofUrl: "" };
+                            cleanRemarks = parsed.remarks;
+
+                            if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                                if (typeof ShowProgressLoader === "function") {
+                                    ShowProgressLoader(10, `Uploading proof document for ${secName} item ${item.id}...`);
+                                }
+                                try {
+                                    proofUrl = await FoodSafety_DAL.uploadAttachmentFile(fileInput.files[0], FoodSafety_Main.state.varTourID, "GMP", `GMP_${item.id}`, cleanRemarks);
+                                } catch (upErr) {
+                                    console.warn(`Failed to upload proof for GMP item ${item.id}:`, upErr);
+                                }
+                            } else if (existingUrl) {
+                                proofUrl = existingUrl;
+                            } else if (parsed.proofUrl) {
+                                proofUrl = parsed.proofUrl;
+                            }
+                        }
+
+                        const finalRemarks = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.formatRemarksWithProof)
+                            ? QualityRajpura_Config.formatRemarksWithProof(cleanRemarks, proofUrl)
+                            : (proofUrl ? (cleanRemarks ? `${cleanRemarks} | Proof: ${proofUrl}` : `Proof: ${proofUrl}`) : cleanRemarks);
+
                         const childPayload = {
                             cr3ea_food_safety_title: `GMP_${FoodSafety_Main.state.selectedSite}_${FoodSafety_Main.state.selectedLine}_${dateStr}`,
                             cr3ea_food_safety_checklisttype: "GMP Checklist",
@@ -410,14 +539,14 @@ const GMPChecklistScreen = {
                             cr3ea_food_safety_criteria: item.text,
                             cr3ea_food_safety_cycle: FoodSafety_Main.state.selectedCycle,
                             cr3ea_food_safety_status: status,
-                            cr3ea_food_safety_defectremarks: remarks,
+                            cr3ea_food_safety_defectremarks: finalRemarks,
                             cr3ea_food_safety_date: dateStr,
                             cr3ea_food_safety_time: timeStr
                         };
                         childRecords.push(childPayload);
                     }
-                });
-            });
+                }
+            }
 
             const gmpScore = (totalOkay / 46) * 100;
             const resultStatus = gmpScore >= 80 ? "Pass" : "Fail";
@@ -427,14 +556,17 @@ const GMPChecklistScreen = {
             }
             await FoodSafety_DAL.cleanChecklistItems(FoodSafety_Main.state.varTourID);
 
-            // Save child records sequentially
+            // Save child records in parallel chunks of 8
+            const CHUNK_SIZE = 8;
             const total = childRecords.length;
-            for (let i = 0; i < total; i++) {
-                const percent = Math.round((i / total) * 100);
+            for (let i = 0; i < total; i += CHUNK_SIZE) {
+                const chunk = childRecords.slice(i, i + CHUNK_SIZE);
+                const currentCount = Math.min(i + CHUNK_SIZE, total);
+                const percent = Math.round((currentCount / total) * 100);
                 if (typeof ShowProgressLoader === "function") {
-                    ShowProgressLoader(percent, `Saving paused progress... (${i + 1} of ${total})`);
+                    ShowProgressLoader(percent, `Saving paused progress (${currentCount} of ${total})...`);
                 }
-                await FoodSafety_DAL.saveChecklistItem(childRecords[i]);
+                await Promise.all(chunk.map(rec => FoodSafety_DAL.saveChecklistItem(rec)));
             }
             if (typeof ShowProgressLoader === "function") {
                 ShowProgressLoader(100, "Finalizing pause...");
@@ -485,16 +617,33 @@ const GMPChecklistScreen = {
                         if (match) {
                             const statusSelect = document.getElementById(`gmp-status-${item.id}`);
                             const remarksInput = document.getElementById(`gmp-remarks-${item.id}`);
+                            const fileWrap = document.getElementById(`gmp-file-wrapper-${item.id}`);
+                            const existingProofEl = document.getElementById(`gmp-existing-proof-${item.id}`);
                             
                             if (statusSelect) {
                                 const statusVal = match.cr3ea_food_safety_status || match.cr953_food_safety_status || "";
                                 $(statusSelect).val(statusVal).trigger("change");
                             }
                             if (remarksInput) {
-                                remarksInput.value = match.cr3ea_food_safety_defectremarks || match.cr953_food_safety_defectremarks || "";
+                                const rawRemarks = match.cr3ea_food_safety_defectremarks || match.cr953_food_safety_defectremarks || "";
+                                const parsed = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.parseRemarksAndProof)
+                                    ? QualityRajpura_Config.parseRemarksAndProof(rawRemarks)
+                                    : { remarks: "", proofUrl: "" };
+                                
+                                const remarksText = parsed.remarks;
+                                const proofUrl = parsed.proofUrl;
+
+                                remarksInput.value = remarksText;
+                                
                                 const effectiveStatus = match.cr3ea_food_safety_status || match.cr953_food_safety_status;
                                 if (effectiveStatus === "Not Okay") {
                                     remarksInput.style.display = "block";
+                                    if (fileWrap) fileWrap.style.display = "block";
+                                    if (proofUrl && existingProofEl) {
+                                        existingProofEl.style.display = "block";
+                                        existingProofEl.setAttribute("data-url", proofUrl);
+                                        existingProofEl.innerHTML = `<a href="${proofUrl}" target="_blank" class="badge food-safety-proof-badge" style="background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; text-decoration: none !important; padding: 4px 10px !important; border-radius: 4px !important; display: inline-flex !important; align-items: center !important; gap: 5px !important; font-size: 11px !important; font-weight: 600 !important;"><span style="color: #ffffff !important;">📷 View Attached Proof</span></a>`;
+                                    }
                                 }
                             }
                         }

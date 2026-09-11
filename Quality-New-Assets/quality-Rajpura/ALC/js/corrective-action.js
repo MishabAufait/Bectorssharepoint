@@ -59,12 +59,16 @@ const ALC_CorrectiveAction = {
             // Determine if the user has access to edit this specific area (using fuzzy substring comparison)
             let hasAreaAccess = false;
             if (!isReadOnlyState) {
-                const assignedAreas = ALC_StateMachine.userAreas || [];
-                hasAreaAccess = assignedAreas.some(area =>
-                    cp.cr3ea_area &&
-                    (cp.cr3ea_area.toLowerCase().includes(area.toLowerCase().trim()) ||
-                        area.toLowerCase().trim().includes(cp.cr3ea_area.toLowerCase()))
-                );
+                if (ALC_StateMachine.isProductionUser) {
+                    hasAreaAccess = true;
+                } else {
+                    const assignedAreas = ALC_StateMachine.userAreas || [];
+                    hasAreaAccess = assignedAreas.some(area =>
+                        cp.cr3ea_area &&
+                        (cp.cr3ea_area.toLowerCase().includes(area.toLowerCase().trim()) ||
+                            area.toLowerCase().trim().includes(cp.cr3ea_area.toLowerCase()))
+                    );
+                }
             } else {
                 // If it is read-only (Closed or Completed), show all rows to everyone
                 hasAreaAccess = true;
@@ -220,6 +224,11 @@ const ALC_CorrectiveAction = {
             return;
         }
 
+        if (ALC_StateMachine.isReadOnly || ALC_StateMachine.currentState === ALC_STATES.QA_REVERIFYING) {
+            console.warn("Aborting submitActions: form is in read-only or re-verification state.");
+            return;
+        }
+
         const rows = document.querySelectorAll("#failed-checkpoints-body tr");
         console.log("DOM Rows Count in failed-checkpoints-body:", rows.length);
 
@@ -249,12 +258,17 @@ const ALC_CorrectiveAction = {
                 console.log(`Processing corrective action row #${i + 1}: Checkpoint ID = ${cp.cr3ea_rajpura_alcsid}`);
 
                 // Determine if the current user has access to edit this specific area
-                const assignedAreas = ALC_StateMachine.userAreas || [];
-                hasAreaAccess = assignedAreas.some(area =>
-                    cp.cr3ea_area &&
-                    (cp.cr3ea_area.toLowerCase().includes(area.toLowerCase().trim()) ||
-                        area.toLowerCase().trim().includes(cp.cr3ea_area.toLowerCase()))
-                );
+                let hasAreaAccess = false;
+                if (ALC_StateMachine.isProductionUser) {
+                    hasAreaAccess = true;
+                } else {
+                    const assignedAreas = ALC_StateMachine.userAreas || [];
+                    hasAreaAccess = assignedAreas.some(area =>
+                        cp.cr3ea_area &&
+                        (cp.cr3ea_area.toLowerCase().includes(area.toLowerCase().trim()) ||
+                            area.toLowerCase().trim().includes(cp.cr3ea_area.toLowerCase()))
+                    );
+                }
 
                 // If they don't have area access, or if the checkpoint has already been resolved previously, skip saving it.
                 // Note: Production role can always edit and save everything.

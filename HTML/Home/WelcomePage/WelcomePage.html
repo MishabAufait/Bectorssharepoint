@@ -17,17 +17,21 @@
 
         var cssLinks = [
             siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/main.min.css?v=2.0",
-            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/home-page.min.css?v=2.0",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/home-page.min.css?v=3.7",
             siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/style.css?v=2.0",
-            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=2.0"
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=5.8",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/admin.css?v=5.8"
         ];
 
         var jsScripts = [
-            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=3.6",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=5.8",
             siteBaseUrl + "/BectorsSourceCode/JS/Home/WelcomeWebPart/WelcomeDAL.js?v=2.0",
             siteBaseUrl + "/BectorsSourceCode/JS/Home/WelcomeWebPart/WelcomeBAL.js?v=2.0",
             siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/js/custom/shiftpopup.js?v=2.0",
-            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/dashboard.js?v=3.6"
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/pkg-products-seed.js?v=5.8",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/mb-recipes-seed.js?v=5.8",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/dashboard.js?v=6.0",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/admin.js?v=6.0"
         ];
 
         // Dynamically load CSS stylesheets (href)
@@ -152,8 +156,39 @@
    Rajpura Quality Dashboard & Table Overrides
    ========================================================================== */
 
+#s4-workspace {
+    overflow-x: hidden !important;
+}
+
+html, body {
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+}
+
+#shiftPopup,
+.main-popup {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+}
+
 #rajpuraQualityDashboard {
     font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+}
+
+#rajpuraQualityDashboard * {
+    box-sizing: border-box !important;
+}
+
+#rajpuraQualityDashboard .row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
 }
 
 #rajpuraQualityDashboard .bs-card {
@@ -161,22 +196,27 @@
     background: #ffffff !important;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04) !important;
     border-radius: 8px !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
 }
 
 #rajpuraQualityDashboard .bs-card-header {
     background-color: #f8fafc !important;
     border-bottom: 1px solid #e2e8f0 !important;
     padding: 14px 20px !important;
+    box-sizing: border-box !important;
 }
 
 #rajpuraQualityDashboard .bs-card-body {
     padding: 20px !important;
+    box-sizing: border-box !important;
 }
 
 /* Specificity booster for table styling */
 #rajpuraQualityDashboard table.bs-table {
     border-collapse: collapse !important;
     width: 100% !important;
+    max-width: 100% !important;
     border: 1px solid #e2e8f0 !important;
     margin-top: 15px !important;
     background-color: #ffffff !important;
@@ -192,6 +232,9 @@
     border: 1px solid #e2e8f0 !important;
     text-align: center !important;
     vertical-align: middle !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
 }
 
 #rajpuraQualityDashboard table.bs-table td {
@@ -202,6 +245,19 @@
     vertical-align: middle !important;
     background-color: #ffffff !important;
     text-align: center !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+}
+
+#rajpuraQualityDashboard .table-responsive,
+#rajpuraQualityDashboard .bs-table-responsive {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    display: block !important;
+    margin-bottom: 15px !important;
 }
 
 #rajpuraQualityDashboard table.bs-table tbody tr:hover td {
@@ -315,9 +371,11 @@
 }
 </style>
 
-<!-- Common Rajpura Quality Dashboard Section (Initially Hidden) -->
-<div id="rajpuraQualityDashboard" style="display: none; margin-top: 30px; padding: 15px;">
-    <div class="bs-card" style="margin-bottom: 25px; padding: 20px; border-radius: 8px; border: 1px solid #ccc;">
+<!-- Common Rajpura Quality Section (Initially Hidden - Governed by Plant & Dept Authorization) -->
+<div id="rajpuraQualityDashboard" style="display: none; margin-top: 30px; padding: 15px; max-width: 100%; box-sizing: border-box;">
+    
+    <!-- View 1: Quality Analytics & Tour Tracking Dashboard View -->
+    <div id="rajpuraDashboardView" class="bs-card" style="margin-bottom: 25px; padding: 20px; border-radius: 8px; border: 1px solid #ccc; max-width: 100%; box-sizing: border-box;">
         <div class="bs-card-header d-flex justify-content-between align-items-center mb-3" style="background: #f8f9fa; padding: 10px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
             <h3 class="bec-fs-lg text-primary" style="font-weight: bold; margin: 0; color: #1a73e8;">Rajpura Quality Dashboard</h3>
             <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
@@ -337,7 +395,7 @@
         <div class="bs-card-body">
             
             <!-- KPI Cards Row -->
-            <div class="row d-flex gap-3 mb-4" style="display: flex; gap: 15px; margin-bottom: 25px;">
+            <div class="row d-flex gap-3 mb-4" style="display: flex; gap: 15px; margin-left: 0; margin-right: 0; margin-bottom: 25px;">
                 <div class="bs-card" style="flex: 1; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; text-align: center; background: #f8fafc; margin-bottom: 0 !important;">
                     <div style="font-size: 14px; color: #64748b; font-weight: 500;">Total Tours</div>
                     <div id="kpi-total-tours" style="font-size: 28px; font-weight: bold; color: #1e293b; margin-top: 5px;">0</div>
@@ -364,19 +422,19 @@
                         🔄 Refresh
                     </button>
                 </div>
-                <div class="table-responsive" style="overflow-x: auto;">
-                    <table class="bs-table" border="1" style="border-collapse: collapse; width: 100%; min-width: 800px; text-align: center; font-size: 14px;">
+                <div class="table-responsive bs-table-responsive" style="overflow-x: auto; width: 100%; max-width: 100%; display: block;">
+                    <table class="bs-table" border="1" style="border-collapse: collapse; width: 100%; max-width: 100%; text-align: center; font-size: 14px;">
                         <thead>
                             <tr style="background: #f8f9fa;">
-                                <th style="width: 15%;">Date & Time</th>
-                                <th style="width: 15%;">Checklist Form</th>
+                                <th style="width: 14%;">Date & Time</th>
+                                <th style="width: 14%;">Checklist Form</th>
                                 <th style="width: 8%;">Line</th>
                                 <th style="width: 8%;">Shift</th>
-                                <th style="width: 15%;">Executive Details</th>
-                                <th style="width: 10%;">Score</th>
+                                <th style="width: 16%;">Executive Details</th>
+                                <th style="width: 8%;">Score</th>
                                 <th style="width: 10%;">Is Line Clear</th>
-                                <th style="width: 12%;">Status</th>
-                                <th style="width: 12%;">Pending With</th>
+                                <th style="width: 11%;">Status</th>
+                                <th style="width: 11%;">Pending With</th>
                             </tr>
                         </thead>
                         <tbody id="rajpura-ongoing-tbody">
@@ -389,8 +447,8 @@
             <!-- Cycle & Summary History Panel -->
             <div>
                 <h4 class="bec-fs-md mb-2" style="font-weight: bold; border-left: 4px solid #137333; padding-left: 8px; color: #137333; margin-bottom: 15px;">Closed, Completed & Expired Archives</h4>
-                <div class="table-responsive" style="overflow-x: auto;">
-                    <table class="bs-table" border="1" style="border-collapse: collapse; width: 100%; min-width: 800px; text-align: center; font-size: 14px;">
+                <div class="table-responsive bs-table-responsive" style="overflow-x: auto; width: 100%; max-width: 100%; display: block;">
+                    <table class="bs-table" border="1" style="border-collapse: collapse; width: 100%; max-width: 100%; text-align: center; font-size: 14px;">
                         <thead>
                             <tr style="background: #f8f9fa;">
                                 <th style="width: 15%;">Date & Time</th>
@@ -412,8 +470,8 @@
 
         </div>
     </div>
+
+    <!-- View 2: Rajpura Quality Admin Panel (User Assignment) -->
+    <div id="rajpuraAdminPanel" style="display: none; max-width: 100%; box-sizing: border-box;"></div>
+
 </div>
- 
- 
- 
- 

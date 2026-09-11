@@ -22,6 +22,12 @@ const PKGOPS_CorrectiveAction = {
 
         console.log(`Initializing Corrective Action: Key=${this.activeSubChecklistKey}`);
         await this.loadDeviatedRows();
+
+        // Lock form if user is not authorized Production personnel
+        const hasProdRole = typeof PKGOPS_StateMachine !== "undefined" && PKGOPS_StateMachine.isProductionUser;
+        if (!hasProdRole && typeof PKGOPS_StateMachine !== "undefined") {
+            PKGOPS_StateMachine.lockCorrectiveActionReadOnly(true);
+        }
     },
 
     loadDeviatedRows: async function () {
@@ -91,19 +97,19 @@ const PKGOPS_CorrectiveAction = {
                                 if (this.pkgopsType === "Code Verification") {
                                     defectDesc = row.cr3ea_defecttype || "Code Defect";
                                     obsDetails = `Batch: ${row.cr3ea_batchno || "-"} | PKD: ${row.cr3ea_pkd || "-"} | Defect Count: ${row.cr3ea_defectcount || "1"}`;
-                                    rowId = row.cr3ea_prod_rajpura_pkgops_codeverificationid;
+                                    rowId = row.cr3ea_rajpura_pkgops_codeverificationid || row.cr3ea_prod_rajpura_pkgops_codeverificationid || row.id;
                                 } else if (this.pkgopsType === "PAPA") {
                                     defectDesc = row.cr3ea_defecttype || "Appearance Defect";
                                     obsDetails = `Defect Count: ${row.cr3ea_defectcount || "1"} | Percentage: ${row.cr3ea_defectwisepercentage || "1%"}`;
-                                    rowId = row.cr3ea_prod_rajpura_pkgops_papaid;
+                                    rowId = row.cr3ea_rajpura_pkgops_papaid || row.cr3ea_prod_rajpura_pkgops_papaid || row.id;
                                 } else if (this.pkgopsType === "PQI") {
                                     defectDesc = `${row.cr3ea_evaluationtype} Pack Defect`;
                                     obsDetails = `${row.cr3ea_samplenumber} - Category: ${row.cr3ea_defectcategory || "-"} | Details: ${row.cr3ea_defectdetail || "-"}`;
-                                    rowId = row.cr3ea_prod_rajpura_pkgops_pqi_evaluationid;
+                                    rowId = row.cr3ea_rajpura_pkgops_pqi_evaluationid || row.cr3ea_prod_rajpura_pkgops_pqi_evaluationid || row.id;
                                 } else if (this.pkgopsType === "Seal Integrity") {
                                     defectDesc = "Leakage Detected";
                                     obsDetails = `Leakages: ${row.cr3ea_noofleakage || "1"} | Type: ${row.cr3ea_leakagetype || "-"}`;
-                                    rowId = row.cr3ea_prod_rajpura_pkgops_sealintegrityid;
+                                    rowId = row.cr3ea_rajpura_pkgops_sealintegrityid || row.cr3ea_prod_rajpura_pkgops_sealintegrityid || row.id;
                                 }
 
                                 const actionRaw = row.cr3ea_actiontaken || "";
@@ -147,6 +153,21 @@ const PKGOPS_CorrectiveAction = {
     },
 
     submitCorrectiveAction: async function () {
+        const hasProdRole = typeof PKGOPS_StateMachine !== "undefined" && PKGOPS_StateMachine.isProductionUser;
+        if (!hasProdRole) {
+            alert("Access Denied: Only the assigned Production Executive can submit corrective actions.");
+            if (typeof PKGOPS_Main !== "undefined" && typeof PKGOPS_Main.redirectToDashboard === "function") {
+                PKGOPS_Main.redirectToDashboard();
+            }
+            return;
+        }
+
+        const currentTourStatus = PKGOPS_StateMachine.currentSession?.cr3ea_processstatus || PKGOPS_StateMachine.currentSession?.cr3ea_status || "";
+        if (currentTourStatus.includes("Pending Re-Verification")) {
+            alert("This tour is already in QA Re-Verification stage. Corrective actions cannot be submitted at this time.");
+            return;
+        }
+
         if (typeof ShowLoader === "function") ShowLoader();
 
         try {
@@ -171,22 +192,27 @@ const PKGOPS_CorrectiveAction = {
                     actionValue += " | Proof: " + proofUrl;
                 }
 
+                const childId = row.cr3ea_rajpura_pkgops_sealintegrityid ||
+                                row.cr3ea_prod_rajpura_pkgops_sealintegrityid ||
+                                row.cr3ea_rajpura_pkgops_codeverificationid ||
+                                row.cr3ea_prod_rajpura_pkgops_codeverificationid ||
+                                row.cr3ea_rajpura_pkgops_papaid ||
+                                row.cr3ea_prod_rajpura_pkgops_papaid ||
+                                row.cr3ea_rajpura_pkgops_pqi_evaluationid ||
+                                row.cr3ea_prod_rajpura_pkgops_pqi_evaluationid ||
+                                row.id;
+
                 // Update child record
                 let updatePayload = {
+                    id: childId,
                     cr3ea_actiontaken: actionValue,
                     cr3ea_deviationstatus: "Pending Re-Verification"
                 };
 
-                if (this.pkgopsType === "Code Verification") {
-                    updatePayload.cr3ea_prod_rajpura_pkgops_codeverificationid = row.cr3ea_prod_rajpura_pkgops_codeverificationid;
+                if (this.pkgopsType === "Code Verification" && (proofUrl || row.cr3ea_codepictureurl)) {
                     updatePayload.cr3ea_codepictureurl = proofUrl || row.cr3ea_codepictureurl;
-                } else if (this.pkgopsType === "PAPA") {
-                    updatePayload.cr3ea_prod_rajpura_pkgops_papaid = row.cr3ea_prod_rajpura_pkgops_papaid;
-                } else if (this.pkgopsType === "PQI") {
-                    updatePayload.cr3ea_prod_rajpura_pkgops_pqi_evaluationid = row.cr3ea_prod_rajpura_pkgops_pqi_evaluationid;
+                } else if (this.pkgopsType === "PQI" && (proofUrl || row.cr3ea_batchcodepictureurl)) {
                     updatePayload.cr3ea_batchcodepictureurl = proofUrl || row.cr3ea_batchcodepictureurl;
-                } else if (this.pkgopsType === "Seal Integrity") {
-                    updatePayload.cr3ea_prod_rajpura_pkgops_sealintegrityid = row.cr3ea_prod_rajpura_pkgops_sealintegrityid;
                 }
 
                 await PKGOPS_DAL.saveSubChecklistRow(this.activeSubChecklistKey, updatePayload);
@@ -195,6 +221,7 @@ const PKGOPS_CorrectiveAction = {
             // Transition parent status to Pending Re-Verification
             const tourPayload = {
                 cr3ea_prod_rajpura_quality_tourid: this.currentTourId,
+                cr3ea_rajpura_quality_tourid: this.currentTourId,
                 cr3ea_status: "Pending Re-Verification",
                 cr3ea_processstatus: "Pending Re-Verification"
             };
@@ -210,8 +237,17 @@ const PKGOPS_CorrectiveAction = {
             }
 
             if (typeof HideLoader === "function") HideLoader();
-            alert("Corrective Action submitted to QA HOD for Re-verification successfully!");
-            window.location.reload();
+            alert("Corrective Action submitted to QA for Re-verification successfully!");
+
+            // Redirect to dashboard like in ALC
+            if (typeof PKGOPS_Main !== "undefined" && typeof PKGOPS_Main.redirectToDashboard === "function") {
+                PKGOPS_Main.redirectToDashboard();
+            } else {
+                const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                    ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                    : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
+                window.location.href = homeUrl;
+            }
         } catch (error) {
             if (typeof HideLoader === "function") HideLoader();
             console.error("Failed to submit corrective action: ", error);

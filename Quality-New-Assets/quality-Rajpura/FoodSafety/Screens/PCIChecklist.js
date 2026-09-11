@@ -78,6 +78,13 @@ const PCIChecklistScreen = {
                                 ➕ Add another observation
                             </button>
                         </div>
+                        <div class="pci-proof-wrapper" id="pci-proof-wrapper-${index}" style="margin-top: 12px; padding: 10px; background: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1; text-align: left;">
+                            <label style="font-size: 11px; font-weight: 600; color: #475569; display: block; margin-bottom: 3px;">
+                                📷 Defect Proof Image/Doc (Optional):
+                            </label>
+                            <input type="file" class="form-control pci-proof-file" id="pci-proof-${index}" accept="image/*,application/pdf" style="font-size: 12px; height: auto; padding: 4px 8px;">
+                            <div id="pci-existing-proof-${index}" style="display: none; margin-top: 4px;"></div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -87,6 +94,11 @@ const PCIChecklistScreen = {
 
             // Initialize status Select2 dropdown
             DropdownComponent.init(`pci-status-${index}`);
+            $(`#pci-status-${index}`).on("change", function () {
+                if (typeof FoodSafety_Validator !== "undefined") {
+                    FoodSafety_Validator.highlight(this, false);
+                }
+            });
         });
 
         this.calculateScores();
@@ -94,9 +106,14 @@ const PCIChecklistScreen = {
 
     // Handle status choice changes
     handleStatusChange: function (index) {
-        const status = document.getElementById(`pci-status-${index}`).value;
+        const statusEl = document.getElementById(`pci-status-${index}`);
+        const status = statusEl ? statusEl.value : "";
         const obsBody = document.getElementById(`pci-obs-body-${index}`);
         
+        if (typeof FoodSafety_Validator !== "undefined" && statusEl) {
+            FoodSafety_Validator.highlight(statusEl, false);
+        }
+
         if (status === "Not Okay") {
             obsBody.style.display = "block";
             // Pre-add first observation block
@@ -108,6 +125,14 @@ const PCIChecklistScreen = {
             obsBody.style.display = "none";
             const list = document.getElementById(`pci-observations-list-${index}`);
             if (list) list.innerHTML = "";
+            const fileInp = document.getElementById(`pci-proof-${index}`);
+            if (fileInp) fileInp.value = "";
+            const existP = document.getElementById(`pci-existing-proof-${index}`);
+            if (existP) {
+                existP.style.display = "none";
+                existP.innerHTML = "";
+                existP.removeAttribute("data-url");
+            }
         }
 
         this.calculateScores();
@@ -150,6 +175,19 @@ const PCIChecklistScreen = {
 
         // Initialize newly added type Select2 dropdown
         DropdownComponent.init(`pci-obs-type-${locIndex}-${obsIndex}`);
+        $(`#pci-obs-type-${locIndex}-${obsIndex}`).on("change", function () {
+            if (typeof FoodSafety_Validator !== "undefined") {
+                FoodSafety_Validator.highlight(this, false);
+            }
+        });
+        const cntInput = document.getElementById(`pci-obs-count-${locIndex}-${obsIndex}`);
+        if (cntInput) {
+            cntInput.addEventListener("input", function () {
+                if (typeof FoodSafety_Validator !== "undefined") {
+                    FoodSafety_Validator.highlight(this, false);
+                }
+            });
+        }
     },
 
     // Remove repeatable observation sub-form row
@@ -170,6 +208,11 @@ const PCIChecklistScreen = {
     // Submit PCI Checklist
     submit: async function () {
         try {
+            if (typeof FoodSafety_Validator !== "undefined") {
+                FoodSafety_Validator.clearAll("screen-pci-checklist");
+                FoodSafety_Validator.hideBanner("pci-validation-banner");
+            }
+
             const area = FoodSafety_Main.state.selectedArea || "Old Block";
             const locations = area === "New Block" ? this.newBlockLocations : this.oldBlockLocations;
             const childRecords = [];
@@ -182,22 +225,45 @@ const PCIChecklistScreen = {
             let unansweredCount = 0;
             let missingObsCount = 0;
             let invalidCountVal = false;
+            let firstInvalidEl = null;
 
             locations.forEach((locName, idx) => {
-                const status = document.getElementById(`pci-status-${idx}`).value;
+                const statusEl = document.getElementById(`pci-status-${idx}`);
+                const status = statusEl ? statusEl.value : "";
                 if (!status) {
                     unansweredCount++;
+                    if (typeof FoodSafety_Validator !== "undefined" && statusEl) {
+                        FoodSafety_Validator.highlight(statusEl, true);
+                    }
+                    if (!firstInvalidEl) firstInvalidEl = statusEl;
                 } else if (status === "Not Okay") {
+                    hasNotOkay = true;
                     const listContainer = document.getElementById(`pci-observations-list-${idx}`);
                     const rows = listContainer ? listContainer.querySelectorAll(".pci-obs-row") : [];
                     if (rows.length === 0) {
                         missingObsCount++;
+                        const card = document.getElementById(`pci-loc-card-${idx}`);
+                        if (typeof FoodSafety_Validator !== "undefined" && card) {
+                            FoodSafety_Validator.highlight(card, true);
+                        }
+                        if (!firstInvalidEl) firstInvalidEl = card;
                     } else {
                         rows.forEach(row => {
+                            const typeSelect = row.querySelector(".pci-obs-type");
                             const countInput = row.querySelector(".pci-obs-count");
-                            const count = parseInt(countInput ? countInput.value : 1) || 0;
+                            const count = parseInt(countInput ? countInput.value : 0) || 0;
+                            if (typeSelect && !typeSelect.value) {
+                                if (typeof FoodSafety_Validator !== "undefined") {
+                                    FoodSafety_Validator.highlight(typeSelect, true);
+                                }
+                                if (!firstInvalidEl) firstInvalidEl = typeSelect;
+                            }
                             if (count <= 0) {
                                 invalidCountVal = true;
+                                if (typeof FoodSafety_Validator !== "undefined" && countInput) {
+                                    FoodSafety_Validator.highlight(countInput, true);
+                                }
+                                if (!firstInvalidEl) firstInvalidEl = countInput;
                             }
                         });
                     }
@@ -205,22 +271,37 @@ const PCIChecklistScreen = {
             });
 
             if (unansweredCount > 0 || missingObsCount > 0 || invalidCountVal) {
-                let msg = "";
+                const missingList = [];
                 if (unansweredCount > 0) {
-                    msg += `Please select a status for the remaining ${unansweredCount} location(s).\n`;
+                    missingList.push(`Status selection for ${unansweredCount} location(s)`);
                 }
                 if (missingObsCount > 0) {
-                    msg += `Please add at least one observation for the ${missingObsCount} location(s) marked as "Not Okay".\n`;
+                    missingList.push(`At least one observation for ${missingObsCount} location(s) marked as "Not Okay"`);
                 }
                 if (invalidCountVal) {
-                    msg += "Observation count for all entries must be at least 1.";
+                    missingList.push("Observation count for all entries must be at least 1");
                 }
-                alert(msg.trim());
+
+                if (typeof FoodSafety_Validator !== "undefined") {
+                    FoodSafety_Validator.showBanner("pci-validation-banner", missingList);
+                }
+
+                let alertMsg = "Please complete all required fields before submitting:\n";
+                missingList.forEach(item => alertMsg += `• ${item}\n`);
+                alert(alertMsg.trim());
+
+                if (firstInvalidEl) {
+                    firstInvalidEl.scrollIntoView({ behavior: "smooth", block: "center" });
+                    if (typeof firstInvalidEl.focus === "function") {
+                        firstInvalidEl.focus();
+                    }
+                }
                 return;
             }
 
-            // 2. Gather all inputs per location
-            locations.forEach((locName, idx) => {
+            // 2. Gather all inputs per location with proof uploads
+            for (let idx = 0; idx < locations.length; idx++) {
+                const locName = locations[idx];
                 const status = document.getElementById(`pci-status-${idx}`).value;
 
                 if (status === "Okay") {
@@ -243,6 +324,26 @@ const PCIChecklistScreen = {
                     });
                 } else {
                     hasNotOkay = true;
+                    const fileInput = document.getElementById(`pci-proof-${idx}`);
+                    const existingProofEl = document.getElementById(`pci-existing-proof-${idx}`);
+                    const existingUrl = existingProofEl ? existingProofEl.getAttribute("data-url") : "";
+                    let proofUrl = "";
+
+                    if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                        if (typeof ShowProgressLoader === "function") {
+                            ShowProgressLoader(10, `Uploading proof for ${locName}...`);
+                        }
+                        try {
+                            proofUrl = await FoodSafety_DAL.uploadAttachmentFile(fileInput.files[0], FoodSafety_Main.state.varTourID, "PCI", `PCI_${locName.replace(/[^a-zA-Z0-9_-]/g, '_')}`, `${locName} Defects`);
+                        } catch (upErr) {
+                            console.warn(`Failed to upload proof for PCI ${locName}:`, upErr);
+                        }
+                    } else if (existingUrl) {
+                        proofUrl = existingUrl;
+                    }
+
+                    const finalRemarks = proofUrl ? `Proof: ${proofUrl}` : "";
+
                     const listContainer = document.getElementById(`pci-observations-list-${idx}`);
                     const rows = listContainer ? listContainer.querySelectorAll(".pci-obs-row") : [];
 
@@ -268,14 +369,13 @@ const PCIChecklistScreen = {
                             cr3ea_food_safety_status: "Not Okay",
                             cr3ea_food_safety_observationtype: type,
                             cr3ea_food_safety_defectcount: count,
+                            cr3ea_food_safety_defectremarks: finalRemarks,
                             cr3ea_food_safety_date: dateStr,
                             cr3ea_food_safety_time: timeStr
                         });
                     });
                 }
-            });
-
-
+            }
 
             ShowLoader();
 
@@ -286,19 +386,17 @@ const PCIChecklistScreen = {
 
             console.log(`Submitting ${childRecords.length} child PCI rows to Dataverse...`);
 
-            // 2. Sequentially save each row directly to Dataverse
+            // 2. Save rows in parallel chunks of 8
+            const CHUNK_SIZE = 8;
             const total = childRecords.length;
-            for (let i = 0; i < total; i++) {
-                const percent = Math.round((i / total) * 100);
+            for (let i = 0; i < total; i += CHUNK_SIZE) {
+                const chunk = childRecords.slice(i, i + CHUNK_SIZE);
+                const currentCount = Math.min(i + CHUNK_SIZE, total);
+                const percent = Math.round((currentCount / total) * 100);
                 if (typeof ShowProgressLoader === "function") {
-                    ShowProgressLoader(percent, `Submitting observations... (${i + 1} of ${total})`);
+                    ShowProgressLoader(percent, `Submitting observations (${currentCount} of ${total})...`);
                 }
-                try {
-                    await FoodSafety_DAL.saveChecklistItem(childRecords[i]);
-                } catch (err) {
-                    const loc = childRecords[i].cr3ea_food_safety_location || childRecords[i].cr953_food_safety_location;
-                    throw new Error(`Failed to save location observation #${i + 1} (${loc}): ${err.message}`);
-                }
+                await Promise.all(chunk.map(rec => FoodSafety_DAL.saveChecklistItem(rec)));
             }
             if (typeof ShowProgressLoader === "function") {
                 ShowProgressLoader(100, "Finalizing submission...");
@@ -409,7 +507,8 @@ const PCIChecklistScreen = {
             let hasNotOkay = false;
 
             // Gather inputs only for locations with selected status
-            locations.forEach((locName, idx) => {
+            for (let idx = 0; idx < locations.length; idx++) {
+                const locName = locations[idx];
                 const statusEl = document.getElementById(`pci-status-${idx}`);
                 const status = statusEl ? statusEl.value : "";
 
@@ -433,6 +532,26 @@ const PCIChecklistScreen = {
                         });
                     } else {
                         hasNotOkay = true;
+                        const fileInput = document.getElementById(`pci-proof-${idx}`);
+                        const existingProofEl = document.getElementById(`pci-existing-proof-${idx}`);
+                        const existingUrl = existingProofEl ? existingProofEl.getAttribute("data-url") : "";
+                        let proofUrl = "";
+
+                        if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                            if (typeof ShowProgressLoader === "function") {
+                                ShowProgressLoader(10, `Uploading proof for ${locName}...`);
+                            }
+                            try {
+                                proofUrl = await FoodSafety_DAL.uploadAttachmentFile(fileInput.files[0], FoodSafety_Main.state.varTourID, "PCI", `PCI_${locName.replace(/[^a-zA-Z0-9_-]/g, '_')}`, `${locName} Defects`);
+                            } catch (upErr) {
+                                console.warn(`Failed to upload proof for PCI ${locName}:`, upErr);
+                            }
+                        } else if (existingUrl) {
+                            proofUrl = existingUrl;
+                        }
+
+                        const finalRemarks = proofUrl ? `Proof: ${proofUrl}` : "";
+
                         const listContainer = document.getElementById(`pci-observations-list-${idx}`);
                         const rows = listContainer ? listContainer.querySelectorAll(".pci-obs-row") : [];
 
@@ -458,27 +577,31 @@ const PCIChecklistScreen = {
                                 cr3ea_food_safety_status: "Not Okay",
                                 cr3ea_food_safety_observationtype: type,
                                 cr3ea_food_safety_defectcount: count,
+                                cr3ea_food_safety_defectremarks: finalRemarks,
                                 cr3ea_food_safety_date: dateStr,
                                 cr3ea_food_safety_time: timeStr
                             });
                         });
                     }
                 }
-            });
+            }
 
             if (typeof ShowProgressLoader === "function") {
                 ShowProgressLoader(0, "Cleaning up obsolete items...");
             }
             await FoodSafety_DAL.cleanChecklistItems(FoodSafety_Main.state.varTourID);
 
-            // Save child records sequentially
+            // Save child records in parallel chunks of 8
+            const CHUNK_SIZE = 8;
             const total = childRecords.length;
-            for (let i = 0; i < total; i++) {
-                const percent = Math.round((i / total) * 100);
+            for (let i = 0; i < total; i += CHUNK_SIZE) {
+                const chunk = childRecords.slice(i, i + CHUNK_SIZE);
+                const currentCount = Math.min(i + CHUNK_SIZE, total);
+                const percent = Math.round((currentCount / total) * 100);
                 if (typeof ShowProgressLoader === "function") {
-                    ShowProgressLoader(percent, `Saving paused progress... (${i + 1} of ${total})`);
+                    ShowProgressLoader(percent, `Saving paused progress (${currentCount} of ${total})...`);
                 }
-                await FoodSafety_DAL.saveChecklistItem(childRecords[i]);
+                await Promise.all(chunk.map(rec => FoodSafety_DAL.saveChecklistItem(rec)));
             }
             if (typeof ShowProgressLoader === "function") {
                 ShowProgressLoader(100, "Finalizing pause...");
@@ -578,6 +701,23 @@ const PCIChecklistScreen = {
                                     list.appendChild(row);
                                     DropdownComponent.init(`pci-obs-type-${idx}-${obsIdx}`);
                                 });
+
+                                // Check for proof URL in any match
+                                const proofMatch = matches.find(m => (m.cr3ea_food_safety_defectremarks || m.cr953_food_safety_defectremarks));
+                                if (proofMatch) {
+                                    const rawRemarks = proofMatch.cr3ea_food_safety_defectremarks || proofMatch.cr953_food_safety_defectremarks || "";
+                                    const parsed = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.parseRemarksAndProof)
+                                        ? QualityRajpura_Config.parseRemarksAndProof(rawRemarks)
+                                        : { remarks: "", proofUrl: "" };
+                                    const proofUrl = parsed.proofUrl;
+
+                                    const existEl = document.getElementById(`pci-existing-proof-${idx}`);
+                                    if (proofUrl && existEl) {
+                                        existEl.style.display = "block";
+                                        existEl.setAttribute("data-url", proofUrl);
+                                        existEl.innerHTML = `<a href="${proofUrl}" target="_blank" class="badge food-safety-proof-badge" style="background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; text-decoration: none !important; padding: 4px 10px !important; border-radius: 4px !important; display: inline-flex !important; align-items: center !important; gap: 5px !important; font-size: 11px !important; font-weight: 600 !important;"><span style="color: #ffffff !important;">📷 View Attached Proof</span></a>`;
+                                    }
+                                }
                             }
                         }
                     }

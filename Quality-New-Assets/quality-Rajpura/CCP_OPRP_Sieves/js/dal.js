@@ -70,16 +70,26 @@ const CCP_OPRP_DAL = {
 
             const configTypeField = findField(["ConfigType", "Config_x0020_Type"], "Config Type");
             const plantField = findField(["Plant"], "Plant");
-            const assignedQAField = findField(["AssignedQA", "Assigned_x0020_QA", "AssignedUser", "Assigned_x0020_User"], "Assigned QA");
+            const assignedQAField = findField(["AssignedQA", "Assigned_x0020_QA"], "Assigned QA");
+            const assignedUserField = findField(["AssignedUser", "Assigned_x0020_User"], "Assigned User");
             const escalationManagerField = findField(["EscalationManager", "Escalation_x0020_Manager"], "Escalation Manager");
             const productionInchargeField = findField(["ProductionIncharge", "Production_x0020_Incharge"], "Production Incharge");
+            const lineNameField = findField(["LineName", "Line_x0020_Name", "Line"], "Line Name");
+            const productCodeField = findField(["ProductCode", "Product_x0020_Code", "SKU"], "Product Code");
+            const productCategoryField = findField(["ProductCategory", "Product_x0020_Category", "Category"], "Product Category");
+            const isActiveField = findField(["IsActive", "Is_x0020_Active", "Active"], "Is Active");
 
             console.log("Resolved field internal names on SharePoint:", {
                 ConfigType: configTypeField ? configTypeField.InternalName : "NOT_FOUND",
                 Plant: plantField ? plantField.InternalName : "NOT_FOUND",
                 AssignedQA: assignedQAField ? assignedQAField.InternalName : "NOT_FOUND",
+                AssignedUser: assignedUserField ? assignedUserField.InternalName : "NOT_FOUND",
                 EscalationManager: escalationManagerField ? escalationManagerField.InternalName : "NOT_FOUND",
-                ProductionIncharge: productionInchargeField ? productionInchargeField.InternalName : "NOT_FOUND"
+                ProductionIncharge: productionInchargeField ? productionInchargeField.InternalName : "NOT_FOUND",
+                LineName: lineNameField ? lineNameField.InternalName : "NOT_FOUND",
+                ProductCode: productCodeField ? productCodeField.InternalName : "NOT_FOUND",
+                ProductCategory: productCategoryField ? productCategoryField.InternalName : "NOT_FOUND",
+                IsActive: isActiveField ? isActiveField.InternalName : "NOT_FOUND"
             });
 
             const selectParts = ["Id", "Title"];
@@ -87,9 +97,18 @@ const CCP_OPRP_DAL = {
 
             if (plantField) selectParts.push(plantField.InternalName);
             if (configTypeField) selectParts.push(configTypeField.InternalName);
+            if (lineNameField) selectParts.push(lineNameField.InternalName);
+            if (productCodeField) selectParts.push(productCodeField.InternalName);
+            if (productCategoryField) selectParts.push(productCategoryField.InternalName);
+            if (isActiveField) selectParts.push(isActiveField.InternalName);
 
             if (assignedQAField) {
                 const name = assignedQAField.InternalName;
+                selectParts.push(`${name}/Title`, `${name}/EMail`, `${name}/Id`);
+                expandParts.push(name);
+            }
+            if (assignedUserField) {
+                const name = assignedUserField.InternalName;
                 selectParts.push(`${name}/Title`, `${name}/EMail`, `${name}/Id`);
                 expandParts.push(name);
             }
@@ -104,7 +123,7 @@ const CCP_OPRP_DAL = {
                 expandParts.push(name);
             }
 
-            let query = `?$select=${selectParts.join(",")}`;
+            let query = `?$select=${selectParts.join(",")}&$top=5000`;
             if (expandParts.length > 0) {
                 query += `&$expand=${expandParts.join(",")}`;
             }
@@ -124,8 +143,12 @@ const CCP_OPRP_DAL = {
             const results = data.d.results || [];
 
             const mappedConfigs = results.map(item => {
-                const configTypeVal = configTypeField ? item[configTypeField.InternalName] : "";
-                const plantVal = plantField ? item[plantField.InternalName] : "Rajpura";
+                const configTypeVal = configTypeField ? item[configTypeField.InternalName] : (item.ConfigType || item.Config_x0020_Type || "");
+                const plantVal = plantField ? item[plantField.InternalName] : (item.Plant || "Rajpura");
+                const lineNameVal = lineNameField ? item[lineNameField.InternalName] : (item.LineName || item.Line_x0020_Name || "");
+                const productCodeVal = productCodeField ? item[productCodeField.InternalName] : (item.ProductCode || item.Product_x0020_Code || "");
+                const productCategoryVal = productCategoryField ? item[productCategoryField.InternalName] : (item.ProductCategory || item.Product_x0020_Category || "");
+                const isActiveVal = isActiveField ? (item[isActiveField.InternalName] !== false) : (item.IsActive !== false);
                 
                 const rawQA = assignedQAField ? item[assignedQAField.InternalName] : null;
                 let qaNormalized = { results: [] };
@@ -134,6 +157,23 @@ const CCP_OPRP_DAL = {
                         qaNormalized = rawQA;
                     } else if (rawQA.Title || rawQA.EMail) {
                         qaNormalized = { results: [rawQA] };
+                    }
+                }
+
+                const rawUser = assignedUserField ? item[assignedUserField.InternalName] : null;
+                let userNormalized = { results: [] };
+                if (rawUser) {
+                    if (rawUser.results && Array.isArray(rawUser.results)) {
+                        userNormalized = rawUser;
+                    } else if (rawUser.Title || rawUser.EMail) {
+                        userNormalized = { results: [rawUser] };
+                    }
+                }
+
+                // If AssignedQA was not present on this row but AssignedUser was, map it
+                if (qaNormalized.results.length === 0 && userNormalized.results.length > 0) {
+                    if (item.Title === "QA User" || item.Title === "QA HOD" || configTypeVal === "QA User" || configTypeVal === "QA HOD") {
+                        qaNormalized = userNormalized;
                     }
                 }
 
@@ -162,19 +202,113 @@ const CCP_OPRP_DAL = {
                     Title: item.Title,
                     ConfigType: configTypeVal,
                     Plant: plantVal,
+                    LineName: lineNameVal,
+                    ProductCode: productCodeVal,
+                    ProductCategory: productCategoryVal,
+                    IsActive: isActiveVal,
                     AssignedQA: qaNormalized,
+                    AssignedUser: userNormalized,
                     EscalationManager: managerNormalized,
                     ProductionIncharge: inchargeNormalized
                 };
             });
 
+            this.configCache = mappedConfigs;
             console.log("Successfully fetched and normalized config results:", mappedConfigs);
             return mappedConfigs;
 
         } catch (e) {
             console.error("Dynamic config loader failed, falling back to mock: ", e);
-            return this.getMockConfig();
+            const mock = this.getMockConfig();
+            this.configCache = mock;
+            return mock;
         }
+    },
+
+    // Mock configuration fallback for offline/development test
+    getMockConfig: function () {
+        const seed = (typeof CCP_PRODUCTS_SEED_DATA !== "undefined" && Array.isArray(CCP_PRODUCTS_SEED_DATA))
+            ? CCP_PRODUCTS_SEED_DATA
+            : ((typeof window !== "undefined" && typeof window.CCP_PRODUCTS_SEED_DATA !== "undefined") ? window.CCP_PRODUCTS_SEED_DATA : []);
+        
+        const seedProducts = seed.map(p => ({
+            Id: p.id || 2000,
+            Title: p.title,
+            ConfigType: "Product Master",
+            Plant: p.plant || "Rajpura",
+            LineName: p.lineName || "All Lines",
+            ProductCode: p.productCode,
+            ProductCategory: p.productCategory,
+            IsActive: p.isActive !== false,
+            AssignedQA: { results: [] },
+            AssignedUser: { results: [] },
+            EscalationManager: { results: [] },
+            ProductionIncharge: { results: [] }
+        }));
+
+        return [
+            {
+                Id: 21,
+                Title: "Line-1",
+                ConfigType: "CCP_OPRP",
+                Plant: "Rajpura",
+                LineName: "Line-1",
+                IsActive: true,
+                AssignedQA: { results: [{ Id: 101, Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com" }] },
+                AssignedUser: { results: [{ Id: 101, Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com" }] },
+                ProductionIncharge: { results: [{ Id: 104, Title: "Mahesh Singh", EMail: "mahesh.singh@bectorfoods.com" }] },
+                EscalationManager: { results: [{ Id: 103, Title: "Suresh Kumar", EMail: "suresh.kumar@bectorfoods.com" }] }
+            },
+            {
+                Id: 22,
+                Title: "Sieves & Magnets Line 1",
+                ConfigType: "Sieves_Magnets",
+                Plant: "Rajpura",
+                LineName: "Line-1",
+                IsActive: true,
+                AssignedQA: { results: [{ Id: 101, Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com" }, { Id: 108, Title: "Gokul K", EMail: "gokul.k@bectorfoods.com" }] },
+                AssignedUser: { results: [{ Id: 101, Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com" }, { Id: 108, Title: "Gokul K", EMail: "gokul.k@bectorfoods.com" }] },
+                ProductionIncharge: { results: [{ Id: 105, Title: "Rajesh Verma", EMail: "rajesh.verma@bectorfoods.com" }] },
+                EscalationManager: { results: [{ Id: 103, Title: "Suresh Kumar", EMail: "suresh.kumar@bectorfoods.com" }] }
+            },
+            ...seedProducts
+        ];
+    },
+
+    // Get active products for CCP & OPRP, filtered by selected line with All Lines fallback
+    getProducts: function (selectedLine) {
+        const configs = this.configCache || [];
+        const norm = str => String(str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const targetLine = norm(selectedLine);
+
+        let products = configs.filter(c => {
+            const isProduct = c.ConfigType === "Product Master";
+            if (!isProduct) return false;
+            if (c.IsActive === false) return false;
+            if (!targetLine) return true;
+
+            const pLine = norm(c.LineName);
+            return pLine === "alllines" || pLine === "all" || !pLine || pLine === targetLine || pLine.includes(targetLine) || targetLine.includes(pLine);
+        });
+
+        // Fallback to seed data if no products in cache yet
+        if (products.length === 0) {
+            const seed = (typeof CCP_PRODUCTS_SEED_DATA !== "undefined" && Array.isArray(CCP_PRODUCTS_SEED_DATA))
+                ? CCP_PRODUCTS_SEED_DATA
+                : ((typeof window !== "undefined" && typeof window.CCP_PRODUCTS_SEED_DATA !== "undefined") ? window.CCP_PRODUCTS_SEED_DATA : []);
+            
+            products = seed.map(p => ({
+                Id: p.id,
+                Title: p.title,
+                ConfigType: "Product Master",
+                LineName: p.lineName || "All Lines",
+                ProductCode: p.productCode,
+                ProductCategory: p.productCategory,
+                IsActive: p.isActive !== false
+            }));
+        }
+
+        return products.sort((a, b) => (a.Title || "").localeCompare(b.Title || ""));
     },
 
     // 2. Dataverse Token Access
@@ -336,7 +470,27 @@ const CCP_OPRP_DAL = {
         if (method === "PATCH") {
             return normalizeTourRecord(tourData);
         } else {
-            const data = await response.json();
+            let data = {};
+            try {
+                data = await response.json();
+            } catch (jsonErr) {
+                console.warn("No JSON body in Dataverse POST response, extracting ID from headers:", jsonErr);
+            }
+
+            let resolvedId = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId)
+                ? QualityRajpura_Config.getTourId(data)
+                : (data.cr3ea_prod_rajpura_quality_tourid || data.cr3ea_rajpura_quality_tourid);
+
+            if (!resolvedId) {
+                const entityIdHeader = response.headers.get("OData-EntityId") || response.headers.get("Location") || "";
+                const match = entityIdHeader.match(/\(([0-9a-fA-F-]{36})\)/);
+                if (match && match[1]) {
+                    resolvedId = match[1];
+                    data.cr3ea_prod_rajpura_quality_tourid = resolvedId;
+                    data.cr3ea_rajpura_quality_tourid = resolvedId;
+                }
+            }
+
             return normalizeTourRecord(data);
         }
     },
@@ -369,7 +523,38 @@ const CCP_OPRP_DAL = {
             throw new Error(`Failed to fetch checklist items: ${response.statusText}`);
         }
         const data = await response.json();
-        return data.value || [];
+        const rawItems = data.value || [];
+        return rawItems.map(item => {
+            const ccpId = item.cr3ea_prod_rajpura_ccpoprpid || item.cr3ea_rajpura_ccpoprpid || item.cr3ea_ccpoprpid || item.cr3ea_qualitychecklistid;
+            if (ccpId) {
+                item.cr3ea_prod_rajpura_ccpoprpid = ccpId;
+                item.cr3ea_rajpura_ccpoprpid = ccpId;
+            }
+            const sievesId = item.cr3ea_prod_rajpura_sievesmagnetsid || item.cr3ea_rajpura_sievesmagnetsid || item.cr3ea_sievesmagnetsid || item.cr3ea_qualitychecklistid;
+            if (sievesId) {
+                item.cr3ea_prod_rajpura_sievesmagnetsid = sievesId;
+                item.cr3ea_rajpura_sievesmagnetsid = sievesId;
+            }
+
+            if (type !== "CCP") {
+                // Parse Sieves & Magnets action history and deviation status from defectremarks / criteria
+                const remarks = item.cr3ea_defectremarks || "";
+                const isNotOkay = item.cr3ea_criteria === "Not Okay";
+                if (remarks.includes(" | Action: ")) {
+                    const parts = remarks.split(" | Action: ");
+                    const actionAndRev = parts[1] || "";
+                    item.cr3ea_actiontaken = actionAndRev.split(" | Re-verified: ")[0] || "";
+                    item.cr3ea_deviationstatus = isNotOkay ? "Action Taken" : "Closed";
+                } else if (isNotOkay) {
+                    item.cr3ea_deviationstatus = "New";
+                    item.cr3ea_actiontaken = "";
+                } else {
+                    item.cr3ea_deviationstatus = "Closed";
+                }
+            }
+
+            return item;
+        });
     },
 
     // 7. Save child record
@@ -401,20 +586,54 @@ const CCP_OPRP_DAL = {
         let url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}`;
         let method = "POST";
 
-        const existingId = payload[idField] || 
+        const rawExistingId = payload[idField] || 
             (type === "CCP" 
                 ? (payload.cr3ea_prod_rajpura_ccpoprpid || payload.cr3ea_rajpura_ccpoprpid)
                 : (payload.cr3ea_prod_rajpura_sievesmagnetsid || payload.cr3ea_rajpura_sievesmagnetsid));
 
-        if (existingId) {
-            url += `(${existingId})`;
+        const cleanExistingId = (rawExistingId && rawExistingId !== "undefined" && rawExistingId !== "null" && String(rawExistingId).trim() !== "")
+            ? String(rawExistingId).trim()
+            : null;
+
+        // Clone payload for network transmission to avoid mutating original
+        const requestPayload = Object.assign({}, payload);
+
+        if (cleanExistingId) {
+            url += `(${cleanExistingId})`;
             method = "PATCH";
+            // Strip primary key fields from PATCH request body to prevent Dataverse schema errors
+            delete requestPayload.cr3ea_prod_rajpura_ccpoprpid;
+            delete requestPayload.cr3ea_rajpura_ccpoprpid;
+            delete requestPayload.cr3ea_prod_rajpura_sievesmagnetsid;
+            delete requestPayload.cr3ea_rajpura_sievesmagnetsid;
+        }
+
+        if (type !== "CCP") {
+            // Incorporate actiontaken into defectremarks for Sieves if present and not already merged
+            if (payload.cr3ea_actiontaken && !String(requestPayload.cr3ea_defectremarks || "").includes(" | Action: ")) {
+                const base = requestPayload.cr3ea_defectremarks || "";
+                requestPayload.cr3ea_defectremarks = base ? `${base} | Action: ${payload.cr3ea_actiontaken}` : `Action: ${payload.cr3ea_actiontaken}`;
+            }
+            // Strip fields that do not exist on the Sieves & Magnets entity
+            delete requestPayload.cr3ea_actiontaken;
+            delete requestPayload.cr3ea_notifieddepartment;
+            delete requestPayload.cr3ea_deviationstatus;
+            delete requestPayload.cr3ea_checkpointname;
+            delete requestPayload.cr3ea_acceptanceresponse;
+            delete requestPayload.cr3ea_shift;
+            delete requestPayload.cr3ea_tourstartdate;
+            delete requestPayload.cr3ea_observedby;
+            delete requestPayload.cr3ea_location;
+            delete requestPayload.cr3ea_productname;
+            delete requestPayload.cr3ea_category;
+            delete requestPayload.cr3ea_prod_rajpura_sievesmagnetsid;
+            delete requestPayload.cr3ea_rajpura_sievesmagnetsid;
         }
 
         const response = await this.fetchWithToken(url, {
             method: method,
             headers: headers,
-            body: JSON.stringify(payload)
+            body: JSON.stringify(requestPayload)
         });
 
         if (!response.ok) {
@@ -425,7 +644,7 @@ const CCP_OPRP_DAL = {
             return payload;
         } else {
             const resData = await response.json();
-            const childId = resData[idField] || existingId;
+            const childId = resData[idField] || cleanExistingId;
             if (childId) {
                 if (type === "CCP") {
                     resData.cr3ea_prod_rajpura_ccpoprpid = childId;
@@ -472,15 +691,22 @@ const CCP_OPRP_DAL = {
         try {
             const existing = await this.getChecklistItems(tourId, type);
             if (existing && existing.length > 0) {
-                const idField = type === "CCP" ? "cr3ea_prod_rajpura_ccpoprpid" : "cr3ea_prod_rajpura_sievesmagnetsid";
                 const cycleKey = cycleNum ? `Cycle-${cycleNum}` : null;
-                for (const item of existing) {
-                    if (item[idField]) {
-                        // If cycleNum is provided, only clean up items belonging to that cycle
-                        if (!cycleKey || item.cr3ea_cycle === cycleKey) {
-                            await this.deleteChecklistItem(item[idField], type);
-                        }
-                    }
+                const toDelete = existing.filter(item => {
+                    const id = type === "CCP" 
+                        ? (item.cr3ea_prod_rajpura_ccpoprpid || item.cr3ea_rajpura_ccpoprpid)
+                        : (item.cr3ea_prod_rajpura_sievesmagnetsid || item.cr3ea_rajpura_sievesmagnetsid);
+                    return id && (!cycleKey || item.cr3ea_cycle === cycleKey);
+                });
+                const CHUNK_SIZE = 8;
+                for (let i = 0; i < toDelete.length; i += CHUNK_SIZE) {
+                    const chunk = toDelete.slice(i, i + CHUNK_SIZE);
+                    await Promise.all(chunk.map(item => {
+                        const id = type === "CCP" 
+                            ? (item.cr3ea_prod_rajpura_ccpoprpid || item.cr3ea_rajpura_ccpoprpid)
+                            : (item.cr3ea_prod_rajpura_sievesmagnetsid || item.cr3ea_rajpura_sievesmagnetsid);
+                        return this.deleteChecklistItem(id, type);
+                    }));
                 }
             }
         } catch (e) {
@@ -490,11 +716,31 @@ const CCP_OPRP_DAL = {
 
     // --- Mock Storage Helpers for Local Development ---
     getMockConfig: function () {
+        const seed = (typeof CCP_PRODUCTS_SEED_DATA !== "undefined" && Array.isArray(CCP_PRODUCTS_SEED_DATA))
+            ? CCP_PRODUCTS_SEED_DATA
+            : ((typeof window !== "undefined" && typeof window.CCP_PRODUCTS_SEED_DATA !== "undefined") ? window.CCP_PRODUCTS_SEED_DATA : []);
+
+        const seedProducts = seed.map(p => ({
+            Id: p.id,
+            Title: p.title,
+            ConfigType: "Product Master",
+            Plant: p.plant || "Rajpura",
+            LineName: p.lineName || "All Lines",
+            ProductCode: p.productCode || "",
+            ProductCategory: p.productCategory || "General",
+            IsActive: p.isActive !== false,
+            AssignedQA: { results: [] },
+            AssignedUser: { results: [] },
+            EscalationManager: { results: [] },
+            ProductionIncharge: { results: [] }
+        }));
+
         return [
             { Id: 1, Title: "Line-1", ConfigType: "CCP_OPRP", Plant: "Rajpura", AssignedQA: { results: [{ Title: "QA Ankur", EMail: "ankur@sp.com" }] }, EscalationManager: { results: [{ Title: "Mgr Suresh", EMail: "suresh@sp.com" }] }, ProductionIncharge: { results: [{ Title: "Prod Mahesh", EMail: "mahesh@sp.com" }] } },
             { Id: 2, Title: "Line-2", ConfigType: "CCP_OPRP", Plant: "Rajpura", AssignedQA: { results: [{ Title: "QA Ankur", EMail: "ankur@sp.com" }] }, EscalationManager: { results: [{ Title: "Mgr Suresh", EMail: "suresh@sp.com" }] }, ProductionIncharge: { results: [{ Title: "Prod Mahesh", EMail: "mahesh@sp.com" }] } },
             { Id: 5, Title: "Line-5", ConfigType: "CCP_OPRP", Plant: "Rajpura", AssignedQA: { results: [{ Title: "QA Ankur", EMail: "ankur@sp.com" }] }, EscalationManager: { results: [{ Title: "Mgr Suresh", EMail: "suresh@sp.com" }] }, ProductionIncharge: { results: [{ Title: "Prod Mahesh", EMail: "mahesh@sp.com" }] } },
-            { Id: 6, Title: "Line-6", ConfigType: "CCP_OPRP", Plant: "Rajpura", AssignedQA: { results: [{ Title: "QA Ankur", EMail: "ankur@sp.com" }] }, EscalationManager: { results: [{ Title: "Mgr Suresh", EMail: "suresh@sp.com" }] }, ProductionIncharge: { results: [{ Title: "Prod Mahesh", EMail: "mahesh@sp.com" }] } }
+            { Id: 6, Title: "Line-6", ConfigType: "CCP_OPRP", Plant: "Rajpura", AssignedQA: { results: [{ Title: "QA Ankur", EMail: "ankur@sp.com" }] }, EscalationManager: { results: [{ Title: "Mgr Suresh", EMail: "suresh@sp.com" }] }, ProductionIncharge: { results: [{ Title: "Prod Mahesh", EMail: "mahesh@sp.com" }] } },
+            ...seedProducts
         ];
     },
 
@@ -530,7 +776,11 @@ const CCP_OPRP_DAL = {
     getMockChecklistItems: function (tourId, type) {
         const storeName = type === "CCP" ? "mock_ccpoprp_items" : "mock_sievesmagnets_items";
         let items = JSON.parse(localStorage.getItem(storeName) || "[]");
-        return items.filter(i => i.cr3ea_qualitytourid === tourId);
+        const cleanTourId = String(tourId || "").replace(/[{}]/g, "").trim().toLowerCase();
+        return items.filter(i => {
+            const itemTourId = String(i.cr3ea_qualitytourid || "").replace(/[{}]/g, "").trim().toLowerCase();
+            return itemTourId === cleanTourId;
+        });
     },
 
     saveMockChecklistItem: function (payload, type) {
@@ -538,6 +788,13 @@ const CCP_OPRP_DAL = {
         const idField = type === "CCP" ? "cr3ea_prod_rajpura_ccpoprpid" : "cr3ea_prod_rajpura_sievesmagnetsid";
         let items = JSON.parse(localStorage.getItem(storeName) || "[]");
  
+        if (!payload.cr3ea_qualitytourid && payload["cr3ea_qualitytourid@odata.bind"]) {
+            const match = payload["cr3ea_qualitytourid@odata.bind"].match(/\(([0-9a-fA-F-]+)\)/);
+            if (match && match[1]) {
+                payload.cr3ea_qualitytourid = match[1];
+            }
+        }
+
         if (!payload[idField]) {
             payload[idField] = "mock-child-" + Math.random().toString(36).substr(2, 9);
             items.push(payload);

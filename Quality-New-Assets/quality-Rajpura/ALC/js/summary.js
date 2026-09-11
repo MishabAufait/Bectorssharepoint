@@ -74,7 +74,7 @@ const ALC_Summary = {
         const areaInchargeMap = [];
         tourAreas.forEach(areaName => {
             const configRow = this.configs.find(c =>
-                c.ConfigType === "Product User" &&
+                (c.ConfigType === "Area Inspector" || c.ConfigType === "Product User" || c.ConfigType === "Product Incharge") &&
                 c.Area &&
                 (c.Area.toLowerCase().includes(areaName.toLowerCase().trim()) ||
                     areaName.toLowerCase().trim().includes(c.Area.toLowerCase()))
@@ -280,7 +280,7 @@ const ALC_Summary = {
                 const inchargeNames = areaIncharges[areaName] || "N/A";
 
                 const card = document.createElement("div");
-                card.style.cssText = "margin-bottom: 25px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);";
+                card.style.cssText = "margin-bottom: 25px; border: 1px solid #e2e8f0; border-radius: 8px; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);";
 
                 // Card Header (Flex Layout with Title and Team Name)
                 const header = document.createElement("div");
@@ -295,12 +295,12 @@ const ALC_Summary = {
 
                 // Card Body
                 const body = document.createElement("div");
-                body.style.cssText = "overflow-x: auto;";
+                body.style.cssText = "overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch;";
 
                 const table = document.createElement("table");
                 table.className = "bs-table";
                 table.border = "1";
-                table.style.cssText = "width: 100%; border-collapse: collapse; text-align: center; font-size: 13px; border: none;";
+                table.style.cssText = "width: 100%; min-width: 850px; table-layout: fixed; border-collapse: collapse; text-align: center; font-size: 13px; border: none;";
 
                 table.innerHTML = `
                     <thead>
@@ -425,7 +425,7 @@ const ALC_Summary = {
                             if (reverifyFileName) {
                                 const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
                                 const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${reverifyFileName}`;
-                                badgeHtml = ` <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #2e7d32; font-weight: bold; font-size: 11px; margin-left: 5px;">View Re-verify Proof</a>`;
+                                badgeHtml = ` <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #1a73e8; font-weight: bold; font-size: 11px; margin-left: 5px;">View Re-verify Proof</a>`;
                             }
 
                             return `<small class="text-success" style="font-weight: bold; display: block; margin-top: 4px;">Re-verified: ${cleanReverify}${badgeHtml}</small>`;
@@ -449,10 +449,10 @@ const ALC_Summary = {
 
                     tr.innerHTML = `
                         <td style="padding: 10px;">${idx + 1}</td>
-                        <td style="padding: 10px; text-align: left;">${cp.cr3ea_criteria}</td>
+                        <td style="padding: 10px; text-align: left; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${cp.cr3ea_criteria}</td>
                         <td style="padding: 10px;">${initialBadge}</td>
-                        <td style="padding: 10px; text-align: left; font-size: 12px;">${actionsTakenHtml}</td>
-                        <td style="padding: 10px; text-align: left; font-size: 12px;">${qaRemarksHtml}</td>
+                        <td style="padding: 10px; text-align: left; font-size: 12px; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${actionsTakenHtml}</td>
+                        <td style="padding: 10px; text-align: left; font-size: 12px; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${qaRemarksHtml}</td>
                     `;
                     tbody.appendChild(tr);
                 });

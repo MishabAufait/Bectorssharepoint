@@ -40,37 +40,85 @@ const ALC_Main = {
 
     // Identify user role from SharePoint config list Quality-Rajpura
     identifyUserRole: async function () {
-        const currentUserName = typeof currentUser !== "undefined" ? currentUser : "";
-        const currentUserLogin = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : "";
+        const currentUserName = (typeof currentUser !== "undefined" && currentUser) ? String(currentUser).trim() : "";
+        const currentUserLogin = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? String(_spPageContextInfo.userDisplayName).trim() : "";
+        const currentUserEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? String(_spPageContextInfo.userEmail).trim() : "";
 
         try {
             const configs = await ALC_DAL.getConfig();
 
+            const cleanMyEmail = (currentUserEmail || "").toLowerCase().trim();
+            const myEmailUserPart = cleanMyEmail.includes("@") ? cleanMyEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : cleanMyEmail.replace(/[^a-z0-9]/g, "");
+            const cleanName1 = (currentUserName || "").toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+            const cleanName2 = (currentUserLogin || "").toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+
+            const isUserMatch = (u) => {
+                if (!u) return false;
+                const uTitle = (u.Title || "").toLowerCase().trim();
+                const uEmail = (u.EMail || "").toLowerCase().trim();
+                const uTitleClean = uTitle.replace(/[^a-z0-9]/g, "");
+                const uEmailUserPart = uEmail.includes("@") ? uEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : uEmail.replace(/[^a-z0-9]/g, "");
+
+                return (uTitle && (uTitle === (currentUserName || "").toLowerCase() || uTitle === (currentUserLogin || "").toLowerCase())) ||
+                       (uTitleClean && (uTitleClean === cleanName1 || uTitleClean === cleanName2)) ||
+                       (uEmail && cleanMyEmail && uEmail === cleanMyEmail) ||
+                       (uEmailUserPart && myEmailUserPart && uEmailUserPart === myEmailUserPart && myEmailUserPart.length > 0);
+            };
+
             // Check if current user is listed under QA User config
             const isQaUser = configs.some(c =>
-                c.ConfigType === "QA User" &&
+                (c.ConfigType === "QA User" || c.Title === "QA User" || c.ConfigType === "QA HOD" || c.Title === "QA HOD" || c.ConfigType === "QA Assignment") &&
                 c.AssignedUser &&
                 c.AssignedUser.results &&
-                c.AssignedUser.results.some(u => u.Title === currentUserName || u.Title === currentUserLogin)
+                c.AssignedUser.results.some(isUserMatch)
             );
 
-            // Check if current user is listed under Product Incharge config
+            // Check if current user is listed under Area Inspector / Product Incharge config
+            const isAreaConfig = (c) => {
+                const ct = (c.ConfigType || "").toLowerCase().trim();
+                const t = (c.Title || "").toLowerCase().trim();
+                return ct === "area inspector" || ct === "product user" || ct === "product incharge" || ct === "production user" ||
+                       t.startsWith("product incharge") || t.startsWith("area-");
+            };
+
             const isProductIncharge = configs.some(c =>
-                c.ConfigType === "Product User" &&
+                isAreaConfig(c) &&
                 c.AssignedUser &&
                 c.AssignedUser.results &&
-                c.AssignedUser.results.some(u => u.Title === currentUserName || u.Title === currentUserLogin)
+                c.AssignedUser.results.some(isUserMatch)
             );
+
+            const userAreas = configs
+                .filter(c =>
+                    isAreaConfig(c) &&
+                    c.AssignedUser &&
+                    c.AssignedUser.results &&
+                    c.AssignedUser.results.some(isUserMatch)
+                )
+                .map(c => {
+                    if (c.Area && c.Area.trim() !== "") return c.Area.trim();
+                    const title = (c.Title || "").trim();
+                    if (title.includes(" - ")) return title.split(" - ")[1].trim();
+                    return title.replace(/^AREA-\d+\s*•?\s*/i, "").trim();
+                })
+                .filter(Boolean);
+
+            ALC_StateMachine.userAreas = [...new Set(userAreas)];
 
             if (isQaUser) {
                 this.userRole = ALC_ROLES.QUALITY;
-            } else if (isProductIncharge) {
+            } else if (isProductIncharge || ALC_StateMachine.userAreas.length > 0) {
                 this.userRole = ALC_ROLES.PRODUCT;
             } else {
                 this.userRole = ALC_ROLES.PRODUCTION;
             }
 
-            console.log(`Current User Role Resolved to: ${this.userRole}`);
+            ALC_StateMachine.isQaUser = (this.userRole === ALC_ROLES.QUALITY);
+            ALC_StateMachine.isGeneralQaUser = isQaUser;
+            ALC_StateMachine.isProductUser = (ALC_StateMachine.userAreas.length > 0);
+            ALC_StateMachine.isProductionUser = (!isQaUser && ALC_StateMachine.userAreas.length === 0);
+
+            console.log(`Current User Role Resolved to: ${this.userRole}, Areas: ${JSON.stringify(ALC_StateMachine.userAreas)}`);
         } catch (error) {
             console.error("Error identifying user role, defaulting to Production:", error);
             this.userRole = ALC_ROLES.PRODUCTION;

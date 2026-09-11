@@ -150,9 +150,10 @@ const ALC_Dashboard = {
                 return;
             }
 
-            // 1. Hide generic default dashboards
+            // 1. Hide generic default dashboards and prevent horizontal overflow
             $('#ShowObservation').hide();
-            $('#tblTourScores').hide();
+            $('#tblTourScores, #tblOpenObservationInner, #divtblDepartmentScores, .tblTourScores').hide();
+            $('#tblOpenObservationInner').closest('.container-fluid').hide();
             $('#ShowCategory').hide();
             $('#ShowGraph').hide();
 
@@ -174,7 +175,8 @@ const ALC_Dashboard = {
         
         // 2. Restore visibility of default SharePoint dashboards
         $('#ShowObservation').show();
-        $('#tblTourScores').show();
+        $('#tblTourScores, #tblOpenObservationInner, #divtblDepartmentScores, .tblTourScores').show();
+        $('#tblOpenObservationInner').closest('.container-fluid').show();
         $('#ShowCategory').show();
         $('#ShowGraph').show();
     },
@@ -424,11 +426,14 @@ const ALC_Dashboard = {
     // Resolve Pending With Name dynamically based on status
     getPendingWith: function (t) {
         const status = t.cr3ea_processstatus || t.cr3ea_status || "Pending QA";
-        const prodName = t.cr3ea_shiftexecutiveproduction || "Production Team";
+        const prodNameRaw = t.cr3ea_shiftexecutiveproduction || t.cr3ea_observedby || "Production Team";
+        const prodName = (typeof prodNameRaw === "string" && prodNameRaw.includes("@")) ? ALC_Dashboard.resolveQaNameFromEmail(prodNameRaw) : prodNameRaw;
         const qaNameRaw = t.cr3ea_tourby || "QA Team";
-        const qaName = qaNameRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaNameRaw) : qaNameRaw;
+        const qaName = (typeof qaNameRaw === "string" && qaNameRaw.includes("@")) ? ALC_Dashboard.resolveQaNameFromEmail(qaNameRaw) : qaNameRaw;
 
         switch (status) {
+            case "Escalated":
+                return `Shift Executive (${prodName})`;
             case "Pending QA":
                 return `QA Incharge (${qaName})`;
             case "QA In Progress":

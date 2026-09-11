@@ -39,6 +39,33 @@ const FoodSafety_Summary = {
         return clean.split(".").map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
     },
 
+    renderRemarksWithProof: function (rawRemarks) {
+        if (!rawRemarks || rawRemarks === "--" || rawRemarks === "N/A" || (typeof rawRemarks === "string" && rawRemarks.trim() === "")) {
+            return `<span style="color: #94a3b8;">--</span>`;
+        }
+        const parsed = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.parseRemarksAndProof)
+            ? QualityRajpura_Config.parseRemarksAndProof(rawRemarks)
+            : { remarks: "", proofUrl: "" };
+
+        let remarksText = parsed.remarks;
+        let proofUrl = parsed.proofUrl;
+
+        let html = "";
+        if (remarksText) {
+            html += `<span>${remarksText}</span>`;
+        }
+        if (proofUrl) {
+            const badgeMargin = remarksText ? "margin-left: 8px;" : "";
+            html += `
+                <a href="${proofUrl}" target="_blank" class="badge food-safety-proof-badge" 
+                   style="display: inline-flex !important; align-items: center !important; gap: 5px !important; padding: 4px 10px !important; font-size: 11px !important; background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; border-radius: 4px !important; text-decoration: none !important; font-weight: 600 !important; ${badgeMargin}">
+                    <span style="color: #ffffff !important;">📷 View Proof</span>
+                </a>
+            `;
+        }
+        return html || `<span style="color: #94a3b8;">--</span>`;
+    },
+
     init: async function (tourId) {
         console.log("Initializing Checklist Summary Screen for Tour ID:", tourId);
         
@@ -67,16 +94,35 @@ const FoodSafety_Summary = {
             console.log(`Loaded ${childItems.length} child items for summary.`);
             
             // 3. Render Metadata Info Cards
-            const checklistType = parent.cr3ea_food_safety_checklisttype || "";
-            document.getElementById("sum-checklist-type").innerText = checklistType;
+            let checklistType = parent.cr3ea_food_safety_checklisttype || "";
+            if (!checklistType && parent.cr3ea_title) {
+                let cleanTitle = parent.cr3ea_title.split("||")[0].trim();
+                if (cleanTitle.startsWith("FoodSafety_")) cleanTitle = cleanTitle.replace("FoodSafety_", "");
+                if (cleanTitle.startsWith("Food_Safety_")) cleanTitle = cleanTitle.replace("Food_Safety_", "");
+                
+                if (cleanTitle.startsWith("PPE_") || cleanTitle.includes("PPE")) checklistType = "PPE Checklist";
+                else if (cleanTitle.startsWith("GMP_") || cleanTitle.includes("GMP")) checklistType = "GMP Checklist";
+                else if (cleanTitle.startsWith("PCI_") || cleanTitle.includes("PCI")) checklistType = "PCI Checklist";
+            }
+            if (checklistType) {
+                const upper = String(checklistType).toUpperCase().trim();
+                if (upper.includes("PPE")) checklistType = "PPE Checklist";
+                else if (upper.includes("GMP")) checklistType = "GMP Checklist";
+                else if (upper.includes("PCI")) checklistType = "PCI Checklist";
+            }
+            document.getElementById("sum-checklist-type").innerText = checklistType || "--";
             // Resolve manufacturing site and line
             const siteVal = parent.cr3ea_plantid || "--";
             const lineVal = parent.cr3ea_lineno || "--";
             document.getElementById("sum-site-line").innerText = `${siteVal} / ${lineVal}`;
             
-            // Resolve QA and Production executive
+            // Resolve QA, Production and Shift executive
             document.getElementById("sum-qa-exec").innerText = FoodSafety_Summary.resolveUserName(parent.cr3ea_assigned_qa) || "--";
             document.getElementById("sum-prod-incharge").innerText = FoodSafety_Summary.resolveUserName(parent.cr3ea_shiftexecutiveproduction) || "--";
+            const sumShiftExec = document.getElementById("sum-shift-exec");
+            if (sumShiftExec) {
+                sumShiftExec.innerText = FoodSafety_Summary.resolveUserName(parent.cr3ea_observedby || parent.cr3ea_shiftexecutive) || "--";
+            }
             
             // Resolve shift and cycle
             const shiftVal = parent.cr3ea_shift || "--";
@@ -136,7 +182,16 @@ const FoodSafety_Summary = {
                     document.getElementById("sum-score-status").style.color = "#b91c1c";
                 }
             } else {
-                document.getElementById("sum-score-circle").innerText = rawScore || "100%";
+                let formattedScore = rawScore || "100.00%";
+                if (formattedScore && typeof formattedScore === "string" && formattedScore.includes("%")) {
+                    const num = parseFloat(formattedScore.replace("%", "").trim());
+                    if (!isNaN(num)) {
+                        formattedScore = `${num.toFixed(2)}%`;
+                    }
+                } else if (typeof formattedScore === "number" || !isNaN(parseFloat(formattedScore))) {
+                    formattedScore = `${parseFloat(formattedScore).toFixed(2)}%`;
+                }
+                document.getElementById("sum-score-circle").innerText = formattedScore;
                 document.getElementById("sum-score-status").innerText = `Audit Result: ${resultStatus}`;
                 
                 if (resultStatus === "Pass") {
@@ -176,13 +231,13 @@ const FoodSafety_Summary = {
                     tr.style.borderBottom = "1px solid #cbd5e1";
                     tr.innerHTML = `
                         <td style="padding: 10px; font-weight: bold;">${idx + 1}</td>
-                        <td style="padding: 10px; text-align: left;">${itemText}</td>
+                        <td style="padding: 10px; text-align: left; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${itemText}</td>
                         <td style="padding: 10px;">
                             <span class="badge" style="padding: 5px 10px; font-size: 12px; background-color: ${defectCount > 0 ? '#fee2e2' : '#dcfce7'}; color: ${defectCount > 0 ? '#b91c1c' : '#15803d'}; border: 1px solid ${defectCount > 0 ? '#fecaca' : '#bbf7d0'}; border-radius: 9999px; font-weight: 700; text-transform: uppercase;">
                                 ${defectCount} Defects
                             </span>
                         </td>
-                        <td style="padding: 10px; text-align: left;">${remarks}</td>
+                        <td style="padding: 10px; text-align: left; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${this.renderRemarksWithProof(remarks)}</td>
                     `;
                     tbody.appendChild(tr);
                 });
@@ -262,12 +317,12 @@ const FoodSafety_Summary = {
                         tr.style.borderBottom = "1px solid #cbd5e1";
                         tr.innerHTML = `
                             <td style="padding: 8px; font-weight: bold;">${item.id}</td>
-                            <td style="padding: 8px; text-align: left;">
+                            <td style="padding: 8px; text-align: left; word-break: break-word; overflow-wrap: break-word; white-space: normal;">
                                 <span style="font-size: 11px; font-weight: 700; color: #0284c7; text-transform: uppercase; display: block; margin-bottom: 2px;">${secName}</span>
                                 ${item.text}
                             </td>
                             <td style="padding: 8px;">${statusHtml}</td>
-                            <td style="padding: 8px; text-align: left;">${remarks}</td>
+                            <td style="padding: 8px; text-align: left; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${this.renderRemarksWithProof(remarks)}</td>
                         `;
                         tbody.appendChild(tr);
                     });
@@ -281,7 +336,7 @@ const FoodSafety_Summary = {
                     const matches = childItems.filter(c => (c.cr3ea_food_safety_location === locName || c.cr953_food_safety_location === locName));
                     
                     let statusHtml = "";
-                    let obsText = "--";
+                    let obsHtml = "--";
                     
                     if (matches.length > 0) {
                         const isOkay = matches.every(m => (m.cr3ea_food_safety_status || m.cr953_food_safety_status) === "Okay");
@@ -296,8 +351,16 @@ const FoodSafety_Summary = {
                                 .filter(m => (m.cr3ea_food_safety_status || m.cr953_food_safety_status) === "Not Okay")
                                 .map(m => `${m.cr3ea_food_safety_observationtype || m.cr953_food_safety_observationtype || m.cr3ea_food_safety_criteria || m.cr953_food_safety_criteria || 'Observation'} (${m.cr3ea_food_safety_defectcount || m.cr953_food_safety_defectcount || 1})`);
                             
-                            if (obsItems.length > 0) {
-                                obsText = obsItems.join(", ");
+                            const obsText = obsItems.length > 0 ? obsItems.join(", ") : "--";
+                            
+                            // Check for proof attachment
+                            const proofMatch = matches.find(m => (m.cr3ea_food_safety_defectremarks || m.cr953_food_safety_defectremarks));
+                            const proofRemarks = proofMatch ? (proofMatch.cr3ea_food_safety_defectremarks || proofMatch.cr953_food_safety_defectremarks) : "";
+                            
+                            if (proofRemarks) {
+                                obsHtml = `${obsText} ${this.renderRemarksWithProof(proofRemarks)}`;
+                            } else {
+                                obsHtml = obsText;
                             }
                         }
                     } else {
@@ -308,9 +371,9 @@ const FoodSafety_Summary = {
                     tr.style.borderBottom = "1px solid #cbd5e1";
                     tr.innerHTML = `
                         <td style="padding: 8px; font-weight: bold;">${idx + 1}</td>
-                        <td style="padding: 8px; text-align: left;">${locName}</td>
+                        <td style="padding: 8px; text-align: left; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${locName}</td>
                         <td style="padding: 8px;">${statusHtml}</td>
-                        <td style="padding: 8px; text-align: left;">${obsText}</td>
+                        <td style="padding: 8px; text-align: left; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${obsHtml}</td>
                     `;
                     tbody.appendChild(tr);
                 });
@@ -319,7 +382,10 @@ const FoodSafety_Summary = {
         } catch (error) {
             console.error("Failed loading checklist summary screen:", error);
             alert(`Error loading summary details: ${error.message}`);
-            FoodSafety_Main.navigateTo("screen-checklist-info");
+            const welcomeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
+            window.location.href = welcomeUrl;
         } finally {
             HideLoader();
         }

@@ -122,92 +122,152 @@ const MixingBaking_DAL = {
 
     // 1b. Fetch specific users configuration for Mixing & Baking dropdowns
     getMixingBakingUsersConfig: async function () {
-        const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-        const listName = QualityRajpura_Config.SHAREPOINT_LISTS.MIXING_BAKING;
+        const webUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getSiteBaseUrl)
+            ? QualityRajpura_Config.getSiteBaseUrl()
+            : ((typeof _spPageContextInfo !== 'undefined' && (_spPageContextInfo.webAbsoluteUrl || _spPageContextInfo.webServerRelativeUrl))
+                ? (_spPageContextInfo.webAbsoluteUrl || _spPageContextInfo.webServerRelativeUrl)
+                : "");
+        const listName = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.SHAREPOINT_LISTS && QualityRajpura_Config.SHAREPOINT_LISTS.MIXING_BAKING)
+            ? QualityRajpura_Config.SHAREPOINT_LISTS.MIXING_BAKING
+            : "Quality-Rajpura-MixingBaking";
 
         if (!webUrl) {
             console.warn("No SharePoint context. Returning mock users configuration.");
             return {
                 qaUsers: [
-                    { Title: "Mishab Muhammed", EMail: "mishab@example.com" },
-                    { Title: "Gokul K", EMail: "gokul@example.com" }
+                    { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 },
+                    { Title: "Gokul K", EMail: "gokul.k@bectorfoods.com", Id: 108 },
+                    { Title: "Aiswarya N V", EMail: "aiswarya.nv@bectorfoods.com", Id: 109 }
                 ],
                 prodUsers: [
-                    { Title: "Mishab Muhammed", EMail: "mishab@example.com" },
-                    { Title: "Ajith K", EMail: "ajith@example.com" }
+                    { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 },
+                    { Title: "Ajith K", EMail: "ajith.k@bectorfoods.com", Id: 110 },
+                    { Title: "Aiswarya N V", EMail: "aiswarya.nv@bectorfoods.com", Id: 109 }
                 ]
             };
         }
-
-        let query = "?$select=Id,Title,QAExecutive/Title,QAExecutive/EMail,QAExecutive/Id,ProductionExecutive/Title,ProductionExecutive/EMail,ProductionExecutive/Id&$expand=QAExecutive,ProductionExecutive";
-        let url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
-        let response;
-        let isFallback = false;
 
         try {
-            response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
-            if (!response.ok) throw new Error("Fallback needed");
-        } catch (e) {
-            isFallback = true;
-            query = "?$select=Id,Title,QA_x0020_Executive/Title,QA_x0020_Executive/EMail,QA_x0020_Executive/Id,Production_x0020_Executive/Title,Production_x0020_Executive/EMail,Production_x0020_Executive/Id&$expand=QA_x0020_Executive,Production_x0020_Executive";
-            url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
-            response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
-        }
+            // Dynamic schema probing to resolve field internal names
+            const fieldsUrl = `${webUrl}/_api/web/lists/getByTitle('${listName}')/Fields?$select=InternalName,Title,TypeAsString`;
+            let listFields = [];
+            try {
+                const fieldsRes = await fetch(fieldsUrl, { headers: { "Accept": "application/json; odata=verbose" } });
+                if (fieldsRes.ok) {
+                    const fieldsData = await fieldsRes.json();
+                    listFields = (fieldsData && fieldsData.d && fieldsData.d.results) ? fieldsData.d.results : [];
+                }
+            } catch (errFields) {
+                console.warn("MixingBaking_DAL: Schema probing failed, using fallback:", errFields);
+            }
 
-        if (!response || !response.ok) {
-            console.warn("Failed to fetch Mixing & Baking users configuration from SharePoint. Using mock list.");
+            const findField = (possibleNames, displayNames) => {
+                const pNames = Array.isArray(possibleNames) ? possibleNames : [possibleNames];
+                let match = listFields.find(f => pNames.some(pn => pn.toLowerCase() === f.InternalName.toLowerCase()));
+                if (match) return match;
+                if (displayNames) {
+                    const dNames = Array.isArray(displayNames) ? displayNames : [displayNames];
+                    match = listFields.find(f => dNames.some(dn => dn.toLowerCase() === f.Title.toLowerCase()));
+                }
+                return match;
+            };
+
+            const userField = findField(["QAExecutive", "QA_x0020_Executive", "AssignedUser", "Assigned_x0020_User", "AssignedQA"], ["QA Executive", "QAExecutive", "Assigned User"]);
+            const prodField = findField(["ProductionExecutive", "Production_x0020_Executive", "ProductionIncharge", "Production_x0020_Incharge"], ["Production Executive", "Production Incharge", "ProductionExecutive"]);
+
+            const selectParts = ["Id", "Title"];
+            const expandParts = [];
+
+            if (userField) {
+                const uName = userField.InternalName;
+                selectParts.push(`${uName}/Title`, `${uName}/EMail`, `${uName}/Id`);
+                expandParts.push(uName);
+            }
+            if (prodField) {
+                const pName = prodField.InternalName;
+                selectParts.push(`${pName}/Title`, `${pName}/EMail`, `${pName}/Id`);
+                expandParts.push(pName);
+            }
+
+            let query = `?$select=${selectParts.join(",")}&$top=500`;
+            if (expandParts.length > 0) query += `&$expand=${expandParts.join(",")}`;
+
+            const url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
+            const response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
+
+            if (!response.ok) {
+                throw new Error(`SharePoint fetch failed with status ${response.status}`);
+            }
+
+            const data = await response.json();
+            const results = (data && data.d && data.d.results) ? data.d.results : [];
+
+            let qaUsers = [];
+            let prodUsers = [];
+
+            const addUnique = (targetList, user) => {
+                if (!user) return;
+                const title = (user.Title || user.title || "").trim();
+                const email = (user.EMail || user.email || user.Email || "").trim();
+                const id = user.Id || user.id || 0;
+                if (!title) return;
+                if (!targetList.some(existing => (email && existing.EMail && existing.EMail.toLowerCase() === email.toLowerCase()) || (title && existing.Title && existing.Title.toLowerCase() === title.toLowerCase()))) {
+                    targetList.push({ Title: title, EMail: email, Id: id });
+                }
+            };
+
+            results.forEach(item => {
+                const rawQA = (userField && item[userField.InternalName]) || item.QAExecutive || item.QA_x0020_Executive || item.AssignedUser;
+                const rawProd = (prodField && item[prodField.InternalName]) || item.ProductionExecutive || item.Production_x0020_Executive || item.ProductionIncharge;
+
+                if (rawQA) {
+                    if (rawQA.results && Array.isArray(rawQA.results)) {
+                        rawQA.results.forEach(u => addUnique(qaUsers, u));
+                    } else if (rawQA.Title || rawQA.EMail) {
+                        addUnique(qaUsers, rawQA);
+                    }
+                }
+
+                if (rawProd) {
+                    if (rawProd.results && Array.isArray(rawProd.results)) {
+                        rawProd.results.forEach(u => addUnique(prodUsers, u));
+                    } else if (rawProd.Title || rawProd.EMail) {
+                        addUnique(prodUsers, rawProd);
+                    }
+                }
+            });
+
+            if (qaUsers.length === 0 && prodUsers.length === 0) {
+                return {
+                    qaUsers: [
+                        { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 },
+                        { Title: "Gokul K", EMail: "gokul.k@bectorfoods.com", Id: 108 },
+                        { Title: "Aiswarya N V", EMail: "aiswarya.nv@bectorfoods.com", Id: 109 }
+                    ],
+                    prodUsers: [
+                        { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 },
+                        { Title: "Ajith K", EMail: "ajith.k@bectorfoods.com", Id: 110 },
+                        { Title: "Aiswarya N V", EMail: "aiswarya.nv@bectorfoods.com", Id: 109 }
+                    ]
+                };
+            }
+
+            return { qaUsers, prodUsers };
+        } catch (e) {
+            console.warn("Failed to fetch Mixing & Baking users configuration from SharePoint. Using mock list:", e);
             return {
                 qaUsers: [
-                    { Title: "Mishab Muhammed", EMail: "mishab@example.com" },
-                    { Title: "Gokul K", EMail: "gokul@example.com" }
+                    { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 },
+                    { Title: "Gokul K", EMail: "gokul.k@bectorfoods.com", Id: 108 },
+                    { Title: "Aiswarya N V", EMail: "aiswarya.nv@bectorfoods.com", Id: 109 }
                 ],
                 prodUsers: [
-                    { Title: "Mishab Muhammed", EMail: "mishab@example.com" },
-                    { Title: "Ajith K", EMail: "ajith@example.com" }
+                    { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 },
+                    { Title: "Ajith K", EMail: "ajith.k@bectorfoods.com", Id: 110 },
+                    { Title: "Aiswarya N V", EMail: "aiswarya.nv@bectorfoods.com", Id: 109 }
                 ]
             };
         }
-
-        const data = await response.json();
-        const results = data.d.results || [];
-
-        let qaUsers = [];
-        let prodUsers = [];
-
-        results.forEach(item => {
-            const rawQA = isFallback ? item.QA_x0020_Executive : item.QAExecutive;
-            const rawProd = isFallback ? item.Production_x0020_Executive : item.ProductionExecutive;
-
-            if (rawQA) {
-                if (rawQA.results && Array.isArray(rawQA.results)) {
-                    rawQA.results.forEach(u => {
-                        if (!qaUsers.some(existing => existing.Title === u.Title)) {
-                            qaUsers.push({ Title: u.Title, EMail: u.EMail, Id: u.Id });
-                        }
-                    });
-                } else if (rawQA.Title) {
-                    if (!qaUsers.some(existing => existing.Title === rawQA.Title)) {
-                        qaUsers.push({ Title: rawQA.Title, EMail: rawQA.EMail, Id: rawQA.Id });
-                    }
-                }
-            }
-
-            if (rawProd) {
-                if (rawProd.results && Array.isArray(rawProd.results)) {
-                    rawProd.results.forEach(u => {
-                        if (!prodUsers.some(existing => existing.Title === u.Title)) {
-                            prodUsers.push({ Title: u.Title, EMail: u.EMail, Id: u.Id });
-                        }
-                    });
-                } else if (rawProd.Title) {
-                    if (!prodUsers.some(existing => existing.Title === rawProd.Title)) {
-                        prodUsers.push({ Title: rawProd.Title, EMail: rawProd.EMail, Id: rawProd.Id });
-                    }
-                }
-            }
-        });
-
-        return { qaUsers, prodUsers };
     },
 
     // 2. Retrieve Dataverse Access Token
@@ -594,8 +654,27 @@ const MixingBaking_DAL = {
             return normalizeTourRecord(tourData);
         }
 
-        const data = await response.json();
-        return normalizeTourRecord(data);
+        let data = {};
+        try {
+            const text = await response.text();
+            if (text && text.trim().length > 0) {
+                data = JSON.parse(text);
+            }
+        } catch (e) {
+            console.warn("Could not parse JSON response from Dataverse saveTourSession:", e);
+        }
+
+        // Extract created ID from OData-EntityId or Location header if not in body
+        const entityIdHeader = response.headers.get("OData-EntityId") || response.headers.get("Location") || "";
+        const guidMatch = entityIdHeader.match(/\(([0-9a-fA-F-]{36})\)/);
+        const headerGuid = guidMatch ? guidMatch[1] : null;
+
+        const normalized = normalizeTourRecord(data);
+        if (!normalized.cr3ea_prod_rajpura_quality_tourid && headerGuid) {
+            normalized.cr3ea_prod_rajpura_quality_tourid = headerGuid;
+            normalized.cr3ea_rajpura_quality_tourid = headerGuid;
+        }
+        return normalized;
     },
 
     // Retrieve uploaded files from SharePoint for completed cycle
@@ -622,5 +701,88 @@ const MixingBaking_DAL = {
             console.error("Failed to fetch attachments:", err);
             return [];
         }
+    },
+
+    recipesCache: null,
+
+    // Retrieve active product recipes matrix for auto-population dynamically from SharePoint list
+    getProductRecipes: async function () {
+        if (this.recipesCache && this.recipesCache.length > 0) {
+            return this.recipesCache;
+        }
+
+        const seedDefaults = (typeof MB_RECIPES_SEED_DATA !== "undefined" && Array.isArray(MB_RECIPES_SEED_DATA) && MB_RECIPES_SEED_DATA.length > 0) 
+            ? MB_RECIPES_SEED_DATA 
+            : ((typeof window !== "undefined" && window.MB_RECIPES_SEED_DATA && Array.isArray(window.MB_RECIPES_SEED_DATA) && window.MB_RECIPES_SEED_DATA.length > 0)
+                ? window.MB_RECIPES_SEED_DATA
+                : []);
+
+        const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
+        const listName = QualityRajpura_Config.SHAREPOINT_LISTS.MIXING_BAKING;
+
+        if (!webUrl) {
+            console.log(`Local environment: Loaded ${seedDefaults.length} seed product recipes.`);
+            this.recipesCache = seedDefaults;
+            return this.recipesCache;
+        }
+
+        try {
+            let allFetchedItems = [];
+            let nextUrl = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items?$select=Id,Title,ConfigType,Config_x0020_Type,ProductCategory,Plant,IsActive,RecipeConfig,Remarks,Description&$top=5000`;
+
+            // Loop through all pages to retrieve all product recipes without SharePoint 100-item cutoff
+            while (nextUrl) {
+                const response = await fetch(nextUrl, { headers: { "Accept": "application/json; odata=verbose" } });
+                if (!response.ok) {
+                    break;
+                }
+                const data = await response.json();
+                const pageResults = (data && data.d && data.d.results) ? data.d.results : [];
+                allFetchedItems = allFetchedItems.concat(pageResults);
+                nextUrl = (data && data.d && data.d.__next) ? data.d.__next : null;
+            }
+
+            if (allFetchedItems.length > 0) {
+                const recipeRows = allFetchedItems.filter(item => {
+                    const cType = (item.ConfigType || item.Config_x0020_Type || "").trim().toLowerCase();
+                    return cType === "product recipe" || cType === "product_x0020_recipe";
+                });
+
+                if (recipeRows.length > 0) {
+                    this.recipesCache = recipeRows.map(item => {
+                        let parsedStandards = {};
+                        const rawJson = item.RecipeConfig || item.Remarks || item.Description || "";
+                        if (rawJson && typeof rawJson === "string" && rawJson.trim().startsWith("{")) {
+                            try {
+                                parsedStandards = JSON.parse(rawJson);
+                            } catch (e) {
+                                console.warn("Failed parsing RecipeConfig JSON for item:", item.Title, e);
+                            }
+                        }
+
+                        return {
+                            id: item.Id,
+                            title: (item.Title || "Unknown Product").trim(),
+                            configType: "Product Recipe",
+                            productCategory: item.ProductCategory || "General",
+                            plant: item.Plant || "Rajpura",
+                            isActive: item.IsActive !== false,
+                            standards: parsedStandards
+                        };
+                    });
+
+                    // Sort alphabetically by product title for clean selection
+                    this.recipesCache.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+
+                    console.log(`Successfully loaded ${this.recipesCache.length} product recipes dynamically from SharePoint list "${listName}".`);
+                    return this.recipesCache;
+                }
+            }
+        } catch (e) {
+            console.warn("Failed to fetch product recipes from SharePoint list. Using seed defaults:", e);
+        }
+
+        this.recipesCache = seedDefaults;
+        return this.recipesCache;
     }
 };

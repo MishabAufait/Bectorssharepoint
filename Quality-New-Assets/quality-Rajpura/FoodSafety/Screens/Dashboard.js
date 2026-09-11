@@ -165,6 +165,33 @@ const DashboardScreen = {
         });
     },
 
+    renderRemarksWithProof: function (rawRemarks) {
+        if (!rawRemarks || rawRemarks === "--" || rawRemarks === "N/A" || (typeof rawRemarks === "string" && rawRemarks.trim() === "")) {
+            return `<span style="color: #94a3b8;">--</span>`;
+        }
+        const parsed = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.parseRemarksAndProof)
+            ? QualityRajpura_Config.parseRemarksAndProof(rawRemarks)
+            : { remarks: "", proofUrl: "" };
+
+        let remarksText = parsed.remarks;
+        let proofUrl = parsed.proofUrl;
+
+        let html = "";
+        if (remarksText) {
+            html += `<span>${remarksText}</span>`;
+        }
+        if (proofUrl) {
+            const badgeMargin = remarksText ? "margin-left: 8px;" : "";
+            html += `
+                <a href="${proofUrl}" target="_blank" class="badge food-safety-proof-badge" 
+                   style="display: inline-flex !important; align-items: center !important; gap: 4px !important; padding: 3px 8px !important; font-size: 11px !important; background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; border-radius: 4px !important; text-decoration: none !important; font-weight: 600 !important; ${badgeMargin}">
+                    <span style="color: #ffffff !important;">📷 View Proof</span>
+                </a>
+            `;
+        }
+        return html || `<span style="color: #94a3b8;">--</span>`;
+    },
+
     // Load child checklist items for selected audit row
     loadAuditBreakdown: async function (tourId, tourRecord) {
         try {
@@ -195,25 +222,29 @@ const DashboardScreen = {
 
                 let statusText = "";
                 let badgeStyle = "";
-                let remarks = "";
+                let remarksHtml = "";
 
                 if (tourRecord.cr3ea_food_safety_checklisttype === "PPE Checklist") {
                     statusText = item.cr3ea_food_safety_defectcategory || item.cr953_food_safety_defectcategory || "Compliant";
                     badgeStyle = statusText === "Compliant" ? "badge-success" : "badge-error";
                     const count = item.cr3ea_food_safety_defectcount !== undefined ? item.cr3ea_food_safety_defectcount : (item.cr953_food_safety_defectcount || 0);
-                    remarks = `Defect Count: ${count}`;
+                    const defRem = item.cr3ea_food_safety_defectremarks || item.cr953_food_safety_defectremarks || "";
+                    remarksHtml = count > 0 
+                        ? (defRem ? `Defects: ${count} - ${this.renderRemarksWithProof(defRem)}` : `Defect Count: ${count}`)
+                        : `Defect Count: 0`;
                 } else if (tourRecord.cr3ea_food_safety_checklisttype === "GMP Checklist") {
                     statusText = item.cr3ea_food_safety_status || item.cr953_food_safety_status || "Okay";
                     badgeStyle = statusText === "Okay" ? "badge-success" : "badge-error";
-                    remarks = item.cr3ea_food_safety_defectremarks || item.cr953_food_safety_defectremarks || "N/A";
+                    const defRem = item.cr3ea_food_safety_defectremarks || item.cr953_food_safety_defectremarks || "";
+                    remarksHtml = this.renderRemarksWithProof(defRem);
                 } else { // PCI
                     statusText = item.cr3ea_food_safety_status || item.cr953_food_safety_status || "Okay";
                     badgeStyle = statusText === "Okay" ? "badge-success" : "badge-error";
                     const obsType = item.cr3ea_food_safety_observationtype || item.cr953_food_safety_observationtype;
                     const obsCount = item.cr3ea_food_safety_defectcount !== undefined ? item.cr3ea_food_safety_defectcount : (item.cr953_food_safety_defectcount || 0);
-                    remarks = obsType 
-                        ? `${obsType} (Count: ${obsCount})` 
-                        : "N/A";
+                    const defRem = item.cr3ea_food_safety_defectremarks || item.cr953_food_safety_defectremarks || "";
+                    const obsLabel = obsType ? `${obsType} (Count: ${obsCount})` : "N/A";
+                    remarksHtml = defRem ? `${obsLabel} ${this.renderRemarksWithProof(defRem)}` : obsLabel;
                 }
 
                 const areaName = item.cr3ea_food_safety_area || item.cr953_food_safety_area || 'General';
@@ -224,7 +255,7 @@ const DashboardScreen = {
                     <td style="padding: 10px; font-weight: 500; text-align: left;">${areaName}</td>
                     <td style="padding: 10px; text-align: left;">${locOrCriteria}</td>
                     <td style="padding: 10px;"><span class="badge ${badgeStyle}">${statusText}</span></td>
-                    <td style="padding: 10px; color: #475569; font-size: 13px; text-align: left;">${remarks}</td>
+                    <td style="padding: 10px; color: #475569; font-size: 13px; text-align: left;">${remarksHtml}</td>
                 `;
                 detailTbody.appendChild(tr);
             });

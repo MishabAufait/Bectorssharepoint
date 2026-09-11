@@ -5,6 +5,13 @@ const PKGOPS_Main = {
     currentTourId: null,
     currentSession: null,
 
+    redirectToDashboard: function () {
+        const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+            ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+            : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
+        window.location.href = homeUrl;
+    },
+
     init: async function () {
         console.log("Initializing Packaging Operations form page...");
 
@@ -18,8 +25,8 @@ const PKGOPS_Main = {
         // Setup dashboard button link
         const btnDashboard = document.getElementById("btnBackToDashboard");
         if (btnDashboard) {
-            btnDashboard.onclick = function () {
-                window.location.href = (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : (typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webServerRelativeUrl : '/sites/Mrs_Bectors_PTMS')) + "/Pages/Home.aspx";
+            btnDashboard.onclick = () => {
+                this.redirectToDashboard();
             };
         }
 
@@ -40,7 +47,7 @@ const PKGOPS_Main = {
 
                 if (!this.currentSession) {
                     alert("Invalid Tour ID session. Returning to dashboard.");
-                    window.location.href = (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : (typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webServerRelativeUrl : '/sites/Mrs_Bectors_PTMS')) + "/Pages/Home.aspx";
+                    this.redirectToDashboard();
                     return;
                 }
 
@@ -83,14 +90,53 @@ const PKGOPS_Main = {
                 }
 
                 // Parse current login user context
-                const userEmail = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userEmail : "admin@example.com";
-                const userTitle = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : "Admin User";
+                const userEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) 
+                    ? String(_spPageContextInfo.userEmail).toLowerCase().trim() 
+                    : ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userLoginName && _spPageContextInfo.userLoginName.includes("@")) 
+                        ? String(_spPageContextInfo.userLoginName).toLowerCase().trim() 
+                        : "");
 
-                // Load config mappings and determine permissions/roles
+                const userTitle = (typeof EmployeeName !== 'undefined' && EmployeeName) 
+                    ? String(EmployeeName).toLowerCase().trim() 
+                    : (typeof UserName !== 'undefined' && UserName 
+                        ? String(UserName).toLowerCase().trim() 
+                        : (typeof currentUser !== "undefined" ? String(currentUser).toLowerCase().trim() : 
+                          ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? String(_spPageContextInfo.userDisplayName).toLowerCase().trim() : (sessionStorage.getItem("userName") || ""))));
+
+                // Load config mappings and determine permissions/roles with active session
                 const configs = await PKGOPS_DAL.getConfig();
-                PKGOPS_StateMachine.calculateRoles(configs, userEmail, userTitle);
+                PKGOPS_StateMachine.calculateRoles(configs, userEmail, userTitle, this.currentSession);
 
-                // Determine active state
+                // Check if tour is Cancelled
+                const currentStatus = this.currentSession.cr3ea_processstatus || this.currentSession.cr3ea_status || "";
+                if (String(currentStatus).toLowerCase().includes("cancel")) {
+                    if (typeof HideLoader === "function") HideLoader();
+                    alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                    this.redirectToDashboard();
+                    return;
+                }
+
+                // If tour is In Progress and current user is NOT the assigned QA, restrict access and redirect to dashboard like ALC
+                const isPkgOpsInProgress = (currentStatus === "QA In Progress" || currentStatus === "In Progress" || currentStatus === "InProgress-paused" || currentStatus === "Pending QA");
+                if (isPkgOpsInProgress && !PKGOPS_StateMachine.isQaUser) {
+                    if (typeof HideLoader === "function") HideLoader();
+                    alert("This tour is currently in progress for QA evaluation. Access is restricted to the assigned QA Executive.");
+                    this.redirectToDashboard();
+                    return;
+                }
+
+                // If tour is in Re-Verification, restrict access if user is neither QA nor assigned QA
+                const isPkgOpsReverify = String(currentStatus).includes("Pending Re-Verification");
+                if (isPkgOpsReverify && !PKGOPS_StateMachine.isQaUser && !PKGOPS_StateMachine.isAssignedQA) {
+                    if (typeof HideLoader === "function") HideLoader();
+                    alert("Access Denied: This tour is currently in QA Re-Verification stage. Only the assigned QA Executive can enter or take actions at this time.");
+                    this.redirectToDashboard();
+                    return;
+                }
+
+                // If tour is in Pending Observation / Production stage, unauthorized users will be routed to read-only Summary by determineState()
+
+                // Determine active state and permissions
                 const activeState = PKGOPS_StateMachine.determineState(this.currentSession);
                 PKGOPS_StateMachine.applyStateUI();
 
@@ -107,7 +153,7 @@ const PKGOPS_Main = {
                 } else if (activeState === PKGOPS_States.PENDING_REVERIFICATION) {
                     await PKGOPS_Reverify.init(this.currentTourId, pkgopsType);
                 } else if (activeState === PKGOPS_States.COMPLETED) {
-                    await PKGOPS_Summary.init(this.currentTourId, pkgopsType);
+                    await PKGOPS_Summary.init(this.currentTourId, pkgopsType, PKGOPS_StateMachine.pendingMessage);
                 }
 
                 if (typeof HideLoader === "function") HideLoader();
@@ -144,8 +190,9 @@ const PKGOPS_Main = {
                     <span><strong>Line:</strong> ${this.currentSession.cr3ea_lineno || "N/A"}</span>
                     <span><strong>Shift:</strong> ${this.currentSession.cr3ea_shift || "N/A"}</span>
                     <span><strong>Date:</strong> ${dateVal}</span>
-                    <span><strong>QA Executive:</strong> ${this.resolveUserName(this.currentSession.cr3ea_assigned_qa) || "N/A"}</span>
+                    <span><strong>Shift Executive:</strong> ${this.resolveUserName(this.currentSession.cr3ea_shiftexecutive || this.currentSession.cr3ea_observedby) || "N/A"}</span>
                     <span><strong>Prod Executive:</strong> ${this.resolveUserName(this.currentSession.cr3ea_shiftexecutiveproduction) || "N/A"}</span>
+                    <span><strong>QA Executive:</strong> ${this.resolveUserName(this.currentSession.cr3ea_assigned_qa || this.currentSession.cr3ea_tourby) || "N/A"}</span>
                     <span><strong>Status:</strong> <span class="badge badge-fill badge-warning">${this.currentSession.cr3ea_status || "Pending"}</span></span>
                 </div>
             `;

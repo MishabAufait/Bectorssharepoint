@@ -29,6 +29,7 @@ const CCP_OPRP_Main = {
         category: null, // "CCP" or "SIEVES"
         frequency: "4hrs", // "4hrs" or "8hrs" for Sieves
         selectedLine: "",
+        product: "",
         qaExecutive: "",
         productionIncharge: "",
         site: "",
@@ -88,7 +89,9 @@ const CCP_OPRP_Main = {
                     }
                 }
 
-                const pType = this.state.tourData.cr3ea_ccp_oprp_sieves_parametertype;
+                const pType = this.state.tourData.cr3ea_ccp_oprp_sieves_parametertype || 
+                              (this.state.tourData.cr3ea_title && this.state.tourData.cr3ea_title.startsWith("CCP_") ? "CCP & OPRP" : 
+                              (this.state.tourData.cr3ea_title && this.state.tourData.cr3ea_title.startsWith("Sieves_") ? "Sieves and Magnets" : ""));
                 if (pType) {
                     // Tour already initialized, load checklist form directly
                     this.state.category = pType === "CCP & OPRP" ? "CCP" : "SIEVES";
@@ -104,7 +107,47 @@ const CCP_OPRP_Main = {
             // 3. Resolve user roles and authorizations
             await this.identifyUserRole();
 
-            if (this.state.varTourID && this.state.tourData.cr3ea_ccp_oprp_sieves_parametertype) {
+            // If tour is Cancelled, restrict access and redirect to dashboard
+            const tourStatusVal = String(this.state.tourData?.cr3ea_processstatus || this.state.tourData?.cr3ea_status || "").toLowerCase().trim();
+            if (this.state.varTourID && tourStatusVal.includes("cancel")) {
+                if (typeof HideLoader === "function") HideLoader();
+                alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                    ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                    : "/sites/Mrs_Bectors_PTMS/Pages/Home.aspx";
+                window.location.href = homeUrl;
+                return;
+            }
+
+            // Check stage-specific access permissions
+            const isTourInProgress = (tourStatusVal === "in-progress" || tourStatusVal === "in progress" || tourStatusVal === "inprogress-paused" || tourStatusVal === "pending qa");
+            const isPendingProdAction = (tourStatusVal === "pending production action" || tourStatusVal.includes("pending production") || tourStatusVal.includes("pending observation") || tourStatusVal === "escalated");
+            const isPendingQAVerify = (tourStatusVal === "pending qa re-verification" || tourStatusVal.includes("re-verification") || tourStatusVal.includes("re-verify"));
+
+            // 1. Pending Production Action: strictly accessible only to assigned Production Incharge
+            if (this.state.varTourID && isPendingProdAction && !this.state.isProductionUser && !this.state.isDev) {
+                if (typeof HideLoader === "function") HideLoader();
+                alert("Access Denied: This tour is currently in Pending Production Action stage. Access is restricted to the assigned Production Incharge.");
+                const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                    ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                    : "/sites/Mrs_Bectors_PTMS/Pages/Home.aspx";
+                window.location.href = homeUrl;
+                return;
+            }
+
+            // 2. In Progress / Evaluation: accessible only to assigned personnel
+            const canAccessTour = this.state.isAssignedQA || this.state.isAssignedProd || this.state.isQaUser || this.state.isProductionUser || this.state.isDev;
+            if (this.state.varTourID && isTourInProgress && !canAccessTour) {
+                if (typeof HideLoader === "function") HideLoader();
+                alert("This tour is currently in progress for QA evaluation. Access is restricted to assigned personnel.");
+                const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                    ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                    : "/sites/Mrs_Bectors_PTMS/Pages/Home.aspx";
+                window.location.href = homeUrl;
+                return;
+            }
+
+            if (this.state.varTourID && (this.state.tourData.cr3ea_ccp_oprp_sieves_parametertype || this.state.category)) {
                 document.getElementById("setup-form-container").style.display = "none";
                 document.getElementById("checklist-main-container").style.display = "block";
                 
@@ -114,14 +157,18 @@ const CCP_OPRP_Main = {
 
                 await this.loadCyclesHistory();
 
-                // Toggle complete tour button visibility
+                // Toggle complete tour button visibility: strictly visible only for QA Executive
                 const compContainer = document.getElementById("complete-tour-btn-container");
                 if (compContainer) {
-                    const isCompleted = this.state.tourData.cr3ea_status === "Completed" || 
-                                        this.state.tourData.cr3ea_status === "Success" || 
-                                        this.state.tourData.cr3ea_status === "Closed" ||
-                                        this.state.tourData.cr3ea_status === "Closed - Expired";
-                    compContainer.style.display = (isCompleted || !this.state.canEditChecklist) ? "none" : "flex";
+                    const isCompleted = this.state.tourData && (
+                        this.state.tourData.cr3ea_status === "Completed" || 
+                        this.state.tourData.cr3ea_status === "Success" || 
+                        this.state.tourData.cr3ea_status === "Closed" ||
+                        this.state.tourData.cr3ea_status === "Closed - Expired"
+                    );
+                    const isQAUser = this.state.isQaRole;
+                    const isProdOnly = this.state.isProdOnly;
+                    compContainer.style.display = (isCompleted || !isQAUser || isProdOnly || !this.state.canEditChecklist) ? "none" : "flex";
                 }
             } else {
                 // Tour exists but parameters are not set yet, show setup form
@@ -134,103 +181,223 @@ const CCP_OPRP_Main = {
     },
 
     identifyUserRole: async function () {
-        const currentUserName = typeof currentUser !== "undefined" ? currentUser : "";
-        const currentUserLogin = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : "";
-        const currentUserEmail = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userEmail : "";
+        // 1. Extract logged-in user credentials from SharePoint context & session storage
+        let rawEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) 
+            ? String(_spPageContextInfo.userEmail).trim() 
+            : ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userLoginName) 
+                ? String(_spPageContextInfo.userLoginName).trim() 
+                : "");
 
-        // Default flags
-        this.state.isQaUser = false;
-        this.state.isProductionUser = false;
-        this.state.isEscalationManager = false;
+        if (!rawEmail) {
+            rawEmail = sessionStorage.getItem("userEmail") || sessionStorage.getItem("UserEmail") || "";
+        }
 
-        const currentLine = this.state.selectedLine;
-        const configType = this.state.category === "CCP" ? "CCP_OPRP" : "Sieves_Magnets";
+        // Clean claims prefix (e.g., "i:0#.f|membership|mishab@aufaitcloud.com" -> "mishab@aufaitcloud.com")
+        let currentUserEmail = rawEmail.toLowerCase().trim();
+        if (currentUserEmail.includes("|")) {
+            currentUserEmail = currentUserEmail.split("|").pop().trim();
+        }
 
-        // Find configuration matching active line / config type
-        const config = this.configList.find(c => 
-            (c.ConfigType === configType || (configType === "Sieves_Magnets" && c.ConfigType === "Sieves and Magnets")) &&
-            (!currentLine || c.Title === currentLine)
+        const currentUserName = (typeof EmployeeName !== 'undefined' && EmployeeName) 
+            ? String(EmployeeName).toLowerCase().trim() 
+            : (typeof UserName !== 'undefined' && UserName 
+                ? String(UserName).toLowerCase().trim() 
+                : (typeof currentUser !== "undefined" ? String(currentUser).toLowerCase().trim() : 
+                  ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? String(_spPageContextInfo.userDisplayName).toLowerCase().trim() : (sessionStorage.getItem("userName") || ""))));
+        
+        const currentUserLogin = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) 
+            ? String(_spPageContextInfo.userDisplayName).toLowerCase().trim() 
+            : currentUserName;
+
+        // Developer / Admin check
+        const devKeys = ["mishab", "aufait", "admin", "developer", "tester"];
+        const isDev = devKeys.some(d => 
+            currentUserEmail.includes(d) || 
+            currentUserName.includes(d) || 
+            currentUserLogin.includes(d)
+        );
+        this.state.isDev = isDev;
+
+        // 2. Extract QA Executive and Production Incharge directly from Parent Tour record
+        // Mirroring dashboard.js matching exactly:
+        // QA: t.cr3ea_assigned_qa || t.cr3ea_qaexecutive || t.cr3ea_tourby || ""
+        // Prod: t.cr3ea_shiftexecutiveproduction || t.cr3ea_production_incharge || t.cr3ea_observedby || ""
+        const t = this.state.tourData || {};
+        const qaEmail = String(t.cr3ea_assigned_qa || t.cr3ea_qaexecutive || t.cr3ea_tourby || "").toLowerCase().trim();
+        const qaResolvedName = (typeof qaEmail === "string" && qaEmail.includes("@"))
+            ? ((typeof CCP_OPRP_Checklist !== "undefined" && CCP_OPRP_Checklist.resolveUserName) ? CCP_OPRP_Checklist.resolveUserName(qaEmail).toLowerCase().trim() : qaEmail)
+            : qaEmail;
+
+        const prodExecRawVal = String(t.cr3ea_shiftexecutiveproduction || t.cr3ea_production_incharge || t.cr3ea_observedby || "").toLowerCase().trim();
+        const prodExecResolvedVal = (typeof prodExecRawVal === "string" && prodExecRawVal.includes("@"))
+            ? ((typeof CCP_OPRP_Checklist !== "undefined" && CCP_OPRP_Checklist.resolveUserName) ? CCP_OPRP_Checklist.resolveUserName(prodExecRawVal).toLowerCase().trim() : prodExecRawVal)
+            : prodExecRawVal;
+
+        // Symmetric user matching function (identical to dashboard.js cross-checking user email / display name / resolved name)
+        const isAssignedQA = Boolean(
+            (currentUserEmail && qaEmail && (currentUserEmail === qaEmail || currentUserEmail.includes(qaEmail) || qaEmail.includes(currentUserEmail))) ||
+            (currentUserName && qaEmail && (currentUserName === qaEmail || currentUserName.includes(qaEmail) || qaEmail.includes(currentUserName))) ||
+            (currentUserName && qaResolvedName && (currentUserName === qaResolvedName || currentUserName.includes(qaResolvedName) || qaResolvedName.includes(currentUserName))) ||
+            (currentUserLogin && qaResolvedName && (currentUserLogin === qaResolvedName || currentUserLogin.includes(qaResolvedName) || qaResolvedName.includes(currentUserLogin)))
         );
 
-        const matchUser = (userResults) => {
-            if (!userResults || !userResults.results) return false;
-            const loginEmail = String(currentUserEmail || "").toLowerCase().trim();
-            const loginPart = loginEmail.split("@")[0];
-            return userResults.results.some(u => {
-                const uEmail = String(u.EMail || "").toLowerCase().trim();
-                const uPart = uEmail.split("@")[0];
-                return loginEmail && uEmail && (loginEmail === uEmail || (uPart && loginPart && uPart === loginPart));
-            });
+        const isAssignedProd = Boolean(
+            (currentUserEmail && prodExecRawVal && (currentUserEmail === prodExecRawVal || currentUserEmail.includes(prodExecRawVal) || prodExecRawVal.includes(currentUserEmail))) ||
+            (currentUserName && prodExecRawVal && (currentUserName === prodExecRawVal || currentUserName.includes(prodExecRawVal) || prodExecRawVal.includes(currentUserName))) ||
+            (currentUserName && prodExecResolvedVal && (currentUserName === prodExecResolvedVal || currentUserName.includes(prodExecResolvedVal) || prodExecResolvedVal.includes(currentUserName))) ||
+            (currentUserLogin && prodExecResolvedVal && (currentUserLogin === prodExecResolvedVal || currentUserLogin.includes(prodExecResolvedVal) || prodExecResolvedVal.includes(currentUserLogin)))
+        );
+
+        // 3. Department & Global Role matching (Identical to dashboard.js)
+        const isDeptQA = (typeof DepartmentNameLeftNavi === "string" && DepartmentNameLeftNavi.toLowerCase().includes("quality")) ||
+                         (typeof RoleName === "string" && RoleName.toLowerCase().includes("qa"));
+
+        const isDeptProd = (typeof DepartmentNameLeftNavi === "string" && (DepartmentNameLeftNavi.toLowerCase().includes("prod") || DepartmentNameLeftNavi.toLowerCase().includes("baking") || DepartmentNameLeftNavi.toLowerCase().includes("mixing"))) ||
+                           (typeof RoleName === "string" && RoleName.toLowerCase().includes("prod"));
+
+        // 4. SharePoint Master config list mappings
+        let isConfigQA = false;
+        let isConfigProd = false;
+
+        const matchConfigUser = (u) => {
+            if (!u) return false;
+            const uEmail = String(u.EMail || "").toLowerCase().trim();
+            const uTitle = String(u.Title || "").toLowerCase().trim();
+            return (currentUserEmail && uEmail && (currentUserEmail === uEmail || currentUserEmail.includes(uEmail) || uEmail.includes(currentUserEmail))) ||
+                   (currentUserName && uTitle && (currentUserName === uTitle || currentUserName.includes(uTitle) || uTitle.includes(currentUserName))) ||
+                   (currentUserLogin && uTitle && (currentUserLogin === uTitle || currentUserLogin.includes(uTitle) || uTitle.includes(currentUserLogin)));
         };
 
-        if (config) {
-            this.state.isQaUser = matchUser(config.AssignedQA);
-            this.state.isProductionUser = matchUser(config.ProductionIncharge);
-            this.state.isEscalationManager = matchUser(config.EscalationManager);
+        if (Array.isArray(this.configList) && this.configList.length > 0) {
+            this.configList.forEach(c => {
+                if (c.AssignedQA && c.AssignedQA.results) {
+                    if (c.AssignedQA.results.some(u => matchConfigUser(u))) isConfigQA = true;
+                }
+                if (c.AssignedUser && c.AssignedUser.results) {
+                    if (c.AssignedUser.results.some(u => matchConfigUser(u))) {
+                        const titleLower = String(c.Title || c.ConfigType || "").toLowerCase();
+                        if (titleLower.includes("qa")) isConfigQA = true;
+                        if (titleLower.includes("prod")) isConfigProd = true;
+                    }
+                }
+                if (c.ProductionIncharge && c.ProductionIncharge.results) {
+                    if (c.ProductionIncharge.results.some(u => matchConfigUser(u))) isConfigProd = true;
+                }
+            });
         }
 
-        // If not matched to line-specific config, check if user matches ANY QA config in list
-        if (!this.state.isQaUser) {
-            this.state.isQaUser = this.configList.some(c => matchUser(c.AssignedQA));
-        }
-        if (!this.state.isProductionUser) {
-            this.state.isProductionUser = this.configList.some(c => matchUser(c.ProductionIncharge));
-        }
-        if (!this.state.isEscalationManager) {
-            this.state.isEscalationManager = this.configList.some(c => matchUser(c.EscalationManager));
-        }
+        // 5. Aggregate QA vs Production qualifications
+        const isUserQA = isAssignedQA || isConfigQA || isDeptQA || isDev;
+        const isUserProd = isAssignedProd || isConfigProd || isDeptProd || isDev;
 
-        // URL Override for testing and verification
-        const urlRole = new URLSearchParams(window.location.search).get('role');
-        if (urlRole) {
-            const roleUpper = urlRole.toUpperCase();
-            if (roleUpper === "QA") {
-                this.state.isQaUser = true;
-                this.state.isProductionUser = false;
-                this.state.isEscalationManager = false;
-            } else if (roleUpper === "PRODUCTION") {
-                this.state.isQaUser = false;
-                this.state.isProductionUser = true;
-                this.state.isEscalationManager = false;
-            } else if (roleUpper === "ESCALATION") {
-                this.state.isQaUser = false;
-                this.state.isProductionUser = false;
-                this.state.isEscalationManager = true;
-            } else if (roleUpper === "VIEWER") {
-                this.state.isQaUser = false;
-                this.state.isProductionUser = false;
-                this.state.isEscalationManager = false;
+        // 6. Tour status evaluation
+        const tourStatus = String(t.cr3ea_processstatus || t.cr3ea_status || "In Progress").trim();
+        const isTourInProgress = (tourStatus.toLowerCase() === "in progress" || tourStatus.toLowerCase() === "in-progress" || tourStatus.toLowerCase() === "inprogress-paused" || tourStatus.toLowerCase() === "pending qa");
+        const isPendingProdAction = (tourStatus === "Pending Production Action" || tourStatus.includes("Pending Production") || tourStatus.includes("Pending Observation") || tourStatus === "Escalated");
+        const isPendingQAVerify = (tourStatus === "Pending QA Re-Verification" || tourStatus.includes("Re-Verification") || tourStatus.includes("Re-verify"));
+        const isTourCompleted = (tourStatus === "Completed" || tourStatus === "Success" || tourStatus === "Closed" || tourStatus === "Closed - Expired");
+
+        this.state.hasAssignedQA = Boolean(qaEmail);
+        this.state.hasAssignedProd = Boolean(prodExecRawVal);
+        this.state.isAssignedQA = isAssignedQA;
+        this.state.isAssignedProd = isAssignedProd;
+        this.state.isQaUser = isUserQA;
+        this.state.isProductionUser = isUserProd;
+
+        // 7. Strict Active Role Decision (Aligned with Dashboard Yellow-Highlight Task Matrix)
+        let isQaRole = false;
+        let isProdRole = false;
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlRole = (urlParams.get("role") || "").toUpperCase();
+
+        if (urlRole === "QA") {
+            isQaRole = true;
+            isProdRole = false;
+        } else if (urlRole === "PRODUCTION" || urlRole === "PROD" || urlRole === "PRODUCT") {
+            isQaRole = false;
+            isProdRole = true;
+        } else if (isPendingProdAction) {
+            // Tour is pending Production Action (Highlighted for Production on Dashboard)
+            if (isUserProd) {
+                isQaRole = false;
+                isProdRole = true;
+            } else {
+                isQaRole = true;
+                isProdRole = false;
             }
-            console.log(`User role overridden via URL to: ${roleUpper}`);
-        }
-
-        // Calculate final permissions
-        const assignedQA = (this.state.tourData?.cr3ea_assigned_qa || "").toLowerCase().trim();
-        const myEmail = currentUserEmail.toLowerCase().trim();
-        const myName1 = currentUserName.toLowerCase().trim();
-        const myName2 = currentUserLogin.toLowerCase().trim();
-
-        let isAssignedQA = false;
-        if (!assignedQA) {
-            isAssignedQA = this.state.isQaUser;
+        } else if (isPendingQAVerify) {
+            // Tour is pending QA Re-verification (Highlighted for QA on Dashboard)
+            if (isUserQA) {
+                isQaRole = true;
+                isProdRole = false;
+            } else {
+                isQaRole = false;
+                isProdRole = true;
+            }
+        } else if (isTourInProgress) {
+            // Tour is In Progress for QA inspection (Highlighted for QA on Dashboard)
+            if (isUserQA) {
+                isQaRole = true;
+                isProdRole = false;
+            } else {
+                isQaRole = false;
+                isProdRole = true;
+            }
         } else {
-            const cleanAssignedQA = assignedQA.toLowerCase().trim();
-            const myEmailPart = myEmail.split("@")[0].trim();
-            const qaEmailPart = cleanAssignedQA.split("@")[0].trim();
-            isAssignedQA = (myEmail && (myEmail === cleanAssignedQA || myEmail.includes(cleanAssignedQA) || cleanAssignedQA.includes(myEmail) || (myEmailPart && qaEmailPart && myEmailPart === qaEmailPart)));
+            // Completed, closed or general fallback:
+            if (isAssignedQA && !isAssignedProd) {
+                isQaRole = true;
+                isProdRole = false;
+            } else if (isAssignedProd && !isAssignedQA) {
+                isQaRole = false;
+                isProdRole = true;
+            } else if (isUserQA && !isUserProd) {
+                isQaRole = true;
+                isProdRole = false;
+            } else if (isUserProd && !isUserQA) {
+                isQaRole = false;
+                isProdRole = true;
+            } else {
+                isQaRole = true;
+                isProdRole = false;
+            }
         }
 
-        this.state.canEditChecklist = isAssignedQA;
-        this.state.canEditCorrectiveAction = this.state.isProductionUser || this.state.isEscalationManager;
+        this.state.isQaRole = isQaRole;
+        this.state.isProdRole = isProdRole;
+        this.state.isProdOnly = isProdRole && !isQaRole;
 
-        console.log("User roles and authorization resolved:", {
+        // 8. Strict Permissions:
+        // - Checklist Filling: STRICTLY QA Executive, only when tour is in progress & not completed
+        this.state.canEditChecklist = isQaRole && isTourInProgress && !isTourCompleted;
+
+        // - Corrective Action: STRICTLY Production Incharge, only when tour status is Pending Production Action
+        this.state.canEditCorrectiveAction = isProdRole && !isQaRole && isPendingProdAction && !isTourCompleted;
+
+        // - QA Re-Verification: STRICTLY QA Executive, only when tour status is Pending QA Re-Verification
+        this.state.canReverify = isQaRole && isPendingQAVerify && !isTourCompleted;
+
+        console.log("CCP/OPRP/Sieves User tour role resolved:", {
             currentUserEmail,
-            isQaUser: this.state.isQaUser,
-            isProductionUser: this.state.isProductionUser,
-            isEscalationManager: this.state.isEscalationManager,
+            currentUserName,
+            tourQA: qaEmail,
+            tourQA_resolved: qaResolvedName,
+            tourProd: prodExecRawVal,
+            tourProd_resolved: prodExecResolvedVal,
             isAssignedQA,
+            isAssignedProd,
+            isDeptQA,
+            isDeptProd,
+            isConfigQA,
+            isConfigProd,
+            isUserQA,
+            isUserProd,
+            tourStatus,
+            activePOV: isQaRole ? "QA Executive" : "Production Incharge",
             canEditChecklist: this.state.canEditChecklist,
-            canEditCorrectiveAction: this.state.canEditCorrectiveAction
+            canEditCorrectiveAction: this.state.canEditCorrectiveAction,
+            canReverify: this.state.canReverify
         });
     },
 
@@ -238,7 +405,15 @@ const CCP_OPRP_Main = {
         document.getElementById("setup-form-container").style.display = "block";
         document.getElementById("checklist-main-container").style.display = "none";
 
-        if (!this.state.isQaUser) {
+        const shiftExecName = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) 
+            ? _spPageContextInfo.userDisplayName 
+            : (typeof EmployeeName !== 'undefined' && EmployeeName ? EmployeeName : (typeof currentUser !== "undefined" ? currentUser : "Shift Executive"));
+        const shiftExecInput = document.getElementById("setup-shift-exec");
+        if (shiftExecInput) {
+            shiftExecInput.value = shiftExecName;
+        }
+
+        if (!this.state.isQaUser && !this.state.isDev) {
             $('#setup-type, #setup-site, #setup-line, #setup-product, #setup-freq, #setup-qa, #setup-prod').prop('disabled', true);
         }
 
@@ -327,7 +502,7 @@ const CCP_OPRP_Main = {
             // Initialize select2 on personnel elements
             $('#setup-qa, #setup-prod').select2({
                 minimumResultsForSearch: -1,
-                dropdownAutoWidth: true,
+                dropdownAutoWidth: false,
                 width: '100%'
             });
 
@@ -355,6 +530,34 @@ const CCP_OPRP_Main = {
             $('#setup-qa, #setup-prod').trigger('change');
         };
 
+        const updateProductDropdown = () => {
+            const lineVal = lineSelect ? lineSelect.value : "";
+            const productSelect = document.getElementById("setup-product");
+            if (!productSelect) return;
+
+            const products = CCP_OPRP_DAL.getProducts(lineVal);
+            const currentSelected = $(productSelect).val() || productSelect.value;
+
+            productSelect.innerHTML = "";
+            if (products.length > 0) {
+                products.forEach(p => {
+                    const opt = document.createElement("option");
+                    opt.value = p.Title;
+                    opt.textContent = p.Title;
+                    if (p.Title === currentSelected) opt.selected = true;
+                    productSelect.appendChild(opt);
+                });
+            } else {
+                productSelect.innerHTML = `<option value="General Production">General Production</option>`;
+            }
+
+            $('#setup-product').select2({
+                minimumResultsForSearch: 5,
+                dropdownAutoWidth: false,
+                width: '100%'
+            });
+        };
+
         // Register select2 change events
         $('#setup-type').on("change", () => {
             if (typeSelect.value === "Sieves and Magnets") {
@@ -367,29 +570,37 @@ const CCP_OPRP_Main = {
                 productGroup.style.display = "block";
             }
             updatePersonnel();
+            updateProductDropdown();
         });
 
         $('#setup-line').on("change", () => {
             updatePersonnel();
+            updateProductDropdown();
         });
 
-        // Trigger personnel dropdown load initially
+        // Trigger personnel and product dropdown load initially
         updatePersonnel();
+        updateProductDropdown();
     },
 
     startTour: async function () {
-        const typeVal = document.getElementById("setup-type").value;
-        const siteVal = document.getElementById("setup-site").value;
-        const lineVal = document.getElementById("setup-line")?.value || "";
-        const productVal = document.getElementById("setup-product")?.value || "";
-        const freqVal = document.getElementById("setup-freq")?.value || "4hrs";
-        const prodVal = document.getElementById("setup-prod").value;
-        const qaVal = document.getElementById("setup-qa").value;
+        const typeVal = $('#setup-type').val() || document.getElementById("setup-type")?.value || "";
+        const siteVal = $('#setup-site').val() || document.getElementById("setup-site")?.value || "Rajpura";
+        const lineVal = $('#setup-line').val() || document.getElementById("setup-line")?.value || "";
+        const productVal = $('#setup-product').val() || document.getElementById("setup-product")?.value || "";
+        const freqVal = $('#setup-freq').val() || document.getElementById("setup-freq")?.value || "4hrs";
+        const prodVal = $('#setup-prod').val() || document.getElementById("setup-prod")?.value || "";
+        const qaVal = $('#setup-qa').val() || document.getElementById("setup-qa")?.value || "";
 
         if (!prodVal || !qaVal) {
-            alert("Please fill in QA Executive and Shift Production Incharge names.");
+            alert("Please select both Production Executive and QA Executive.");
             return;
         }
+
+        const shiftExecEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? _spPageContextInfo.userEmail : "";
+        const shiftExecName = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) 
+            ? _spPageContextInfo.userDisplayName 
+            : (typeof EmployeeName !== 'undefined' ? EmployeeName : (typeof currentUser !== "undefined" ? currentUser : "Shift Executive"));
 
         const btn = document.getElementById("start-tour-btn");
         if (btn) {
@@ -412,9 +623,14 @@ const CCP_OPRP_Main = {
             cr3ea_plantid: siteVal === "Rajpura" ? QualityRajpura_Config.PLANT_ID : siteVal,
             cr3ea_lineno: typeVal === "CCP & OPRP" ? lineVal : null,
             cr3ea_assigned_qa: qaVal,
+            cr3ea_qaexecutive: qaVal,
             cr3ea_shiftexecutiveproduction: prodVal,
+            cr3ea_production_incharge: prodVal,
             cr3ea_observedby: prodVal,
+            cr3ea_tourby: shiftExecEmail || shiftExecName,
+            cr3ea_shiftexecutive: shiftExecName,
             cr3ea_status: "In Progress",
+            cr3ea_processstatus: "In Progress",
             cr3ea_shift: sessionStorage.getItem("shiftValue") || "Shift-1",
             cr3ea_tourstartdate: now.toISOString(),
             cr3ea_title: `${titlePrefix}_${siteVal}_${lineStr}_${dateStr}`
@@ -423,38 +639,52 @@ const CCP_OPRP_Main = {
         try {
             if (this.state.varTourID) {
                 payload.cr3ea_prod_rajpura_quality_tourid = this.state.varTourID;
+            } else if (typeVal === "CCP & OPRP" && lineVal) {
+                // Check if active session already exists for this line today and prompt for override
+                const token = await CCP_OPRP_DAL.getAccessToken();
+                const proceed = await QualityRajpura_Config.checkAndPromptLineOverride({
+                    moduleKey: "CCP",
+                    line: lineVal,
+                    currentTourId: this.state.varTourID,
+                    token: token
+                });
+                if (!proceed) {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerText = "Start Quality Tour";
+                    }
+                    return;
+                }
             }
             
+            if (typeof ShowLoader === "function") ShowLoader();
+
             const savedTour = await CCP_OPRP_DAL.saveTourSession(payload);
             const savedId = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId)
                 ? QualityRajpura_Config.getTourId(savedTour)
                 : (savedTour && (savedTour.cr3ea_prod_rajpura_quality_tourid || savedTour.cr3ea_rajpura_quality_tourid));
-            if (!this.state.varTourID && savedId) {
-                this.state.varTourID = savedId;
+
+            const targetTourId = savedId || this.state.varTourID;
+            if (targetTourId) {
+                console.log(`Tour session successfully started with TourId: ${targetTourId}. Redirecting to dashboard...`);
+                if (typeof HideLoader === "function") HideLoader();
+                alert("Quality tour started successfully.");
+                const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                    ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                    : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
+                window.location.href = homeUrl;
+                return;
             }
-            
-            // Set active states
-            this.state.category = typeVal === "CCP & OPRP" ? "CCP" : "SIEVES";
-            this.state.frequency = freqVal;
-            this.state.selectedLine = lineVal;
-            this.state.qaExecutive = qaVal;
-            this.state.productionIncharge = prodVal;
-            this.state.site = siteVal;
 
-            document.getElementById("setup-form-container").style.display = "none";
-            document.getElementById("checklist-main-container").style.display = "block";
-            
-            const titleText = this.state.category === "CCP" ? "CCP & OPRP RECORD" : "SIEVES & MAGNETS MONITORING RECORD";
-            document.querySelector(".tour-header-title").innerText = `${titleText} (RAJPURA)`;
-
-            await this.loadCyclesHistory();
+            throw new Error("Tour session was saved, but Tour ID was not returned by Dataverse.");
         } catch (err) {
+            if (typeof HideLoader === "function") HideLoader();
             console.error("Failed to start tour: ", err);
             if (btn) {
                 btn.disabled = false;
                 btn.innerText = "Start Quality Tour";
             }
-            alert("Error initializing tour checklist. Please try again.");
+            alert("Error initializing tour checklist: " + (err.message || "Please try again."));
         }
     },
 
@@ -475,8 +705,8 @@ const CCP_OPRP_Main = {
                 if (!grouped[cycleNum]) {
                     grouped[cycleNum] = {
                         cycleNum: cycleNum,
-                        productName: "",
-                        executiveName: CCP_OPRP_Main.state.productionIncharge || "",
+                        productName: CCP_OPRP_Main.state.tourData?.cr3ea_runningvariety || "",
+                        executiveName: CCP_OPRP_Main.state.qaExecutive || "",
                         location: CCP_OPRP_Main.state.selectedLine || "",
                         sessionTime: "",
                         response: "OK",
@@ -485,18 +715,32 @@ const CCP_OPRP_Main = {
                 }
                 
                 if (item.cr3ea_productname) grouped[cycleNum].productName = item.cr3ea_productname;
-                if (item.cr3ea_executivename) grouped[cycleNum].executiveName = item.cr3ea_executivename;
+                if (item.cr3ea_observedby) grouped[cycleNum].executiveName = item.cr3ea_observedby;
+                else if (item.cr3ea_executivename) grouped[cycleNum].executiveName = item.cr3ea_executivename;
                 if (item.cr3ea_location) grouped[cycleNum].location = item.cr3ea_location;
                 if (item.cr3ea_tourstartdate) {
                     grouped[cycleNum].sessionTime = item.cr3ea_tourstartdate;
                 } else if (item.createdon) {
                     grouped[cycleNum].sessionTime = item.createdon;
                 }
-                if (item.cr3ea_acceptanceresponse && item.cr3ea_acceptanceresponse !== "In Progress") {
-                    grouped[cycleNum].response = item.cr3ea_acceptanceresponse;
-                }
                 
                 grouped[cycleNum].rows.push(item);
+            });
+
+            // Compute overall cycle response status cleanly
+            Object.values(grouped).forEach(cGroup => {
+                const shutdownRow = cGroup.rows.find(r => r.cr3ea_checkpointname === "Shutdown Closure");
+                if (shutdownRow) {
+                    cGroup.response = shutdownRow.cr3ea_acceptanceresponse || "Line Not Operational";
+                } else {
+                    const hasNotOk = cGroup.rows.some(r => {
+                        const resp = r.cr3ea_acceptanceresponse || "";
+                        const crit = r.cr3ea_criteria || "";
+                        const devStatus = r.cr3ea_deviationstatus || "";
+                        return ((resp.includes("Not Okay") || crit === "Not Okay") && devStatus !== "Closed") || (devStatus && devStatus !== "Closed");
+                    });
+                    cGroup.response = hasNotOk ? "Deviations Found" : "OK";
+                }
             });
 
             const cyclesList = Object.values(grouped).sort((a, b) => a.cycleNum - b.cycleNum);
@@ -505,19 +749,72 @@ const CCP_OPRP_Main = {
                                      this.state.tourData?.cr3ea_status === "Closed" ||
                                      this.state.tourData?.cr3ea_status === "Closed - Expired";
             
+            const isProdOnly = this.state.isProdOnly;
+
             if (cyclesList.length > 0) {
-                cyclesList.forEach(cData => {
+                // Pre-populate state setup info from Cycle 1 so subsequent cycles inherit them
+                const firstCycle = cyclesList[0];
+                if (firstCycle.productName) this.state.product = firstCycle.productName;
+                if (firstCycle.executiveName) this.state.qaExecutive = firstCycle.executiveName;
+                if (firstCycle.location) this.state.selectedLine = firstCycle.location;
+
+                let cyclesToRender = cyclesList;
+                if (isProdOnly) {
+                    // Production Executive: only see cycles with defects/deviations!
+                    cyclesToRender = cyclesList.filter(cData => {
+                        const status = CCP_OPRP_Checklist.getCycleStatus(cData);
+                        const hasDeviations = (cData.rows || []).some(r => {
+                            const resp = r.cr3ea_acceptanceresponse || "";
+                            const crit = r.cr3ea_criteria || "";
+                            const devStatus = r.cr3ea_deviationstatus || "";
+                            return ((resp.includes("Not Okay") || crit === "Not Okay") && devStatus !== "Closed") || (devStatus && devStatus !== "Closed");
+                        });
+                        return hasDeviations || status === "Pending Production Action" || status === "Pending QA Re-Verification" || status === "Escalated";
+                    });
+
+                    if (cyclesToRender.length === 0) {
+                        if (parentElement) {
+                            parentElement.innerHTML = `
+                                <div class="alert alert-success text-center p-4 mt-3" style="border-radius: 8px; border: 1px solid #bbf7d0; background-color: #f0fdf4; color: #166534; font-family: 'Outfit', sans-serif;">
+                                    <h4 style="font-weight: 700; margin-bottom: 8px; font-size: 16px;">No Pending Deviations</h4>
+                                    <p style="margin: 0; font-size: 13px;">No quality defects or deviations were recorded for this tour requiring Production corrective action.</p>
+                                </div>
+                            `;
+                        }
+                    }
+                }
+
+                // Self-heal parent tour process status if deviations exist and tour was left In Progress
+                const hasPendingActionCycle = cyclesList.some(c => CCP_OPRP_Checklist.getCycleStatus(c) === "Pending Production Action");
+                const hasPendingReverifyCycle = cyclesList.some(c => CCP_OPRP_Checklist.getCycleStatus(c) === "Pending QA Re-Verification");
+                const currentProcStatus = this.state.tourData?.cr3ea_processstatus || "";
+                if (!isTourCompleted) {
+                    if (hasPendingActionCycle && currentProcStatus !== "Pending Production Action") {
+                        if (this.state.tourData) this.state.tourData.cr3ea_processstatus = "Pending Production Action";
+                        this.setRoleAndPermissions(this.state.tourData);
+                        CCP_OPRP_DAL.updateParentTour(this.state.varTourID, { cr3ea_processstatus: "Pending Production Action" }).catch(() => {});
+                    } else if (hasPendingReverifyCycle && currentProcStatus !== "Pending QA Re-Verification") {
+                        if (this.state.tourData) this.state.tourData.cr3ea_processstatus = "Pending QA Re-Verification";
+                        this.setRoleAndPermissions(this.state.tourData);
+                        CCP_OPRP_DAL.updateParentTour(this.state.varTourID, { cr3ea_processstatus: "Pending QA Re-Verification" }).catch(() => {});
+                    }
+                }
+
+                cyclesToRender.forEach(cData => {
                     CCP_OPRP_Checklist.renderCycleSection(cData.cycleNum, true, cData);
                 });
                 
                 const lastCycle = cyclesList[cyclesList.length - 1];
                 const lastStatus = CCP_OPRP_Checklist.getCycleStatus(lastCycle);
-                const isLastCycleFinished = lastStatus === "Completed" || lastStatus === "Not Operational" || lastStatus === "Escalated";
+                const isLastCycleFinished = lastStatus !== "Checklist Filling" && 
+                                            lastStatus !== "Checklist Filling - Paused" && 
+                                            lastStatus !== "Metadata Setup" && 
+                                            lastStatus !== "Upcoming";
 
                 this.state.cycleCounter = Math.max(...cyclesList.map(c => c.cycleNum)) + 1;
 
-                // Render next cycle slot ONLY if preceding cycles are finished and parent tour is open
-                if (!isTourCompleted && isLastCycleFinished) {
+                // Render next cycle slot ONLY for QA Executive and only if preceding cycles are finished and parent tour is open
+                if (!isProdOnly && !isTourCompleted && isLastCycleFinished && this.state.canEditChecklist) {
                     CCP_OPRP_Checklist.renderCycleSection(this.state.cycleCounter, false);
                 }
             } else {
@@ -531,8 +828,15 @@ const CCP_OPRP_Main = {
                             </div>
                         `;
                     }
-                } else if (!isTourCompleted) {
+                } else if (!isTourCompleted && !isProdOnly) {
                     CCP_OPRP_Checklist.renderCycleSection(1, false);
+                } else if (isProdOnly && parentElement) {
+                    parentElement.innerHTML = `
+                        <div class="alert alert-info text-center p-4 mt-3" style="border-radius: 8px; border: 1px solid #bfdbfe; background-color: #eff6ff; color: #1e40af; font-family: 'Outfit', sans-serif;">
+                            <h4 style="font-weight: 700; margin-bottom: 8px; font-size: 16px;">Tour In Progress</h4>
+                            <p style="margin: 0; font-size: 13px;">Awaiting QA Executive to perform checks. Any defect cycles will appear here for corrective action.</p>
+                        </div>
+                    `;
                 }
             }
             

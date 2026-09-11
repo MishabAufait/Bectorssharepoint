@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rajpura Quality Admin Panel - Form User Management</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Dynamic Stylesheet & Script Loader (DEV, UAT, PROD) -->
+    <script type="text/javascript">
+        (function () {
+            var isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+            if (isLocal && typeof _spPageContextInfo === "undefined") {
+                window._spPageContextInfo = {
+                    webAbsoluteUrl: window.location.origin,
+                    webServerRelativeUrl: "",
+                    userDisplayName: "Mishab Muhammed",
+                    userEmail: "mishab@bectors.com"
+                };
+            }
+
+            var siteBaseUrl = "/sites/Mrs_Bectors_PTMS";
+            if (typeof _spPageContextInfo !== "undefined" && _spPageContextInfo.webServerRelativeUrl) {
+                siteBaseUrl = _spPageContextInfo.webServerRelativeUrl.replace(/\/+$/, "");
+            } else {
+                var currentUrl = window.location.href.toLowerCase();
+                if (currentUrl.indexOf("ptms_uat") !== -1) {
+                    siteBaseUrl = "/sites/PTMS_UAT";
+                } else if (currentUrl.indexOf("ptms_prd") !== -1) {
+                    siteBaseUrl = "/sites/PTMS_PRD";
+                } else {
+                    siteBaseUrl = "/sites/Mrs_Bectors_PTMS";
+                }
+            }
+
+            var prefix = isLocal ? ".." : (siteBaseUrl + "/BectorsSourceCode");
+
+            var cssLinks = [
+                prefix + "/CSS/packages/select2.min.css",
+                prefix + "/Quality-New-Assets/css/main.min.css?v=2.0",
+                prefix + "/Quality-New-Assets/css/home-page.min.css?v=3.7",
+                prefix + "/Quality-New-Assets/css/style.css?v=2.0",
+                prefix + "/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=3.7",
+                prefix + "/Quality-New-Assets/quality-Rajpura/common/css/admin.css?v=5.1"
+            ];
+
+            for (var i = 0; i < cssLinks.length; i++) {
+                if (document.readyState === "loading") {
+                    document.write('<link rel="stylesheet" href="' + cssLinks[i] + '">');
+                } else {
+                    var link = document.createElement("link");
+                    link.rel = "stylesheet";
+                    link.href = cssLinks[i];
+                    document.head.appendChild(link);
+                }
+            }
+
+            var jsScripts = [
+                prefix + "/JS/CommonJS/libraries/jquery-3.7.1.min.js",
+                prefix + "/JS/CommonJS/libraries/moment.min.js",
+                prefix + "/JS/CommonJS/CommonDAL.js",
+                prefix + "/JS/CommonJS/Common.js",
+                prefix + "/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=5.8",
+                prefix + "/Quality-New-Assets/quality-Rajpura/common/js/pkg-products-seed.js?v=5.8",
+                prefix + "/Quality-New-Assets/quality-Rajpura/common/js/mb-recipes-seed.js?v=5.8",
+                prefix + "/Quality-New-Assets/quality-Rajpura/common/js/admin.js?v=6.0"
+            ];
+
+            if (document.readyState === "loading") {
+                for (var j = 0; j < jsScripts.length; j++) {
+                    document.write('<script type="text/javascript" src="' + jsScripts[j] + '"><\/script>');
+                }
+            } else {
+                var loadScriptIndex = function (idx) {
+                    if (idx >= jsScripts.length) {
+                        if (typeof Rajpura_Admin !== 'undefined' && Rajpura_Admin.activateAdminPanel) {
+                            Rajpura_Admin.activateAdminPanel();
+                        }
+                        return;
+                    }
+                    var script = document.createElement("script");
+                    script.type = "text/javascript";
+                    script.src = jsScripts[idx];
+                    script.onload = function () {
+                        loadScriptIndex(idx + 1);
+                    };
+                    script.onerror = function () {
+                        console.warn("Failed to load script: " + jsScripts[idx]);
+                        loadScriptIndex(idx + 1);
+                    };
+                    document.body.appendChild(script);
+                };
+                loadScriptIndex(0);
+            }
+        })();
+    </script>
+</head>
+
+<body style="background-color: #f8fafc; color: #0f172a; margin: 0; padding: 20px;">
+
+    <!-- Rajpura Admin Panel Mount Container -->
+    <div id="rajpuraAdminPanel" style="max-width: 1300px; margin: 0 auto;"></div>
+
+    <script type="text/javascript">
+        $(document).ready(function () {
+            if (typeof Rajpura_Admin !== 'undefined' && Rajpura_Admin.activateAdminPanel) {
+                Rajpura_Admin.activateAdminPanel();
+            }
+        });
+    </script>
+</body>
+
+</html>

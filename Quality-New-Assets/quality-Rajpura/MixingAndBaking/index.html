@@ -33,8 +33,8 @@
             var cssLinks = [
                 siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/main.min.css?v=2.0",
                 siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/home-page.min.css?v=2.0",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=2.0",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/MixingAndBaking/style.css?v=2.0"
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=2.2",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/MixingAndBaking/style.css?v=4.6"
             ];
 
             for (var i = 0; i < cssLinks.length; i++) {
@@ -78,16 +78,188 @@
                 </div>
             </div>
 
-            <!-- 2. CYCLE PANELS WRAPPER -->
+            <!-- 2. MAIN WORKFLOW SCREENS -->
             <div class="plan-tour-body" style="padding: 15px;">
-                <div class="tour-cycle-card-panel-lists">
-                    <!-- Loaded dynamically via JavaScript cycle loop -->
+
+                <!-- ========================================================
+                     SCREEN 1: CHECKLIST INFORMATION (SETUP FORM)
+                     ======================================================== -->
+                <div id="screen-checklist-info" style="display: none;">
+                    <!-- Stepper Progress Bar -->
+                    <div class="tour-workflow-stepper" style="margin-bottom: 20px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px 18px; border-radius: 8px; font-size: 13px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <div class="breadcrumb-step active" style="display: inline-flex; align-items: center; background-color: #2563eb; color: #ffffff; padding: 5px 12px; border-radius: 6px; font-weight: 700; box-shadow: 0 1px 2px rgba(37,99,235,0.2);">
+                                <span style="margin-right: 5px;">1.</span>
+                                <span>Request Info</span>
+                            </div>
+                            <span style="color: #cbd5e1; font-weight: bold; font-size: 14px;">➔</span>
+                            <div class="breadcrumb-step" style="display: inline-flex; align-items: center; color: #64748b; padding: 5px 12px; border-radius: 6px; font-weight: 500;">
+                                <span style="margin-right: 5px;">2.</span>
+                                <span>Process Checklists</span>
+                            </div>
+                            <span style="color: #cbd5e1; font-weight: bold; font-size: 14px;">➔</span>
+                            <div class="breadcrumb-step" style="display: inline-flex; align-items: center; color: #64748b; padding: 5px 12px; border-radius: 6px; font-weight: 500;">
+                                <span style="margin-right: 5px;">3.</span>
+                                <span>Completed</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bs-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
+                        <div class="bs-card-header" style="padding: 16px 20px; border-bottom: 1px solid #f1f5f9; background: #f8fafc;">
+                            <h4 class="bs-card-title" style="margin: 0; font-size: 16px; font-weight: 700; color: #1e293b;">Checklist Information</h4>
+                        </div>
+                        <div class="bs-card-body" style="padding: 20px;">
+                            <div id="checklist-info-form" class="tour-cyle-info-form">
+                                <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+                                    <div class="form-group">
+                                        <label class="form-label" style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block;">Manufacturing Site <span style="color: #ef4444;">*</span></label>
+                                        <div class="select2-parent">
+                                            <select id="info-site-select" class="form-select" onchange="MixingBaking_Checklist.onInfoSiteChange()">
+                                                <option value="Rajpura">Rajpura</option>
+                                                <option value="Phillaur">Phillaur</option>
+                                                <option value="Indore">Indore</option>
+                                                <option value="Tahliwal">Tahliwal</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label" style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block;">Line No <span style="color: #ef4444;">*</span></label>
+                                        <div class="select2-parent">
+                                            <select id="info-line-select" class="form-select">
+                                                <option value="Line 1">Line 1</option>
+                                                <option value="Line 2">Line 2</option>
+                                                <option value="Line 3">Line 3</option>
+                                                <option value="Line 4">Line 4</option>
+                                                <option value="Line 5">Line 5</option>
+                                                <option value="Line 6">Line 6</option>
+                                                <option value="Line 7">Line 7</option>
+                                                <option value="Line 8">Line 8</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="form-group" style="grid-column: span 2;">
+                                        <label class="form-label" style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block;">Product Name <span style="color: #ef4444;">*</span></label>
+                                        <div class="select2-parent">
+                                            <select id="info-product-select" class="form-select">
+                                                <option value="">Select Product</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label" style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block;">QA Executive Name <span style="color: #ef4444;">*</span></label>
+                                        <div class="select2-parent">
+                                            <select id="info-qa-select" class="form-select">
+                                                <option value="">Select QA Executive</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label" style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block;">Production Executive <span style="color: #ef4444;">*</span></label>
+                                        <div class="select2-parent">
+                                            <select id="info-prod-select" class="form-select">
+                                                <option value="">Select Production Executive</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label" style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block;">Shift Executive</label>
+                                        <input type="text" class="form-control" id="info-shift-exec" disabled readonly style="background-color: #f8fafc; color: #334155; font-weight: 600; height: 38px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 6px 12px;" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label" style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block;">Batch No <span style="color: #ef4444;">*</span></label>
+                                        <input type="text" class="form-control" id="info-batch-input" placeholder="Enter Batch No (e.g. B-101)" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label" style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block;">Date</label>
+                                        <input type="text" class="form-control" id="info-date-input" disabled readonly style="background: #f8fafc;" />
+                                    </div>
+                                </div>
+                                <div class="form-footer" style="margin-top: 25px; display: flex; justify-content: flex-end;">
+                                    <button type="button" class="bs-btn bs-btn-primary" style="padding: 10px 28px; font-weight: 700; font-size: 14px; border-radius: 8px;" onclick="MixingBaking_Checklist.startSessionFromInfoForm()">
+                                        Start Session ➔
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <!-- Complete Tour Button Container -->
-                <div id="complete-tour-btn-container" style="display: none; margin-top: 30px; padding: 20px; justify-content: center; border-top: 1px solid #e2e8f0; background: #ffffff; width: 100%; box-sizing: border-box;">
-                    <button type="button" id="complete-tour-btn" class="bs-btn" style="padding: 12px 36px; font-size: 15px; font-weight: 700; border-radius: 8px; background-color: #10b981; color: #ffffff; border: none; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2), 0 2px 4px -1px rgba(16, 185, 129, 0.1); cursor: pointer; transition: all 0.2s;" onclick="MixingBaking_Checklist.completeTour()">
-                        Complete Quality Tour
-                    </button>
+
+                <!-- ========================================================
+                     SCREEN 2: CYCLES CONTAINER & SUMMARY HEADER
+                     ======================================================== -->
+                <div id="screen-cycles-container" style="display: none;">
+                    <!-- Persistent Read-Only Checklist Information Header Card -->
+                    <div id="mb-info-header-card" class="bs-card mb-4" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); margin-bottom: 20px;">
+                        <div class="bs-card-header" style="padding: 12px 18px; border-bottom: 1px solid #f1f5f9; background: #f8fafc; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <h4 class="bs-card-title" style="margin: 0; font-size: 14px; font-weight: 700; color: #1e293b;">Checklist Information</h4>
+                                <span class="badge" id="mb-header-status-badge" style="background-color: #d1fae5; color: #065f46; font-weight: 600; font-size: 11px; padding: 3px 8px; border-radius: 4px;">Active Session</span>
+                            </div>
+                            <button type="button" id="mb-edit-info-btn" class="bs-btn" style="padding: 4px 10px; font-size: 12px; font-weight: 600; color: #475569; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" onclick="MixingBaking_Checklist.editChecklistInfo()">
+                                ✏️ Edit Info
+                            </button>
+                        </div>
+                        <div class="tour-cycle-info-wrapper" style="padding: 14px 18px;">
+                            <div class="tour-cyle-start-info" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px;">
+                                <div class="start-info-item">
+                                    <p class="item-label" style="font-size: 11px; color: #64748b; margin: 0 0 2px 0; text-transform: uppercase; font-weight: 600;">Site</p>
+                                    <p class="item-value" id="hdr-site" style="font-weight: 600; color: #0f172a; margin: 0; font-size: 13px;">Rajpura</p>
+                                </div>
+                                <div class="start-info-item">
+                                    <p class="item-label" style="font-size: 11px; color: #64748b; margin: 0 0 2px 0; text-transform: uppercase; font-weight: 600;">Line No</p>
+                                    <p class="item-value" id="hdr-line" style="font-weight: 600; color: #0f172a; margin: 0; font-size: 13px;">Line 1</p>
+                                </div>
+                                <div class="start-info-item" style="grid-column: span 2;">
+                                    <p class="item-label" style="font-size: 11px; color: #64748b; margin: 0 0 2px 0; text-transform: uppercase; font-weight: 600;">Product Name</p>
+                                    <p class="item-value" id="hdr-product" style="font-weight: 700; color: #0284c7; margin: 0; font-size: 13px;">-</p>
+                                </div>
+                                <div class="start-info-item">
+                                    <p class="item-label" style="font-size: 11px; color: #64748b; margin: 0 0 2px 0; text-transform: uppercase; font-weight: 600;">QA Executive</p>
+                                    <p class="item-value" id="hdr-qa" style="font-weight: 600; color: #0f172a; margin: 0; font-size: 13px;">-</p>
+                                </div>
+                                <div class="start-info-item">
+                                    <p class="item-label" style="font-size: 11px; color: #64748b; margin: 0 0 2px 0; text-transform: uppercase; font-weight: 600;">Production Executive</p>
+                                    <p class="item-value" id="hdr-prod" style="font-weight: 600; color: #0f172a; margin: 0; font-size: 13px;">-</p>
+                                </div>
+                                <div class="start-info-item">
+                                    <p class="item-label" style="font-size: 11px; color: #64748b; margin: 0 0 2px 0; text-transform: uppercase; font-weight: 600;">Shift Executive</p>
+                                    <p class="item-value" id="hdr-shift-exec" style="font-weight: 600; color: #0f172a; margin: 0; font-size: 13px;">-</p>
+                                </div>
+                                <div class="start-info-item">
+                                    <p class="item-label" style="font-size: 11px; color: #64748b; margin: 0 0 2px 0; text-transform: uppercase; font-weight: 600;">Batch No</p>
+                                    <p class="item-value" id="hdr-batch" style="font-weight: 600; color: #0f172a; margin: 0; font-size: 13px;">-</p>
+                                </div>
+                                <div class="start-info-item">
+                                    <p class="item-label" style="font-size: 11px; color: #64748b; margin: 0 0 2px 0; text-transform: uppercase; font-weight: 600;">Shift</p>
+                                    <p class="item-value" id="hdr-shift" style="font-weight: 600; color: #0f172a; margin: 0; font-size: 13px;">Shift 1</p>
+                                </div>
+                                <div class="start-info-item">
+                                    <p class="item-label" style="font-size: 11px; color: #64748b; margin: 0 0 2px 0; text-transform: uppercase; font-weight: 600;">Date</p>
+                                    <p class="item-value" id="hdr-date" style="font-weight: 600; color: #0f172a; margin: 0; font-size: 13px;">--/--/----</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic List of Cycles -->
+                    <div class="tour-cycle-card-panel-lists">
+                        <!-- Loaded dynamically via JavaScript cycle loop -->
+                    </div>
+
+                    <!-- Add Next Cycle Button -->
+                    <div id="add-cycle-btn-container" style="display: none; margin-top: 15px; margin-bottom: 20px; justify-content: flex-start;">
+                        <button type="button" id="btn-add-next-cycle" class="bs-btn" style="padding: 10px 20px; font-size: 13px; font-weight: 700; border-radius: 8px; background-color: #f1f5f9; color: #0f172a; border: 1px solid #cbd5e1; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" onclick="MixingBaking_Checklist.addNewCycle()">
+                            ➕ Add Next Cycle
+                        </button>
+                    </div>
+
+                    <!-- Complete Tour Button Container -->
+                    <div id="complete-tour-btn-container" style="display: none; margin-top: 25px; padding: 20px; justify-content: center; border-top: 1px solid #e2e8f0; background: #ffffff; border-radius: 8px; width: 100%; box-sizing: border-box;">
+                        <button type="button" id="complete-tour-btn" class="bs-btn" style="padding: 12px 36px; font-size: 15px; font-weight: 700; border-radius: 8px; background-color: #10b981; color: #ffffff; border: none; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2), 0 2px 4px -1px rgba(16, 185, 129, 0.1); cursor: pointer; transition: all 0.2s;" onclick="MixingBaking_Checklist.completeTour()">
+                            Complete Quality Tour
+                        </button>
+                    </div>
                 </div>
             </div>
         </main>
@@ -149,11 +321,12 @@
                 siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/libraries/moment.min.js",
                 siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/CommonDAL.js",
                 siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/Common.js",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=3.6",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/MixingAndBaking/js/dal.js?v=3.6",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/MixingAndBaking/js/main.js?v=3.6",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/MixingAndBaking/js/checklist.js?v=3.6",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/MixingAndBaking/script.js?v=3.6"
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=6.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/mb-recipes-seed.js?v=6.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/MixingAndBaking/js/dal.js?v=6.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/MixingAndBaking/js/main.js?v=6.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/MixingAndBaking/js/checklist.js?v=6.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/MixingAndBaking/script.js?v=6.0"
             ];
 
             if (document.readyState === "loading") {

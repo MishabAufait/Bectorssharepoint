@@ -49,6 +49,17 @@ body {
     background: #ffffff;
 }
 
+.mb-tab-btn.section-filled {
+    position: relative;
+}
+
+.mb-tab-btn.section-filled::after {
+    content: ' ✓';
+    color: #16a34a;
+    font-weight: 700;
+    margin-left: 4px;
+}
+
 .mb-tabs-content {
     padding: 20px;
 }
@@ -342,8 +353,16 @@ select.select2-hidden-accessible {
     overflow: hidden !important;
 }
 
-.select2-container {
+.select2-parent {
+    position: relative !important;
     width: 100% !important;
+}
+
+span.select2.select2-container,
+.select2-parent > .select2-container,
+.form-group .select2.select2-container {
+    width: 100% !important;
+    display: block !important;
 }
 
 .select2-container .select2-selection--single {
@@ -436,3 +455,36 @@ select.select2-hidden-accessible {
     background-color: #047857 !important;
     transform: translateY(0);
 }
+
+/* Stepper & Workflow Indicator Styling matching CCP/OPRP and Packaging */
+.tour-workflow-stepper .stepper-item {
+    font-size: 13px;
+    font-weight: 500;
+    color: #64748b;
+    background: transparent;
+    padding: 4px 10px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.tour-workflow-stepper .stepper-item.active {
+    font-weight: 700 !important;
+    color: #2563eb !important;
+    background-color: #dbeafe !important;
+}
+
+.tour-workflow-stepper .stepper-item.completed {
+    font-weight: 600 !important;
+    color: #16a34a !important;
+    background-color: #dcfce7 !important;
+}
+
+.tour-workflow-stepper .stepper-item.upcoming {
+    font-weight: 500 !important;
+    color: #64748b !important;
+    background-color: transparent !important;
+}
+

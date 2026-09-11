@@ -132,13 +132,256 @@ const PKGOPS_Checklist = {
         CBB: false
     },
 
+    allProducts: [],
+    lineProducts: [],
+    categories: [],
+    products: [],
+    skus: [],
+    selectedLine: "",
+
     init: async function (tourId, pkgopsType) {
         this.currentTourId = tourId;
         this.pkgopsType = pkgopsType;
+        this.pqiSubChecklistsFilled = {
+            NetWeight: false,
+            Product: false,
+            Primary: false,
+            Secondary: false,
+            CBB: false
+        };
+        this.savedPqiNetWeight = null;
+        this.savedPqiEvaluations = [];
+        this._previousPqiSubSelect = "NetWeight";
         
         console.log(`Initializing Checklist: TourId=${tourId}, Type=${pkgopsType}`);
+
+        // Fetch master products and SKUs for the selected line dynamically from SharePoint list
+        const selectedLine = (typeof PKGOPS_StateMachine !== "undefined" && PKGOPS_StateMachine.currentSession && PKGOPS_StateMachine.currentSession.cr3ea_lineno) || document.getElementById("setup-line")?.value || "";
+        this.selectedLine = selectedLine;
+
+        try {
+            // 1. Get all products across all lines (for master catalog & category resolution)
+            this.allProducts = await PKGOPS_DAL.getAllProducts();
+            
+            // 2. Get line-filtered products matching the active line
+            this.lineProducts = await PKGOPS_DAL.getProducts(selectedLine);
+            
+            // 3. Get master categories across SharePoint list for the selected line
+            this.categories = await PKGOPS_DAL.getProductCategories(selectedLine);
+            
+            // 4. Get SKU master
+            this.skus = await PKGOPS_DAL.getSkus();
+        } catch (err) {
+            console.warn("Failed to load products/skus from DAL:", err);
+            this.allProducts = (PKGOPS_DAL.getMasterSeedDefaults ? PKGOPS_DAL.getMasterSeedDefaults() : []).filter(c => {
+                const cType = (c.ConfigType || "").trim().toLowerCase();
+                return cType === "product master" || cType === "product_x0020_master";
+            });
+            this.lineProducts = this.allProducts;
+            const catSet = new Set();
+            this.allProducts.forEach(p => {
+                if (p.ProductCategory && p.ProductCategory.trim()) catSet.add(p.ProductCategory.trim());
+            });
+            this.categories = Array.from(catSet).sort((a, b) => a.localeCompare(b));
+            this.skus = (PKGOPS_DAL.getMasterSeedDefaults ? PKGOPS_DAL.getMasterSeedDefaults() : []).filter(c => {
+                const cType = (c.ConfigType || "").trim().toLowerCase();
+                return cType === "sku master" || cType === "sku_x0020_master";
+            });
+        }
+
+        this.products = this.lineProducts;
+
+        console.log(`PKGOPS_Checklist: Loaded ${this.lineProducts.length} line products (from ${this.allProducts.length} master products) across ${this.categories.length} categories for line "${selectedLine || 'All'}".`);
+
         this.renderChecklistForm();
         await this.loadSavedValues();
+
+        // If user is not authorized QA, lock inputs
+        if (typeof PKGOPS_StateMachine !== "undefined" && !PKGOPS_StateMachine.isQaUser) {
+            PKGOPS_StateMachine.lockChecklistReadOnly(true);
+        }
+    },
+
+    getCategoryOptionsHtml: function (selectedCategory) {
+        let html = `<option value="">All Categories</option>`;
+        (this.categories || []).forEach(cat => {
+            const isSel = (selectedCategory && selectedCategory.toLowerCase() === cat.toLowerCase()) ? 'selected' : '';
+            html += `<option value="${cat}" ${isSel}>${cat}</option>`;
+        });
+        return html;
+    },
+
+    getProductOptionsHtml: function (selectedValue, categoryFilter) {
+        // Base product list: line-filtered products if available, otherwise all products
+        let prods = (this.lineProducts && this.lineProducts.length > 0) ? this.lineProducts : (this.allProducts || []);
+        
+        // If categoryFilter is provided (and not empty / "All Categories"), filter by category
+        if (categoryFilter && categoryFilter.trim() && categoryFilter.toLowerCase() !== "all categories") {
+            const lowerCat = categoryFilter.toLowerCase().trim();
+            let catProds = prods.filter(p => {
+                const pCat = (p.ProductCategory || "").toLowerCase().trim();
+                if (lowerCat === "general") {
+                    return pCat === "general" || !pCat;
+                }
+                return pCat === lowerCat;
+            });
+
+            // If line-filtered prods has no matching items in this category, search master catalog for items in this category
+            if (catProds.length === 0 && this.allProducts && this.allProducts.length > 0) {
+                catProds = this.allProducts.filter(p => {
+                    const pCat = (p.ProductCategory || "").toLowerCase().trim();
+                    if (lowerCat === "general") {
+                        return pCat === "general" || !pCat;
+                    }
+                    return pCat === lowerCat;
+                });
+            }
+
+            if (catProds.length > 0) {
+                prods = catProds;
+            }
+        }
+
+        let html = `<option value="">Select Product</option>`;
+        let selectedFound = false;
+
+        prods.forEach(p => {
+            const code = p.ProductCode ? ` (${p.ProductCode})` : '';
+            const isSel = (selectedValue && (selectedValue === p.Title || selectedValue === `${p.Title}${code}` || selectedValue === p.ProductCode)) ? 'selected' : '';
+            if (isSel) selectedFound = true;
+            html += `<option value="${p.Title}" data-category="${p.ProductCategory || ''}" ${isSel}>${p.Title}${code}</option>`;
+        });
+
+        // If a previously saved value is not in the filtered list, keep it visible and selected so saved data is never lost
+        if (selectedValue && !selectedFound) {
+            const fallbackProd = (this.allProducts || []).find(p => p.Title === selectedValue || `${p.Title} (${p.ProductCode})` === selectedValue || p.ProductCode === selectedValue);
+            const cat = fallbackProd ? (fallbackProd.ProductCategory || '') : '';
+            html += `<option value="${selectedValue}" data-category="${cat}" selected>${selectedValue}</option>`;
+        }
+
+        return html;
+    },
+
+    onCategoryChange: function (sectionPrefix) {
+        const catEl = document.getElementById(`${sectionPrefix}-category`);
+        const prodEl = document.getElementById(`${sectionPrefix}-product`);
+        if (!prodEl) return;
+        const selectedCategory = catEl ? catEl.value : "";
+        
+        prodEl.innerHTML = this.getProductOptionsHtml("", selectedCategory);
+        
+        if (window.jQuery && $.fn.select2 && $(prodEl).hasClass("select2-hidden-accessible")) {
+            $(prodEl).val("").trigger('change');
+        } else {
+            prodEl.value = "";
+        }
+    },
+
+    onProductChange: function (sectionPrefix) {
+        const prodEl = document.getElementById(`${sectionPrefix}-product`);
+        const catEl = document.getElementById(`${sectionPrefix}-category`);
+        if (!prodEl) return;
+        
+        const selectedTitle = prodEl.value;
+        if (!selectedTitle) return;
+
+        // Find the selected product in allProducts
+        const matched = (this.allProducts || []).find(p => p.Title === selectedTitle || `${p.Title} (${p.ProductCode})` === selectedTitle || p.ProductCode === selectedTitle);
+        if (matched && matched.ProductCategory && catEl) {
+            const currentCat = catEl.value;
+            if (!currentCat || currentCat.toLowerCase() !== matched.ProductCategory.toLowerCase()) {
+                catEl.value = matched.ProductCategory;
+                if (window.jQuery && $.fn.select2 && $(catEl).hasClass("select2-hidden-accessible")) {
+                    $(catEl).val(matched.ProductCategory).trigger('change.select2');
+                }
+                // Update product dropdown options to reflect this category while maintaining selection
+                prodEl.innerHTML = this.getProductOptionsHtml(selectedTitle, matched.ProductCategory);
+                if (window.jQuery && $.fn.select2 && $(prodEl).hasClass("select2-hidden-accessible")) {
+                    $(prodEl).val(selectedTitle).trigger('change.select2');
+                }
+            }
+        }
+    },
+
+    setProductWithCategory: function (sectionPrefix, productName) {
+        if (!productName) return;
+        const catEl = document.getElementById(`${sectionPrefix}-category`);
+        const prodEl = document.getElementById(`${sectionPrefix}-product`);
+        if (!prodEl) return;
+
+        const matched = (this.allProducts || []).find(p => p.Title === productName || `${p.Title} (${p.ProductCode})` === productName || p.ProductCode === productName);
+        const category = matched ? (matched.ProductCategory || "") : "";
+
+        if (catEl && category) {
+            catEl.value = category;
+            if (window.jQuery && $.fn.select2 && $(catEl).hasClass("select2-hidden-accessible")) {
+                $(catEl).val(category).trigger('change.select2');
+            }
+            prodEl.innerHTML = this.getProductOptionsHtml(productName, category);
+        } else {
+            prodEl.innerHTML = this.getProductOptionsHtml(productName, "");
+        }
+
+        this.setSelectValueSafely(`${sectionPrefix}-product`, productName);
+    },
+
+    getSkuOptionsHtml: function (selectedValue) {
+        let html = `<option value="">Select SKU</option>`;
+        (this.skus || []).forEach(s => {
+            const isSel = (selectedValue && selectedValue === s.Title) ? 'selected' : '';
+            html += `<option value="${s.Title}" ${isSel}>${s.Title}</option>`;
+        });
+        return html;
+    },
+
+    getSkuDatalistHtml: function () {
+        let html = `<datalist id="sku-master-datalist">`;
+        (this.skus || []).forEach(s => {
+            html += `<option value="${s.Title}"></option>`;
+        });
+        html += `</datalist>`;
+        return html;
+    },
+
+    initSelect2OnChecklist: function () {
+        if (window.jQuery && $.fn.select2) {
+            setTimeout(() => {
+                $('#checklist-form-area select.form-select').each(function () {
+                    if (!$(this).hasClass("select2-hidden-accessible")) {
+                        $(this).select2({
+                            dropdownParent: $(this).parent(),
+                            width: '100%'
+                        });
+                    }
+                });
+            }, 50);
+        }
+    },
+
+    setSelectValueSafely: function (elementId, value) {
+        const el = document.getElementById(elementId);
+        if (!el || !value) return;
+        if (el.tagName === "INPUT") {
+            el.value = value;
+            return;
+        }
+        let found = false;
+        if (el.options) {
+            for (let i = 0; i < el.options.length; i++) {
+                if (el.options[i].value === value || el.options[i].text.includes(value)) {
+                    el.selectedIndex = i;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found && value) {
+                const opt = new Option(value, value, true, true);
+                el.add(opt);
+            }
+        }
+        if (window.jQuery && $.fn.select2 && $(el).hasClass("select2-hidden-accessible")) {
+            $(el).val(value).trigger('change');
+        }
     },
 
     // Main router rendering the sub-checklist forms
@@ -178,6 +421,8 @@ const PKGOPS_Checklist = {
             default:
                 container.innerHTML = `<div class="alert alert-info">Invalid checklist type: ${this.pkgopsType}</div>`;
         }
+
+        this.initSelect2OnChecklist();
     },
 
     // 1. Temperatures & Humidity Form
@@ -226,23 +471,34 @@ const PKGOPS_Checklist = {
                 </div>
             </div>
             <div class="row g-3 mt-2">
-                <div class="col-md-4">
+                <div class="col-md-3">
+                    <label class="form-label">Product Category</label>
+                    <select class="form-select" id="cv-category" onchange="PKGOPS_Checklist.onCategoryChange('cv')">
+                        ${this.getCategoryOptionsHtml()}
+                    </select>
+                </div>
+                <div class="col-md-3">
                     <label class="form-label">Product Name</label>
-                    <input type="text" class="form-control" id="cv-product" placeholder="Enter Product Name">
+                    <div class="select2-parent">
+                        <select class="form-select" id="cv-product" onchange="PKGOPS_Checklist.onProductChange('cv')">
+                            ${this.getProductOptionsHtml()}
+                        </select>
+                    </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">SKU</label>
-                    <input type="text" class="form-control" id="cv-sku" placeholder="Enter SKU">
+                    <input type="text" class="form-control" id="cv-sku" list="sku-master-datalist" placeholder="e.g. 50g, 100g, 250g">
+                    ${this.getSkuDatalistHtml()}
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Batch No</label>
                     <input type="text" class="form-control" id="cv-batch" placeholder="Enter Batch No">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">PKD</label>
                     <input type="date" class="form-control" id="cv-pkd">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Expiry Date</label>
                     <input type="date" class="form-control" id="cv-expiry">
                 </div>
@@ -367,7 +623,7 @@ const PKGOPS_Checklist = {
                                                     </td>
                                                     <td>
                                                         <div class="input-group input-group-sm">
-                                                            <input type="number" class="form-control papa-defect-count" id="papa-count-${item.flatIndex}" value="0" min="0" disabled oninput="PKGOPS_Checklist.calculatePapaPercentages()" style="width: 55px;">
+                                                            <input type="number" class="form-control papa-defect-count" id="papa-count-${item.flatIndex}" value="0" min="0" max="100" disabled oninput="PKGOPS_Checklist.calculatePapaPercentages()" style="width: 55px;">
                                                             <span class="input-group-text fw-bold text-secondary" id="papa-pct-${item.flatIndex}" style="font-size: 10px;">0.0%</span>
                                                         </div>
                                                     </td>
@@ -400,7 +656,7 @@ const PKGOPS_Checklist = {
                                                     </td>
                                                     <td>
                                                         <div class="input-group input-group-sm">
-                                                            <input type="number" class="form-control papa-defect-count" id="papa-count-${item.flatIndex}" value="0" min="0" disabled oninput="PKGOPS_Checklist.calculatePapaPercentages()" style="width: 55px;">
+                                                            <input type="number" class="form-control papa-defect-count" id="papa-count-${item.flatIndex}" value="0" min="0" max="100" disabled oninput="PKGOPS_Checklist.calculatePapaPercentages()" style="width: 55px;">
                                                             <span class="input-group-text fw-bold text-secondary" id="papa-pct-${item.flatIndex}" style="font-size: 10px;">0.0%</span>
                                                         </div>
                                                     </td>
@@ -423,15 +679,26 @@ const PKGOPS_Checklist = {
                 </div>
             </div>
             <div class="row g-3 mt-2">
-                <div class="col-md-4">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Product Category</label>
+                    <select class="form-select" id="papa-category" onchange="PKGOPS_Checklist.onCategoryChange('papa')">
+                        ${this.getCategoryOptionsHtml()}
+                    </select>
+                </div>
+                <div class="col-md-3">
                     <label class="form-label fw-bold">Product Name</label>
-                    <input type="text" class="form-control" id="papa-product" placeholder="Enter Product Name">
+                    <div class="select2-parent">
+                        <select class="form-select" id="papa-product" onchange="PKGOPS_Checklist.onProductChange('papa')">
+                            ${this.getProductOptionsHtml()}
+                        </select>
+                    </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label fw-bold">SKU</label>
-                    <input type="text" class="form-control" id="papa-sku" placeholder="Enter SKU">
+                    <input type="text" class="form-control" id="papa-sku" list="sku-master-datalist" placeholder="e.g. 50g, 100g, 250g">
+                    ${this.getSkuDatalistHtml()}
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label fw-bold">Sample Size (Biscuits)</label>
                     <input type="number" class="form-control" id="papa-sample-size" value="100" readonly>
                 </div>
@@ -460,12 +727,6 @@ const PKGOPS_Checklist = {
                     </div>
                 </div>
             </div>
-
-            <div class="row mt-4">
-                <div class="col-md-12 text-end">
-                    <button type="button" class="btn btn-success px-4 fw-bold" onclick="event.preventDefault(); PKGOPS_Checklist.submitChecklist()"><i class="fa fa-save"></i> Save PAPA Form</button>
-                </div>
-            </div>
         `;
     },
 
@@ -490,7 +751,15 @@ const PKGOPS_Checklist = {
             const countInput = document.getElementById(`papa-count-${i}`);
             if (!countInput) continue;
             
-            const countVal = parseInt(countInput.value) || 0;
+            let countVal = parseInt(countInput.value) || 0;
+            if (countVal < 0) {
+                countVal = 0;
+                countInput.value = "0";
+            }
+            if (countVal > sampleSize) {
+                countVal = sampleSize;
+                countInput.value = sampleSize;
+            }
             const pctSpan = document.getElementById(`papa-pct-${i}`);
             
             const pct = (countVal / sampleSize) * 100;
@@ -507,6 +776,7 @@ const PKGOPS_Checklist = {
 
     // 4. PQI branching screen
     renderPQI: function (container) {
+        this._previousPqiSubSelect = "NetWeight";
         container.innerHTML = `
             <div class="row">
                 <div class="col-md-6">
@@ -539,26 +809,120 @@ const PKGOPS_Checklist = {
         this.loadPqiSubForm();
     },
 
+    updatePqiBadges: function () {
+        const keys = ["NetWeight", "Product", "Primary", "Secondary", "CBB"];
+        keys.forEach(k => {
+            const badge = document.getElementById(`badge-pqi-${k.toLowerCase()}`);
+            if (!badge) return;
+            const isFilled = !!this.pqiSubChecklistsFilled[k];
+            if (isFilled) {
+                badge.className = "badge bg-success pqi-status-badge";
+                badge.innerText = `${k === "NetWeight" ? "Net Weight" : k}: Saved`;
+            } else {
+                badge.className = "badge bg-secondary pqi-status-badge";
+                badge.innerText = `${k === "NetWeight" ? "Net Weight" : k}: Pending`;
+            }
+        });
+    },
+
+    captureActivePqiSubFormState: function (prevVal) {
+        if (!prevVal) return;
+        if (prevVal === "NetWeight") {
+            const prodEl = document.getElementById("pqi-nw-product");
+            if (!prodEl) return;
+            const product = prodEl.value || "";
+            const sku = document.getElementById("pqi-nw-sku")?.value || "";
+            const standard = document.getElementById("pqi-nw-standard")?.value || "150";
+            const weights = {};
+            let hasAny = false;
+            for (let i = 0; i < 15; i++) {
+                const w = document.getElementById(`pqi-weight-${i}`)?.value;
+                if (w !== undefined && w !== "") {
+                    weights[`cr3ea_sampleweight${i + 1}`] = parseFloat(w) || 0;
+                    hasAny = true;
+                }
+            }
+            if (product || sku || hasAny) {
+                this.savedPqiNetWeight = {
+                    ...(this.savedPqiNetWeight || {}),
+                    cr3ea_productname: product,
+                    cr3ea_sku: sku,
+                    cr3ea_standardweight: standard,
+                    ...weights
+                };
+            }
+        } else {
+            const prodEl = document.getElementById("pqi-eval-product");
+            if (!prodEl) return;
+            const product = prodEl.value || "";
+            const sku = document.getElementById("pqi-eval-sku")?.value || "";
+            const pkd = document.getElementById("pqi-eval-pkd")?.value || "";
+            const batch = document.getElementById("pqi-eval-batch")?.value || "";
+
+            const capturedRows = [];
+            let hasAny = !!(product || sku || pkd || batch);
+            for (let idx = 0; idx < 10; idx++) {
+                const status = document.getElementById(`pqi-eval-status-${idx}`)?.value || "Okay";
+                const cat = document.getElementById(`pqi-eval-cat-${idx}`)?.value || "";
+                const detail = document.getElementById(`pqi-eval-detail-${idx}`)?.value || "";
+                if (status === "Not Okay" || cat || detail) hasAny = true;
+
+                const existingPrev = (this.savedPqiEvaluations || []).find(r => r.cr3ea_evaluationtype === prevVal && r.cr3ea_samplenumber === `Sample ${idx + 1}`);
+                capturedRows.push({
+                    cr3ea_evaluationtype: prevVal,
+                    cr3ea_productname: product,
+                    cr3ea_sku: sku,
+                    cr3ea_pkd: pkd,
+                    cr3ea_batchcode: batch,
+                    cr3ea_samplenumber: `Sample ${idx + 1}`,
+                    cr3ea_sampleresult: status,
+                    cr3ea_defectcategory: cat,
+                    cr3ea_defectdetail: detail,
+                    cr3ea_batchcodepictureurl: (existingPrev && existingPrev.cr3ea_batchcodepictureurl) || ""
+                });
+            }
+            if (hasAny) {
+                this.savedPqiEvaluations = (this.savedPqiEvaluations || []).filter(r => r.cr3ea_evaluationtype !== prevVal).concat(capturedRows);
+            }
+        }
+    },
+
     loadPqiSubForm: function () {
         const select = document.getElementById("pqi-sub-select");
         const subContainer = document.getElementById("pqi-sub-container");
         if (!select || !subContainer) return;
 
         const val = select.value;
+        if (this._previousPqiSubSelect && this._previousPqiSubSelect !== val) {
+            this.captureActivePqiSubFormState(this._previousPqiSubSelect);
+        }
+        this._previousPqiSubSelect = val;
+
         subContainer.innerHTML = "";
 
         if (val === "NetWeight") {
             subContainer.innerHTML = `
                 <div class="row g-3">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
+                        <label class="form-label">Product Category</label>
+                        <select class="form-select" id="pqi-nw-category" onchange="PKGOPS_Checklist.onCategoryChange('pqi-nw')">
+                            ${this.getCategoryOptionsHtml()}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
                         <label class="form-label">Product Name</label>
-                        <input type="text" class="form-control" id="pqi-nw-product" placeholder="Product Name">
+                        <div class="select2-parent">
+                            <select class="form-select" id="pqi-nw-product" onchange="PKGOPS_Checklist.onProductChange('pqi-nw')">
+                                ${this.getProductOptionsHtml()}
+                            </select>
+                        </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label">SKU</label>
-                        <input type="text" class="form-control" id="pqi-nw-sku" placeholder="SKU">
+                        <input type="text" class="form-control" id="pqi-nw-sku" list="sku-master-datalist" placeholder="e.g. 150g">
+                        ${this.getSkuDatalistHtml()}
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label">Standard Weight (g)</label>
                         <input type="number" class="form-control" id="pqi-nw-standard" value="150" oninput="PKGOPS_Checklist.calculateNetWeightMetrics()">
                     </div>
@@ -588,18 +952,29 @@ const PKGOPS_Checklist = {
             subContainer.innerHTML = `
                 <div class="row g-3">
                     <div class="col-md-3">
+                        <label class="form-label">Product Category</label>
+                        <select class="form-select" id="pqi-eval-category" onchange="PKGOPS_Checklist.onCategoryChange('pqi-eval')">
+                            ${this.getCategoryOptionsHtml()}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
                         <label class="form-label">Product Name</label>
-                        <input type="text" class="form-control" id="pqi-eval-product" placeholder="Product Name">
+                        <div class="select2-parent">
+                            <select class="form-select" id="pqi-eval-product" onchange="PKGOPS_Checklist.onProductChange('pqi-eval')">
+                                ${this.getProductOptionsHtml()}
+                            </select>
+                        </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label">SKU</label>
-                        <input type="text" class="form-control" id="pqi-eval-sku" placeholder="SKU">
+                        <input type="text" class="form-control" id="pqi-eval-sku" list="sku-master-datalist" placeholder="e.g. 150g">
+                        ${this.getSkuDatalistHtml()}
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label">PKD</label>
                         <input type="date" class="form-control" id="pqi-eval-pkd">
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label">Batch Code</label>
                         <input type="text" class="form-control" id="pqi-eval-batch" placeholder="Batch Code">
                     </div>
@@ -643,6 +1018,8 @@ const PKGOPS_Checklist = {
             `;
         }
         this.populateActivePqiSubForm();
+        this.updatePqiBadges();
+        this.initSelect2OnChecklist();
     },
 
     togglePqiDefectFields: function (idx) {
@@ -755,6 +1132,7 @@ const PKGOPS_Checklist = {
                     cr3ea_name: `PQI_NetWeight_${sku}_${moment().format("DD-MM-YYYY")}`,
                     cr3ea_productname: product,
                     cr3ea_sku: sku,
+                    cr3ea_standardweight: String(standard),
                     cr3ea_averageweight: Number(avg.toFixed(2)),
                     cr3ea_giveaway: Number(giveAway.toFixed(2)),
                     "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
@@ -767,9 +1145,9 @@ const PKGOPS_Checklist = {
 
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_PQI_NET_WEIGHT", this.currentTourId);
                 await PKGOPS_DAL.saveSubChecklistRow("CHILD_PQI_NET_WEIGHT", netWeightRecord);
+                this.savedPqiNetWeight = netWeightRecord;
                 this.pqiSubChecklistsFilled.NetWeight = true;
-                document.getElementById("badge-pqi-netweight").className = "badge bg-success pqi-status-badge";
-                document.getElementById("badge-pqi-netweight").innerText = "Net Weight: Saved";
+                this.updatePqiBadges();
             } else {
                 PKGOPS_Validator.clearAll("pqi-sub-container");
                 const headers = [
@@ -814,7 +1192,10 @@ const PKGOPS_Checklist = {
                             return;
                         }
 
-                        if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+                        const existingPrev = (this.savedPqiEvaluations || []).find(r => r.cr3ea_evaluationtype === val && r.cr3ea_samplenumber === `Sample ${idx + 1}`);
+                        const hasOldPhoto = existingPrev && existingPrev.cr3ea_batchcodepictureurl;
+
+                        if ((!fileInput || !fileInput.files || !fileInput.files[0]) && !hasOldPhoto) {
                             if (fileInput) PKGOPS_Validator.highlight(fileInput, true);
                             if (typeof HideLoader === "function") HideLoader();
                             alert(`Please upload a proof image for defective Sample ${idx + 1}.`);
@@ -831,6 +1212,7 @@ const PKGOPS_Checklist = {
                 const batch = document.getElementById("pqi-eval-batch").value;
 
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_PQI_EVALUATION", this.currentTourId, val);
+                const newEvalRows = [];
                 // Save each sample evaluation row to CHILD_PQI_EVALUATION
                 for (let idx = 0; idx < 10; idx++) {
                     const status = document.getElementById(`pqi-eval-status-${idx}`).value;
@@ -841,6 +1223,11 @@ const PKGOPS_Checklist = {
                     let pictureUrl = "";
                     if (fileInput && fileInput.files && fileInput.files[0]) {
                         pictureUrl = await PKGOPS_DAL.uploadAttachmentFile(fileInput.files[0], this.currentTourId, `PQI_${val}`, `PQI-Sample-${idx}`, detail);
+                    } else {
+                        const existingPrev = (this.savedPqiEvaluations || []).find(r => r.cr3ea_evaluationtype === val && r.cr3ea_samplenumber === `Sample ${idx + 1}`);
+                        if (existingPrev && existingPrev.cr3ea_batchcodepictureurl) {
+                            pictureUrl = existingPrev.cr3ea_batchcodepictureurl;
+                        }
                     }
 
                     const evalRecord = {
@@ -859,15 +1246,12 @@ const PKGOPS_Checklist = {
                     };
 
                     await PKGOPS_DAL.saveSubChecklistRow("CHILD_PQI_EVALUATION", evalRecord);
+                    newEvalRows.push(evalRecord);
                 }
 
+                this.savedPqiEvaluations = (this.savedPqiEvaluations || []).filter(r => r.cr3ea_evaluationtype !== val).concat(newEvalRows);
                 this.pqiSubChecklistsFilled[val] = true;
-                const badgeId = `badge-pqi-${val.toLowerCase()}`;
-                const badge = document.getElementById(badgeId);
-                if (badge) {
-                    badge.className = "badge bg-success pqi-status-badge";
-                    badge.innerText = `${val}: Saved`;
-                }
+                this.updatePqiBadges();
             }
 
             if (typeof HideLoader === "function") HideLoader();
@@ -888,15 +1272,26 @@ const PKGOPS_Checklist = {
                 </div>
             </div>
             <div class="row g-3 mt-2">
-                <div class="col-md-4">
+                <div class="col-md-3">
+                    <label class="form-label">Product Category</label>
+                    <select class="form-select" id="seal-category" onchange="PKGOPS_Checklist.onCategoryChange('seal')">
+                        ${this.getCategoryOptionsHtml()}
+                    </select>
+                </div>
+                <div class="col-md-3">
                     <label class="form-label">Product Name</label>
-                    <input type="text" class="form-control" id="seal-product" placeholder="Product Name">
+                    <div class="select2-parent">
+                        <select class="form-select" id="seal-product" onchange="PKGOPS_Checklist.onProductChange('seal')">
+                            ${this.getProductOptionsHtml()}
+                        </select>
+                    </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">SKU</label>
-                    <input type="text" class="form-control" id="seal-sku" placeholder="SKU">
+                    <input type="text" class="form-control" id="seal-sku" list="sku-master-datalist" placeholder="e.g. 50g, 100g">
+                    ${this.getSkuDatalistHtml()}
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Machine No</label>
                     <input type="text" class="form-control" id="seal-machine" placeholder="Machine No">
                 </div>
@@ -930,31 +1325,42 @@ const PKGOPS_Checklist = {
                 </div>
             </div>
             <div class="row g-3 mt-2">
-                <div class="col-md-4">
+                <div class="col-md-3">
+                    <label class="form-label">Product Category</label>
+                    <select class="form-select" id="cream-category" onchange="PKGOPS_Checklist.onCategoryChange('cream')">
+                        ${this.getCategoryOptionsHtml()}
+                    </select>
+                </div>
+                <div class="col-md-3">
                     <label class="form-label">Product Name</label>
-                    <input type="text" class="form-control" id="cream-product" placeholder="Product Name">
+                    <div class="select2-parent">
+                        <select class="form-select" id="cream-product" onchange="PKGOPS_Checklist.onProductChange('cream')">
+                            ${this.getProductOptionsHtml()}
+                        </select>
+                    </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">SKU</label>
-                    <input type="text" class="form-control" id="cream-sku" placeholder="SKU">
+                    <input type="text" class="form-control" id="cream-sku" list="sku-master-datalist" placeholder="e.g. 50g, 100g">
+                    ${this.getSkuDatalistHtml()}
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Sample Size</label>
                     <input type="number" class="form-control" id="cream-sample-size" value="10" min="1">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Cream Percentage Reading (%)</label>
                     <input type="number" step="0.01" class="form-control" id="cream-reading" oninput="PKGOPS_Checklist.checkCreamStatus()" placeholder="Reading %">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Standard Min (%)</label>
                     <input type="number" step="0.01" class="form-control" id="cream-min" value="20" oninput="PKGOPS_Checklist.checkCreamStatus()">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Standard Max (%)</label>
                     <input type="number" step="0.01" class="form-control" id="cream-max" value="30" oninput="PKGOPS_Checklist.checkCreamStatus()">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Status</label>
                     <input type="text" class="form-control fw-bold" id="cream-status" value="Pass" readonly style="color: green;">
                 </div>
@@ -986,42 +1392,69 @@ const PKGOPS_Checklist = {
                 </div>
             </div>
             <div class="row g-3 mt-2">
-                <div class="col-md-4">
+                <div class="col-md-3">
+                    <label class="form-label">Product Category</label>
+                    <select class="form-select" id="wall-category" onchange="PKGOPS_Checklist.onCategoryChange('wall')">
+                        ${this.getCategoryOptionsHtml()}
+                    </select>
+                </div>
+                <div class="col-md-3">
                     <label class="form-label">Product Name</label>
-                    <input type="text" class="form-control" id="wall-product" placeholder="Product Name">
+                    <div class="select2-parent">
+                        <select class="form-select" id="wall-product" onchange="PKGOPS_Checklist.onProductChange('wall')">
+                            ${this.getProductOptionsHtml()}
+                        </select>
+                    </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">SKU</label>
-                    <input type="text" class="form-control" id="wall-sku" placeholder="SKU">
+                    <input type="text" class="form-control" id="wall-sku" list="sku-master-datalist" placeholder="e.g. 50g, 100g">
+                    ${this.getSkuDatalistHtml()}
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Facilitator</label>
-                    <input type="text" class="form-control" id="wall-facilitator" placeholder="Facilitator Name">
-                </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label">Wall Type</label>
                     <select class="form-select" id="wall-type">
                         <option value="Main Wall">Main Wall</option>
                         <option value="Line Wall">Line Wall</option>
                     </select>
                 </div>
+                <div class="col-md-4">
+                    <label class="form-label">Facilitator</label>
+                    <div class="pkgops-user-picker-container" id="picker-container-wall-facilitator">
+                        <input type="hidden" id="wall-facilitator" value="">
+                        <div class="pkgops-selected-chips-box" id="selected-chips-box-wall-facilitator" onclick="const inp = document.getElementById('picker-input-wall-facilitator'); if(inp) inp.focus();">
+                            <div id="chips-list-wall-facilitator" class="d-inline-flex flex-wrap gap-1 align-items-center"></div>
+                            <input type="text" id="picker-input-wall-facilitator" class="pkgops-picker-search-input" placeholder="Search facilitator..." oninput="PKGOPS_Checklist.onPickerSearch('wall-facilitator', this.value)" autocomplete="off">
+                        </div>
+                        <div id="dropdown-wall-facilitator" class="pkgops-picker-dropdown" style="display: none;"></div>
+                    </div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Search from employee directory</div>
+                </div>
                 <div class="col-md-8">
                     <label class="form-label">Members Present</label>
-                    <input type="text" class="form-control" id="wall-members" placeholder="Enter names separated by commas">
+                    <div class="pkgops-user-picker-container" id="picker-container-wall-members">
+                        <input type="hidden" id="wall-members" value="">
+                        <div class="pkgops-selected-chips-box" id="selected-chips-box-wall-members" onclick="const inp = document.getElementById('picker-input-wall-members'); if(inp) inp.focus();">
+                            <div id="chips-list-wall-members" class="d-inline-flex flex-wrap gap-1 align-items-center"></div>
+                            <input type="text" id="picker-input-wall-members" class="pkgops-picker-search-input" placeholder="Type name or email to add member..." oninput="PKGOPS_Checklist.onPickerSearch('wall-members', this.value)" autocomplete="off">
+                        </div>
+                        <div id="dropdown-wall-members" class="pkgops-picker-dropdown" style="display: none;"></div>
+                    </div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Select multiple team members attending evaluation</div>
                 </div>
             </div>
             <div class="row mt-4">
                 <div class="col-md-4">
                     <label class="form-label">Pack Appearance Rating (1-5)</label>
-                    <input type="number" class="form-control star-rating-input" id="wall-rating-appearance" min="1" max="5" value="5" oninput="PKGOPS_Checklist.calculateOverallWallRating()">
+                    <input type="number" class="form-control star-rating-input" id="wall-rating-appearance" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Sealing Quality Rating (1-5)</label>
-                    <input type="number" class="form-control star-rating-input" id="wall-rating-sealing" min="1" max="5" value="5" oninput="PKGOPS_Checklist.calculateOverallWallRating()">
+                    <input type="number" class="form-control star-rating-input" id="wall-rating-sealing" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Coding Rating (1-5)</label>
-                    <input type="number" class="form-control star-rating-input" id="wall-rating-coding" min="1" max="5" value="5" oninput="PKGOPS_Checklist.calculateOverallWallRating()">
+                    <input type="number" class="form-control star-rating-input" id="wall-rating-coding" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
                 </div>
             </div>
             <div class="row mt-4 text-center p-3 border rounded bg-white">
@@ -1036,20 +1469,303 @@ const PKGOPS_Checklist = {
                 </div>
             </div>
         `;
+        this.initQualityWallPickerState();
+    },
+
+    wallPickerState: {
+        "wall-facilitator": [],
+        "wall-members": []
+    },
+    _pickerDocClickBound: false,
+
+    initQualityWallPickerState: function () {
+        this.wallPickerState = {
+            "wall-facilitator": [],
+            "wall-members": []
+        };
+        // Pre-fetch employee directory in background
+        if (typeof PKGOPS_DAL !== "undefined" && typeof PKGOPS_DAL.getEmployeeList === "function") {
+            PKGOPS_DAL.getEmployeeList().catch(err => console.warn("Failed prefetching employees:", err));
+        }
+
+        if (!this._pickerDocClickBound) {
+            this._pickerDocClickBound = true;
+            document.addEventListener("click", function (e) {
+                const pickers = ["wall-facilitator", "wall-members"];
+                pickers.forEach(key => {
+                    const container = document.getElementById(`picker-container-${key}`);
+                    const dropdown = document.getElementById(`dropdown-${key}`);
+                    if (container && dropdown && !container.contains(e.target)) {
+                        dropdown.style.display = "none";
+                    }
+                });
+            });
+        }
+    },
+
+    getInitials: function (name) {
+        if (!name || typeof name !== "string") return "U";
+        const parts = name.trim().split(/\s+/);
+        if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    },
+
+    escapeHtml: function (text) {
+        if (!text) return "";
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    },
+
+    onPickerSearch: async function (pickerKey, query) {
+        const dropdown = document.getElementById(`dropdown-${pickerKey}`);
+        if (!dropdown) return;
+
+        if (!query || query.trim().length < 1) {
+            dropdown.style.display = "none";
+            return;
+        }
+
+        const q = query.toLowerCase().trim();
+        const employees = await PKGOPS_DAL.getEmployeeList();
+        const selectedUsers = this.wallPickerState[pickerKey] || [];
+        const selectedEmails = selectedUsers.map(u => (u.email || u.title || "").toLowerCase());
+
+        const matches = employees.filter(emp => {
+            const empEmail = (emp.email || "").toLowerCase();
+            const empTitle = (emp.title || "").toLowerCase();
+            if (empEmail && selectedEmails.includes(empEmail)) return false;
+            if (!empEmail && selectedEmails.includes(empTitle)) return false;
+
+            const nameMatch = empTitle.includes(q);
+            const emailMatch = empEmail.includes(q);
+            const deptMatch = (emp.department || "").toLowerCase().includes(q);
+            return nameMatch || emailMatch || deptMatch;
+        }).slice(0, 10);
+
+        if (matches.length === 0) {
+            dropdown.innerHTML = `<div style="padding: 10px 14px; font-size: 12.5px; color: #94a3b8;">No matching employee found</div>`;
+            dropdown.style.display = "block";
+            return;
+        }
+
+        dropdown.innerHTML = matches.map(emp => `
+            <div class="pkgops-picker-item" onclick="PKGOPS_Checklist.onSelectPickerUser('${pickerKey}', '${emp.id}')">
+                <span class="pkgops-user-avatar" style="width: 28px; height: 28px; font-size: 12px;">${this.getInitials(emp.title)}</span>
+                <div class="pkgops-picker-item-info">
+                    <div class="pkgops-picker-item-name">${this.escapeHtml(emp.title)}</div>
+                    <div class="pkgops-picker-item-sub">${this.escapeHtml(emp.email || "No email")} &bull; ${this.escapeHtml(emp.department || "Plant")}</div>
+                </div>
+                <span style="font-size: 16px; color: #2563eb; font-weight: bold;">+</span>
+            </div>
+        `).join("");
+        dropdown.style.display = "block";
+    },
+
+    onSelectPickerUser: async function (pickerKey, empId) {
+        const employees = await PKGOPS_DAL.getEmployeeList();
+        const emp = employees.find(e => String(e.id) === String(empId));
+        if (!emp) return;
+
+        if (!this.wallPickerState[pickerKey]) this.wallPickerState[pickerKey] = [];
+
+        if (pickerKey === "wall-facilitator") {
+            // Single select for Facilitator
+            this.wallPickerState[pickerKey] = [{
+                id: emp.id,
+                title: emp.title,
+                email: emp.email || emp.title
+            }];
+        } else {
+            // Multi select for Members Present
+            if (!this.wallPickerState[pickerKey].some(u => String(u.id) === String(emp.id) || (u.email && u.email.toLowerCase() === (emp.email || "").toLowerCase()))) {
+                this.wallPickerState[pickerKey].push({
+                    id: emp.id,
+                    title: emp.title,
+                    email: emp.email || emp.title
+                });
+            }
+        }
+
+        this.renderPickerChips(pickerKey);
+        this.syncPickerHiddenInput(pickerKey);
+
+        const input = document.getElementById(`picker-input-${pickerKey}`);
+        if (input) {
+            input.value = "";
+            if (pickerKey !== "wall-facilitator") {
+                input.focus();
+            }
+        }
+        const dropdown = document.getElementById(`dropdown-${pickerKey}`);
+        if (dropdown) dropdown.style.display = "none";
+    },
+
+    onRemovePickerChip: function (pickerKey, identifier) {
+        if (!this.wallPickerState[pickerKey]) return;
+        this.wallPickerState[pickerKey] = this.wallPickerState[pickerKey].filter(u => 
+            String(u.id) !== String(identifier) && u.email !== identifier && u.title !== identifier
+        );
+        this.renderPickerChips(pickerKey);
+        this.syncPickerHiddenInput(pickerKey);
+
+        const input = document.getElementById(`picker-input-${pickerKey}`);
+        if (input) {
+            input.focus();
+        }
+    },
+
+    renderPickerChips: function (pickerKey) {
+        const container = document.getElementById(`chips-list-${pickerKey}`);
+        if (!container) return;
+
+        const users = this.wallPickerState[pickerKey] || [];
+        const isFacilitator = pickerKey === "wall-facilitator";
+
+        container.innerHTML = users.map(u => `
+            <span class="pkgops-user-chip ${isFacilitator ? 'facilitator' : ''}" title="${this.escapeHtml(u.email || u.title)}">
+                <span class="pkgops-user-avatar">${this.getInitials(u.title)}</span>
+                <span>${this.escapeHtml(u.title)}</span>
+                <button type="button" class="pkgops-user-chip-remove" onclick="PKGOPS_Checklist.onRemovePickerChip('${pickerKey}', '${u.id || u.email || u.title}')" title="Remove">&times;</button>
+            </span>
+        `).join("");
+
+        const input = document.getElementById(`picker-input-${pickerKey}`);
+        if (input) {
+            if (isFacilitator && users.length > 0) {
+                input.style.display = "none";
+            } else {
+                input.style.display = "inline-block";
+                input.placeholder = isFacilitator ? "Search facilitator..." : (users.length === 0 ? "Type name or email to add member..." : "Add another member...");
+            }
+        }
+
+        // Reset error highlight on box if valid
+        const box = document.getElementById(`selected-chips-box-${pickerKey}`);
+        if (box && users.length > 0) {
+            box.style.borderColor = "#cbd5e1";
+        }
+    },
+
+    syncPickerHiddenInput: function (pickerKey) {
+        const hiddenInput = document.getElementById(pickerKey);
+        if (!hiddenInput) return;
+
+        const users = this.wallPickerState[pickerKey] || [];
+        const emails = users.map(u => (u.email || u.title || "").trim()).filter(Boolean);
+        hiddenInput.value = emails.join(", ");
+    },
+
+    populatePickerFromSavedValue: async function (pickerKey, rawValue) {
+        if (!rawValue || typeof rawValue !== "string" || !rawValue.trim()) return;
+
+        const employees = await PKGOPS_DAL.getEmployeeList();
+        const parts = rawValue.split(/[,;]+/).map(p => p.trim()).filter(Boolean);
+
+        const list = [];
+        for (let part of parts) {
+            const lowerPart = part.toLowerCase();
+            let match = employees.find(e => e.email && e.email.toLowerCase() === lowerPart);
+            if (!match) {
+                match = employees.find(e => e.title && e.title.toLowerCase() === lowerPart);
+            }
+            if (match) {
+                list.push({
+                    id: match.id,
+                    title: match.title,
+                    email: match.email || match.title
+                });
+            } else {
+                let friendlyName = part;
+                if (part.includes("@")) {
+                    friendlyName = part.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+                }
+                list.push({
+                    id: part,
+                    title: friendlyName,
+                    email: part
+                });
+            }
+        }
+
+        this.wallPickerState[pickerKey] = list;
+        this.renderPickerChips(pickerKey);
+        this.syncPickerHiddenInput(pickerKey);
+    },
+
+    validateRatingInput: function (input) {
+        if (!input) return;
+        let val = input.value;
+        if (val === "") {
+            this.calculateOverallWallRating();
+            return;
+        }
+        let num = parseFloat(val);
+        if (isNaN(num)) {
+            input.value = "5";
+        } else if (num > 5) {
+            input.value = "5";
+        } else if (num < 0) {
+            input.value = "1";
+        }
+        this.calculateOverallWallRating();
+    },
+
+    onRatingBlur: function (input) {
+        if (!input) return;
+        let val = input.value;
+        let num = parseFloat(val);
+        if (val === "" || isNaN(num) || num < 1) {
+            input.value = "1";
+        } else if (num > 5) {
+            input.value = "5";
+        }
+        this.calculateOverallWallRating();
     },
 
     calculateOverallWallRating: function () {
-        const app = parseFloat(document.getElementById("wall-rating-appearance").value) || 0;
-        const seal = parseFloat(document.getElementById("wall-rating-sealing").value) || 0;
-        const cod = parseFloat(document.getElementById("wall-rating-coding").value) || 0;
+        const clamp = (val) => {
+            if (val === "" || val === null || val === undefined) return 5;
+            const n = parseFloat(val);
+            if (isNaN(n)) return 5;
+            return Math.min(5, Math.max(1, n));
+        };
+
+        const appInput = document.getElementById("wall-rating-appearance");
+        const sealInput = document.getElementById("wall-rating-sealing");
+        const codInput = document.getElementById("wall-rating-coding");
+
+        const app = appInput ? clamp(appInput.value) : 5;
+        const seal = sealInput ? clamp(sealInput.value) : 5;
+        const cod = codInput ? clamp(codInput.value) : 5;
 
         const avg = (app + seal + cod) / 3;
         const ratingSpan = document.getElementById("wall-overall-rating");
-        if (ratingSpan) ratingSpan.innerText = `${avg.toFixed(2)} / 5`;
+        if (ratingSpan) {
+            ratingSpan.innerText = `${avg.toFixed(2)} / 5`;
+            if (avg < 3) {
+                ratingSpan.className = "text-danger fw-bold";
+            } else if (avg < 4) {
+                ratingSpan.className = "text-warning fw-bold";
+            } else {
+                ratingSpan.className = "text-primary fw-bold";
+            }
+        }
     },
 
     // Submit complete checklist
     submitChecklist: async function () {
+        if (typeof PKGOPS_StateMachine !== "undefined" && !PKGOPS_StateMachine.isQaUser) {
+            alert("Access Denied: Only the assigned QA Executive can submit the checklist.");
+            if (typeof PKGOPS_Main !== "undefined" && typeof PKGOPS_Main.redirectToDashboard === "function") {
+                PKGOPS_Main.redirectToDashboard();
+            }
+            return;
+        }
+
         if (typeof ShowLoader === "function") ShowLoader();
 
         try {
@@ -1460,22 +2176,33 @@ const PKGOPS_Checklist = {
                 for (let h of headers) {
                     const el = document.getElementById(h.id);
                     if (!el || !el.value.trim()) {
-                        if (el) PKGOPS_Validator.highlight(el, true);
+                        if (h.id === "wall-facilitator" || h.id === "wall-members") {
+                            const box = document.getElementById(`selected-chips-box-${h.id}`);
+                            if (box) box.style.borderColor = "#ef4444";
+                            const input = document.getElementById(`picker-input-${h.id}`);
+                            if (input) input.focus();
+                        } else if (el) {
+                            PKGOPS_Validator.highlight(el, true);
+                            el.focus();
+                        }
                         if (typeof HideLoader === "function") HideLoader();
-                        alert(`Please fill in the required field: ${h.name}`);
-                        if (el) el.focus();
+                        alert(`Please select or fill in the required field: ${h.name}`);
                         return;
                     }
                 }
 
-                const ratings = ["wall-rating-appearance", "wall-rating-sealing", "wall-rating-coding"];
+                const ratings = [
+                    { id: "wall-rating-appearance", name: "Pack Appearance Rating" },
+                    { id: "wall-rating-sealing", name: "Sealing Quality Rating" },
+                    { id: "wall-rating-coding", name: "Coding Rating" }
+                ];
                 for (let r of ratings) {
-                    const el = document.getElementById(r);
-                    const val = parseFloat(el.value) || 0;
-                    if (val < 1 || val > 5) {
+                    const el = document.getElementById(r.id);
+                    const val = parseFloat(el.value);
+                    if (isNaN(val) || val < 1 || val > 5) {
                         PKGOPS_Validator.highlight(el, true);
                         if (typeof HideLoader === "function") HideLoader();
-                        alert("Rating score must be between 1 and 5.");
+                        alert(`${r.name} score must be between 1 and 5.`);
                         el.focus();
                         return;
                     }
@@ -1486,12 +2213,13 @@ const PKGOPS_Checklist = {
                 const facilitator = document.getElementById("wall-facilitator").value;
                 const type = document.getElementById("wall-type").value;
                 const members = document.getElementById("wall-members").value;
-                const app = document.getElementById("wall-rating-appearance").value;
-                const seal = document.getElementById("wall-rating-sealing").value;
-                const cod = document.getElementById("wall-rating-coding").value;
+                const clamp = (v) => Math.min(5, Math.max(1, parseFloat(v) || 5));
+                const app = clamp(document.getElementById("wall-rating-appearance").value);
+                const seal = clamp(document.getElementById("wall-rating-sealing").value);
+                const cod = clamp(document.getElementById("wall-rating-coding").value);
                 const remarks = document.getElementById("wall-remarks").value;
 
-                const ratingVal = (parseFloat(app) + parseFloat(seal) + parseFloat(cod)) / 3;
+                const ratingVal = ((app + seal + cod) / 3).toFixed(2);
 
                 const wallRecord = {
                     cr3ea_name: `QualityWall_${sku}`,
@@ -1540,8 +2268,15 @@ const PKGOPS_Checklist = {
             if (typeof HideLoader === "function") HideLoader();
             alert(hasDeviation ? "Defects identified. Session submitted to Production for Corrective Action." : "Checklist completed and saved successfully!");
             
-            // Reload page to refresh routing and update states
-            window.location.reload();
+            // Redirect to dashboard like in ALC
+            if (typeof PKGOPS_Main !== "undefined" && typeof PKGOPS_Main.redirectToDashboard === "function") {
+                PKGOPS_Main.redirectToDashboard();
+            } else {
+                const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                    ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                    : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
+                window.location.href = homeUrl;
+            }
         } catch (e) {
             if (typeof HideLoader === "function") HideLoader();
             console.error("Failed to submit checklist: ", e);
@@ -1550,6 +2285,14 @@ const PKGOPS_Checklist = {
     },
 
     pauseChecklist: async function () {
+        if (typeof PKGOPS_StateMachine !== "undefined" && !PKGOPS_StateMachine.isQaUser) {
+            alert("Access Denied: Only the assigned QA Executive can pause the checklist.");
+            if (typeof PKGOPS_Main !== "undefined" && typeof PKGOPS_Main.redirectToDashboard === "function") {
+                PKGOPS_Main.redirectToDashboard();
+            }
+            return;
+        }
+
         if (typeof ShowLoader === "function") ShowLoader();
 
         try {
@@ -1657,6 +2400,111 @@ const PKGOPS_Checklist = {
                 };
                 await PKGOPS_DAL.saveSubChecklistRow("CHILD_PAPA", finalPapaRecord);
             } 
+            else if (this.pkgopsType === "PQI") {
+                const val = document.getElementById("pqi-sub-select")?.value || "NetWeight";
+                if (val === "NetWeight") {
+                    const product = document.getElementById("pqi-nw-product")?.value || "";
+                    const sku = document.getElementById("pqi-nw-sku")?.value || "";
+                    const standard = parseFloat(document.getElementById("pqi-nw-standard")?.value) || 0;
+
+                    const weights = [];
+                    let hasAnyWeight = false;
+                    for (let i = 0; i < 15; i++) {
+                        const weightInput = document.getElementById(`pqi-weight-${i}`);
+                        const weightVal = weightInput ? parseFloat(weightInput.value) : NaN;
+                        if (!isNaN(weightVal)) {
+                            weights.push(weightVal);
+                            if (weightVal > 0) hasAnyWeight = true;
+                        } else {
+                            weights.push(0);
+                        }
+                    }
+
+                    if (product || sku || hasAnyWeight || standard > 0) {
+                        const filledWeights = weights.filter(w => w > 0);
+                        const avg = filledWeights.length > 0 ? (filledWeights.reduce((a, b) => a + b, 0) / filledWeights.length) : 0;
+                        const giveAway = (standard > 0 && standard > avg && avg > 0) ? (standard - avg) : 0;
+
+                        const netWeightRecord = {
+                            cr3ea_name: `PQI_NetWeight_${sku || 'Draft'}_${moment().format("DD-MM-YYYY")}`,
+                            cr3ea_productname: product,
+                            cr3ea_sku: sku,
+                            cr3ea_standardweight: String(standard || 150),
+                            cr3ea_averageweight: Number(avg.toFixed(2)),
+                            cr3ea_giveaway: Number(giveAway.toFixed(2)),
+                            "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
+                        };
+
+                        weights.forEach((w, idx) => {
+                            netWeightRecord[`cr3ea_sampleweight${idx + 1}`] = Number(w.toFixed(2));
+                        });
+
+                        await PKGOPS_DAL.cleanSubChecklistRows("CHILD_PQI_NET_WEIGHT", this.currentTourId);
+                        await PKGOPS_DAL.saveSubChecklistRow("CHILD_PQI_NET_WEIGHT", netWeightRecord);
+                        this.savedPqiNetWeight = netWeightRecord;
+                        this.pqiSubChecklistsFilled.NetWeight = true;
+                        this.updatePqiBadges();
+                    }
+                } else {
+                    const product = document.getElementById("pqi-eval-product")?.value || "";
+                    const sku = document.getElementById("pqi-eval-sku")?.value || "";
+                    const pkd = document.getElementById("pqi-eval-pkd")?.value || null;
+                    const batch = document.getElementById("pqi-eval-batch")?.value || "";
+
+                    let hasAnyData = !!(product || sku || pkd || batch);
+                    for (let idx = 0; idx < 10; idx++) {
+                        const status = document.getElementById(`pqi-eval-status-${idx}`)?.value || "Okay";
+                        const cat = document.getElementById(`pqi-eval-cat-${idx}`)?.value || "";
+                        const detail = document.getElementById(`pqi-eval-detail-${idx}`)?.value || "";
+                        if (status === "Not Okay" || cat || detail) {
+                            hasAnyData = true;
+                            break;
+                        }
+                    }
+
+                    if (hasAnyData) {
+                        await PKGOPS_DAL.cleanSubChecklistRows("CHILD_PQI_EVALUATION", this.currentTourId, val);
+                        const newEvalRows = [];
+                        for (let idx = 0; idx < 10; idx++) {
+                            const status = document.getElementById(`pqi-eval-status-${idx}`)?.value || "Okay";
+                            const cat = document.getElementById(`pqi-eval-cat-${idx}`)?.value || "";
+                            const detail = document.getElementById(`pqi-eval-detail-${idx}`)?.value || "";
+                            const fileInput = document.getElementById(`pqi-eval-file-${idx}`);
+
+                            let pictureUrl = "";
+                            if (fileInput && fileInput.files && fileInput.files[0]) {
+                                pictureUrl = await PKGOPS_DAL.uploadAttachmentFile(fileInput.files[0], this.currentTourId, `PQI_${val}`, `PQI-Sample-${idx}`, detail);
+                            } else {
+                                const existingPrev = (this.savedPqiEvaluations || []).find(r => r.cr3ea_evaluationtype === val && r.cr3ea_samplenumber === `Sample ${idx + 1}`);
+                                if (existingPrev && existingPrev.cr3ea_batchcodepictureurl) {
+                                    pictureUrl = existingPrev.cr3ea_batchcodepictureurl;
+                                }
+                            }
+
+                            const evalRecord = {
+                                cr3ea_name: `PQI_Evaluation_${val}_${sku || 'Draft'}`,
+                                cr3ea_evaluationtype: val,
+                                cr3ea_productname: product,
+                                cr3ea_sku: sku,
+                                cr3ea_batchcode: batch,
+                                cr3ea_samplenumber: `Sample ${idx + 1}`,
+                                cr3ea_sampleresult: status,
+                                cr3ea_defectcategory: cat,
+                                cr3ea_defectdetail: detail,
+                                cr3ea_batchcodepictureurl: pictureUrl,
+                                "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
+                            };
+                            if (pkd) evalRecord.cr3ea_pkd = pkd;
+
+                            await PKGOPS_DAL.saveSubChecklistRow("CHILD_PQI_EVALUATION", evalRecord);
+                            newEvalRows.push(evalRecord);
+                        }
+                        this.savedPqiEvaluations = (this.savedPqiEvaluations || []).filter(r => r.cr3ea_evaluationtype !== val).concat(newEvalRows);
+                        this.pqiSubChecklistsFilled[val] = true;
+                        this.updatePqiBadges();
+                    }
+                }
+            }
             else if (this.pkgopsType === "Seal Integrity") {
                 const product = document.getElementById("seal-product")?.value || "";
                 const sku = document.getElementById("seal-sku")?.value || "";
@@ -1685,12 +2533,13 @@ const PKGOPS_Checklist = {
                 const facilitator = document.getElementById("wall-facilitator")?.value || "";
                 const type = document.getElementById("wall-type")?.value || "";
                 const members = document.getElementById("wall-members")?.value || "";
-                const app = document.getElementById("wall-rating-appearance")?.value || "5";
-                const seal = document.getElementById("wall-rating-sealing")?.value || "5";
-                const cod = document.getElementById("wall-rating-coding")?.value || "5";
+                const clamp = (v) => Math.min(5, Math.max(1, parseFloat(v) || 5));
+                const app = clamp(document.getElementById("wall-rating-appearance")?.value);
+                const seal = clamp(document.getElementById("wall-rating-sealing")?.value);
+                const cod = clamp(document.getElementById("wall-rating-coding")?.value);
                 const remarks = document.getElementById("wall-remarks")?.value || "";
 
-                const ratingVal = (parseFloat(app) + parseFloat(seal) + parseFloat(cod)) / 3;
+                const ratingVal = ((app + seal + cod) / 3).toFixed(2);
 
                 const wallRecord = {
                     cr3ea_name: `QualityWall_${sku}`,
@@ -1721,8 +2570,15 @@ const PKGOPS_Checklist = {
             if (typeof HideLoader === "function") HideLoader();
             alert("Tour progress paused and saved successfully.");
             
-            // Redirect to dashboard
-            window.location.href = (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : (typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webServerRelativeUrl : '/sites/Mrs_Bectors_PTMS')) + "/Pages/Home.aspx";
+            // Redirect to dashboard like in ALC
+            if (typeof PKGOPS_Main !== "undefined" && typeof PKGOPS_Main.redirectToDashboard === "function") {
+                PKGOPS_Main.redirectToDashboard();
+            } else {
+                const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                    ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                    : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
+                window.location.href = homeUrl;
+            }
         } catch (e) {
             if (typeof HideLoader === "function") HideLoader();
             console.error("Failed to pause tour: ", e);
@@ -1754,8 +2610,8 @@ const PKGOPS_Checklist = {
                 const rows = await PKGOPS_DAL.getSubChecklistRows("CHILD_CODE_VERIFICATION", this.currentTourId);
                 if (rows && rows.length > 0) {
                     const firstRow = rows[0];
-                    if (document.getElementById("cv-product")) document.getElementById("cv-product").value = firstRow.cr3ea_productname || "";
-                    if (document.getElementById("cv-sku")) document.getElementById("cv-sku").value = firstRow.cr3ea_sku || "";
+                    if (document.getElementById("cv-product")) this.setProductWithCategory("cv", firstRow.cr3ea_productname);
+                    if (document.getElementById("cv-sku")) this.setSelectValueSafely("cv-sku", firstRow.cr3ea_sku);
                     if (document.getElementById("cv-batch")) document.getElementById("cv-batch").value = firstRow.cr3ea_batchno || "";
                     if (document.getElementById("cv-pkd") && firstRow.cr3ea_pkd) {
                         document.getElementById("cv-pkd").value = moment(firstRow.cr3ea_pkd).format("YYYY-MM-DD");
@@ -1786,8 +2642,8 @@ const PKGOPS_Checklist = {
                 const rows = await PKGOPS_DAL.getSubChecklistRows("CHILD_PAPA", this.currentTourId);
                 if (rows && rows.length > 0) {
                     const firstRow = rows.find(r => r.cr3ea_defecttype === "Overall Summary") || rows[0];
-                    if (document.getElementById("papa-product")) document.getElementById("papa-product").value = firstRow.cr3ea_productname || "";
-                    if (document.getElementById("papa-sku")) document.getElementById("papa-sku").value = firstRow.cr3ea_sku || "";
+                    if (document.getElementById("papa-product")) this.setProductWithCategory("papa", firstRow.cr3ea_productname);
+                    if (document.getElementById("papa-sku")) this.setSelectValueSafely("papa-sku", firstRow.cr3ea_sku);
                     if (document.getElementById("papa-sample-size")) document.getElementById("papa-sample-size").value = firstRow.cr3ea_noofsamples || "100";
 
                     rows.forEach(row => {
@@ -1826,11 +2682,6 @@ const PKGOPS_Checklist = {
                     const row = nwRows[0];
                     this.savedPqiNetWeight = row;
                     this.pqiSubChecklistsFilled.NetWeight = true;
-                    const badge = document.getElementById("badge-pqi-netweight");
-                    if (badge) {
-                        badge.className = "badge bg-success pqi-status-badge";
-                        badge.innerText = "Net Weight: Saved";
-                    }
                 }
 
                 const evalRows = await PKGOPS_DAL.getSubChecklistRows("CHILD_PQI_EVALUATION", this.currentTourId);
@@ -1841,23 +2692,19 @@ const PKGOPS_Checklist = {
                         const hasType = evalRows.some(r => r.cr3ea_evaluationtype === t);
                         if (hasType) {
                             this.pqiSubChecklistsFilled[t] = true;
-                            const badge = document.getElementById(`badge-pqi-${t.toLowerCase()}`);
-                            if (badge) {
-                                badge.className = "badge bg-success pqi-status-badge";
-                                badge.innerText = `${t}: Saved`;
-                            }
                         }
                     });
                 }
 
+                this.updatePqiBadges();
                 this.populateActivePqiSubForm();
             } 
             else if (this.pkgopsType === "Seal Integrity") {
                 const rows = await PKGOPS_DAL.getSubChecklistRows("CHILD_SEAL_INTEGRITY", this.currentTourId);
                 if (rows && rows.length > 0) {
                     const row = rows[0];
-                    if (document.getElementById("seal-product")) document.getElementById("seal-product").value = row.cr3ea_productname || "";
-                    if (document.getElementById("seal-sku")) document.getElementById("seal-sku").value = row.cr3ea_sku || "";
+                    if (document.getElementById("seal-product")) this.setProductWithCategory("seal", row.cr3ea_productname);
+                    if (document.getElementById("seal-sku")) this.setSelectValueSafely("seal-sku", row.cr3ea_sku);
                     if (document.getElementById("seal-machine")) document.getElementById("seal-machine").value = row.cr3ea_machineno || "";
                     if (document.getElementById("seal-qty")) document.getElementById("seal-qty").value = row.cr3ea_samplequantity || "10";
                     if (document.getElementById("seal-leak-count")) document.getElementById("seal-leak-count").value = row.cr3ea_noofleakage || "0";
@@ -1868,11 +2715,15 @@ const PKGOPS_Checklist = {
                 const rows = await PKGOPS_DAL.getSubChecklistRows("CHILD_QUALITY_WALL", this.currentTourId);
                 if (rows && rows.length > 0) {
                     const row = rows[0];
-                    if (document.getElementById("wall-product")) document.getElementById("wall-product").value = row.cr3ea_productname || "";
-                    if (document.getElementById("wall-sku")) document.getElementById("wall-sku").value = row.cr3ea_sku || "";
-                    if (document.getElementById("wall-facilitator")) document.getElementById("wall-facilitator").value = row.cr3ea_facilitator || "";
+                    if (document.getElementById("wall-product")) this.setProductWithCategory("wall", row.cr3ea_productname);
+                    if (document.getElementById("wall-sku")) this.setSelectValueSafely("wall-sku", row.cr3ea_sku);
+                    if (row.cr3ea_facilitator) {
+                        await this.populatePickerFromSavedValue("wall-facilitator", row.cr3ea_facilitator);
+                    }
                     if (document.getElementById("wall-type")) document.getElementById("wall-type").value = row.cr3ea_typeofqualitywall || "";
-                    if (document.getElementById("wall-members")) document.getElementById("wall-members").value = row.cr3ea_memberspresent || "";
+                    if (row.cr3ea_memberspresent) {
+                        await this.populatePickerFromSavedValue("wall-members", row.cr3ea_memberspresent);
+                    }
                     if (document.getElementById("wall-rating-appearance")) document.getElementById("wall-rating-appearance").value = row.cr3ea_packappearancerating || "5";
                     if (document.getElementById("wall-rating-sealing")) document.getElementById("wall-rating-sealing").value = row.cr3ea_sealingqualityrating || "5";
                     if (document.getElementById("wall-rating-coding")) document.getElementById("wall-rating-coding").value = row.cr3ea_codingrating || "5";
@@ -1893,14 +2744,15 @@ const PKGOPS_Checklist = {
         if (val === "NetWeight") {
             const row = this.savedPqiNetWeight;
             if (row) {
-                if (document.getElementById("pqi-nw-product")) document.getElementById("pqi-nw-product").value = row.cr3ea_productname || "";
-                if (document.getElementById("pqi-nw-sku")) document.getElementById("pqi-nw-sku").value = row.cr3ea_sku || "";
+                if (document.getElementById("pqi-nw-product")) this.setProductWithCategory("pqi-nw", row.cr3ea_productname);
+                if (document.getElementById("pqi-nw-sku")) this.setSelectValueSafely("pqi-nw-sku", row.cr3ea_sku);
                 if (document.getElementById("pqi-nw-standard")) document.getElementById("pqi-nw-standard").value = row.cr3ea_standardweight || "150";
 
                 for (let i = 0; i < 15; i++) {
                     const weightEl = document.getElementById(`pqi-weight-${i}`);
                     if (weightEl) {
-                        weightEl.value = row[`cr3ea_sampleweight${i + 1}`] || "";
+                        const valWeight = row[`cr3ea_sampleweight${i + 1}`];
+                        weightEl.value = (valWeight !== null && valWeight !== undefined && valWeight !== "" && valWeight !== 0) ? valWeight : (valWeight === 0 ? "0" : "");
                     }
                 }
                 PKGOPS_Checklist.calculateNetWeightMetrics();
@@ -1911,8 +2763,8 @@ const PKGOPS_Checklist = {
                 const subRows = rows.filter(r => r.cr3ea_evaluationtype === val);
                 if (subRows.length > 0) {
                     const firstRow = subRows[0];
-                    if (document.getElementById("pqi-eval-product")) document.getElementById("pqi-eval-product").value = firstRow.cr3ea_productname || "";
-                    if (document.getElementById("pqi-eval-sku")) document.getElementById("pqi-eval-sku").value = firstRow.cr3ea_sku || "";
+                    if (document.getElementById("pqi-eval-product")) this.setProductWithCategory("pqi-eval", firstRow.cr3ea_productname);
+                    if (document.getElementById("pqi-eval-sku")) this.setSelectValueSafely("pqi-eval-sku", firstRow.cr3ea_sku);
                     if (document.getElementById("pqi-eval-pkd") && firstRow.cr3ea_pkd) {
                         document.getElementById("pqi-eval-pkd").value = moment(firstRow.cr3ea_pkd).format("YYYY-MM-DD");
                     }

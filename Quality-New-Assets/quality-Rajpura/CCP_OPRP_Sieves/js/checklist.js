@@ -104,15 +104,36 @@ const CCP_OPRP_Checklist = {
 
         const rows = cycleData.rows || [];
 
-        // Check if there is a metadata initialization row (draft/paused status)
-        const hasInitRow = rows.some(r => r.cr3ea_checkpointname === "Metadata Initialization" || r.cr3ea_description === "Metadata Initialization");
-        const hasActualChecks = rows.some(r => r.cr3ea_checkpointname !== "Metadata Initialization" && r.cr3ea_checkpointname !== "Shutdown Closure" && r.cr3ea_description !== "Metadata Initialization");
+        // Distinguish actual saved checks from initialization/metadata records
+        const actualChecks = rows.filter(r => 
+            r.cr3ea_checkpointname !== "Metadata Initialization" && 
+            r.cr3ea_checkpointname !== "Shutdown Closure" && 
+            r.cr3ea_checkpointname !== "Cycle Paused" && 
+            r.cr3ea_description !== "Metadata Initialization" &&
+            r.cr3ea_description !== "Cycle Paused"
+        );
 
-        if (hasInitRow) {
-            return hasActualChecks ? "Checklist Filling - Paused" : "Checklist Filling";
+        const hasActualChecks = actualChecks.length > 0;
+        const hasPausedRow = rows.some(r => r.cr3ea_checkpointname === "Cycle Paused" || r.cr3ea_acceptanceresponse === "Paused" || r.cr3ea_criteria === "Paused");
+
+        // If explicitly paused by the user, keep in paused state
+        if (hasPausedRow) {
+            return "Checklist Filling - Paused";
         }
 
-        const deviations = rows.filter(r => r.cr3ea_acceptanceresponse === "Not Okay");
+        // If no actual checks have been submitted yet, it's still being filled
+        if (!hasActualChecks) {
+            const hasInitRow = rows.some(r => r.cr3ea_checkpointname === "Metadata Initialization" || r.cr3ea_description === "Metadata Initialization");
+            return hasInitRow ? "Checklist Filling" : "Metadata Setup";
+        }
+
+        // Actual checks HAVE been saved/submitted! Evaluate deviations
+        const deviations = actualChecks.filter(r => {
+            const resp = r.cr3ea_acceptanceresponse || "";
+            const crit = r.cr3ea_criteria || "";
+            const devStatus = r.cr3ea_deviationstatus || "";
+            return ((resp.includes("Not Okay") || crit === "Not Okay") && devStatus !== "Closed") || (devStatus && devStatus !== "Closed");
+        });
 
         if (deviations.length === 0) {
             return "Completed";
@@ -134,8 +155,8 @@ const CCP_OPRP_Checklist = {
         });
 
         if (hasEscalated) return "Escalated";
-        if (hasActionTaken) return "Pending QA Re-Verification";
         if (hasPendingAction) return "Pending Production Action";
+        if (hasActionTaken) return "Pending QA Re-Verification";
         return "Completed";
     },
 
@@ -258,11 +279,13 @@ const CCP_OPRP_Checklist = {
                         <div class="tour-cyle-start-info" style="display: flex; flex-wrap: wrap; gap: 15px; background: #f8fafc; padding: 12px; border-radius: 8px;">
                             ${CCP_OPRP_Main.state.category === "CCP" ? `
                                 <div><strong>Product:</strong> ${cycleData.productName || "N/A"}</div>
-                                <div><strong>Executive:</strong> ${this.resolveUserName(cycleData.executiveName) || "N/A"}</div>
+                                <div><strong>Production Executive:</strong> ${this.resolveUserName(cycleData.productionIncharge || CCP_OPRP_Main.state.productionIncharge) || "N/A"}</div>
+                                <div><strong>QA Executive:</strong> ${this.resolveUserName(cycleData.executiveName || CCP_OPRP_Main.state.qaExecutive) || "N/A"}</div>
                                 <div><strong>Line:</strong> ${cycleData.location || "N/A"}</div>
                                 <div><strong>Response:</strong> ${cycleData.response || "OK"}</div>
                             ` : `
-                                <div><strong>Executive:</strong> ${this.resolveUserName(cycleData.executiveName) || "N/A"}</div>
+                                <div><strong>Production Executive:</strong> ${this.resolveUserName(cycleData.productionIncharge || CCP_OPRP_Main.state.productionIncharge) || "N/A"}</div>
+                                <div><strong>QA Executive:</strong> ${this.resolveUserName(cycleData.executiveName || CCP_OPRP_Main.state.qaExecutive) || "N/A"}</div>
                                 <div><strong>Frequency:</strong> ${CCP_OPRP_Main.state.frequency === "4hrs" ? "4-Hour Check" : "Once a Shift (8-Hour Check)"}</div>
                                 <div><strong>Response:</strong> ${cycleData.response || "OK"}</div>
                             `}
@@ -317,22 +340,44 @@ const CCP_OPRP_Checklist = {
         const canEdit = CCP_OPRP_Main.state.canEditChecklist;
         const disabledAttr = canEdit ? "" : "disabled";
         const displayBtn = canEdit ? "block" : "none";
+
+        const defaultProduct = CCP_OPRP_Main.state.product || 
+                               (CCP_OPRP_Main.state.tourData && (CCP_OPRP_Main.state.tourData.cr3ea_runningvariety || CCP_OPRP_Main.state.tourData.cr3ea_productname)) || 
+                               (typeof $ !== 'undefined' ? $('#setup-product').val() : '') || 
+                               (document.getElementById('setup-product') ? document.getElementById('setup-product').value : '') || 
+                               '';
         
+        const startStepDisplay = "";
+        const infoWrapperDisplay = "display: none; margin-bottom: 15px;";
+        const formContainerDisplay = "display: none;";
+
         let startForm = "";
         let warningBanner = "";
 
+        const tourStatus = CCP_OPRP_Main.state.tourData?.cr3ea_processstatus || CCP_OPRP_Main.state.tourData?.cr3ea_status || "";
+        const isPendingQAVerify = tourStatus === "Pending QA Re-Verification" || tourStatus.includes("Re-Verification") || tourStatus.includes("Re-verify");
+
         if (!canEdit) {
-            warningBanner = `
-                <div style="padding: 10px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 6px; color: #b45309; font-size: 13px; font-weight: 500; margin-bottom: 15px;">
-                    ⚠️ You are viewing this checklist in read-only mode. Only the assigned QA Executive (${CCP_OPRP_Main.state.qaExecutive || "N/A"}) can edit these details.
-                </div>
-            `;
+            if (isPendingQAVerify) {
+                warningBanner = `
+                    <div style="padding: 12px 16px; background: #ede9fe; border: 1px solid #ddd6fe; border-radius: 6px; color: #6d28d9; font-size: 13px; font-weight: 500; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #7c3aed; flex-shrink: 0;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        <span><strong>QA Re-Verification in Progress:</strong> This tour is currently pending QA re-verification by ${CCP_OPRP_Main.state.qaExecutive || "the assigned QA Executive"}. Production personnel cannot take any actions at this stage.</span>
+                    </div>
+                `;
+            } else {
+                warningBanner = `
+                    <div style="padding: 10px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 6px; color: #b45309; font-size: 13px; font-weight: 500; margin-bottom: 15px;">
+                        ⚠️ You are viewing this checklist in read-only mode. Only the assigned QA Executive (${CCP_OPRP_Main.state.qaExecutive || "N/A"}) can edit these details.
+                    </div>
+                `;
+            }
         }
 
         if (isCCP) {
             // Acceptance Choice
             startForm = `
-                <div class="tour-cyle-step-start" id="start-step-${cycleNum}">
+                <div class="tour-cyle-step-start" id="start-step-${cycleNum}" style="${startStepDisplay}">
                     <div class="form-group" style="margin-bottom: 15px;">
                         <label class="form-label">Acceptance Response</label>
                         <div class="acceptance-toggles" style="display: flex; gap: 10px;">
@@ -350,10 +395,10 @@ const CCP_OPRP_Checklist = {
                     <div id="session-metadata-fields-${cycleNum}">
                         <div class="form-group" style="margin-bottom: 12px;">
                             <label class="form-label">Product Name</label>
-                            <input type="text" class="form-control" id="product-name-${cycleNum}" ${disabledAttr} value="${CCP_OPRP_Main.state.product || (CCP_OPRP_Main.state.tourData && (CCP_OPRP_Main.state.tourData.cr3ea_runningvariety || CCP_OPRP_Main.state.tourData.cr3ea_productname)) || ''}" placeholder="Enter Product Name..." />
+                            <input type="text" class="form-control" id="product-name-${cycleNum}" ${disabledAttr} value="${defaultProduct}" placeholder="Enter Product Name..." />
                         </div>
                         <div class="form-group" style="margin-bottom: 12px;">
-                            <label class="form-label">Shift Executive (Production)</label>
+                            <label class="form-label">Production Executive</label>
                             <input type="text" class="form-control" id="executive-name-${cycleNum}" ${disabledAttr} value="${this.resolveUserName(CCP_OPRP_Main.state.productionIncharge)}" placeholder="Enter Production Executive Name..." />
                         </div>
                         <div class="form-group" style="margin-bottom: 12px;">
@@ -374,9 +419,9 @@ const CCP_OPRP_Checklist = {
         } else {
             // Sieves & Magnets Start Form
             startForm = `
-                <div class="tour-cyle-step-start" id="start-step-${cycleNum}">
+                <div class="tour-cyle-step-start" id="start-step-${cycleNum}" style="${startStepDisplay}">
                     <div class="form-group" style="margin-bottom: 12px;">
-                        <label class="form-label">Shift Executive (Production)</label>
+                        <label class="form-label">Production Executive</label>
                         <input type="text" class="form-control" id="executive-name-${cycleNum}" ${disabledAttr} value="${this.resolveUserName(CCP_OPRP_Main.state.productionIncharge)}" />
                     </div>
                     <div class="form-group" style="margin-bottom: 12px;">
@@ -390,13 +435,13 @@ const CCP_OPRP_Checklist = {
             `;
         }
  
-        // Checklist containers (hidden by default until start session)
+        // Checklist containers (hidden by default until start session, or visible for cycle 2+)
         const checklistBody = `
-            <div class="tour-cycle-info-wrapper" id="info-wrapper-${cycleNum}" style="display: none; margin-bottom: 15px;">
+            <div class="tour-cycle-info-wrapper" id="info-wrapper-${cycleNum}" style="${infoWrapperDisplay}">
                 <div class="tour-cyle-start-info" style="display: flex; flex-wrap: wrap; gap: 15px; background: #e2e8f0; padding: 12px; border-radius: 8px;"></div>
             </div>
  
-            <div class="tour-cyle-step-form" id="checklist-form-${cycleNum}" style="display: none;">
+            <div class="tour-cyle-step-form" id="checklist-form-${cycleNum}" style="${formContainerDisplay}">
                 <!-- Tab Headers and content panels will render here -->
                 <div class="tabs-header-container" id="tabs-header-${cycleNum}" style="display: flex; gap: 8px; border-bottom: 2px solid #e2e8f0; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px;"></div>
                 <div class="tabs-panes-container" id="tabs-panes-${cycleNum}"></div>
@@ -414,6 +459,7 @@ const CCP_OPRP_Checklist = {
 
     // Handles toggle state switches in the start panel
     setAcceptance: function (cycleNum, val) {
+        if (!CCP_OPRP_Main.state.canEditChecklist) return;
         const startDiv = document.getElementById(`start-step-${cycleNum}`);
         startDiv.querySelectorAll(".acceptance-toggles button").forEach(b => b.classList.remove("active"));
         
@@ -438,6 +484,10 @@ const CCP_OPRP_Checklist = {
 
     // Session Unlock Transition (Saves initial metadata record immediately to Dataverse)
     startSession: async function (cycleNum) {
+        if (!CCP_OPRP_Main.state.isQaRole || !CCP_OPRP_Main.state.canEditChecklist) {
+            alert("Access Denied: Only the assigned QA Executive can start a cycle session.");
+            return;
+        }
         const category = CCP_OPRP_Main.state.category;
         const infoWrapper = document.getElementById(`info-wrapper-${cycleNum}`);
         const formContainer = document.getElementById(`checklist-form-${cycleNum}`);
@@ -838,6 +888,7 @@ const CCP_OPRP_Checklist = {
 
     // Dynamically adds rows inside OPRP/CCP sub-tabs
     addChecklistRow: function (cycleNum, tabIdx) {
+        if (!CCP_OPRP_Main.state.canEditChecklist) return;
         const pane = document.getElementById(`pane-${cycleNum}-${tabIdx}`);
         const rowsContainer = pane.querySelector(".rows-container");
         const rowCount = rowsContainer.children.length + 1;
@@ -894,6 +945,7 @@ const CCP_OPRP_Checklist = {
     },
 
     removeChecklistRow: function (rowId) {
+        if (!CCP_OPRP_Main.state.canEditChecklist) return;
         const row = document.getElementById(rowId);
         if (row) row.remove();
     },
@@ -936,6 +988,7 @@ const CCP_OPRP_Checklist = {
     },
 
     toggleStatus: function (btn, status) {
+        if (!CCP_OPRP_Main.state.canEditChecklist) return;
         const container = btn.closest(".toggle-switch-badge");
         const remarksField = btn.closest(".checkpoint-check-row") ? btn.closest(".checkpoint-check-row").querySelector(".defect-remarks-field") : btn.closest(".sieve-item-row").querySelector(".defect-remarks-field");
 
@@ -951,6 +1004,10 @@ const CCP_OPRP_Checklist = {
 
     // Save cycle submissions (loop save to Dataverse)
     saveSession: async function (cycleNum, isPause = false) {
+        if (!CCP_OPRP_Main.state.isQaRole || !CCP_OPRP_Main.state.canEditChecklist) {
+            alert("Access Denied: Only the assigned QA Executive can save checklist observations.");
+            return;
+        }
         if (typeof ShowLoader === "function") ShowLoader();
         const category = CCP_OPRP_Main.state.category;
         const infoWrapper = document.getElementById(`info-wrapper-${cycleNum}`);
@@ -1104,21 +1161,24 @@ const CCP_OPRP_Checklist = {
                         "cr3ea_cycle": `Cycle-${cycleNum}`,
                         "cr3ea_criteria": isNotOkay ? "Not Okay" : "Okay",
                         "cr3ea_description": desc,
-                        "cr3ea_defectremarks": remarks,
                         "cr3ea_frequency": CCP_OPRP_Main.state.frequency
                     };
+
+                    if (isNotOkay) {
+                        record.cr3ea_defectremarks = remarks;
+                    }
 
                     records.push(record);
                 });
             }
 
-            // If the user requested to pause, append the Metadata Initialization record to preserve checklist filling state
+            // If the user requested to pause, append the Cycle Paused record to preserve checklist filling state
             if (isPause) {
                 let initRecord = {};
                 if (category === "CCP") {
                     initRecord = {
                         "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${tourId})`,
-                        "cr3ea_title": `OPRP_CCP_${moment().format("DD-MM-YYYY")}_Line${location}_Cycle-${cycleNum}_INIT`,
+                        "cr3ea_title": `OPRP_CCP_${moment().format("DD-MM-YYYY")}_Line${location}_Cycle-${cycleNum}_PAUSED`,
                         "cr3ea_cycle": `Cycle-${cycleNum}`,
                         "cr3ea_shift": shift,
                         "cr3ea_tourstartdate": moment().format("MM-DD-YYYY"),
@@ -1126,17 +1186,19 @@ const CCP_OPRP_Checklist = {
                         "cr3ea_location": location,
                         "cr3ea_productname": productName,
                         "cr3ea_category": "CCP",
-                        "cr3ea_checkpointname": "Metadata Initialization",
-                        "cr3ea_acceptanceresponse": "In Progress"
+                        "cr3ea_checkpointname": "Cycle Paused",
+                        "cr3ea_acceptanceresponse": "Paused"
                     };
                 } else {
                     initRecord = {
                         "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${tourId})`,
-                        "cr3ea_title": `Sieves_${moment().format("DD-MM-YYYY")}_Cycle-${cycleNum}_INIT`,
+                        "cr3ea_title": `Sieves_${moment().format("DD-MM-YYYY")}_Cycle-${cycleNum}_PAUSED`,
                         "cr3ea_cycle": `Cycle-${cycleNum}`,
                         "cr3ea_frequency": CCP_OPRP_Main.state.frequency,
-                        "cr3ea_description": "Metadata Initialization",
-                        "cr3ea_criteria": "In Progress"
+                        "cr3ea_checkpointname": "Cycle Paused",
+                        "cr3ea_description": "Cycle Paused",
+                        "cr3ea_criteria": "Paused",
+                        "cr3ea_acceptanceresponse": "Paused"
                     };
                 }
                 records.push(initRecord);
@@ -1144,33 +1206,68 @@ const CCP_OPRP_Checklist = {
 
             console.log("Submitting checklist records to Dataverse: ", records);
 
-            // Sequentially write records to child table
+            // Save checklist items in controlled parallel chunks (8 concurrent requests per wave)
+            const CHUNK_SIZE = 8;
             const total = records.length;
             if (typeof ShowProgressLoader === "function") {
-                ShowProgressLoader(0, isPause ? "Pausing checklist..." : "Submitting checklist...");
+                ShowProgressLoader(10, isPause ? "Pausing checklist..." : "Submitting checklist...");
+            } else {
+                ShowLoader();
             }
 
             // Cleanup old rows before rewriting (pauses/resumes support)
             await CCP_OPRP_DAL.cleanChecklistItems(tourId, category, cycleNum);
 
-            for (let i = 0; i < total; i++) {
-                const percent = Math.round((i / total) * 100);
+            const savedRecords = [];
+            for (let i = 0; i < total; i += CHUNK_SIZE) {
+                const chunk = records.slice(i, i + CHUNK_SIZE);
+                const currentCount = Math.min(i + CHUNK_SIZE, total);
+                const percent = Math.round(15 + (currentCount / total) * 75);
                 if (typeof ShowProgressLoader === "function") {
-                    ShowProgressLoader(percent, isPause ? `Saving progress... (${i + 1} of ${total})` : `Saving checks... (${i + 1} of ${total})`);
+                    ShowProgressLoader(percent, isPause ? `Saving progress (${currentCount} of ${total})...` : `Saving checks (${currentCount} of ${total})...`);
                 }
-                const saved = await CCP_OPRP_DAL.saveChecklistItem(records[i], category);
-                
-                // Dispatch notification for deviations (only when final submitting, not on pause)
-                if (!isPause && records[i].cr3ea_deviationstatus === "New") {
-                    await CCP_OPRP_Workflow.notifyProductionDepartment(saved);
+                const savedChunk = await Promise.all(chunk.map(rec => CCP_OPRP_DAL.saveChecklistItem(rec, category)));
+                savedRecords.push(...savedChunk);
+            }
+
+            // Dispatch notifications in parallel for deviations (only on final submit, not on pause)
+            if (!isPause) {
+                const deviations = [];
+                for (let i = 0; i < records.length; i++) {
+                    const rec = records[i];
+                    if (rec.cr3ea_deviationstatus === "New" || rec.cr3ea_criteria === "Not Okay" || (rec.cr3ea_acceptanceresponse && rec.cr3ea_acceptanceresponse.includes("Not Okay"))) {
+                        deviations.push(savedRecords[i] || rec);
+                    }
+                }
+                if (deviations.length > 0) {
+                    try {
+                        await CCP_OPRP_DAL.updateParentTour(tourId, {
+                            cr3ea_processstatus: "Pending Production Action"
+                        });
+                        if (CCP_OPRP_Main.state.tourData) {
+                            CCP_OPRP_Main.state.tourData.cr3ea_processstatus = "Pending Production Action";
+                        }
+                    } catch (e) {
+                        console.warn("Could not update parent tour process status to Pending Production Action:", e);
+                    }
+                    if (typeof ShowProgressLoader === "function") {
+                        ShowProgressLoader(95, "Dispatching deviation notifications...");
+                    }
+                    await Promise.all(deviations.map(saved => CCP_OPRP_Workflow.notifyProductionDepartment(saved)));
                 }
             }
 
+            if (typeof ShowProgressLoader === "function") {
+                ShowProgressLoader(100, isPause ? "Finalizing pause..." : "Finalizing session...");
+            }
+
             alert(isPause ? "Progress paused and saved successfully." : "Cycle session saved successfully.");
-            
-            // Reload page to display completed summary panel and prepare next cycle
-            await CCP_OPRP_Main.init();
             HideLoader();
+            const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
+            window.location.href = homeUrl;
+            return;
 
         } catch (err) {
             HideLoader();
@@ -1181,6 +1278,10 @@ const CCP_OPRP_Checklist = {
 
     // Save cycle when closed (Line/Plant Not Operational)
     saveShutdownSession: async function (cycleNum, startData) {
+        if (!CCP_OPRP_Main.state.canEditChecklist) {
+            alert("Access Denied: Only the assigned QA Executive can log shutdown/closure.");
+            return;
+        }
         ShowLoader();
         const tourId = CCP_OPRP_Main.state.varTourID;
         const shift = sessionStorage.getItem("shiftValue") || "Shift-1";
@@ -1203,8 +1304,12 @@ const CCP_OPRP_Checklist = {
 
             await CCP_OPRP_DAL.saveChecklistItem(shutdownRecord, "CCP");
             alert("Shutdown/Closure logged successfully.");
-            await CCP_OPRP_Main.init();
             HideLoader();
+            const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
+            window.location.href = homeUrl;
+            return;
         } catch (err) {
             HideLoader();
             console.error("Failed to log shutdown: ", err);
@@ -1228,28 +1333,53 @@ const CCP_OPRP_Checklist = {
                 `;
             }
 
+            // Filter out metadata initialization and shutdown rows
+            const actualRows = (cycleData.rows || []).filter(r => 
+                r.cr3ea_checkpointname && 
+                r.cr3ea_checkpointname !== "Metadata Initialization" && 
+                r.cr3ea_checkpointname !== "Shutdown Closure"
+            );
+
+            if (actualRows.length === 0) {
+                return `
+                    <div style="padding: 15px; color: #64748b; font-size: 13px; font-style: italic; text-align: center; background: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1; margin-top: 10px;">
+                        No checklist records recorded for this cycle yet.
+                    </div>
+                `;
+            }
+
             // Group flat subcheck records by parent checkpoint name and row index
             const checkpointsMap = {};
 
-            (cycleData.rows || []).forEach(row => {
-                const fullName = row.cr3ea_checkpointname || "";
-                const parts = fullName.split(" - ");
-                const parentName = parts[0] || "Unknown Checkpoint";
+            actualRows.forEach(row => {
+                const fullName = (row.cr3ea_checkpointname || "").trim();
                 
-                let mapKey = parentName;
-                let subLabel = "";
-                
-                if (parts[1] && parts[1].startsWith("Row ")) {
-                    mapKey = `${parentName} - ${parts[1]}`;
-                    subLabel = parts.slice(2).join(" - ");
+                let parentName = "Unknown Checkpoint";
+                let rowNum = "1";
+                let subLabel = fullName;
+
+                const rowRegex = /^(.*?)\s*-\s*Row\s+(\d+)\s*-\s*(.*)$/i;
+                const rowMatch = fullName.match(rowRegex);
+
+                if (rowMatch) {
+                    parentName = rowMatch[1].trim();
+                    rowNum = rowMatch[2].trim();
+                    subLabel = rowMatch[3].trim();
                 } else {
-                    mapKey = `${parentName} - Row 1`;
-                    subLabel = parts.slice(1).join(" - ");
+                    const parts = fullName.split(" - ");
+                    if (parts.length >= 2) {
+                        parentName = parts[0].trim();
+                        subLabel = parts.slice(1).join(" - ").trim();
+                    }
                 }
+
+                const mapKey = `${parentName} (Row ${rowNum})`;
 
                 if (!checkpointsMap[mapKey]) {
                     checkpointsMap[mapKey] = {
                         name: mapKey,
+                        parentName: parentName,
+                        rowNum: rowNum,
                         fecentrepass1: "OK",
                         fecentrepass2: "OK",
                         nfecentrepass1: "OK",
@@ -1257,34 +1387,33 @@ const CCP_OPRP_Checklist = {
                         sscentrepass1: "OK",
                         sscentrepass2: "OK",
                         mdsensitivity: "OK",
-                        mdsensitivityvalue: "N/A"
+                        mdsensitivityvalue: ""
                     };
                 }
 
                 let val = row.cr3ea_acceptanceresponse || "OK";
-                // If deviation has been verified and closed by QA, display it as "OK" (Resolved)
                 if (row.cr3ea_deviationstatus === "Closed") {
                     val = "OK";
                 }
                 const labelLower = subLabel.toLowerCase();
                 
-                if ((labelLower.includes("fe") && !labelLower.includes("nfe") && labelLower.includes("1st")) || labelLower === "fecentrepass1") {
+                if ((labelLower.includes("fe") && !labelLower.includes("nfe") && (labelLower.includes("1st") || labelLower.includes("pass1") || labelLower.includes("pass 1"))) || labelLower === "fecentrepass1") {
                     checkpointsMap[mapKey].fecentrepass1 = val;
-                } else if ((labelLower.includes("fe") && !labelLower.includes("nfe") && labelLower.includes("2nd")) || labelLower === "fecentrepass2") {
+                } else if ((labelLower.includes("fe") && !labelLower.includes("nfe") && (labelLower.includes("2nd") || labelLower.includes("pass2") || labelLower.includes("pass 2"))) || labelLower === "fecentrepass2") {
                     checkpointsMap[mapKey].fecentrepass2 = val;
-                } else if ((labelLower.includes("nfe") && labelLower.includes("1st")) || labelLower === "nfecentrepass1") {
+                } else if ((labelLower.includes("nfe") && (labelLower.includes("1st") || labelLower.includes("pass1") || labelLower.includes("pass 1"))) || labelLower === "nfecentrepass1") {
                     checkpointsMap[mapKey].nfecentrepass1 = val;
-                } else if ((labelLower.includes("nfe") && labelLower.includes("2nd")) || labelLower === "nfecentrepass2") {
+                } else if ((labelLower.includes("nfe") && (labelLower.includes("2nd") || labelLower.includes("pass2") || labelLower.includes("pass 2"))) || labelLower === "nfecentrepass2") {
                     checkpointsMap[mapKey].nfecentrepass2 = val;
-                } else if ((labelLower.includes("ss") && labelLower.includes("1st")) || labelLower === "sscentrepass1") {
+                } else if ((labelLower.includes("ss") && (labelLower.includes("1st") || labelLower.includes("pass1") || labelLower.includes("pass 1"))) || labelLower === "sscentrepass1") {
                     checkpointsMap[mapKey].sscentrepass1 = val;
-                } else if ((labelLower.includes("ss") && labelLower.includes("2nd")) || labelLower === "sscentrepass2") {
+                } else if ((labelLower.includes("ss") && (labelLower.includes("2nd") || labelLower.includes("pass2") || labelLower.includes("pass 2"))) || labelLower === "sscentrepass2") {
                     checkpointsMap[mapKey].sscentrepass2 = val;
                 } else if (labelLower.includes("md") || labelLower.includes("sensitivity") || labelLower === "mdsensitivity") {
                     if (val.includes("(")) {
                         const match = val.match(/\(([^)]+)\)/);
-                        checkpointsMap[mapKey].mdsensitivity = val.split(" ")[0];
-                        checkpointsMap[mapKey].mdsensitivityvalue = match ? match[1] : "N/A";
+                        checkpointsMap[mapKey].mdsensitivity = val.split("(")[0].trim();
+                        checkpointsMap[mapKey].mdsensitivityvalue = match ? match[1].trim() : "";
                     } else {
                         checkpointsMap[mapKey].mdsensitivity = val;
                     }
@@ -1294,58 +1423,79 @@ const CCP_OPRP_Checklist = {
             const collapsedRows = Object.values(checkpointsMap);
 
             return `
-                <div class="bs-table-container">
-                    <table class="bs-table" style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <div class="bs-table-container" style="overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch;">
+                    <table class="bs-table" style="width: 100%; min-width: 750px; border-collapse: collapse; margin-top: 10px;">
                         <thead>
                             <tr style="background: #cbd5e1;">
-                                <th style="border: 1px solid #94a3b8; padding: 6px;">Checkpoint</th>
-                                <th style="border: 1px solid #94a3b8; padding: 6px;">FE-1</th>
-                                <th style="border: 1px solid #94a3b8; padding: 6px;">FE-2</th>
-                                <th style="border: 1px solid #94a3b8; padding: 6px;">NFE-1</th>
-                                <th style="border: 1px solid #94a3b8; padding: 6px;">NFE-2</th>
-                                <th style="border: 1px solid #94a3b8; padding: 6px;">SS-1</th>
-                                <th style="border: 1px solid #94a3b8; padding: 6px;">SS-2</th>
-                                <th style="border: 1px solid #94a3b8; padding: 6px;">MD Sens</th>
+                                <th style="border: 1px solid #94a3b8; padding: 8px 10px; text-align: left;">Checkpoint</th>
+                                <th style="border: 1px solid #94a3b8; padding: 8px 6px; text-align: center;">FE-1</th>
+                                <th style="border: 1px solid #94a3b8; padding: 8px 6px; text-align: center;">FE-2</th>
+                                <th style="border: 1px solid #94a3b8; padding: 8px 6px; text-align: center;">NFE-1</th>
+                                <th style="border: 1px solid #94a3b8; padding: 8px 6px; text-align: center;">NFE-2</th>
+                                <th style="border: 1px solid #94a3b8; padding: 8px 6px; text-align: center;">SS-1</th>
+                                <th style="border: 1px solid #94a3b8; padding: 8px 6px; text-align: center;">SS-2</th>
+                                <th style="border: 1px solid #94a3b8; padding: 8px 6px; text-align: center;">MD Sens</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${collapsedRows.map(row => `
+                            ${collapsedRows.map(row => {
+                                const isMdNotOk = String(row.mdsensitivity).includes("Not Okay");
+                                const mdDisplay = (row.mdsensitivityvalue && row.mdsensitivityvalue !== "N/A")
+                                    ? `${row.mdsensitivity} (${row.mdsensitivityvalue})`
+                                    : (row.mdsensitivity || "OK");
+
+                                return `
                                 <tr>
-                                    <td style="border: 1px solid #cbd5e1; padding: 6px;"><strong>${row.name}</strong></td>
-                                    <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;" class="${row.fecentrepass1?.includes('Not Okay') ? 'not-ok-text' : 'ok-text'}">${row.fecentrepass1 || "OK"}</td>
-                                    <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;" class="${row.fecentrepass2?.includes('Not Okay') ? 'not-ok-text' : 'ok-text'}">${row.fecentrepass2 || "OK"}</td>
-                                    <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;" class="${row.nfecentrepass1?.includes('Not Okay') ? 'not-ok-text' : 'ok-text'}">${row.nfecentrepass1 || "OK"}</td>
-                                    <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;" class="${row.nfecentrepass2?.includes('Not Okay') ? 'not-ok-text' : 'ok-text'}">${row.nfecentrepass2 || "OK"}</td>
-                                    <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;" class="${row.sscentrepass1?.includes('Not Okay') ? 'not-ok-text' : 'ok-text'}">${row.sscentrepass1 || "OK"}</td>
-                                    <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;" class="${row.sscentrepass2?.includes('Not Okay') ? 'not-ok-text' : 'ok-text'}">${row.sscentrepass2 || "OK"}</td>
-                                    <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;" class="${row.mdsensitivity?.includes('Not Okay') ? 'not-ok-text' : 'ok-text'}">${row.mdsensitivityvalue && row.mdsensitivityvalue !== "N/A" ? row.mdsensitivityvalue : (row.mdsensitivity || "OK")}</td>
+                                    <td style="border: 1px solid #cbd5e1; padding: 8px 10px; word-break: break-word; overflow-wrap: break-word; white-space: normal;"><strong>${row.name}</strong></td>
+                                    <td style="border: 1px solid #cbd5e1; padding: 8px 6px; text-align: center;" class="${String(row.fecentrepass1).includes('Not Okay') ? 'not-ok-text' : 'ok-text'}">${row.fecentrepass1 || "OK"}</td>
+                                    <td style="border: 1px solid #cbd5e1; padding: 8px 6px; text-align: center;" class="${String(row.fecentrepass2).includes('Not Okay') ? 'not-ok-text' : 'ok-text'}">${row.fecentrepass2 || "OK"}</td>
+                                    <td style="border: 1px solid #cbd5e1; padding: 8px 6px; text-align: center;" class="${String(row.nfecentrepass1).includes('Not Okay') ? 'not-ok-text' : 'ok-text'}">${row.nfecentrepass1 || "OK"}</td>
+                                    <td style="border: 1px solid #cbd5e1; padding: 8px 6px; text-align: center;" class="${String(row.nfecentrepass2).includes('Not Okay') ? 'not-ok-text' : 'ok-text'}">${row.nfecentrepass2 || "OK"}</td>
+                                    <td style="border: 1px solid #cbd5e1; padding: 8px 6px; text-align: center;" class="${String(row.sscentrepass1).includes('Not Okay') ? 'not-ok-text' : 'ok-text'}">${row.sscentrepass1 || "OK"}</td>
+                                    <td style="border: 1px solid #cbd5e1; padding: 8px 6px; text-align: center;" class="${String(row.sscentrepass2).includes('Not Okay') ? 'not-ok-text' : 'ok-text'}">${row.sscentrepass2 || "OK"}</td>
+                                    <td style="border: 1px solid #cbd5e1; padding: 8px 6px; text-align: center;" class="${isMdNotOk ? 'not-ok-text' : 'ok-text'}">${mdDisplay}</td>
                                 </tr>
-                            `).join("")}
+                                `;
+                            }).join("")}
                         </tbody>
                     </table>
                 </div>
             `;
         } else {
             // Sieve summary Table
+            const sieveActualRows = (cycleData.rows || []).filter(r => 
+                r.cr3ea_description && 
+                r.cr3ea_description !== "Metadata Initialization" && 
+                r.cr3ea_checkpointname !== "Metadata Initialization"
+            );
+
+            if (sieveActualRows.length === 0) {
+                return `
+                    <div style="padding: 15px; color: #64748b; font-size: 13px; font-style: italic; text-align: center; background: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1; margin-top: 10px;">
+                        No sieve records recorded for this cycle yet.
+                    </div>
+                `;
+            }
+
             return `
-                <div class="bs-table-container">
-                    <table class="bs-table" style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <div class="bs-table-container" style="overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch;">
+                    <table class="bs-table" style="width: 100%; min-width: 650px; table-layout: fixed; border-collapse: collapse; margin-top: 10px;">
                         <thead>
                             <tr style="background: #cbd5e1;">
-                                <th style="border: 1px solid #94a3b8; padding: 6px;">Sieve Description</th>
-                                <th style="border: 1px solid #94a3b8; padding: 6px;">Status</th>
-                                <th style="border: 1px solid #94a3b8; padding: 6px;">Defect Remarks</th>
+                                <th style="border: 1px solid #94a3b8; padding: 8px 10px; width: 45%;">Sieve Description</th>
+                                <th style="border: 1px solid #94a3b8; padding: 8px 6px; width: 15%; text-align: center;">Status</th>
+                                <th style="border: 1px solid #94a3b8; padding: 8px 10px; width: 40%;">Defect Remarks</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${cycleData.rows.map(row => {
+                            ${sieveActualRows.map(row => {
                                 const isClosed = row.cr3ea_deviationstatus === "Closed";
                                 const displayCriteria = isClosed ? "Okay" : (row.cr3ea_criteria || "Okay");
                                 return `
                                 <tr>
-                                    <td style="border: 1px solid #cbd5e1; padding: 6px;">${row.cr3ea_description}</td>
-                                    <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;" class="${displayCriteria === 'Not Okay' ? 'not-ok-text' : 'ok-text'}"><strong>${displayCriteria}</strong></td>
-                                    <td style="border: 1px solid #cbd5e1; padding: 6px;">${row.cr3ea_defectremarks || "-"}</td>
+                                    <td style="border: 1px solid #cbd5e1; padding: 8px 10px; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${row.cr3ea_description}</td>
+                                    <td style="border: 1px solid #cbd5e1; padding: 8px 6px; text-align: center;" class="${displayCriteria === 'Not Okay' ? 'not-ok-text' : 'ok-text'}"><strong>${displayCriteria}</strong></td>
+                                    <td style="border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${row.cr3ea_defectremarks || "-"}</td>
                                 </tr>
                                 `;
                             }).join("")}
@@ -1364,11 +1514,12 @@ const CCP_OPRP_Checklist = {
 
         const rows = cycleData.rows || [];
         const isCCP = CCP_OPRP_Main.state.category === "CCP";
-        const idField = isCCP ? "cr3ea_prod_rajpura_ccpoprpid" : "cr3ea_prod_rajpura_sievesmagnetsid";
 
         const deviations = rows.filter(r => {
-            const resp = isCCP ? r.cr3ea_acceptanceresponse : r.cr3ea_criteria;
-            return resp === "Not Okay" || (resp && resp.includes("Not Okay"));
+            const resp = r.cr3ea_acceptanceresponse || "";
+            const crit = r.cr3ea_criteria || "";
+            const devStatus = r.cr3ea_deviationstatus || "";
+            return ((resp.includes("Not Okay") || crit === "Not Okay") && devStatus !== "Closed") || (devStatus && devStatus !== "Closed");
         });
 
         if (deviations.length === 0) return "";
@@ -1385,20 +1536,38 @@ const CCP_OPRP_Checklist = {
                 </h5>
         `;
 
-        const canEditAction = CCP_OPRP_Main.state.canEditCorrectiveAction && status === "Pending Production Action";
-        const canVerify = CCP_OPRP_Main.state.canEditChecklist && status === "Pending QA Re-Verification";
+        const isQA = CCP_OPRP_Main.state.isQaRole;
+        const isProdIncharge = CCP_OPRP_Main.state.isProdRole && !isQA;
+
+        const isPendingProd = status === "Pending Production Action" || CCP_OPRP_Main.state.tourData?.cr3ea_processstatus === "Pending Production Action";
+        const isPendingReverify = status === "Pending QA Re-Verification" || CCP_OPRP_Main.state.tourData?.cr3ea_processstatus === "Pending QA Re-Verification";
+
+        // Stage 1: Corrective Action -> strictly enabled for assigned Production Incharge (and NEVER for QA), read-only for others
+        const canEditAction = isProdIncharge && !isQA && CCP_OPRP_Main.state.canEditCorrectiveAction && isPendingProd;
+
+        // Stage 2: Re-verification -> strictly enabled for assigned QA team, read-only for others
+        const canVerify = isQA && (isPendingReverify || (status !== "Completed" && CCP_OPRP_Main.state.tourData?.cr3ea_processstatus === "Pending QA Re-Verification"));
 
         deviations.forEach((dev, idx) => {
-            const checkName = isCCP ? dev.cr3ea_checkpointname : dev.cr3ea_description;
-            const idVal = dev[idField];
+            const checkName = isCCP ? dev.cr3ea_checkpointname : (dev.cr3ea_description || dev.cr3ea_checkpointname || "");
+            const idVal = isCCP 
+                ? (dev.cr3ea_prod_rajpura_ccpoprpid || dev.cr3ea_rajpura_ccpoprpid || dev.cr3ea_ccpoprpid || dev.cr3ea_qualitychecklistid || "")
+                : (dev.cr3ea_prod_rajpura_sievesmagnetsid || dev.cr3ea_rajpura_sievesmagnetsid || dev.cr3ea_sievesmagnetsid || dev.cr3ea_qualitychecklistid || "");
             const rawRemarks = dev.cr3ea_defectremarks || "";
             const remarksParts = rawRemarks.split(" | Re-verified: ");
             const baseRemark = remarksParts[0] || "";
             
             // Format checkpoint name details
-            const nameParts = checkName.split(" - ");
-            const tabName = nameParts[0] || "";
-            let testName = nameParts.slice(1).join(" - ");
+            let tabName = "";
+            let testName = "";
+            if (checkName && checkName.includes(" - ")) {
+                const nameParts = checkName.split(" - ");
+                tabName = nameParts[0] || "";
+                testName = nameParts.slice(1).join(" - ");
+            } else {
+                tabName = "Sieves & Magnets";
+                testName = checkName || "Sieve/Magnet Parameter Check";
+            }
 
             // Apply fallbacks for older raw database keys
             if (testName === "sscentrepass1") testName = "SS - Centre 1st Pass";
@@ -1439,7 +1608,7 @@ const CCP_OPRP_Checklist = {
                     </div>
             `;
 
-            if (status === "Pending Production Action") {
+            if (isPendingProd) {
                 if (canEditAction) {
                     html += `
                         <div class="form-group" style="margin-bottom: 0;">
@@ -1448,8 +1617,13 @@ const CCP_OPRP_Checklist = {
                         </div>
                     `;
                 } else {
+                    const assignedProdRaw = CCP_OPRP_Main.state.tourData?.cr3ea_shiftexecutiveproduction || CCP_OPRP_Main.state.tourData?.cr3ea_production_incharge || CCP_OPRP_Main.state.productionIncharge || "";
+                    const assignedProdName = assignedProdRaw ? (this.resolveUserName(assignedProdRaw) || assignedProdRaw) : "Production Executive";
                     html += `
-                        <div style="font-size: 13px; color: #94a3b8; font-style: italic;">Awaiting Production Incharge to enter Action Plan.</div>
+                        <div style="font-size: 13px; color: #b45309; background: #fffbeb; padding: 10px 14px; border-radius: 6px; border: 1px solid #fde68a; display: flex; align-items: center; gap: 8px; font-weight: 500;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #d97706; flex-shrink: 0;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                            <span>Awaiting Production Executive (${assignedProdName}) to enter Action Plan.</span>
+                        </div>
                     `;
                 }
             } else {
@@ -1461,7 +1635,7 @@ const CCP_OPRP_Checklist = {
                     </div>
                 `;
 
-                if (status === "Pending QA Re-Verification") {
+                if (isPendingReverify) {
                     if (canVerify) {
                         html += `
                             <div class="form-group" style="margin-bottom: 0;">
@@ -1471,7 +1645,10 @@ const CCP_OPRP_Checklist = {
                         `;
                     } else {
                         html += `
-                            <div style="font-size: 13px; color: #94a3b8; font-style: italic;">Awaiting QA Executive to verify corrective actions.</div>
+                            <div style="font-size: 13px; color: #64748b; background: #f8fafc; padding: 10px 14px; border-radius: 6px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 8px; font-style: italic;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #94a3b8; flex-shrink: 0;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                <span>Awaiting QA Executive to verify corrective actions.</span>
+                            </div>
                         `;
                     }
                 } else {
@@ -1488,13 +1665,13 @@ const CCP_OPRP_Checklist = {
             html += `</div>`;
         });
 
-        if (status === "Pending Production Action" && canEditAction) {
+        if (isPendingProd && canEditAction) {
             html += `
                 <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
                     <button type="button" class="bs-btn bs-btn-primary btn-sm" style="padding: 8px 16px; font-size: 12px; font-weight: 600; border-radius: 6px;" onclick="CCP_OPRP_Checklist.submitCorrectiveActions(${cycleNum})">Submit Corrective Actions</button>
                 </div>
             `;
-        } else if (status === "Pending QA Re-Verification" && canVerify) {
+        } else if (isPendingReverify && canVerify) {
             html += `
                 <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
                     <button type="button" class="bs-btn bs-btn-outline-primary btn-sm" style="padding: 8px 16px; font-size: 12px; font-weight: 600; border-radius: 6px;" onclick="CCP_OPRP_Checklist.submitQAClosure(${cycleNum}, false)">Reject Actions</button>
@@ -1508,6 +1685,20 @@ const CCP_OPRP_Checklist = {
     },
 
     submitCorrectiveActions: async function (cycleNum) {
+        const isProdIncharge = CCP_OPRP_Main.state.isProdRole && !CCP_OPRP_Main.state.isQaRole;
+        const tourStatus = CCP_OPRP_Main.state.tourData?.cr3ea_processstatus || CCP_OPRP_Main.state.tourData?.cr3ea_status || "";
+        const isReverify = tourStatus === "Pending QA Re-Verification" || tourStatus.includes("Re-Verification") || tourStatus.includes("Re-verify");
+
+        if (isReverify) {
+            alert("Access Denied: Corrective actions cannot be modified during QA Re-Verification stage.");
+            return;
+        }
+
+        if (!isProdIncharge || !CCP_OPRP_Main.state.canEditCorrectiveAction) {
+            alert("Access Denied: Only the assigned Production Incharge can submit corrective actions.");
+            return;
+        }
+
         const panel = document.getElementById(`cycle-${cycleNum}`);
         const deviationItems = panel.querySelectorAll(".deviation-item");
         const category = CCP_OPRP_Main.state.category;
@@ -1515,49 +1706,83 @@ const CCP_OPRP_Checklist = {
         const total = deviationItems.length;
         if (total === 0) return;
 
+        // Validation first: ensure all have action taken plan
+        const payloadList = [];
+        for (const item of deviationItems) {
+            const guid = item.dataset.id;
+            if (!guid || guid === "undefined" || guid === "null") {
+                console.error("Skipping deviation item with missing GUID:", item);
+                continue;
+            }
+            const actionInput = item.querySelector(".deviation-action-input");
+            if (actionInput) {
+                const actionVal = actionInput.value;
+                if (!actionVal) {
+                    alert("Please specify the action taken plan for all deviations.");
+                    return;
+                }
+                
+                let payload = {};
+                if (category === "CCP") {
+                    payload = {
+                        cr3ea_actiontaken: actionVal,
+                        cr3ea_deviationstatus: "Action Taken",
+                        cr3ea_prod_rajpura_ccpoprpid: guid,
+                        cr3ea_rajpura_ccpoprpid: guid
+                    };
+                } else {
+                    const baseRemark = item.dataset.remarks || "";
+                    payload = {
+                        cr3ea_defectremarks: baseRemark ? `${baseRemark} | Action: ${actionVal}` : `Action: ${actionVal}`,
+                        cr3ea_prod_rajpura_sievesmagnetsid: guid,
+                        cr3ea_rajpura_sievesmagnetsid: guid
+                    };
+                }
+                payloadList.push(payload);
+            }
+        }
+
         if (typeof ShowProgressLoader === "function") {
-            ShowProgressLoader(0, "Submitting corrective actions...");
+            ShowProgressLoader(10, "Submitting corrective actions...");
         } else {
             ShowLoader();
         }
 
         try {
-            let i = 0;
-            for (const item of deviationItems) {
-                const percent = Math.round((i / total) * 100);
+            const CHUNK_SIZE = 8;
+            const count = payloadList.length;
+            for (let i = 0; i < count; i += CHUNK_SIZE) {
+                const chunk = payloadList.slice(i, i + CHUNK_SIZE);
+                const currentCount = Math.min(i + CHUNK_SIZE, count);
+                const percent = Math.round(15 + (currentCount / count) * 80);
                 if (typeof ShowProgressLoader === "function") {
-                    ShowProgressLoader(percent, `Submitting corrective action (${i + 1} of ${total})...`);
+                    ShowProgressLoader(percent, `Submitting corrective actions (${currentCount} of ${count})...`);
                 }
+                await Promise.all(chunk.map(payload => CCP_OPRP_DAL.saveChecklistItem(payload, category)));
+            }
 
-                const guid = item.dataset.id;
-                const actionInput = item.querySelector(".deviation-action-input");
-                if (actionInput) {
-                    const actionVal = actionInput.value;
-                    if (!actionVal) {
-                        alert("Please specify the action taken plan for all deviations.");
-                        HideLoader();
-                        return;
-                    }
-                    
-                    const payload = {
-                        cr3ea_actiontaken: actionVal,
-                        cr3ea_deviationstatus: "Action Taken"
-                    };
-
-                    const idField = category === "CCP" ? "cr3ea_prod_rajpura_ccpoprpid" : "cr3ea_prod_rajpura_sievesmagnetsid";
-                    payload[idField] = guid;
-
-                    await CCP_OPRP_DAL.saveChecklistItem(payload, category);
+            try {
+                const tourId = CCP_OPRP_Main.state.varTourID;
+                await CCP_OPRP_DAL.updateParentTour(tourId, {
+                    cr3ea_processstatus: "Pending QA Re-Verification"
+                });
+                if (CCP_OPRP_Main.state.tourData) {
+                    CCP_OPRP_Main.state.tourData.cr3ea_processstatus = "Pending QA Re-Verification";
                 }
-                i++;
+            } catch (e) {
+                console.warn("Could not update parent tour process status to Pending QA Re-Verification:", e);
             }
 
             if (typeof ShowProgressLoader === "function") {
                 ShowProgressLoader(100, "Finalizing corrective actions...");
             }
             alert("Corrective actions submitted successfully.");
-            await CCP_OPRP_Main.init();
             HideLoader();
+            const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
+            window.location.href = homeUrl;
+            return;
         } catch (err) {
             HideLoader();
             console.error("Failed to submit corrective action: ", err);
@@ -1566,6 +1791,12 @@ const CCP_OPRP_Checklist = {
     },
 
     submitQAClosure: async function (cycleNum, isApproved) {
+        const isQAUser = CCP_OPRP_Main.state.isQaRole;
+        if (!isQAUser) {
+            alert("Access Denied: Only the assigned QA Executive can re-verify and close cycles.");
+            return;
+        }
+
         const panel = document.getElementById(`cycle-${cycleNum}`);
         const deviationItems = panel.querySelectorAll(".deviation-item");
         const category = CCP_OPRP_Main.state.category;
@@ -1573,46 +1804,85 @@ const CCP_OPRP_Checklist = {
         const total = deviationItems.length;
         if (total === 0) return;
 
+        const payloadList = [];
+        for (const item of deviationItems) {
+            const guid = item.dataset.id;
+            if (!guid || guid === "undefined" || guid === "null") {
+                console.error("Skipping deviation item with missing GUID:", item);
+                continue;
+            }
+            const verifyInput = item.querySelector(".deviation-verify-input");
+            const commentVal = verifyInput ? verifyInput.value.trim() : "";
+            const baseRemark = item.dataset.remarks || "";
+            
+            const verifyComment = commentVal || (isApproved ? "Approved & Closed" : "Corrective Action Rejected");
+            const finalRemarks = `${baseRemark} | Re-verified: ${verifyComment}`;
+
+            const payload = {
+                cr3ea_deviationstatus: isApproved ? "Closed" : "Pending Action",
+                cr3ea_defectremarks: finalRemarks
+            };
+
+            if (isApproved) {
+                if (category === "CCP") {
+                    payload.cr3ea_acceptanceresponse = "OK (Re-verified)";
+                } else {
+                    payload.cr3ea_criteria = "Okay";
+                }
+            }
+
+            if (category === "CCP") {
+                payload.cr3ea_prod_rajpura_ccpoprpid = guid;
+                payload.cr3ea_rajpura_ccpoprpid = guid;
+            } else {
+                payload.cr3ea_prod_rajpura_sievesmagnetsid = guid;
+                payload.cr3ea_rajpura_sievesmagnetsid = guid;
+            }
+            payloadList.push(payload);
+        }
+
         if (typeof ShowProgressLoader === "function") {
-            ShowProgressLoader(0, isApproved ? "Closing cycle..." : "Rejecting actions...");
+            ShowProgressLoader(10, isApproved ? "Closing cycle..." : "Rejecting actions...");
         } else {
             ShowLoader();
         }
 
         try {
-            let i = 0;
-            for (const item of deviationItems) {
-                const percent = Math.round((i / total) * 100);
+            const CHUNK_SIZE = 8;
+            const count = payloadList.length;
+            for (let i = 0; i < count; i += CHUNK_SIZE) {
+                const chunk = payloadList.slice(i, i + CHUNK_SIZE);
+                const currentCount = Math.min(i + CHUNK_SIZE, count);
+                const percent = Math.round(15 + (currentCount / count) * 80);
                 if (typeof ShowProgressLoader === "function") {
-                    ShowProgressLoader(percent, isApproved ? `Approving closures (${i + 1} of ${total})...` : `Rejecting corrective actions (${i + 1} of ${total})...`);
+                    ShowProgressLoader(percent, isApproved ? `Approving closures (${currentCount} of ${count})...` : `Rejecting corrective actions (${currentCount} of ${count})...`);
                 }
+                await Promise.all(chunk.map(payload => CCP_OPRP_DAL.saveChecklistItem(payload, category)));
+            }
 
-                const guid = item.dataset.id;
-                const verifyInput = item.querySelector(".deviation-verify-input");
-                const commentVal = verifyInput ? verifyInput.value : "";
-                const baseRemark = item.dataset.remarks || "";
-                
-                const verifyComment = commentVal || (isApproved ? "Approved & Closed" : "Corrective Action Rejected");
-                const finalRemarks = `${baseRemark} | Re-verified: ${verifyComment}`;
-
-                const payload = {
-                    cr3ea_deviationstatus: isApproved ? "Closed" : "Pending Action",
-                    cr3ea_defectremarks: finalRemarks
-                };
-
-                const idField = category === "CCP" ? "cr3ea_prod_rajpura_ccpoprpid" : "cr3ea_prod_rajpura_sievesmagnetsid";
-                payload[idField] = guid;
-
-                await CCP_OPRP_DAL.saveChecklistItem(payload, category);
-                i++;
+            try {
+                const tourId = CCP_OPRP_Main.state.varTourID;
+                const nextStatus = isApproved ? "In Progress" : "Pending Production Action";
+                await CCP_OPRP_DAL.updateParentTour(tourId, {
+                    cr3ea_processstatus: nextStatus
+                });
+                if (CCP_OPRP_Main.state.tourData) {
+                    CCP_OPRP_Main.state.tourData.cr3ea_processstatus = nextStatus;
+                }
+            } catch (e) {
+                console.warn("Could not update parent tour process status:", e);
             }
 
             if (typeof ShowProgressLoader === "function") {
                 ShowProgressLoader(100, "Finalizing closure...");
             }
             alert(isApproved ? "Cycle closed successfully." : "Corrective action rejected. Cycle returned to production.");
-            await CCP_OPRP_Main.init();
             HideLoader();
+            const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
+            window.location.href = homeUrl;
+            return;
         } catch (err) {
             HideLoader();
             console.error("Failed to submit QA closure: ", err);
@@ -1626,9 +1896,9 @@ const CCP_OPRP_Checklist = {
             return;
         }
 
-        const isQA = CCP_OPRP_Main.state.canEditChecklist;
-        if (!isQA) {
-            alert("Only the assigned QA Executive can complete this tour.");
+        const canComplete = CCP_OPRP_Main.state.isQaRole && !CCP_OPRP_Main.state.isProdOnly && CCP_OPRP_Main.state.canEditChecklist;
+        if (!canComplete) {
+            alert("Access Denied: Only the assigned QA Executive can complete this Quality Tour.");
             return;
         }
 
