@@ -133,9 +133,10 @@ const MixingBaking_Main = {
             const currentUserLogin = typeof _spPageContextInfo !== 'undefined' ? String(_spPageContextInfo.userDisplayName || "").trim() : "";
             const currentUserEmail = typeof _spPageContextInfo !== 'undefined' ? String(_spPageContextInfo.userEmail || "").trim() : "";
 
-            const myEmail = currentUserEmail.toLowerCase().trim();
-            const myName1 = currentUserName.toLowerCase().trim();
-            const myName2 = currentUserLogin.toLowerCase().trim();
+            const cleanMyEmail = currentUserEmail.toLowerCase().trim();
+            const myEmailUserPart = cleanMyEmail.includes("@") ? cleanMyEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : cleanMyEmail.replace(/[^a-z0-9]/g, "");
+            const cleanName1 = currentUserName.toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+            const cleanName2 = currentUserLogin.toLowerCase().trim().replace(/[^a-z0-9]/g, "");
 
             const isDev = this.state.isDev || ["mishab", "aufait", "admin", "developer", "tester"].some(d => cleanMyEmail.includes(d) || cleanName1.includes(d) || cleanName2.includes(d));
             this.state.isDev = isDev;
@@ -146,11 +147,6 @@ const MixingBaking_Main = {
                 isAssignedQA = this.state.isQaUser || isDev;
             } else {
                 // Check if current user is the assigned QA
-                const cleanMyEmail = myEmail;
-                const myEmailUserPart = cleanMyEmail.includes("@") ? cleanMyEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : cleanMyEmail.replace(/[^a-z0-9]/g, "");
-                const cleanName1 = myName1.replace(/[^a-z0-9]/g, "");
-                const cleanName2 = myName2.replace(/[^a-z0-9]/g, "");
-
                 const emailMatch = (cleanMyEmail && (cleanMyEmail === cleanAssignedQA || cleanAssignedQA.includes(cleanMyEmail) || cleanMyEmail.includes(cleanAssignedQA))) ||
                                    (myEmailUserPart && assignedUserPart && myEmailUserPart === assignedUserPart && myEmailUserPart.length > 0);
 

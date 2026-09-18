@@ -311,7 +311,10 @@ const MixingBaking_Checklist = {
             }
         } catch (err) {
             console.error("Failed to start session from info form:", err);
-            alert("Failed to start session: " + err.message);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(err, "start checklist session")
+                : ("Failed to start session: " + err.message);
+            alert(msg);
         } finally {
             HideLoader();
         }
@@ -1224,7 +1227,10 @@ const MixingBaking_Checklist = {
 
         } catch (err) {
             console.error("Failed to save cycle data:", err);
-            alert("Failed to save cycle data: " + err.message);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(err, "save cycle data")
+                : ("Failed to save cycle data: " + err.message);
+            alert(msg);
         } finally {
             HideLoader();
         }
@@ -1774,7 +1780,10 @@ const MixingBaking_Checklist = {
         } catch (err) {
             HideLoader();
             console.error("Failed to complete tour: ", err);
-            alert("Failed to complete tour: " + err.message);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(err, "complete tour")
+                : ("Failed to complete tour: " + err.message);
+            alert(msg);
         }
     },
 
