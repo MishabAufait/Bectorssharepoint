@@ -236,7 +236,36 @@ const QualityRajpura_Config = {
     formatDataverseError: function (error, context) {
         context = context || "perform this operation";
         const isOffline = typeof navigator !== "undefined" && navigator && navigator.onLine === false;
-        const errMsg = (error && (error.message || error.statusText || String(error))) || "";
+
+        let errMsg = "";
+        if (error) {
+            if (error.responseJSON && error.responseJSON.error && error.responseJSON.error.message) {
+                errMsg = error.responseJSON.error.message;
+            } else if (error.responseText) {
+                try {
+                    const parsed = JSON.parse(error.responseText);
+                    if (parsed && parsed.error && parsed.error.message) {
+                        errMsg = parsed.error.message;
+                    } else {
+                        errMsg = error.responseText;
+                    }
+                } catch (_) {
+                    errMsg = error.responseText;
+                }
+            } else if (error.message) {
+                errMsg = error.message;
+            } else if (error.statusText && error.statusText !== "error") {
+                errMsg = `${error.status || ""} ${error.statusText}`.trim();
+            } else if (typeof error === "string") {
+                errMsg = error;
+            } else {
+                errMsg = String(error);
+            }
+        }
+        if (!errMsg || errMsg === "error" || errMsg === "[object Object]") {
+            errMsg = "Server or network request failed. Please check network connectivity or login session.";
+        }
+
         const errLower = errMsg.toLowerCase();
 
         const isNetworkIssue = isOffline ||

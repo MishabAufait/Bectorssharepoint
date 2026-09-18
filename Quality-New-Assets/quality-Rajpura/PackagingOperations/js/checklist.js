@@ -2255,18 +2255,22 @@ const PKGOPS_Checklist = {
 
             // Trigger notification
             if (typeof ALC_Notification !== "undefined") {
-                const score = hasDeviation ? 0 : 100;
-                const result = hasDeviation ? "Fail" : "Pass";
-                const isPass = !hasDeviation;
-                await ALC_Notification.sendVerificationComplete(
-                    {
-                        ...PKGOPS_StateMachine.currentSession,
-                        ...targetTourRecord
-                    },
-                    score,
-                    result,
-                    isPass
-                );
+                try {
+                    const score = hasDeviation ? 0 : 100;
+                    const result = hasDeviation ? "Fail" : "Pass";
+                    const isPass = !hasDeviation;
+                    await ALC_Notification.sendVerificationComplete(
+                        {
+                            ...PKGOPS_StateMachine.currentSession,
+                            ...targetTourRecord
+                        },
+                        score,
+                        result,
+                        isPass
+                    );
+                } catch (notifErr) {
+                    console.warn("ALC_Notification trigger failed (non-blocking):", notifErr);
+                }
             }
 
             if (typeof HideLoader === "function") HideLoader();

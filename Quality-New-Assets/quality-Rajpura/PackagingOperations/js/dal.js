@@ -782,27 +782,41 @@ const PKGOPS_DAL = {
             throw new Error(`Sub-checklist Dataverse save failed (${subChecklistKey}): ${response.status} - ${errorText}`);
         }
 
-        if (response.status === 204 || method === "PATCH") {
-            const entityIdHeader = response.headers ? response.headers.get("OData-EntityId") : null;
-            if (entityIdHeader) {
-                const match = entityIdHeader.match(/\(([0-9a-fA-F-]{36})\)/);
-                if (match && match[1]) {
-                    record[idColumn] = match[1];
+        const entityIdHeader = (response.headers && typeof response.headers.get === "function") 
+            ? (response.headers.get("OData-EntityId") || response.headers.get("Location") || "") 
+            : "";
+        let createdGuid = null;
+        if (entityIdHeader) {
+            const match = entityIdHeader.match(/\(([0-9a-fA-F-]{36})\)/);
+            if (match && match[1]) createdGuid = match[1];
+        }
+
+        let result = { ...record };
+        if (createdGuid) {
+            result[idColumn] = createdGuid;
+            if (baseSuffix) {
+                result["cr3ea_prod_rajpura_pkgops_" + baseSuffix] = createdGuid;
+                result["cr3ea_rajpura_pkgops_" + baseSuffix] = createdGuid;
+            }
+        }
+
+        if (response.status !== 204 && method !== "PATCH") {
+            try {
+                const text = await response.text();
+                if (text && text.trim().length > 0) {
+                    const parsed = JSON.parse(text);
+                    result = { ...result, ...parsed };
                     if (baseSuffix) {
-                        record["cr3ea_prod_rajpura_pkgops_" + baseSuffix] = match[1];
-                        record["cr3ea_rajpura_pkgops_" + baseSuffix] = match[1];
+                        result["cr3ea_prod_rajpura_pkgops_" + baseSuffix] = result[idColumn] || createdGuid || existingRowId;
+                        result["cr3ea_rajpura_pkgops_" + baseSuffix] = result[idColumn] || createdGuid || existingRowId;
                     }
                 }
+            } catch (e) {
+                console.warn("Non-JSON response in saveSubChecklistRow (treated as success):", e);
             }
-            return record;
-        } else {
-            const result = await response.json();
-            if (baseSuffix) {
-                result["cr3ea_prod_rajpura_pkgops_" + baseSuffix] = result[idColumn] || existingRowId;
-                result["cr3ea_rajpura_pkgops_" + baseSuffix] = result[idColumn] || existingRowId;
-            }
-            return result;
         }
+
+        return result;
     },
 
     // 7. Fetch all child rows for a tour ID across a specific child entity
