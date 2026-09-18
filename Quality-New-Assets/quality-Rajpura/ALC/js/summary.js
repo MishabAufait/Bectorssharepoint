@@ -21,7 +21,10 @@ const ALC_Summary = {
             await this.renderSummary();
         } catch (error) {
             console.error("Error generating ALC Summary:", error);
-            alert("Error loading summary report: " + error.message);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "load summary report")
+                : ("Error loading summary report: " + error.message);
+            alert(msg);
         } finally {
             HideLoader();
         }

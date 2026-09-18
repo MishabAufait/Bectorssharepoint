@@ -235,7 +235,10 @@ const PKGOPS_Reverify = {
         } catch (error) {
             if (typeof HideLoader === "function") HideLoader();
             console.error("Failed to submit re-verification: ", error);
-            alert("Submission failed. Please check connection and try again.");
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "submit re-verification")
+                : ("Submission failed: " + (error.message || "Please check connection and try again."));
+            alert(msg);
         }
     }
 };

@@ -45,7 +45,7 @@ const ALC_Checklist = {
         }
 
         this.uploadedFiles[index] = file;
-        if (fileStatus) fileStatus.innerHTML = `<span class="text-success">✔ ${file.name} ready</span>`;
+        if (fileStatus) fileStatus.innerHTML = `<span class="text-success">&#10003; ${file.name} ready</span>`;
     },
 
     // Render Checklist
@@ -166,7 +166,10 @@ const ALC_Checklist = {
         } catch (e) {
             HideLoader();
             console.error("Failed to load saved checklist checkpoints:", e);
-            alert("Dataverse Error: Failed to load saved checklist checkpoints: " + (e.message || ""));
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(e, "load saved checklist checkpoints")
+                : ("Dataverse Error: Failed to load saved checklist checkpoints: " + (e.message || ""));
+            alert(msg);
         }
     },
 
@@ -462,7 +465,10 @@ const ALC_Checklist = {
         } catch (error) {
             HideLoader();
             console.error("Error submitting ALC to Dataverse:", error);
-            alert("Dataverse Error: Failed to submit ALC checklist: " + (error.message || ""));
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "submit ALC checklist")
+                : ("Dataverse Error: Failed to submit ALC checklist: " + (error.message || ""));
+            alert(msg);
         }
     },
 
@@ -715,7 +721,10 @@ const ALC_Checklist = {
         } catch (error) {
             HideLoader();
             console.error("Error pausing tour:", error);
-            alert("Dataverse Error: Failed to pause tour: " + (error.message || ""));
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "pause ALC tour")
+                : ("Dataverse Error: Failed to pause tour: " + (error.message || ""));
+            alert(msg);
         }
     }
 };

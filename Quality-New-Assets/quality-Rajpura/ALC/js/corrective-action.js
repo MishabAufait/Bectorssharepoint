@@ -30,7 +30,10 @@ const ALC_CorrectiveAction = {
         } catch (error) {
             HideLoader();
             console.error("Failed to load ALC checklists for production actions:", error);
-            alert("Dataverse Error: Failed to load checklists for corrective action - " + (error.message || ""));
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "load checklists for corrective action")
+                : ("Dataverse Error: Failed to load checklists for corrective action - " + (error.message || ""));
+            alert(msg);
         }
     },
 
@@ -210,7 +213,7 @@ const ALC_CorrectiveAction = {
 
         // Cache the file object to be uploaded on submission
         this.uploadedFiles[index] = file;
-        if (fileStatus) fileStatus.innerHTML = `<span class="text-success">✔ ${file.name} ready</span>`;
+        if (fileStatus) fileStatus.innerHTML = `<span class="text-success">&#10003; ${file.name} ready</span>`;
     },
 
     // Production submits corrective actions & uploads files
@@ -457,7 +460,10 @@ const ALC_CorrectiveAction = {
                     errMsg = JSON.stringify(error);
                 }
             }
-            alert("Dataverse Error: Failed to submit corrective actions - " + errMsg);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error || errMsg, "submit corrective actions")
+                : ("Dataverse Error: Failed to submit corrective actions - " + errMsg);
+            alert(msg);
         }
     }
 };

@@ -99,7 +99,7 @@ const ALC_Main = {
                     if (c.Area && c.Area.trim() !== "") return c.Area.trim();
                     const title = (c.Title || "").trim();
                     if (title.includes(" - ")) return title.split(" - ")[1].trim();
-                    return title.replace(/^AREA-\d+\s*•?\s*/i, "").trim();
+                    return title.replace(/^AREA-\d+\s*[-:\u2022]?\s*/i, "").trim();
                 })
                 .filter(Boolean);
 
@@ -153,7 +153,10 @@ const ALC_Main = {
             await this.transitionByStatus(status, session);
         } catch (error) {
             console.error("Failed to fetch session from Dataverse:", error);
-            alert("Dataverse Connection Failed: Tour session not found in database or failed to load.\n\n" + (error.message || ""));
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "load ALC tour session")
+                : `Dataverse Connection Failed: Tour session not found in database or failed to load.\n\n${(!navigator.onLine ? "No internet connection detected. Please reconnect and try again.\n\n" : "")}${error.message || ""}`;
+            alert(msg);
             const welcomeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
                 ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
                 : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";

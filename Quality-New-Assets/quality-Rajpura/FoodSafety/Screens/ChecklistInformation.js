@@ -341,7 +341,10 @@ const ChecklistInformationScreen = {
             window.location.href = `?TourId=${generatedGUID}`;
         } catch (error) {
             console.error("Failed to start checklist tour:", error);
-            alert(`Error starting checklist: ${error.message}`);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "start checklist tour")
+                : `Error starting checklist: ${error.message}`;
+            alert(msg);
         } finally {
             HideLoader();
         }

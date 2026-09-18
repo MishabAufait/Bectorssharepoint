@@ -54,7 +54,7 @@ body {
 }
 
 .mb-tab-btn.section-filled::after {
-    content: ' ✓';
+    content: ' \2713';
     color: #16a34a;
     font-weight: 700;
     margin-left: 4px;

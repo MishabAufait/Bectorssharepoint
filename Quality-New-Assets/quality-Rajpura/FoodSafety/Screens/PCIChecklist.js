@@ -75,12 +75,12 @@ const PCIChecklistScreen = {
                         </div>
                         <div style="margin-top: 10px;">
                             <button type="button" class="bs-btn bs-btn-secondary" style="font-size: 12px; padding: 5px 12px;" onclick="PCIChecklistScreen.addObservation(${index})">
-                                ➕ Add another observation
+                                + Add another observation
                             </button>
                         </div>
                         <div class="pci-proof-wrapper" id="pci-proof-wrapper-${index}" style="margin-top: 12px; padding: 10px; background: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1; text-align: left;">
                             <label style="font-size: 11px; font-weight: 600; color: #475569; display: block; margin-bottom: 3px;">
-                                📷 Defect Proof Image/Doc (Optional):
+                                Defect Proof Image/Doc (Optional):
                             </label>
                             <input type="file" class="form-control pci-proof-file" id="pci-proof-${index}" accept="image/*,application/pdf" style="font-size: 12px; height: auto; padding: 4px 8px;">
                             <div id="pci-existing-proof-${index}" style="display: none; margin-top: 4px;"></div>
@@ -165,8 +165,8 @@ const PCIChecklistScreen = {
                        min="1" value="1" style="height: 42px; text-align: center;" placeholder="Count">
             </div>
             <div style="width: 45px; display: flex; align-items: center; justify-content: center;">
-                <button type="button" style="background: transparent; border: none; padding: 0; width: 42px; height: 42px; font-size: 20px; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center;" onclick="PCIChecklistScreen.removeObservation(${locIndex}, ${obsIndex})">
-                    🗑
+                <button type="button" style="background: transparent; border: none; padding: 0; width: 42px; height: 42px; font-size: 22px; font-weight: bold; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;" onclick="PCIChecklistScreen.removeObservation(${locIndex}, ${obsIndex})" title="Remove observation">
+                    &times;
                 </button>
             </div>
         `;
@@ -287,7 +287,7 @@ const PCIChecklistScreen = {
                 }
 
                 let alertMsg = "Please complete all required fields before submitting:\n";
-                missingList.forEach(item => alertMsg += `• ${item}\n`);
+                missingList.forEach(item => alertMsg += `- ${item}\n`);
                 alert(alertMsg.trim());
 
                 if (firstInvalidEl) {
@@ -423,7 +423,10 @@ const PCIChecklistScreen = {
             }
         } catch (error) {
             console.error("Failed submitting PCI checklist:", error);
-            alert(`Error during submission: ${error.message}`);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "submit PCI checklist")
+                : `Error during submission: ${error.message}`;
+            alert(msg);
         } finally {
             HideLoader();
         }
@@ -627,7 +630,10 @@ const PCIChecklistScreen = {
 
         } catch (error) {
             console.error("Failed pausing PCI checklist:", error);
-            alert(`Error during pause: ${error.message}`);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "pause PCI checklist")
+                : `Error during pause: ${error.message}`;
+            alert(msg);
         } finally {
             HideLoader();
         }
@@ -693,8 +699,8 @@ const PCIChecklistScreen = {
                                                     min="1" value="${obsCount}" style="height: 42px; text-align: center;">
                                         </div>
                                         <div style="width: 45px; display: flex; align-items: center; justify-content: center;">
-                                             <button type="button" style="background: transparent; border: none; padding: 0; width: 42px; height: 42px; font-size: 20px; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center;" onclick="PCIChecklistScreen.removeObservation(${idx}, ${obsIdx})">
-                                                 🗑
+                                             <button type="button" style="background: transparent; border: none; padding: 0; width: 42px; height: 42px; font-size: 22px; font-weight: bold; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;" onclick="PCIChecklistScreen.removeObservation(${idx}, ${obsIdx})" title="Remove observation">
+                                                 &times;
                                              </button>
                                         </div>
                                     `;
@@ -715,7 +721,7 @@ const PCIChecklistScreen = {
                                     if (proofUrl && existEl) {
                                         existEl.style.display = "block";
                                         existEl.setAttribute("data-url", proofUrl);
-                                        existEl.innerHTML = `<a href="${proofUrl}" target="_blank" class="badge food-safety-proof-badge" style="background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; text-decoration: none !important; padding: 4px 10px !important; border-radius: 4px !important; display: inline-flex !important; align-items: center !important; gap: 5px !important; font-size: 11px !important; font-weight: 600 !important;"><span style="color: #ffffff !important;">📷 View Attached Proof</span></a>`;
+                                        existEl.innerHTML = `<a href="${proofUrl}" target="_blank" class="badge food-safety-proof-badge" style="background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; text-decoration: none !important; padding: 4px 10px !important; border-radius: 4px !important; display: inline-flex !important; align-items: center !important; gap: 5px !important; font-size: 11px !important; font-weight: 600 !important;"><span style="color: #ffffff !important;">View Attached Proof</span></a>`;
                                     }
                                 }
                             }

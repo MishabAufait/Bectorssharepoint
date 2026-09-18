@@ -137,10 +137,13 @@ const MixingBaking_Main = {
             const myName1 = currentUserName.toLowerCase().trim();
             const myName2 = currentUserLogin.toLowerCase().trim();
 
+            const isDev = this.state.isDev || ["mishab", "aufait", "admin", "developer", "tester"].some(d => cleanMyEmail.includes(d) || cleanName1.includes(d) || cleanName2.includes(d));
+            this.state.isDev = isDev;
+
             let isAssignedQA = false;
             if (!assignedQA) {
                 // If tour is unassigned, any QA can start sessions and fill cycles
-                isAssignedQA = this.state.isQaUser;
+                isAssignedQA = this.state.isQaUser || isDev;
             } else {
                 // Check if current user is the assigned QA
                 const cleanMyEmail = myEmail;
@@ -156,8 +159,6 @@ const MixingBaking_Main = {
 
                 const resolvedAssigned = (typeof MixingBaking_Checklist !== "undefined" && MixingBaking_Checklist.resolveUserName) ? MixingBaking_Checklist.resolveUserName(assignedQA).toLowerCase().replace(/[^a-z0-9]/g, "") : "";
                 const resolvedMatch = resolvedAssigned && (cleanName1.includes(resolvedAssigned) || cleanName2.includes(resolvedAssigned) || resolvedAssigned.includes(cleanName1) || resolvedAssigned.includes(cleanName2));
-
-                const isDev = ["mishab", "aufait", "admin"].some(d => cleanMyEmail.includes(d) || cleanName1.includes(d) || cleanName2.includes(d));
 
                 isAssignedQA = ((emailMatch || nameMatch || resolvedMatch || isDev) && this.state.isQaUser) || isDev;
             }
@@ -270,7 +271,10 @@ const MixingBaking_Main = {
 
         } catch (err) {
             console.error("Mixing & Baking Initialization failed:", err);
-            alert("Dataverse Connection Failed: Unable to initialize Mixing & Baking module.\n\n" + (err.message || "Please check network or login session."));
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(err, "initialize Mixing & Baking module")
+                : `Dataverse Connection Failed: Unable to initialize Mixing & Baking module.\n\n${(!navigator.onLine ? "No internet connection detected. Please reconnect and try again.\n\n" : "")}${err.message || "Please check network or login session."}`;
+            alert(msg);
         } finally {
             HideLoader();
         }
@@ -335,8 +339,10 @@ const MixingBaking_Main = {
         }
 
         // 3. Developer / Admin fallback for testing
-        const devEmails = ["mishab", "aufait", "admin"];
-        if (devEmails.some(d => cleanMyEmail.includes(d) || cleanName1.includes(d) || cleanName2.includes(d))) {
+        const devEmails = ["mishab", "aufait", "admin", "developer", "tester"];
+        const isDev = devEmails.some(d => cleanMyEmail.includes(d) || cleanName1.includes(d) || cleanName2.includes(d));
+        this.state.isDev = isDev;
+        if (isDev) {
             console.log("Admin / Dev user detected: granting QA permissions");
             isQa = true;
         }

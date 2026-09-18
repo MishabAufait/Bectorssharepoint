@@ -211,7 +211,7 @@ const MixingBaking_Checklist = {
             if (!qa && qaEl) MixingBaking_Validator.highlight(qaEl, true);
             if (!prod && prodEl) MixingBaking_Validator.highlight(prodEl, true);
             if (!batchNo && batchEl) MixingBaking_Validator.highlight(batchEl, true);
-            alert("Please fill in all required fields:\n• Manufacturing Site\n• Line No\n• Product Name\n• QA Executive\n• Production Executive\n• Batch No");
+            alert("Please fill in all required fields:\n- Manufacturing Site\n- Line No\n- Product Name\n- QA Executive\n- Production Executive\n- Batch No");
             return;
         }
 
@@ -469,7 +469,7 @@ const MixingBaking_Checklist = {
 
         const readOnlyBannerHtml = (!isCompleted && !canEdit)
             ? `<div class="alert alert-warning" style="background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; border-radius: 6px; padding: 12px 16px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; font-size: 13px;">
-                <span style="font-size: 18px;">⚠️</span>
+                <span style="font-weight: bold; font-size: 14px; background: #f59e0b; color: #ffffff; width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;">!</span>
                 <span><strong>Read-Only Mode:</strong> You are viewing this checklist in read-only mode. Only the assigned QA Executive (${assignedQAName || "N/A"}) can edit or submit cycle data.</span>
             </div>`
             : '';
@@ -726,12 +726,12 @@ const MixingBaking_Checklist = {
                                     </div>
                                 </div>
 
-                                <h4 class="mb-section-title" style="margin-top:20px;">Top Baking Temperatures (°C)</h4>
+                                <h4 class="mb-section-title" style="margin-top:20px;">Top Baking Temperatures (&deg;C)</h4>
                                 <div class="zone-grid">
                                     ${this.renderZoneInputs(cycleNum, "top")}
                                 </div>
 
-                                <h4 class="mb-section-title" style="margin-top:20px;">Bottom Baking Temperatures (°C)</h4>
+                                <h4 class="mb-section-title" style="margin-top:20px;">Bottom Baking Temperatures (&deg;C)</h4>
                                 <div class="zone-grid">
                                     ${this.renderZoneInputs(cycleNum, "bottom")}
                                 </div>
@@ -942,7 +942,7 @@ const MixingBaking_Checklist = {
         return missing;
     },
 
-    // Updates tab buttons with checkmarks (✓) dynamically when section has data
+    // Updates tab buttons with checkmarks dynamically when section has data
     updateSectionTabIndicators: function (cycleNum) {
         const sections = [
             `ing-q-${cycleNum}`,
@@ -995,7 +995,7 @@ const MixingBaking_Checklist = {
             const missingSections = this.validateFourSections(cycleNum);
             if (missingSections && missingSections.length > 0) {
                 if (typeof HideLoader === "function") HideLoader();
-                const missingList = missingSections.map(s => `• ${s.name}`).join("\n");
+                const missingList = missingSections.map(s => `- ${s.name}`).join("\n");
                 alert(`Please fill in at least one field in each of the four sections before submitting:\n\n${missingList}`);
 
                 // Automatically switch to the first missing section tab
@@ -1084,7 +1084,7 @@ const MixingBaking_Checklist = {
                 const val = el.value.trim();
                 if (val !== "") {
                     const isNa = val.toUpperCase() === "NA" || val.toUpperCase() === "N/A";
-                    const isRangeOrUnit = /^[\d\.\s\-–]+(min|g|mm|%|bis)?$/i.test(val) || val.toLowerCase() === "as per std" || val.toLowerCase() === "std";
+                    const isRangeOrUnit = /^[\d\.\s\-]+(min|g|mm|%|bis)?$/i.test(val) || val.toLowerCase() === "as per std" || val.toLowerCase() === "std";
                     const isNum = (!isNaN(parseFloat(val)) && isFinite(val)) || isRangeOrUnit;
                     if (!isNa && !isNum) {
                         const parentPane = el.closest(".mb-tab-pane");
@@ -1336,7 +1336,7 @@ const MixingBaking_Checklist = {
                                     ${cycleData.cr3ea_chocochipssupplier ? `
                                         <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${cycleData.cr3ea_chocochipssupplier}</div>
                                         <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 11px; color: #475569;">
-                                            <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Temp: <strong>${val(cycleData.cr3ea_chocochipstemp)}°C</strong></span>
+                                            <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Temp: <strong>${val(cycleData.cr3ea_chocochipstemp)}&deg;C</strong></span>
                                             <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Count: <strong>${val(cycleData.cr3ea_chocochipscountperkg)}/kg</strong></span>
                                             <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Type: <strong>${val(cycleData.cr3ea_chocochipscompoundorpure)}</strong></span>
                                         </div>
@@ -1347,7 +1347,7 @@ const MixingBaking_Checklist = {
                                     ${cycleData.cr3ea_cashewsupplier ? `
                                         <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${cycleData.cr3ea_cashewsupplier}</div>
                                         <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 11px; color: #475569;">
-                                            <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Temp: <strong>${val(cycleData.cr3ea_cashewtemp)}°C</strong></span>
+                                            <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Temp: <strong>${val(cycleData.cr3ea_cashewtemp)}&deg;C</strong></span>
                                             <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Count: <strong>${val(cycleData.cr3ea_cashewcountperkg)}/kg</strong></span>
                                             <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Type: <strong>${val(cycleData.cr3ea_cashewcompoundorpure)}</strong></span>
                                         </div>
@@ -1361,7 +1361,7 @@ const MixingBaking_Checklist = {
                                 <div>
                                     <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Invert Syrup</div>
                                     <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 11px; color: #475569;">
-                                        <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Temp: <strong>${val(cycleData.cr3ea_invertsyruptemp)}°C</strong></span>
+                                        <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Temp: <strong>${val(cycleData.cr3ea_invertsyruptemp)}&deg;C</strong></span>
                                         <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">pH: <strong>${val(cycleData.cr3ea_invertsyrupph)}</strong></span>
                                         <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Brix: <strong>${val(cycleData.cr3ea_invertsyrupbrix)}</strong></span>
                                     </div>
@@ -1369,7 +1369,7 @@ const MixingBaking_Checklist = {
                                 <div style="border-top: 1px solid #f8fafc; padding-top: 12px;">
                                     <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Blackjack (2nd Stage)</div>
                                     <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 11px; color: #475569;">
-                                        <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Temp: <strong>${val(cycleData.cr3ea_blackjack2temp)}°C</strong></span>
+                                        <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Temp: <strong>${val(cycleData.cr3ea_blackjack2temp)}&deg;C</strong></span>
                                         <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">pH: <strong>${val(cycleData.cr3ea_blackjack2ph)}</strong></span>
                                         <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Brix: <strong>${val(cycleData.cr3ea_blackjack2brix)}</strong></span>
                                     </div>
@@ -1394,7 +1394,7 @@ const MixingBaking_Checklist = {
                                     </div>
                                     <div>
                                         <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Water Temp</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_spongewatertemp)}°C</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_spongewatertemp)}&deg;C</div>
                                     </div>
                                     <div>
                                         <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Mixing Time</div>
@@ -1402,15 +1402,15 @@ const MixingBaking_Checklist = {
                                     </div>
                                     <div>
                                         <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Fermentation Start Temp</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_fermentationstarttemp)}°C</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_fermentationstarttemp)}&deg;C</div>
                                     </div>
                                     <div>
                                         <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Fermentation Room Temp</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_fermentationroomtemp)}°C</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_fermentationroomtemp)}&deg;C</div>
                                     </div>
                                     <div>
                                         <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Final Temp (After Ferm)</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_finaltempafterfermentation)}°C</div>
+                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_finaltempafterfermentation)}&deg;C</div>
                                     </div>
                                     <div>
                                         <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Final pH</div>
@@ -1522,17 +1522,17 @@ const MixingBaking_Checklist = {
                                 <span style="font-weight: 700; font-size: 13px; color: #1e293b; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 4px;">Product Temperatures after Baking</span>
                                 <div>
                                     <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Top Product Temp</div>
-                                    <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_topproducttempafterbaking)}°C</div>
+                                    <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_topproducttempafterbaking)}&deg;C</div>
                                 </div>
                                 <div style="border-top: 1px solid #f8fafc; padding-top: 8px;">
                                     <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Bottom Product Temp</div>
-                                    <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_bottomproducttempafterbaking)}°C</div>
+                                    <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_bottomproducttempafterbaking)}&deg;C</div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Baking Zone Temperatures Table -->
-                        <span style="font-weight: 700; font-size: 11px; display: block; margin-bottom: 8px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Baking Zone Temperatures (°C):</span>
+                        <span style="font-weight: 700; font-size: 11px; display: block; margin-bottom: 8px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Baking Zone Temperatures (&deg;C):</span>
                         <div class="table-responsive" style="margin-bottom: 16px; border-radius: 8px; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
                             <table style="width: 100%; min-width: 600px; table-layout: fixed; border-collapse: collapse; font-size: 11px; text-align: center; background: white;">
                                 <thead>

@@ -185,7 +185,7 @@ const DashboardScreen = {
             html += `
                 <a href="${proofUrl}" target="_blank" class="badge food-safety-proof-badge" 
                    style="display: inline-flex !important; align-items: center !important; gap: 4px !important; padding: 3px 8px !important; font-size: 11px !important; background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; border-radius: 4px !important; text-decoration: none !important; font-weight: 600 !important; ${badgeMargin}">
-                    <span style="color: #ffffff !important;">📷 View Proof</span>
+                    <span style="color: #ffffff !important;">View Proof</span>
                 </a>
             `;
         }

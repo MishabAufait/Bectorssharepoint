@@ -357,7 +357,7 @@ const ALC_Dashboard = {
                         if (headerRight.length) {
                             const adminBtnHtml = `
                                 <button type="button" id="btn-goto-admin-panel" onclick="Rajpura_Admin.switchToAdmin()" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; font-size: 13px; font-weight: 600; border-radius: 6px; background-color: #1e40af; color: #ffffff; border: none; cursor: pointer; box-shadow: 0 2px 4px rgba(30, 64, 175, 0.2); transition: all 0.15s ease;">
-                                    ⚙️ Admin Panel
+                                    Admin Panel
                                 </button>
                             `;
                             headerRight.append(adminBtnHtml);
@@ -486,7 +486,7 @@ const ALC_Dashboard = {
         const refreshBtn = document.getElementById("btn-refresh-dashboard");
         if (refreshBtn) {
             refreshBtn.disabled = true;
-            refreshBtn.innerHTML = "⌛ Refreshing...";
+            refreshBtn.innerHTML = "Refreshing...";
         }
         try {
             const token = typeof getAccessToken === "function" ? await getAccessToken() : null;
@@ -596,13 +596,16 @@ const ALC_Dashboard = {
 
         } catch (error) {
             console.error("Failed to load Dataverse tours:", error);
-            alert("Dataverse Connection Failed: Unable to retrieve tour history from Dataverse.\n\n" + (error.message || "Please verify your login session or network connection."));
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "retrieve tour history from Dataverse")
+                : `Dataverse Connection Failed: Unable to retrieve tour history from Dataverse.\n\n${(!navigator.onLine ? "No internet connection detected. Please reconnect and try again.\n\n" : "")}${error.message || "Please verify your login session or network connection."}`;
+            alert(msg);
             ALC_Dashboard.allToursRaw = [];
             await ALC_Dashboard.applyCategoryFilter();
         } finally {
             if (refreshBtn) {
                 refreshBtn.disabled = false;
-                refreshBtn.innerHTML = "🔄 Refresh";
+                refreshBtn.innerHTML = "Refresh";
             }
         }
     },

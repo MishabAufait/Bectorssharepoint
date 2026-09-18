@@ -188,7 +188,7 @@ const CCP_OPRP_Checklist = {
             if (isCompleted) {
                 html += `
                     <div class="step-item completed" style="display: flex; align-items: center; color: #16a34a; font-weight: 500; font-size: 12px; gap: 4px;">
-                        <span style="font-weight: bold;">✓</span>
+                        <span style="font-weight: bold;">&#10003;</span>
                         <span>${step.label}</span>
                     </div>
                 `;
@@ -210,7 +210,7 @@ const CCP_OPRP_Checklist = {
 
             if (idx < steps.length - 1) {
                 html += `
-                    <div style="color: #cbd5e1; font-weight: bold; font-size: 12px;">➔</div>
+                    <div style="color: #cbd5e1; font-weight: bold; font-size: 12px;">&gt;</div>
                 `;
             }
         });
@@ -368,7 +368,7 @@ const CCP_OPRP_Checklist = {
             } else {
                 warningBanner = `
                     <div style="padding: 10px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 6px; color: #b45309; font-size: 13px; font-weight: 500; margin-bottom: 15px;">
-                        ⚠️ You are viewing this checklist in read-only mode. Only the assigned QA Executive (${CCP_OPRP_Main.state.qaExecutive || "N/A"}) can edit these details.
+                        <strong>Read-Only:</strong> You are viewing this checklist in read-only mode. Only the assigned QA Executive (${CCP_OPRP_Main.state.qaExecutive || "N/A"}) can edit these details.
                     </div>
                 `;
             }
@@ -1272,7 +1272,10 @@ const CCP_OPRP_Checklist = {
         } catch (err) {
             HideLoader();
             console.error("Save session failed: ", err);
-            alert("Failed to save checklists: " + err.message);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(err, "save checklists")
+                : ("Failed to save checklists: " + err.message);
+            alert(msg);
         }
     },
 
@@ -1313,7 +1316,10 @@ const CCP_OPRP_Checklist = {
         } catch (err) {
             HideLoader();
             console.error("Failed to log shutdown: ", err);
-            alert("Shutdown log failed: " + err.message);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(err, "log shutdown")
+                : ("Shutdown log failed: " + err.message);
+            alert(msg);
         }
     },
 
@@ -1327,7 +1333,7 @@ const CCP_OPRP_Checklist = {
             if (shutdownRow) {
                 return `
                     <div style="padding: 12px; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 6px; color: #991b1b; font-size: 13px; font-weight: 500; margin-top: 10px;">
-                        ⚠️ <strong>Closure Status:</strong> ${shutdownRow.cr3ea_acceptanceresponse || "Not Operational"}<br/>
+                        <strong>Closure Status:</strong> ${shutdownRow.cr3ea_acceptanceresponse || "Not Operational"}<br/>
                         <strong>Reason:</strong> ${shutdownRow.cr3ea_defectremarks || "Not provided"}
                     </div>
                 `;
@@ -1786,7 +1792,10 @@ const CCP_OPRP_Checklist = {
         } catch (err) {
             HideLoader();
             console.error("Failed to submit corrective action: ", err);
-            alert("Failed to submit corrective action plan: " + err.message);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(err, "submit corrective action plan")
+                : ("Failed to submit corrective action plan: " + err.message);
+            alert(msg);
         }
     },
 
@@ -1886,7 +1895,10 @@ const CCP_OPRP_Checklist = {
         } catch (err) {
             HideLoader();
             console.error("Failed to submit QA closure: ", err);
-            alert("Failed to submit QA closure: " + err.message);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(err, "submit QA closure")
+                : ("Failed to submit QA closure: " + err.message);
+            alert(msg);
         }
     },
 
@@ -1946,7 +1958,10 @@ const CCP_OPRP_Checklist = {
         } catch (err) {
             HideLoader();
             console.error("Failed to complete tour: ", err);
-            alert("Failed to complete tour: " + err.message);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(err, "complete tour")
+                : ("Failed to complete tour: " + err.message);
+            alert(msg);
         }
     }
 };

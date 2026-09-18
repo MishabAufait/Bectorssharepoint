@@ -247,7 +247,7 @@
                                             <h5 style="margin: 0; font-weight: bold; color: #1e293b; font-size: 15px; display: flex; align-items: center; gap: 6px;">
                                                 <i class="fa fa-tasks" style="color: #0284c7;"></i> Checklist Progress Tracker
                                             </h5>
-                                            <p style="margin: 3px 0 0 0; font-size: 12px; color: #64748b;" id="tracker-summary-text">0 / 42 checkpoints filled (0%)</p>
+                                            <p style="margin: 3px 0 0 0; font-size: 12px; color: #64748b;" id="tracker-summary-text">0 / 46 checkpoints filled (0%)</p>
                                         </div>
                                         <div style="display: flex; align-items: center; gap: 15px;">
                                             <div style="text-align: right;">
@@ -283,7 +283,7 @@
                                         <!-- Unselected -->
                                         <div style="background-color: #ffffff; border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
                                             <span style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700;">Pending</span>
-                                            <div id="tracker-count-pending" style="font-size: 18px; font-weight: bold; color: #475569; margin-top: 2px;">42</div>
+                                            <div id="tracker-count-pending" style="font-size: 18px; font-weight: bold; color: #475569; margin-top: 2px;">46</div>
                                         </div>
                                     </div>
                                 </div>
@@ -497,6 +497,17 @@
                                                             <small id="file-status-12" class="form-text text-muted">No image uploaded</small>
                                                         </div>
                                                     </td></tr>
+                                                <tr>
+                                                    <td>14</td>
+                                                    <td style="text-align: left;">Check for overall area cleanliness</td>
+                                                    <td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td>
+                                                    <td><input type="text" class="form-control"></td>
+                                                <td>
+                                                        <div class="custom-file-upload">
+                                                            <input type="file" class="form-control-file file-upload-input" data-index="13" onchange="ALC_Checklist.onFileSelected(this, 13)">
+                                                            <small id="file-status-13" class="form-text text-muted">No image uploaded</small>
+                                                        </div>
+                                                    </td></tr>
                                             </tbody>
                                             </table>
                                         </div>
@@ -521,17 +532,6 @@
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                <tr>
-                                                    <td>14</td>
-                                                    <td style="text-align: left;">Check for overall area cleaniness</td>
-                                                    <td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td>
-                                                    <td><input type="text" class="form-control"></td>
-                                                <td>
-                                                        <div class="custom-file-upload">
-                                                            <input type="file" class="form-control-file file-upload-input" data-index="13" onchange="ALC_Checklist.onFileSelected(this, 13)">
-                                                            <small id="file-status-13" class="form-text text-muted">No image uploaded</small>
-                                                        </div>
-                                                    </td></tr>
                                                 <tr>
                                                     <td>15</td>
                                                     <td style="text-align: left;">All gasket to be free from damage</td>
@@ -578,7 +578,7 @@
                                                     </td></tr>
                                                 <tr>
                                                     <td>19</td>
-                                                    <td style="text-align: left;">All previous running raw material which will not be used in next running variety should be transferred back to rm store.</td>
+                                                    <td style="text-align: left;">No damage and loose thread in cotton bellows</td>
                                                     <td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td>
                                                     <td><input type="text" class="form-control"></td>
                                                 <td>
@@ -589,7 +589,7 @@
                                                     </td></tr>
                                                 <tr>
                                                     <td>20</td>
-                                                    <td style="text-align: left;">All hoppers and sprinklinlers should be clean and free from extraneous material.</td>
+                                                    <td style="text-align: left;">All utensils are clean and free from damage</td>
                                                     <td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td>
                                                     <td><input type="text" class="form-control"></td>
                                                 <td>
@@ -600,7 +600,7 @@
                                                     </td></tr>
                                                 <tr>
                                                     <td>21</td>
-                                                    <td style="text-align: left;">Dough trollies in use are properly Cleaned</td>
+                                                    <td style="text-align: left;">All catch trays are in place and clean</td>
                                                     <td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td>
                                                     <td><input type="text" class="form-control"></td>
                                                 <td>
@@ -611,7 +611,7 @@
                                                     </td></tr>
                                                 <tr>
                                                     <td>22</td>
-                                                    <td style="text-align: left;">Running variety should be dispalyed on board</td>
+                                                    <td style="text-align: left;">No damage or loose threads in all conveyors(Cotton & PU)</td>
                                                     <td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td>
                                                     <td><input type="text" class="form-control"></td>
                                                 <td>
@@ -622,7 +622,7 @@
                                                     </td></tr>
                                                 <tr>
                                                     <td>23</td>
-                                                    <td style="text-align: left;">Mixer should be clean and free from any left over dough</td>
+                                                    <td style="text-align: left;">All previous running raw material which will not be used in next running variety should be transferred back to rm store.</td>
                                                     <td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td>
                                                     <td><input type="text" class="form-control"></td>
                                                 <td>
@@ -633,13 +633,57 @@
                                                     </td></tr>
                                                 <tr>
                                                     <td>24</td>
-                                                    <td style="text-align: left;">Rotary Moulder,Cross Over Conveyor and Feed rollers should be cleaned</td>
+                                                    <td style="text-align: left;">All hoppers and sprinklinlers should be clean and free from extraneous material.</td>
                                                     <td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td>
                                                     <td><input type="text" class="form-control"></td>
                                                 <td>
                                                         <div class="custom-file-upload">
                                                             <input type="file" class="form-control-file file-upload-input" data-index="23" onchange="ALC_Checklist.onFileSelected(this, 23)">
                                                             <small id="file-status-23" class="form-text text-muted">No image uploaded</small>
+                                                        </div>
+                                                    </td></tr>
+                                                <tr>
+                                                    <td>25</td>
+                                                    <td style="text-align: left;">Dough trollies in use are properly Cleaned</td>
+                                                    <td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td>
+                                                    <td><input type="text" class="form-control"></td>
+                                                <td>
+                                                        <div class="custom-file-upload">
+                                                            <input type="file" class="form-control-file file-upload-input" data-index="24" onchange="ALC_Checklist.onFileSelected(this, 24)">
+                                                            <small id="file-status-24" class="form-text text-muted">No image uploaded</small>
+                                                        </div>
+                                                    </td></tr>
+                                                <tr>
+                                                    <td>26</td>
+                                                    <td style="text-align: left;">Running variety should be dispalyed on board</td>
+                                                    <td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td>
+                                                    <td><input type="text" class="form-control"></td>
+                                                <td>
+                                                        <div class="custom-file-upload">
+                                                            <input type="file" class="form-control-file file-upload-input" data-index="25" onchange="ALC_Checklist.onFileSelected(this, 25)">
+                                                            <small id="file-status-25" class="form-text text-muted">No image uploaded</small>
+                                                        </div>
+                                                    </td></tr>
+                                                <tr>
+                                                    <td>27</td>
+                                                    <td style="text-align: left;">Mixer should be clean and free from any left over dough</td>
+                                                    <td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td>
+                                                    <td><input type="text" class="form-control"></td>
+                                                <td>
+                                                        <div class="custom-file-upload">
+                                                            <input type="file" class="form-control-file file-upload-input" data-index="26" onchange="ALC_Checklist.onFileSelected(this, 26)">
+                                                            <small id="file-status-26" class="form-text text-muted">No image uploaded</small>
+                                                        </div>
+                                                    </td></tr>
+                                                <tr>
+                                                    <td>28</td>
+                                                    <td style="text-align: left;">Rotary Moulder,Cross Over Conveyor and Feed rollers should be cleaned</td>
+                                                    <td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td>
+                                                    <td><input type="text" class="form-control"></td>
+                                                <td>
+                                                        <div class="custom-file-upload">
+                                                            <input type="file" class="form-control-file file-upload-input" data-index="27" onchange="ALC_Checklist.onFileSelected(this, 27)">
+                                                            <small id="file-status-27" class="form-text text-muted">No image uploaded</small>
                                                         </div>
                                                     </td></tr>
                                             </tbody>
@@ -667,36 +711,36 @@
                                             </thead>
                                             <tbody>
                                                 <tr>
-                                                    <td>25</td>
+                                                    <td>29</td>
                                                     <td style="text-align: left;">Check for overall area cleaniness</td>
                                                     <td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td>
                                                     <td><input type="text" class="form-control"></td>
                                                 <td>
                                                         <div class="custom-file-upload">
-                                                            <input type="file" class="form-control-file file-upload-input" data-index="24" onchange="ALC_Checklist.onFileSelected(this, 24)">
-                                                            <small id="file-status-24" class="form-text text-muted">No image uploaded</small>
+                                                            <input type="file" class="form-control-file file-upload-input" data-index="28" onchange="ALC_Checklist.onFileSelected(this, 28)">
+                                                            <small id="file-status-28" class="form-text text-muted">No image uploaded</small>
                                                         </div>
                                                     </td></tr>
                                                 <tr>
-                                                    <td>26</td>
+                                                    <td>30</td>
                                                     <td style="text-align: left;">Remove all broken from Oven end</td>
                                                     <td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td>
                                                     <td><input type="text" class="form-control"></td>
                                                 <td>
                                                         <div class="custom-file-upload">
-                                                            <input type="file" class="form-control-file file-upload-input" data-index="25" onchange="ALC_Checklist.onFileSelected(this, 25)">
-                                                            <small id="file-status-25" class="form-text text-muted">No image uploaded</small>
+                                                            <input type="file" class="form-control-file file-upload-input" data-index="29" onchange="ALC_Checklist.onFileSelected(this, 29)">
+                                                            <small id="file-status-29" class="form-text text-muted">No image uploaded</small>
                                                         </div>
                                                     </td></tr>
                                                 <tr>
-                                                    <td>27</td>
+                                                    <td>31</td>
                                                     <td style="text-align: left;">All trollies used to be clean and free from damage</td>
                                                     <td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td>
                                                     <td><input type="text" class="form-control"></td>
                                                 <td>
                                                         <div class="custom-file-upload">
-                                                            <input type="file" class="form-control-file file-upload-input" data-index="26" onchange="ALC_Checklist.onFileSelected(this, 26)">
-                                                            <small id="file-status-26" class="form-text text-muted">No image uploaded</small>
+                                                            <input type="file" class="form-control-file file-upload-input" data-index="30" onchange="ALC_Checklist.onFileSelected(this, 30)">
+                                                            <small id="file-status-30" class="form-text text-muted">No image uploaded</small>
                                                         </div>
                                                     </td></tr>
                                             </tbody>
@@ -723,70 +767,70 @@
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                <tr><td>28</td><td style="text-align: left;">Check for overall area cleaniness</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
-                                                        <div class="custom-file-upload">
-                                                            <input type="file" class="form-control-file file-upload-input" data-index="27" onchange="ALC_Checklist.onFileSelected(this, 27)">
-                                                            <small id="file-status-27" class="form-text text-muted">No image uploaded</small>
-                                                        </div>
-                                                    </td></tr>
-                                                <tr><td>29</td><td style="text-align: left;">Return back all previous laminate/Trays/CBB/Tins and get issued running variety with proper checking</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
-                                                        <div class="custom-file-upload">
-                                                            <input type="file" class="form-control-file file-upload-input" data-index="28" onchange="ALC_Checklist.onFileSelected(this, 28)">
-                                                            <small id="file-status-28" class="form-text text-muted">No image uploaded</small>
-                                                        </div>
-                                                    </td></tr>
-                                                <tr><td>30</td><td style="text-align: left;">All catch trays are in place and clean</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
-                                                        <div class="custom-file-upload">
-                                                            <input type="file" class="form-control-file file-upload-input" data-index="29" onchange="ALC_Checklist.onFileSelected(this, 29)">
-                                                            <small id="file-status-29" class="form-text text-muted">No image uploaded</small>
-                                                        </div>
-                                                    </td></tr>
-                                                <tr><td>31</td><td style="text-align: left;">No old Biscuits are present in packing area including MD Rejection bin</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
-                                                        <div class="custom-file-upload">
-                                                            <input type="file" class="form-control-file file-upload-input" data-index="30" onchange="ALC_Checklist.onFileSelected(this, 30)">
-                                                            <small id="file-status-30" class="form-text text-muted">No image uploaded</small>
-                                                        </div>
-                                                    </td></tr>
-                                                <tr><td>32</td><td style="text-align: left;">All crates and trollies are clean and free from damage</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
+                                                <tr><td>32</td><td style="text-align: left;">Check for overall area cleaniness</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
                                                         <div class="custom-file-upload">
                                                             <input type="file" class="form-control-file file-upload-input" data-index="31" onchange="ALC_Checklist.onFileSelected(this, 31)">
                                                             <small id="file-status-31" class="form-text text-muted">No image uploaded</small>
                                                         </div>
                                                     </td></tr>
-                                                <tr><td>33</td><td style="text-align: left;">No loose nut , bolts , electrical cable,loose tape on floor/ equipment.</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
+                                                <tr><td>33</td><td style="text-align: left;">Return back all previous laminate/Trays/CBB/Tins and get issued running variety with proper checking</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
                                                         <div class="custom-file-upload">
                                                             <input type="file" class="form-control-file file-upload-input" data-index="32" onchange="ALC_Checklist.onFileSelected(this, 32)">
                                                             <small id="file-status-32" class="form-text text-muted">No image uploaded</small>
                                                         </div>
                                                     </td></tr>
-                                                <tr><td>34</td><td style="text-align: left;">No damage or loose threads in all conveyors.</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
+                                                <tr><td>34</td><td style="text-align: left;">All catch trays are in place and clean</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
                                                         <div class="custom-file-upload">
                                                             <input type="file" class="form-control-file file-upload-input" data-index="33" onchange="ALC_Checklist.onFileSelected(this, 33)">
                                                             <small id="file-status-33" class="form-text text-muted">No image uploaded</small>
                                                         </div>
                                                     </td></tr>
-                                                <tr><td>35</td><td style="text-align: left;">Conveyor rollers should be cleaned</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
+                                                <tr><td>35</td><td style="text-align: left;">No old Biscuits are present in packing area including MD Rejection bin</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
                                                         <div class="custom-file-upload">
                                                             <input type="file" class="form-control-file file-upload-input" data-index="34" onchange="ALC_Checklist.onFileSelected(this, 34)">
                                                             <small id="file-status-34" class="form-text text-muted">No image uploaded</small>
                                                         </div>
                                                     </td></tr>
-                                                <tr><td>36</td><td style="text-align: left;">No WIP/Previous variety material to be kept on shopfloor</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
+                                                <tr><td>36</td><td style="text-align: left;">All crates and trollies are clean and free from damage</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
                                                         <div class="custom-file-upload">
                                                             <input type="file" class="form-control-file file-upload-input" data-index="35" onchange="ALC_Checklist.onFileSelected(this, 35)">
                                                             <small id="file-status-35" class="form-text text-muted">No image uploaded</small>
                                                         </div>
                                                     </td></tr>
-                                                <tr><td>37</td><td style="text-align: left;">All Packing machines running/idle and its contact surfaces should be cleaned</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
+                                                <tr><td>37</td><td style="text-align: left;">No loose nut , bolts , electrical cable,loose tape on floor/ equipment.</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
                                                         <div class="custom-file-upload">
                                                             <input type="file" class="form-control-file file-upload-input" data-index="36" onchange="ALC_Checklist.onFileSelected(this, 36)">
                                                             <small id="file-status-36" class="form-text text-muted">No image uploaded</small>
                                                         </div>
                                                     </td></tr>
-                                                <tr><td>38</td><td style="text-align: left;">Proper arrangement of RC and identification on the same</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
+                                                <tr><td>38</td><td style="text-align: left;">No damage or loose threads in all conveyors.</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
                                                         <div class="custom-file-upload">
                                                             <input type="file" class="form-control-file file-upload-input" data-index="37" onchange="ALC_Checklist.onFileSelected(this, 37)">
                                                             <small id="file-status-37" class="form-text text-muted">No image uploaded</small>
+                                                        </div>
+                                                    </td></tr>
+                                                <tr><td>39</td><td style="text-align: left;">Conveyor rollers should be cleaned</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
+                                                        <div class="custom-file-upload">
+                                                            <input type="file" class="form-control-file file-upload-input" data-index="38" onchange="ALC_Checklist.onFileSelected(this, 38)">
+                                                            <small id="file-status-38" class="form-text text-muted">No image uploaded</small>
+                                                        </div>
+                                                    </td></tr>
+                                                <tr><td>40</td><td style="text-align: left;">No WIP/Previous variety material to be kept on shopfloor</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
+                                                        <div class="custom-file-upload">
+                                                            <input type="file" class="form-control-file file-upload-input" data-index="39" onchange="ALC_Checklist.onFileSelected(this, 39)">
+                                                            <small id="file-status-39" class="form-text text-muted">No image uploaded</small>
+                                                        </div>
+                                                    </td></tr>
+                                                <tr><td>41</td><td style="text-align: left;">All Packing machines running/idle and its contact surfaces should be cleaned</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
+                                                        <div class="custom-file-upload">
+                                                            <input type="file" class="form-control-file file-upload-input" data-index="40" onchange="ALC_Checklist.onFileSelected(this, 40)">
+                                                            <small id="file-status-40" class="form-text text-muted">No image uploaded</small>
+                                                        </div>
+                                                    </td></tr>
+                                                <tr><td>42</td><td style="text-align: left;">Proper arrangement of RC and identification on the same</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
+                                                        <div class="custom-file-upload">
+                                                            <input type="file" class="form-control-file file-upload-input" data-index="41" onchange="ALC_Checklist.onFileSelected(this, 41)">
+                                                            <small id="file-status-41" class="form-text text-muted">No image uploaded</small>
                                                         </div>
                                                     </td></tr>
                                             </tbody>
@@ -813,28 +857,28 @@
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                <tr><td>39</td><td style="text-align: left;">Check for overall area cleaniness</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
+                                                <tr><td>43</td><td style="text-align: left;">Check for overall area cleaniness</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
                                                         <div class="custom-file-upload">
-                                                            <input type="file" class="form-control-file file-upload-input" data-index="38" onchange="ALC_Checklist.onFileSelected(this, 38)">
-                                                            <small id="file-status-38" class="form-text text-muted">No image uploaded</small>
+                                                            <input type="file" class="form-control-file file-upload-input" data-index="42" onchange="ALC_Checklist.onFileSelected(this, 42)">
+                                                            <small id="file-status-42" class="form-text text-muted">No image uploaded</small>
                                                         </div>
                                                     </td></tr>
-                                                <tr><td>40</td><td style="text-align: left;">All sieve condition- Free from damage and cleanliness</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
+                                                <tr><td>44</td><td style="text-align: left;">All sieve condition- Free from damage and cleanliness</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
                                                         <div class="custom-file-upload">
-                                                            <input type="file" class="form-control-file file-upload-input" data-index="39" onchange="ALC_Checklist.onFileSelected(this, 39)">
-                                                            <small id="file-status-39" class="form-text text-muted">No image uploaded</small>
+                                                            <input type="file" class="form-control-file file-upload-input" data-index="43" onchange="ALC_Checklist.onFileSelected(this, 43)">
+                                                            <small id="file-status-43" class="form-text text-muted">No image uploaded</small>
                                                         </div>
                                                     </td></tr>
-                                                <tr><td>41</td><td style="text-align: left;">All Magnets are in place and to be clean.</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
+                                                <tr><td>45</td><td style="text-align: left;">All Magnets are in place and to be clean.</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
                                                         <div class="custom-file-upload">
-                                                            <input type="file" class="form-control-file file-upload-input" data-index="40" onchange="ALC_Checklist.onFileSelected(this, 40)">
-                                                            <small id="file-status-40" class="form-text text-muted">No image uploaded</small>
+                                                            <input type="file" class="form-control-file file-upload-input" data-index="44" onchange="ALC_Checklist.onFileSelected(this, 44)">
+                                                            <small id="file-status-44" class="form-text text-muted">No image uploaded</small>
                                                         </div>
                                                     </td></tr>
-                                                <tr><td>42</td><td style="text-align: left;">All Trollies used are clean</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
+                                                <tr><td>46</td><td style="text-align: left;">All Trollies used are clean</td><td><select class="form-select"><option value="" selected>Select</option><option value="Compliant (2)">Compliant</option><option value="Partial (1)">Partial</option><option value="Non-Compliant (0)">Non-Compliant</option></select></td><td><input type="text" class="form-control"></td><td>
                                                         <div class="custom-file-upload">
-                                                            <input type="file" class="form-control-file file-upload-input" data-index="41" onchange="ALC_Checklist.onFileSelected(this, 41)">
-                                                            <small id="file-status-41" class="form-text text-muted">No image uploaded</small>
+                                                            <input type="file" class="form-control-file file-upload-input" data-index="45" onchange="ALC_Checklist.onFileSelected(this, 45)">
+                                                            <small id="file-status-45" class="form-text text-muted">No image uploaded</small>
                                                         </div>
                                                     </td></tr>
                                             </tbody>
@@ -906,7 +950,7 @@
                                             <h5 style="margin: 0; font-weight: bold; color: #1e293b; font-size: 15px; display: flex; align-items: center; gap: 6px;">
                                                 <i class="fa fa-tasks" style="color: #1a73e8;"></i> Re-Verification Progress Tracker
                                             </h5>
-                                            <p style="margin: 3px 0 0 0; font-size: 12px; color: #64748b;" id="reverify-tracker-summary-text">0 / 42 checkpoints filled (0%)</p>
+                                            <p style="margin: 3px 0 0 0; font-size: 12px; color: #64748b;" id="reverify-tracker-summary-text">0 / 46 checkpoints filled (0%)</p>
                                         </div>
                                         <div style="display: flex; align-items: center; gap: 15px;">
                                             <div style="text-align: right;">
@@ -1062,7 +1106,7 @@
                                 <!-- Repeatability Analysis (Deviation Warnings) - Commented Out
                                 <div id="sum-repeatability-panel" class="alert alert-warning" style="display: none; background-color: #fffbeb; border: 1px solid #fef3c7; color: #b45309; padding: 15px 20px; border-radius: 8px; margin-bottom: 25px;">
                                     <h4 style="margin: 0 0 8px 0; font-weight: bold; font-size: 15px; display: flex; align-items: center; gap: 6px;">
-                                        ⚠️ Recurring Deviation Analysis (Last 5 Tours)
+                                        Recurring Deviation Analysis (Last 5 Tours)
                                     </h4>
                                     <ul id="sum-repeatability-list" style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.5;">
                                     </ul>

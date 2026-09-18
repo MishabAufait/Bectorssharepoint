@@ -176,7 +176,10 @@ const CCP_OPRP_Main = {
             }
         } catch (err) {
             console.error("Initialization failed: ", err);
-            alert("Dataverse Connection Failed: Unable to initialize CCP, OPRP, Sieves & Magnets module.\n\n" + (err.message || "Please check network or login session."));
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(err, "initialize CCP, OPRP, Sieves & Magnets module")
+                : `Dataverse Connection Failed: Unable to initialize CCP, OPRP, Sieves & Magnets module.\n\n${(!navigator.onLine ? "No internet connection detected. Please reconnect and try again.\n\n" : "")}${err.message || "Please check network or login session."}`;
+            alert(msg);
         }
     },
 
@@ -684,7 +687,10 @@ const CCP_OPRP_Main = {
                 btn.disabled = false;
                 btn.innerText = "Start Quality Tour";
             }
-            alert("Error initializing tour checklist: " + (err.message || "Please try again."));
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(err, "initialize tour checklist")
+                : ("Error initializing tour checklist: " + (err.message || "Please try again."));
+            alert(msg);
         }
     },
 

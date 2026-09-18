@@ -434,18 +434,18 @@ const PKGOPS_Checklist = {
                 </div>
             </div>
             <div class="row g-3 mt-2">
-                ${this.createNumericField("pkglinetemp", "Packaging Line Temp (°C)")}
+                ${this.createNumericField("pkglinetemp", "Packaging Line Temp (&deg;C)")}
                 ${this.createNumericField("pkglinehumidity", "Packaging Line Humidity (%)")}
-                ${this.createNumericField("coolingtunneltemp", "Cooling Tunnel Temp (°C)")}
-                ${this.createNumericField("creamroomtemp", "Cream Room Temp (°C)")}
-                ${this.createNumericField("coldstorage1temp", "Cold Storage 1 Temp (°C)")}
-                ${this.createNumericField("coldstorage2temp", "Cold Storage 2 Temp (°C)")}
-                ${this.createNumericField("flavourroomtemp", "Flavour Room Temp (°C)")}
+                ${this.createNumericField("coolingtunneltemp", "Cooling Tunnel Temp (&deg;C)")}
+                ${this.createNumericField("creamroomtemp", "Cream Room Temp (&deg;C)")}
+                ${this.createNumericField("coldstorage1temp", "Cold Storage 1 Temp (&deg;C)")}
+                ${this.createNumericField("coldstorage2temp", "Cold Storage 2 Temp (&deg;C)")}
+                ${this.createNumericField("flavourroomtemp", "Flavour Room Temp (&deg;C)")}
                 ${this.createNumericField("dhroomhumidity", "DH Room Humidity (%)")}
-                ${this.createNumericField("coldroom1temp", "Cold Room 1 Temp (°C)")}
-                ${this.createNumericField("coldroom2temp", "Cold Room 2 Temp (°C)")}
-                ${this.createNumericField("coldroom3temp", "Cold Room 3 Temp (°C)")}
-                ${this.createNumericField("deepfreezeryeasttemp", "Deep Freezer for Yeast (°C)")}
+                ${this.createNumericField("coldroom1temp", "Cold Room 1 Temp (&deg;C)")}
+                ${this.createNumericField("coldroom2temp", "Cold Room 2 Temp (&deg;C)")}
+                ${this.createNumericField("coldroom3temp", "Cold Room 3 Temp (&deg;C)")}
+                ${this.createNumericField("deepfreezeryeasttemp", "Deep Freezer for Yeast (&deg;C)")}
             </div>
         `;
     },
@@ -2280,7 +2280,10 @@ const PKGOPS_Checklist = {
         } catch (e) {
             if (typeof HideLoader === "function") HideLoader();
             console.error("Failed to submit checklist: ", e);
-            alert("Submission failed: " + (e.message || "Please check entries and try again."));
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(e, "submit Packaging Operations checklist")
+                : ("Submission failed: " + (e.message || "Please check entries and try again."));
+            alert(msg);
         }
     },
 

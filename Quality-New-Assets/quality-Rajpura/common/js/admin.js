@@ -402,7 +402,7 @@ const Rajpura_Admin = {
             $(panel).show();
             panel.innerHTML = `
                 <div style="max-width: 600px; margin: 80px auto; text-align: center; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.06);">
-                    <div style="font-size: 48px; margin-bottom: 16px;">🚫</div>
+                    <div style="font-size: 48px; margin-bottom: 16px;"></div>
                     <h2 style="font-size: 22px; font-weight: 700; color: #1e293b; margin-bottom: 12px;">Access Denied</h2>
                     <p style="font-size: 14px; color: #64748b; line-height: 1.6; margin-bottom: 24px;">
                         You do not have administrative permission to view or manage the Quality Admin Panel. Access is restricted to authorized users configured in the <strong>AdminPanel</strong> master directory.
@@ -1104,21 +1104,21 @@ const Rajpura_Admin = {
             <!-- Header Card -->
             <div class="admin-header-card">
                 <div class="admin-header-left">
-                    <div class="admin-header-icon">🛡️</div>
+                    <div class="admin-header-icon"></div>
                     <div>
                         <h2 class="admin-header-title">Rajpura Quality Admin Panel</h2>
                         <p class="admin-header-subtitle">
                             <span>Master Data & Role Permissions</span>
-                            <span class="admin-header-badge" id="admin-status-pill">🟢 Live Synced</span>
+                            <span class="admin-header-badge" id="admin-status-pill">Live Synced</span>
                         </p>
                     </div>
                 </div>
                 <div class="admin-header-actions">
                     <button type="button" class="admin-btn-refresh" onclick="Rajpura_Admin.refreshAll()">
-                        🔄 Refresh
+                        Refresh
                     </button>
                     <button type="button" class="admin-btn-dashboard" onclick="Rajpura_Admin.switchToDashboard()">
-                        📊 Quality Dashboard ➔
+                        Quality Dashboard
                     </button>
                 </div>
             </div>
@@ -1240,29 +1240,29 @@ const Rajpura_Admin = {
                 <div class="admin-subnav-container">
                     <div class="admin-subnav-tabs">
                         <button type="button" class="admin-subnav-btn ${alcSub === 'qa-matrix' ? 'active' : ''}" onclick="Rajpura_Admin.switchAlcSubTab('qa-matrix')">
-                            <span class="subnav-icon">🛡️</span>
+                            <span class="subnav-icon"></span>
                             <span>QA Shift Matrix</span>
                         </button>
                         <button type="button" class="admin-subnav-btn ${alcSub === 'areas' ? 'active' : ''}" onclick="Rajpura_Admin.switchAlcSubTab('areas')">
-                            <span class="subnav-icon">🔍</span>
+                            <span class="subnav-icon"></span>
                             <span>Area Inspectors</span>
                         </button>
                         <button type="button" class="admin-subnav-btn ${alcSub === 'lines' ? 'active' : ''}" onclick="Rajpura_Admin.switchAlcSubTab('lines')">
-                            <span class="subnav-icon">🏭</span>
+                            <span class="subnav-icon"></span>
                             <span>Line Master</span>
                         </button>
                         <button type="button" class="admin-subnav-btn ${alcSub === 'shifts' ? 'active' : ''}" onclick="Rajpura_Admin.switchAlcSubTab('shifts')">
-                            <span class="subnav-icon">⏰</span>
+                            <span class="subnav-icon"></span>
                             <span>Shift Master</span>
                         </button>
                         <button type="button" class="admin-subnav-btn ${alcSub === 'products' ? 'active' : ''}" onclick="Rajpura_Admin.switchAlcSubTab('products')">
-                            <span class="subnav-icon">📦</span>
+                            <span class="subnav-icon"></span>
                             <span>Product Catalogue</span>
                         </button>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                         <button type="button" id="admin-btn-seed-alc" class="admin-btn-secondary" style="font-size: 12px; padding: 6px 14px; display: inline-flex; align-items: center; gap: 5px; font-weight: 600; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; border-radius: 8px; cursor: not-allowed !important; opacity: 0.6; pointer-events: none;" disabled title="Seeding is disabled">
-                            ⚡ Seed Master Data
+                            Seed Master Data
                         </button>
                     </div>
                 </div>
@@ -1289,21 +1289,21 @@ const Rajpura_Admin = {
                 <div class="admin-subnav-container">
                     <div class="admin-subnav-tabs">
                         <button type="button" class="admin-subnav-btn ${pkgSub === 'users' ? 'active' : ''}" onclick="Rajpura_Admin.switchPkgSubTab('users')">
-                            <span class="subnav-icon">👥</span>
+                            <span class="subnav-icon"></span>
                             <span>Role & User Assignments</span>
                         </button>
                         <button type="button" class="admin-subnav-btn ${pkgSub === 'products' ? 'active' : ''}" onclick="Rajpura_Admin.switchPkgSubTab('products')">
-                            <span class="subnav-icon">📦</span>
+                            <span class="subnav-icon"></span>
                             <span>Product Master Catalogue</span>
                         </button>
                         <button type="button" class="admin-subnav-btn ${pkgSub === 'skus' ? 'active' : ''}" onclick="Rajpura_Admin.switchPkgSubTab('skus')">
-                            <span class="subnav-icon">🏷️</span>
+                            <span class="subnav-icon"></span>
                             <span>SKU / Weight Master</span>
                         </button>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <button type="button" id="admin-btn-seed-pkg" class="admin-btn-secondary" style="font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 8px; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none; display: inline-flex; align-items: center; gap: 5px;" disabled title="Seeding is disabled">
-                            ⚡ Seed Products (1,105)
+                            Seed Products (1,105)
                         </button>
                     </div>
                 </div>
@@ -1351,17 +1351,17 @@ const Rajpura_Admin = {
                 <div class="admin-subnav-container">
                     <div class="admin-subnav-tabs">
                         <button type="button" class="admin-subnav-btn ${mbSub === 'users' ? 'active' : ''}" onclick="Rajpura_Admin.switchMbSubTab('users')">
-                            <span class="subnav-icon">👥</span>
+                            <span class="subnav-icon"></span>
                             <span>Role & User Assignments</span>
                         </button>
                         <button type="button" class="admin-subnav-btn ${mbSub === 'recipes' ? 'active' : ''}" onclick="Rajpura_Admin.switchMbSubTab('recipes')">
-                            <span class="subnav-icon">🍪</span>
+                            <span class="subnav-icon"></span>
                             <span>Product Recipes Master Catalogue</span>
                         </button>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <button type="button" id="admin-btn-seed-mb" class="admin-btn-secondary" style="font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 8px; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none; display: inline-flex; align-items: center; gap: 5px;" disabled title="Seeding is disabled">
-                            ⚡ Seed Recipes (9)
+                            Seed Recipes (9)
                         </button>
                     </div>
                 </div>
@@ -1399,17 +1399,17 @@ const Rajpura_Admin = {
                 <div class="admin-subnav-container">
                     <div class="admin-subnav-tabs">
                         <button type="button" class="admin-subnav-btn ${ccpSub === 'users' ? 'active' : ''}" onclick="Rajpura_Admin.switchCcpSubTab('users')">
-                            <span class="subnav-icon">👥</span>
+                            <span class="subnav-icon"></span>
                             <span>Role & User Assignments</span>
                         </button>
                         <button type="button" class="admin-subnav-btn ${ccpSub === 'products' ? 'active' : ''}" onclick="Rajpura_Admin.switchCcpSubTab('products')">
-                            <span class="subnav-icon">📦</span>
+                            <span class="subnav-icon"></span>
                             <span>Product Master Catalogue</span>
                         </button>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <button type="button" id="admin-btn-seed-ccp" class="admin-btn-secondary" style="font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 8px; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none; display: inline-flex; align-items: center; gap: 5px;" disabled title="Seeding is disabled">
-                            ⚡ Seed Products (13)
+                            Seed Products (13)
                         </button>
                     </div>
                 </div>
@@ -1491,11 +1491,11 @@ const Rajpura_Admin = {
             <div class="admin-panel-card">
                 <div class="admin-panel-header">
                     <div class="admin-panel-title-area">
-                        <h3 class="admin-panel-title">🛡️ QA Shift Assignment Matrix</h3>
+                        <h3 class="admin-panel-title"> QA Shift Assignment Matrix</h3>
                     </div>
                     <div class="admin-panel-actions">
                         <button type="button" class="admin-btn-product-add" onclick="Rajpura_Admin.openAddAlcQaMatrixModal()">
-                            ➕ Add Shift Assignment
+                            + Add Shift Assignment
                         </button>
                     </div>
                 </div>
@@ -1512,15 +1512,15 @@ const Rajpura_Admin = {
                                         <div class="admin-card-header-left">
                                             <div class="admin-card-title-row">
                                                 <h4 class="admin-card-title">${this.escapeHtml(displayLine)}</h4>
-                                                <span class="admin-line-badge" style="font-size: 12px;">⏰ ${this.escapeHtml(displayShift)}</span>
+                                                <span class="admin-line-badge" style="font-size: 12px;"> ${this.escapeHtml(displayShift)}</span>
                                                 <span class="admin-status-pill ${r.isActive !== false ? 'active' : 'inactive'}" style="cursor: pointer;" onclick="Rajpura_Admin.toggleItemActive('ALC', ${r.id})" title="Click to toggle active status">
-                                                    ● ${r.isActive !== false ? 'Active' : 'Inactive'}
+                                                    &bull; ${r.isActive !== false ? 'Active' : 'Inactive'}
                                                 </span>
                                             </div>
                                         </div>
                                         <div class="admin-card-header-right">
                                             <button type="button" class="admin-btn-manage-users" onclick="Rajpura_Admin.openEditAlcQaMatrixModal(${r.id})">
-                                                ✏️ Edit Assignment
+                                                Edit Assignment
                                             </button>
                                         </div>
                                     </div>
@@ -1528,7 +1528,7 @@ const Rajpura_Admin = {
                                         <div class="admin-card-section">
                                             <div class="admin-card-section-header">
                                                 <div class="admin-card-section-title">
-                                                    <span class="role-icon">🛡️</span>
+                                                    <span class="role-icon"></span>
                                                     <span>Assigned QA Executives / Operators</span>
                                                     <span class="admin-count-pill">${(r.assignedUsers || []).length}</span>
                                                 </div>
@@ -1546,7 +1546,7 @@ const Rajpura_Admin = {
                                         <div class="admin-card-section has-divider">
                                             <div class="admin-card-section-header">
                                                 <div class="admin-card-section-title">
-                                                    <span class="role-icon">👔</span>
+                                                    <span class="role-icon"></span>
                                                     <span>5-Minute Escalation Managers</span>
                                                     <span class="admin-count-pill">${(r.escalationManagers || []).length}</span>
                                                 </div>
@@ -1568,7 +1568,7 @@ const Rajpura_Admin = {
                         </div>
                     ` : `
                         <div class="admin-empty-state">
-                            <span class="admin-empty-icon">🛡️</span>
+                            <span class="admin-empty-icon"></span>
                             <div style="font-size: 15px; font-weight: 600; color: #0f172a; margin-bottom: 4px;">No QA Shift Matrix Rows Found</div>
                             <div style="font-size: 13px; color: #64748b;">Click "+ Add Shift Assignment" to define a Line & Shift QA assignment rule.</div>
                         </div>
@@ -1599,7 +1599,7 @@ const Rajpura_Admin = {
             <div class="admin-panel-card">
                 <div class="admin-panel-header">
                     <div class="admin-panel-title-area">
-                        <h3 class="admin-panel-title">🔍 Area Inspector Assignment (7 Factory Areas)</h3>
+                        <h3 class="admin-panel-title"> Area Inspector Assignment (7 Factory Areas)</h3>
                     </div>
                 </div>
 
@@ -1612,12 +1612,12 @@ const Rajpura_Admin = {
                                         <div class="admin-card-header-left">
                                             <div class="admin-card-title-row">
                                                 <h4 class="admin-card-title">${this.escapeHtml(r.title || 'AREA')} &bull; ${this.escapeHtml(r.area || r.title)}</h4>
-                                                <span class="admin-status-pill active">● Active</span>
+                                                <span class="admin-status-pill active">&bull; Active</span>
                                             </div>
                                         </div>
                                         <div class="admin-card-header-right">
                                             <button type="button" class="admin-btn-manage-users" onclick="Rajpura_Admin.openEditAlcAreaModal(${r.id})">
-                                                ✏️ Edit Inspectors
+                                                Edit Inspectors
                                             </button>
                                         </div>
                                     </div>
@@ -1625,7 +1625,7 @@ const Rajpura_Admin = {
                                         <div class="admin-card-section">
                                             <div class="admin-card-section-header">
                                                 <div class="admin-card-section-title">
-                                                    <span class="role-icon">👨‍💼</span>
+                                                    <span class="role-icon"></span>
                                                     <span>Assigned Area Incharges / Inspectors</span>
                                                     <span class="admin-count-pill">${(r.assignedUsers || []).length}</span>
                                                 </div>
@@ -1646,7 +1646,7 @@ const Rajpura_Admin = {
                         </div>
                     ` : `
                         <div class="admin-empty-state">
-                            <span class="admin-empty-icon">🔍</span>
+                            <span class="admin-empty-icon"></span>
                             <div style="font-size: 15px; font-weight: 600; color: #0f172a; margin-bottom: 4px;">No Area Inspector Rows Found</div>
                             <div style="font-size: 13px; color: #64748b;">Area inspector configurations will synchronize from server.</div>
                         </div>
@@ -1671,11 +1671,11 @@ const Rajpura_Admin = {
             <div class="admin-panel-card">
                 <div class="admin-panel-header">
                     <div class="admin-panel-title-area">
-                        <h3 class="admin-panel-title">🏭 Production Line Master (8 Lines)</h3>
+                        <h3 class="admin-panel-title"> Production Line Master (8 Lines)</h3>
                     </div>
                     <div class="admin-panel-actions">
                         <button type="button" class="admin-btn-product-add" onclick="Rajpura_Admin.openAddAlcLineModal()">
-                            ➕ Add Line
+                            + Add Line
                         </button>
                     </div>
                 </div>
@@ -1707,13 +1707,13 @@ const Rajpura_Admin = {
                                     </td>
                                     <td>
                                         <span class="admin-status-pill ${r.isActive !== false ? 'active' : 'inactive'}" style="cursor: pointer;" onclick="Rajpura_Admin.toggleItemActive('ALC', ${r.id})" title="Click to toggle status">
-                                            ● ${r.isActive !== false ? 'Active' : 'Inactive'}
+                                            &bull; ${r.isActive !== false ? 'Active' : 'Inactive'}
                                         </span>
                                     </td>
                                     <td style="text-align: center;">
                                         <div class="admin-product-actions">
                                             <button type="button" class="admin-btn-action" onclick="Rajpura_Admin.openEditAlcLineModal(${r.id})" title="Edit Line">
-                                                ✏️ Edit
+                                                Edit
                                             </button>
                                         </div>
                                     </td>
@@ -1747,11 +1747,11 @@ const Rajpura_Admin = {
             <div class="admin-panel-card">
                 <div class="admin-panel-header">
                     <div class="admin-panel-title-area">
-                        <h3 class="admin-panel-title">⏰ Shift Master (4 Operating Shifts)</h3>
+                        <h3 class="admin-panel-title"> Shift Master (4 Operating Shifts)</h3>
                     </div>
                     <div class="admin-panel-actions">
                         <button type="button" class="admin-btn-product-add" onclick="Rajpura_Admin.openAddAlcShiftModal()">
-                            ➕ Add Shift
+                            + Add Shift
                         </button>
                     </div>
                 </div>
@@ -1778,7 +1778,7 @@ const Rajpura_Admin = {
                                         <strong style="color: #0f172a; font-size: 13.5px;">${this.escapeHtml(r.shiftName || "Morning")}</strong>
                                     </td>
                                     <td>
-                                        <span style="color: #475569; font-weight: 500;">⏰ ${this.escapeHtml(r.shiftStart || "6:00 A.M.")} &ndash; ${this.escapeHtml(r.shiftEnd || "2:00 P.M.")}</span>
+                                        <span style="color: #475569; font-weight: 500;"> ${this.escapeHtml(r.shiftStart || "6:00 A.M.")} &ndash; ${this.escapeHtml(r.shiftEnd || "2:00 P.M.")}</span>
                                     </td>
                                     <td>
                                         <span style="font-weight: 600; color: #1e3a8a; background: #eff6ff; padding: 4px 10px; border-radius: 6px; border: 1px solid #bfdbfe; font-size: 12.5px;">
@@ -1787,13 +1787,13 @@ const Rajpura_Admin = {
                                     </td>
                                     <td>
                                         <span class="admin-status-pill ${r.isActive !== false ? 'active' : 'inactive'}" style="cursor: pointer;" onclick="Rajpura_Admin.toggleItemActive('ALC', ${r.id})" title="Click to toggle status">
-                                            ● ${r.isActive !== false ? 'Active' : 'Inactive'}
+                                            &bull; ${r.isActive !== false ? 'Active' : 'Inactive'}
                                         </span>
                                     </td>
                                     <td style="text-align: center;">
                                         <div class="admin-product-actions">
                                             <button type="button" class="admin-btn-action" onclick="Rajpura_Admin.openEditAlcShiftModal(${r.id})" title="Edit Shift">
-                                                ✏️ Edit
+                                                Edit
                                             </button>
                                         </div>
                                     </td>
@@ -1827,11 +1827,11 @@ const Rajpura_Admin = {
             <div class="admin-panel-card">
                 <div class="admin-panel-header">
                     <div class="admin-panel-title-area">
-                        <h3 class="admin-panel-title">📦 Changeover Product Catalogue</h3>
+                        <h3 class="admin-panel-title"> Changeover Product Catalogue</h3>
                     </div>
                     <div class="admin-panel-actions">
                         <button type="button" class="admin-btn-product-add" onclick="Rajpura_Admin.openAddAlcProductModal()">
-                            ➕ Add Product
+                            + Add Product
                         </button>
                     </div>
                 </div>
@@ -1851,7 +1851,7 @@ const Rajpura_Admin = {
                                 <tr>
                                     <td>
                                         <div class="admin-product-name-cell">
-                                            <div class="product-avatar">🍪</div>
+                                            <div class="product-avatar"></div>
                                             <div>
                                                 <div class="product-name">${this.escapeHtml(r.title)}</div>
                                             </div>
@@ -1862,16 +1862,16 @@ const Rajpura_Admin = {
                                     </td>
                                     <td>
                                         <span class="admin-status-pill ${r.isActive !== false ? 'active' : 'inactive'}" style="cursor: pointer;" onclick="Rajpura_Admin.toggleItemActive('ALC', ${r.id})" title="Click to toggle status">
-                                            ● ${r.isActive !== false ? 'Active' : 'Inactive'}
+                                            &bull; ${r.isActive !== false ? 'Active' : 'Inactive'}
                                         </span>
                                     </td>
                                     <td style="text-align: center;">
                                         <div class="admin-product-actions">
                                             <button type="button" class="admin-btn-action" onclick="Rajpura_Admin.openEditAlcProductModal(${r.id})" title="Edit Product">
-                                                ✏️ Edit
+                                                Edit
                                             </button>
                                             <button type="button" class="admin-btn-action" style="color: #dc2626;" onclick="Rajpura_Admin.confirmDeleteRow('ALC', ${r.id})" title="Delete Product">
-                                                🗑️
+                                                
                                             </button>
                                         </div>
                                     </td>
@@ -1911,14 +1911,14 @@ const Rajpura_Admin = {
             <div class="admin-panel-card" id="pkg-product-catalogue-card">
                 <div class="admin-panel-header">
                     <div class="admin-panel-title-area">
-                        <h3 class="admin-panel-title">📦 Product Master Catalogue <span class="admin-badge" id="pkg-product-counter-badge" style="font-size: 13px; font-weight: 600; color: #7c3aed; background: #f5f3ff; padding: 2px 10px; border-radius: 12px; border: 1px solid #ddd6fe; margin-left: 8px;">${allProducts.length} items</span></h3>
+                        <h3 class="admin-panel-title"> Product Master Catalogue <span class="admin-badge" id="pkg-product-counter-badge" style="font-size: 13px; font-weight: 600; color: #7c3aed; background: #f5f3ff; padding: 2px 10px; border-radius: 12px; border: 1px solid #ddd6fe; margin-left: 8px;">${allProducts.length} items</span></h3>
                     </div>
                     <div class="admin-panel-actions">
                         <button type="button" id="admin-btn-seed-pkg-inline" class="admin-btn-secondary" style="font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 8px; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none; display: inline-flex; align-items: center; gap: 6px;" disabled title="Seeding is disabled">
-                            ⚡ Seed Products (1,105)
+                            Seed Products (1,105)
                         </button>
                         <button type="button" class="admin-btn-product-add" onclick="Rajpura_Admin.openAddPkgProductModal()">
-                            ➕ Add Product
+                            + Add Product
                         </button>
                     </div>
                 </div>
@@ -1949,7 +1949,7 @@ const Rajpura_Admin = {
                     </div>
                     <div class="admin-filter-group">
                         <button type="button" class="admin-btn-reset-filters" onclick="Rajpura_Admin.resetPkgFilters()" title="Reset all filters">
-                            🔄 Reset Filters
+                            Reset Filters
                         </button>
                         <div class="admin-filter-item">
                             <span class="admin-filter-label">Rows per page:</span>
@@ -1970,19 +1970,19 @@ const Rajpura_Admin = {
                         <thead>
                             <tr>
                                 <th style="width: 32%;" class="admin-sortable-th ${st.sortBy === 'title' ? (st.sortAsc ? 'sorted-asc' : 'sorted-desc') : ''}" onclick="Rajpura_Admin.onPkgSortChange('title')">
-                                    Product Name & Description <span class="admin-sort-indicator">${st.sortBy === 'title' ? (st.sortAsc ? '▲' : '▼') : '⇅'}</span>
+                                    Product Name & Description <span class="admin-sort-indicator">${st.sortBy === 'title' ? (st.sortAsc ? '&#9650;' : '&#9660;') : '&#8645;'}</span>
                                 </th>
                                 <th style="width: 16%;" class="admin-sortable-th ${st.sortBy === 'productCode' ? (st.sortAsc ? 'sorted-asc' : 'sorted-desc') : ''}" onclick="Rajpura_Admin.onPkgSortChange('productCode')">
-                                    Product Code / SKU <span class="admin-sort-indicator">${st.sortBy === 'productCode' ? (st.sortAsc ? '▲' : '▼') : '⇅'}</span>
+                                    Product Code / SKU <span class="admin-sort-indicator">${st.sortBy === 'productCode' ? (st.sortAsc ? '&#9650;' : '&#9660;') : '&#8645;'}</span>
                                 </th>
                                 <th style="width: 16%;" class="admin-sortable-th ${st.sortBy === 'lineName' ? (st.sortAsc ? 'sorted-asc' : 'sorted-desc') : ''}" onclick="Rajpura_Admin.onPkgSortChange('lineName')">
-                                    Associated Line <span class="admin-sort-indicator">${st.sortBy === 'lineName' ? (st.sortAsc ? '▲' : '▼') : '⇅'}</span>
+                                    Associated Line <span class="admin-sort-indicator">${st.sortBy === 'lineName' ? (st.sortAsc ? '&#9650;' : '&#9660;') : '&#8645;'}</span>
                                 </th>
                                 <th style="width: 14%;" class="admin-sortable-th ${st.sortBy === 'productCategory' ? (st.sortAsc ? 'sorted-asc' : 'sorted-desc') : ''}" onclick="Rajpura_Admin.onPkgSortChange('productCategory')">
-                                    Category <span class="admin-sort-indicator">${st.sortBy === 'productCategory' ? (st.sortAsc ? '▲' : '▼') : '⇅'}</span>
+                                    Category <span class="admin-sort-indicator">${st.sortBy === 'productCategory' ? (st.sortAsc ? '&#9650;' : '&#9660;') : '&#8645;'}</span>
                                 </th>
                                 <th style="width: 10%; text-align: center;" class="admin-sortable-th ${st.sortBy === 'isActive' ? (st.sortAsc ? 'sorted-asc' : 'sorted-desc') : ''}" onclick="Rajpura_Admin.onPkgSortChange('isActive')">
-                                    Status <span class="admin-sort-indicator">${st.sortBy === 'isActive' ? (st.sortAsc ? '▲' : '▼') : '⇅'}</span>
+                                    Status <span class="admin-sort-indicator">${st.sortBy === 'isActive' ? (st.sortAsc ? '&#9650;' : '&#9660;') : '&#8645;'}</span>
                                 </th>
                                 <th style="width: 12%; text-align: center;">Actions</th>
                             </tr>
@@ -2115,7 +2115,7 @@ const Rajpura_Admin = {
                 <tr>
                     <td>
                         <div class="admin-product-name-cell">
-                            <div class="product-avatar">📦</div>
+                            <div class="product-avatar"></div>
                             <div>
                                 <div class="product-name">${this.escapeHtml(r.title)}</div>
                             </div>
@@ -2125,23 +2125,23 @@ const Rajpura_Admin = {
                         <span class="admin-sku-tag" style="font-size: 13px; font-weight: 600;">${this.escapeHtml(r.productCode || "PRD-001")}</span>
                     </td>
                     <td>
-                        <span class="admin-line-badge" style="font-size: 12.5px;">🏭 ${this.escapeHtml(r.lineName || "All Lines")}</span>
+                        <span class="admin-line-badge" style="font-size: 12.5px;"> ${this.escapeHtml(r.lineName || "All Lines")}</span>
                     </td>
                     <td>
                         <span style="font-size: 13px; font-weight: 600; color: #6d28d9; background: #f5f3ff; padding: 3px 8px; border-radius: 6px; border: 1px solid #ddd6fe;">${this.escapeHtml(r.productCategory || "General")}</span>
                     </td>
                     <td style="text-align: center;">
                         <span class="admin-status-pill ${r.isActive !== false ? 'active' : 'inactive'}" style="cursor: pointer;" onclick="Rajpura_Admin.toggleItemActive('PackagingOperations', ${r.id})" title="Click to toggle status">
-                            ● ${r.isActive !== false ? 'Active' : 'Inactive'}
+                            &bull; ${r.isActive !== false ? 'Active' : 'Inactive'}
                         </span>
                     </td>
                     <td style="text-align: center;">
                         <div class="admin-product-actions">
                             <button type="button" class="admin-btn-action" onclick="Rajpura_Admin.openEditPkgProductModal(${r.id})" title="Edit Product">
-                                ✏️ Edit
+                                Edit
                             </button>
                             <button type="button" class="admin-btn-action" style="color: #dc2626;" onclick="Rajpura_Admin.confirmDeleteRow('PackagingOperations', ${r.id})" title="Delete Product">
-                                🗑️
+                                
                             </button>
                         </div>
                     </td>
@@ -2151,7 +2151,7 @@ const Rajpura_Admin = {
             tableBody.innerHTML = `
                 <tr>
                     <td colspan="6" style="text-align: center; padding: 36px 20px; color: #64748b;">
-                        <div style="font-size: 28px; margin-bottom: 6px;">🔍</div>
+                        <div style="font-size: 28px; margin-bottom: 6px;"></div>
                         <div style="font-size: 15px; font-weight: 600; color: #0f172a; margin-bottom: 4px;">No products match current filters</div>
                         <div style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Try adjusting your search keyword, line, or category filters.</div>
                         <button type="button" class="admin-btn-secondary" style="font-size: 12px; font-weight: 600; padding: 5px 12px;" onclick="Rajpura_Admin.resetPkgFilters()">
@@ -2351,14 +2351,14 @@ const Rajpura_Admin = {
             <div class="admin-panel-card" id="ccp-product-catalogue-card">
                 <div class="admin-panel-header">
                     <div class="admin-panel-title-area">
-                        <h3 class="admin-panel-title">📦 Product Master Catalogue <span class="admin-badge" id="ccp-product-counter-badge" style="font-size: 13px; font-weight: 600; color: #d97706; background: #fffbeb; padding: 2px 10px; border-radius: 12px; border: 1px solid #fde68a; margin-left: 8px;">${allProducts.length} items</span></h3>
+                        <h3 class="admin-panel-title"> Product Master Catalogue <span class="admin-badge" id="ccp-product-counter-badge" style="font-size: 13px; font-weight: 600; color: #d97706; background: #fffbeb; padding: 2px 10px; border-radius: 12px; border: 1px solid #fde68a; margin-left: 8px;">${allProducts.length} items</span></h3>
                     </div>
                     <div class="admin-panel-actions">
                         <button type="button" id="admin-btn-seed-ccp-inline" class="admin-btn-secondary" style="font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 8px; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none; display: inline-flex; align-items: center; gap: 6px;" disabled title="Seeding is disabled">
-                            ⚡ Seed Products (13)
+                            Seed Products (13)
                         </button>
                         <button type="button" class="admin-btn-product-add" style="background: #d97706; border-color: #d97706;" onclick="Rajpura_Admin.openAddCcpProductModal()">
-                            ➕ Add Product
+                            + Add Product
                         </button>
                     </div>
                 </div>
@@ -2389,7 +2389,7 @@ const Rajpura_Admin = {
                     </div>
                     <div class="admin-filter-group">
                         <button type="button" class="admin-btn-reset-filters" onclick="Rajpura_Admin.resetCcpFilters()" title="Reset all filters">
-                            🔄 Reset Filters
+                            Reset Filters
                         </button>
                         <div class="admin-filter-item">
                             <span class="admin-filter-label">Rows per page:</span>
@@ -2410,19 +2410,19 @@ const Rajpura_Admin = {
                         <thead>
                             <tr>
                                 <th style="width: 32%;" class="admin-sortable-th ${st.sortBy === 'title' ? (st.sortAsc ? 'sorted-asc' : 'sorted-desc') : ''}" onclick="Rajpura_Admin.onCcpSortChange('title')">
-                                    Product Name & Description <span class="admin-sort-indicator">${st.sortBy === 'title' ? (st.sortAsc ? '▲' : '▼') : '⇅'}</span>
+                                    Product Name & Description <span class="admin-sort-indicator">${st.sortBy === 'title' ? (st.sortAsc ? '&#9650;' : '&#9660;') : '&#8645;'}</span>
                                 </th>
                                 <th style="width: 16%;" class="admin-sortable-th ${st.sortBy === 'productCode' ? (st.sortAsc ? 'sorted-asc' : 'sorted-desc') : ''}" onclick="Rajpura_Admin.onCcpSortChange('productCode')">
-                                    Product Code / SKU <span class="admin-sort-indicator">${st.sortBy === 'productCode' ? (st.sortAsc ? '▲' : '▼') : '⇅'}</span>
+                                    Product Code / SKU <span class="admin-sort-indicator">${st.sortBy === 'productCode' ? (st.sortAsc ? '&#9650;' : '&#9660;') : '&#8645;'}</span>
                                 </th>
                                 <th style="width: 16%;" class="admin-sortable-th ${st.sortBy === 'lineName' ? (st.sortAsc ? 'sorted-asc' : 'sorted-desc') : ''}" onclick="Rajpura_Admin.onCcpSortChange('lineName')">
-                                    Associated Line <span class="admin-sort-indicator">${st.sortBy === 'lineName' ? (st.sortAsc ? '▲' : '▼') : '⇅'}</span>
+                                    Associated Line <span class="admin-sort-indicator">${st.sortBy === 'lineName' ? (st.sortAsc ? '&#9650;' : '&#9660;') : '&#8645;'}</span>
                                 </th>
                                 <th style="width: 14%;" class="admin-sortable-th ${st.sortBy === 'productCategory' ? (st.sortAsc ? 'sorted-asc' : 'sorted-desc') : ''}" onclick="Rajpura_Admin.onCcpSortChange('productCategory')">
-                                    Category <span class="admin-sort-indicator">${st.sortBy === 'productCategory' ? (st.sortAsc ? '▲' : '▼') : '⇅'}</span>
+                                    Category <span class="admin-sort-indicator">${st.sortBy === 'productCategory' ? (st.sortAsc ? '&#9650;' : '&#9660;') : '&#8645;'}</span>
                                 </th>
                                 <th style="width: 10%; text-align: center;" class="admin-sortable-th ${st.sortBy === 'isActive' ? (st.sortAsc ? 'sorted-asc' : 'sorted-desc') : ''}" onclick="Rajpura_Admin.onCcpSortChange('isActive')">
-                                    Status <span class="admin-sort-indicator">${st.sortBy === 'isActive' ? (st.sortAsc ? '▲' : '▼') : '⇅'}</span>
+                                    Status <span class="admin-sort-indicator">${st.sortBy === 'isActive' ? (st.sortAsc ? '&#9650;' : '&#9660;') : '&#8645;'}</span>
                                 </th>
                                 <th style="width: 12%; text-align: center;">Actions</th>
                             </tr>
@@ -2555,7 +2555,7 @@ const Rajpura_Admin = {
                 <tr>
                     <td>
                         <div class="admin-product-name-cell">
-                            <div class="product-avatar" style="background: #fffbeb; color: #d97706;">📦</div>
+                            <div class="product-avatar" style="background: #fffbeb; color: #d97706;"></div>
                             <div>
                                 <div class="product-name">${this.escapeHtml(r.title)}</div>
                             </div>
@@ -2565,23 +2565,23 @@ const Rajpura_Admin = {
                         <span class="admin-sku-tag" style="font-size: 13px; font-weight: 600;">${this.escapeHtml(r.productCode || "PRD-001")}</span>
                     </td>
                     <td>
-                        <span class="admin-line-badge" style="font-size: 12.5px;">🏭 ${this.escapeHtml(r.lineName || "All Lines")}</span>
+                        <span class="admin-line-badge" style="font-size: 12.5px;"> ${this.escapeHtml(r.lineName || "All Lines")}</span>
                     </td>
                     <td>
                         <span style="font-size: 13px; font-weight: 600; color: #b45309; background: #fffbeb; padding: 3px 8px; border-radius: 6px; border: 1px solid #fde68a;">${this.escapeHtml(r.productCategory || "General")}</span>
                     </td>
                     <td style="text-align: center;">
                         <span class="admin-status-pill ${r.isActive !== false ? 'active' : 'inactive'}" style="cursor: pointer;" onclick="Rajpura_Admin.toggleItemActive('CCP_OPRP_Sieves', ${r.id})" title="Click to toggle status">
-                            ● ${r.isActive !== false ? 'Active' : 'Inactive'}
+                            &bull; ${r.isActive !== false ? 'Active' : 'Inactive'}
                         </span>
                     </td>
                     <td style="text-align: center;">
                         <div class="admin-product-actions">
                             <button type="button" class="admin-btn-action" onclick="Rajpura_Admin.openEditCcpProductModal(${r.id})" title="Edit Product">
-                                ✏️ Edit
+                                Edit
                             </button>
                             <button type="button" class="admin-btn-action" style="color: #dc2626;" onclick="Rajpura_Admin.confirmDeleteRow('CCP_OPRP_Sieves', ${r.id})" title="Delete Product">
-                                🗑️
+                                
                             </button>
                         </div>
                     </td>
@@ -2591,7 +2591,7 @@ const Rajpura_Admin = {
             tableBody.innerHTML = `
                 <tr>
                     <td colspan="6" style="text-align: center; padding: 36px 20px; color: #64748b;">
-                        <div style="font-size: 28px; margin-bottom: 6px;">🔍</div>
+                        <div style="font-size: 28px; margin-bottom: 6px;"></div>
                         <div style="font-size: 15px; font-weight: 600; color: #0f172a; margin-bottom: 4px;">No products match current filters</div>
                         <div style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Try adjusting your search keyword, line, or category filters.</div>
                         <button type="button" class="admin-btn-secondary" style="font-size: 12px; font-weight: 600; padding: 5px 12px;" onclick="Rajpura_Admin.resetCcpFilters()">
@@ -2768,11 +2768,11 @@ const Rajpura_Admin = {
             <div class="admin-panel-card">
                 <div class="admin-panel-header">
                     <div class="admin-panel-title-area">
-                        <h3 class="admin-panel-title">🏷️ SKU / Weight Master</h3>
+                        <h3 class="admin-panel-title"> SKU / Weight Master</h3>
                     </div>
                     <div class="admin-panel-actions">
                         <button type="button" class="admin-btn-product-add" onclick="Rajpura_Admin.openAddPkgSkuModal()">
-                            ➕ Add SKU Weight
+                            + Add SKU Weight
                         </button>
                     </div>
                 </div>
@@ -2791,7 +2791,7 @@ const Rajpura_Admin = {
                                 <tr>
                                     <td>
                                         <div style="display: flex; align-items: center; gap: 10px;">
-                                            <span style="font-size: 18px;">⚖️</span>
+                                            <span style="font-size: 18px;"></span>
                                             <div>
                                                 <strong style="color: #0f172a; font-size: 14px;">${this.escapeHtml(r.title)}</strong>
                                             </div>
@@ -2799,13 +2799,13 @@ const Rajpura_Admin = {
                                     </td>
                                     <td>
                                         <span class="admin-status-pill ${r.isActive !== false ? 'active' : 'inactive'}" style="cursor: pointer;" onclick="Rajpura_Admin.toggleItemActive('PackagingOperations', ${r.id})" title="Click to toggle status">
-                                            ● ${r.isActive !== false ? 'Active' : 'Inactive'}
+                                            &bull; ${r.isActive !== false ? 'Active' : 'Inactive'}
                                         </span>
                                     </td>
                                     <td style="text-align: center;">
                                         <div class="admin-product-actions">
                                             <button type="button" class="admin-btn-action" onclick="Rajpura_Admin.openEditPkgSkuModal(${r.id})" title="Edit SKU">
-                                                ✏️ Edit
+                                                Edit
                                             </button>
                                         </div>
                                     </td>
@@ -2834,7 +2834,7 @@ const Rajpura_Admin = {
             <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
                 <div class="admin-modal-card">
                     <div class="admin-modal-header">
-                        <h4 class="admin-modal-title">➕ Add Production Line &bull; Line Master</h4>
+                        <h4 class="admin-modal-title">+ Add Production Line &bull; Line Master</h4>
                         <button type="button" class="admin-modal-close" onclick="Rajpura_Admin.closeModal()">&times;</button>
                     </div>
                     <div class="admin-modal-body">
@@ -2856,7 +2856,7 @@ const Rajpura_Admin = {
                     <div class="admin-modal-footer">
                         <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
                         <button type="button" class="admin-btn-primary" id="btn-save-line" onclick="Rajpura_Admin.saveAlcLine()">
-                            💾 Save Line to SharePoint
+                            Save Line to SharePoint
                         </button>
                     </div>
                 </div>
@@ -2873,7 +2873,7 @@ const Rajpura_Admin = {
             <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
                 <div class="admin-modal-card">
                     <div class="admin-modal-header">
-                        <h4 class="admin-modal-title">✏️ Edit Production Line &bull; ${this.escapeHtml(row.title)}</h4>
+                        <h4 class="admin-modal-title">Edit Production Line &bull; ${this.escapeHtml(row.title)}</h4>
                         <button type="button" class="admin-modal-close" onclick="Rajpura_Admin.closeModal()">&times;</button>
                     </div>
                     <div class="admin-modal-body">
@@ -2893,7 +2893,7 @@ const Rajpura_Admin = {
                     <div class="admin-modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
                         <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
                         <button type="button" class="admin-btn-primary" id="btn-save-line" onclick="Rajpura_Admin.saveAlcLine(${rowId})">
-                            💾 Save Changes
+                            Save Changes
                         </button>
                     </div>
                 </div>
@@ -2912,7 +2912,7 @@ const Rajpura_Admin = {
         }
 
         const btn = document.getElementById("btn-save-line");
-        if (btn) { btn.innerText = "⏳ Saving..."; btn.disabled = true; }
+        if (btn) { btn.innerText = "Saving..."; btn.disabled = true; }
 
         const payload = {
             Title: title,
@@ -2929,7 +2929,7 @@ const Rajpura_Admin = {
             this.renderCurrentTab();
             this.updateStatsCounters();
         } else if (btn) {
-            btn.innerText = "💾 Save Line to SharePoint";
+            btn.innerText = "Save Line to SharePoint";
             btn.disabled = false;
         }
     },
@@ -2944,7 +2944,7 @@ const Rajpura_Admin = {
             <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
                 <div class="admin-modal-card">
                     <div class="admin-modal-header">
-                        <h4 class="admin-modal-title">➕ Add Shift &bull; Shift Master</h4>
+                        <h4 class="admin-modal-title">+ Add Shift &bull; Shift Master</h4>
                         <button type="button" class="admin-modal-close" onclick="Rajpura_Admin.closeModal()">&times;</button>
                     </div>
                     <div class="admin-modal-body">
@@ -2974,7 +2974,7 @@ const Rajpura_Admin = {
                     <div class="admin-modal-footer">
                         <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
                         <button type="button" class="admin-btn-primary" id="btn-save-shift" onclick="Rajpura_Admin.saveAlcShift()">
-                            💾 Save Shift to SharePoint
+                            Save Shift to SharePoint
                         </button>
                     </div>
                 </div>
@@ -2991,7 +2991,7 @@ const Rajpura_Admin = {
             <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
                 <div class="admin-modal-card">
                     <div class="admin-modal-header">
-                        <h4 class="admin-modal-title">✏️ Edit Shift &bull; Shift ${this.escapeHtml(row.shiftCode || row.title)}</h4>
+                        <h4 class="admin-modal-title">Edit Shift &bull; Shift ${this.escapeHtml(row.shiftCode || row.title)}</h4>
                         <button type="button" class="admin-modal-close" onclick="Rajpura_Admin.closeModal()">&times;</button>
                     </div>
                     <div class="admin-modal-body">
@@ -3021,7 +3021,7 @@ const Rajpura_Admin = {
                     <div class="admin-modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
                         <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
                         <button type="button" class="admin-btn-primary" id="btn-save-shift" onclick="Rajpura_Admin.saveAlcShift(${rowId})">
-                            💾 Save Changes
+                            Save Changes
                         </button>
                     </div>
                 </div>
@@ -3042,7 +3042,7 @@ const Rajpura_Admin = {
         }
 
         const btn = document.getElementById("btn-save-shift");
-        if (btn) { btn.innerText = "⏳ Saving..."; btn.disabled = true; }
+        if (btn) { btn.innerText = "Saving..."; btn.disabled = true; }
 
         const payload = {
             Title: `Shift ${code}`,
@@ -3062,7 +3062,7 @@ const Rajpura_Admin = {
             this.renderCurrentTab();
             this.updateStatsCounters();
         } else if (btn) {
-            btn.innerText = "💾 Save Shift to SharePoint";
+            btn.innerText = "Save Shift to SharePoint";
             btn.disabled = false;
         }
     },
@@ -3077,7 +3077,7 @@ const Rajpura_Admin = {
             <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
                 <div class="admin-modal-card">
                     <div class="admin-modal-header">
-                        <h4 class="admin-modal-title">➕ Add Changeover Product &bull; Product Master</h4>
+                        <h4 class="admin-modal-title">+ Add Changeover Product &bull; Product Master</h4>
                         <button type="button" class="admin-modal-close" onclick="Rajpura_Admin.closeModal()">&times;</button>
                     </div>
                     <div class="admin-modal-body">
@@ -3097,7 +3097,7 @@ const Rajpura_Admin = {
                     <div class="admin-modal-footer">
                         <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
                         <button type="button" class="admin-btn-primary" id="btn-save-prod" onclick="Rajpura_Admin.saveAlcProduct()">
-                            💾 Save Product to SharePoint
+                            Save Product to SharePoint
                         </button>
                     </div>
                 </div>
@@ -3114,7 +3114,7 @@ const Rajpura_Admin = {
             <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
                 <div class="admin-modal-card">
                     <div class="admin-modal-header">
-                        <h4 class="admin-modal-title">✏️ Edit Changeover Product &bull; ${this.escapeHtml(row.title)}</h4>
+                        <h4 class="admin-modal-title">Edit Changeover Product &bull; ${this.escapeHtml(row.title)}</h4>
                         <button type="button" class="admin-modal-close" onclick="Rajpura_Admin.closeModal()">&times;</button>
                     </div>
                     <div class="admin-modal-body">
@@ -3133,12 +3133,12 @@ const Rajpura_Admin = {
                     </div>
                     <div class="admin-modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
                         <button type="button" class="admin-btn-secondary" style="color: #dc2626; border-color: #fecaca; background: #fff5f5;" onclick="Rajpura_Admin.confirmDeleteRow('ALC', ${rowId})">
-                            🗑️ Delete Product
+                            Delete Product
                         </button>
                         <div style="display: flex; gap: 8px;">
                             <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
                             <button type="button" class="admin-btn-primary" id="btn-save-prod" onclick="Rajpura_Admin.saveAlcProduct(${rowId})">
-                                💾 Save Changes
+                                Save Changes
                             </button>
                         </div>
                     </div>
@@ -3158,7 +3158,7 @@ const Rajpura_Admin = {
         }
 
         const btn = document.getElementById("btn-save-prod");
-        if (btn) { btn.innerText = "⏳ Saving..."; btn.disabled = true; }
+        if (btn) { btn.innerText = "Saving..."; btn.disabled = true; }
 
         const payload = {
             Title: title,
@@ -3175,7 +3175,7 @@ const Rajpura_Admin = {
             this.renderCurrentTab();
             this.updateStatsCounters();
         } else if (btn) {
-            btn.innerText = "💾 Save Product to SharePoint";
+            btn.innerText = "Save Product to SharePoint";
             btn.disabled = false;
         }
     },
@@ -3190,17 +3190,17 @@ const Rajpura_Admin = {
         const lines = (this.configs.ALC || []).filter(r => r.configType === "Line Master");
         const shifts = (this.configs.ALC || []).filter(r => r.configType === "Shift Master");
 
-        const lineOptions = `<option value="Default">🌐 Default (All Lines)</option>` +
+        const lineOptions = `<option value="Default">Default (All Lines)</option>` +
             lines.map(l => `<option value="${this.escapeHtml(l.title)}">${this.escapeHtml(l.title)}${l.lineName ? ` - ${this.escapeHtml(l.lineName)}` : ''}</option>`).join("");
 
-        const shiftOptions = `<option value="Default">🌐 Default (All Shifts)</option>` +
+        const shiftOptions = `<option value="Default">Default (All Shifts)</option>` +
             shifts.map(s => `<option value="${this.escapeHtml(s.shiftCode || s.title)}">Shift ${this.escapeHtml(s.shiftCode || s.title)} - ${this.escapeHtml(s.shiftName || '')}</option>`).join("");
 
         mount.innerHTML = `
             <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
                 <div class="admin-modal-card">
                     <div class="admin-modal-header">
-                        <h4 class="admin-modal-title">➕ Add QA Shift Assignment &bull; ALC</h4>
+                        <h4 class="admin-modal-title">+ Add QA Shift Assignment &bull; ALC</h4>
                         <button type="button" class="admin-modal-close" onclick="Rajpura_Admin.closeModal()">&times;</button>
                     </div>
                     <div class="admin-modal-body">
@@ -3249,7 +3249,7 @@ const Rajpura_Admin = {
                     <div class="admin-modal-footer">
                         <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
                         <button type="button" class="admin-btn-primary" id="btn-save-matrix" onclick="Rajpura_Admin.saveAlcQaMatrix()">
-                            💾 Save QA Assignment to SharePoint
+                            Save QA Assignment to SharePoint
                         </button>
                     </div>
                 </div>
@@ -3272,17 +3272,17 @@ const Rajpura_Admin = {
         const isDefaultLine = !row.title || row.title === 'Default' || row.title === 'All Lines';
         const isDefaultShift = !row.shiftCode || row.shiftCode === 'Default' || row.shiftCode === 'All Shifts';
 
-        const lineOptions = `<option value="Default" ${isDefaultLine ? 'selected' : ''}>🌐 Default (All Lines)</option>` +
+        const lineOptions = `<option value="Default" ${isDefaultLine ? 'selected' : ''}>Default (All Lines)</option>` +
             lines.map(l => `<option value="${this.escapeHtml(l.title)}" ${row.title === l.title ? 'selected' : ''}>${this.escapeHtml(l.title)}${l.lineName ? ` - ${this.escapeHtml(l.lineName)}` : ''}</option>`).join("");
 
-        const shiftOptions = `<option value="Default" ${isDefaultShift ? 'selected' : ''}>🌐 Default (All Shifts)</option>` +
+        const shiftOptions = `<option value="Default" ${isDefaultShift ? 'selected' : ''}>Default (All Shifts)</option>` +
             shifts.map(s => `<option value="${this.escapeHtml(s.shiftCode || s.title)}" ${row.shiftCode === s.shiftCode ? 'selected' : ''}>Shift ${this.escapeHtml(s.shiftCode || s.title)} - ${this.escapeHtml(s.shiftName || '')}</option>`).join("");
 
         mount.innerHTML = `
             <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
                 <div class="admin-modal-card">
                     <div class="admin-modal-header">
-                        <h4 class="admin-modal-title">✏️ Edit QA Shift Assignment &bull; ${this.escapeHtml(row.title)}</h4>
+                        <h4 class="admin-modal-title">Edit QA Shift Assignment &bull; ${this.escapeHtml(row.title)}</h4>
                         <button type="button" class="admin-modal-close" onclick="Rajpura_Admin.closeModal()">&times;</button>
                     </div>
                     <div class="admin-modal-body">
@@ -3331,7 +3331,7 @@ const Rajpura_Admin = {
                     <div class="admin-modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
                         <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
                         <button type="button" class="admin-btn-primary" id="btn-save-matrix" onclick="Rajpura_Admin.saveAlcQaMatrix(${rowId})">
-                            💾 Save Changes
+                            Save Changes
                         </button>
                     </div>
                 </div>
@@ -3361,7 +3361,7 @@ const Rajpura_Admin = {
         }
 
         const btn = document.getElementById("btn-save-matrix");
-        if (btn) { btn.innerText = "⏳ Saving..."; btn.disabled = true; }
+        if (btn) { btn.innerText = "Saving..."; btn.disabled = true; }
 
         const payload = {
             Title: line || "Default",
@@ -3380,7 +3380,7 @@ const Rajpura_Admin = {
             this.renderCurrentTab();
             this.updateStatsCounters();
         } else if (btn) {
-            btn.innerText = "💾 Save QA Assignment to SharePoint";
+            btn.innerText = "Save QA Assignment to SharePoint";
             btn.disabled = false;
         }
     },
@@ -3399,7 +3399,7 @@ const Rajpura_Admin = {
             <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
                 <div class="admin-modal-card">
                     <div class="admin-modal-header">
-                        <h4 class="admin-modal-title">✏️ Assign Area Incharges &bull; ${this.escapeHtml(row.title)} (${this.escapeHtml(row.area || row.title)})</h4>
+                        <h4 class="admin-modal-title">Assign Area Incharges &bull; ${this.escapeHtml(row.title)} (${this.escapeHtml(row.area || row.title)})</h4>
                         <button type="button" class="admin-modal-close" onclick="Rajpura_Admin.closeModal()">&times;</button>
                     </div>
                     <div class="admin-modal-body">
@@ -3429,7 +3429,7 @@ const Rajpura_Admin = {
                     <div class="admin-modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
                         <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
                         <button type="button" class="admin-btn-primary" id="btn-save-area" onclick="Rajpura_Admin.saveAlcAreaInspector(${rowId})">
-                            💾 Save Area Inspectors
+                            Save Area Inspectors
                         </button>
                     </div>
                 </div>
@@ -3455,7 +3455,7 @@ const Rajpura_Admin = {
         }
 
         const btn = document.getElementById("btn-save-area");
-        if (btn) { btn.innerText = "⏳ Saving..."; btn.disabled = true; }
+        if (btn) { btn.innerText = "Saving..."; btn.disabled = true; }
 
         const payload = {
             Title: (row && row.title) || "AREA",
@@ -3474,7 +3474,7 @@ const Rajpura_Admin = {
             this.renderCurrentTab();
             this.updateStatsCounters();
         } else if (btn) {
-            btn.innerText = "💾 Save Area Inspectors";
+            btn.innerText = "Save Area Inspectors";
             btn.disabled = false;
         }
     },
@@ -3489,7 +3489,7 @@ const Rajpura_Admin = {
             <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
                 <div class="admin-modal-card">
                     <div class="admin-modal-header">
-                        <h4 class="admin-modal-title">➕ Add Product &bull; Packaging Operations</h4>
+                        <h4 class="admin-modal-title">+ Add Product &bull; Packaging Operations</h4>
                         <button type="button" class="admin-modal-close" onclick="Rajpura_Admin.closeModal()">&times;</button>
                     </div>
                     <div class="admin-modal-body">
@@ -3527,7 +3527,7 @@ const Rajpura_Admin = {
                     <div class="admin-modal-footer">
                         <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
                         <button type="button" class="admin-btn-primary" id="btn-save-pkg-prod" onclick="Rajpura_Admin.savePkgProduct()">
-                            💾 Save Product to SharePoint
+                            Save Product to SharePoint
                         </button>
                     </div>
                 </div>
@@ -3544,7 +3544,7 @@ const Rajpura_Admin = {
             <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
                 <div class="admin-modal-card">
                     <div class="admin-modal-header">
-                        <h4 class="admin-modal-title">✏️ Edit Product &bull; ${this.escapeHtml(row.title)}</h4>
+                        <h4 class="admin-modal-title">Edit Product &bull; ${this.escapeHtml(row.title)}</h4>
                         <button type="button" class="admin-modal-close" onclick="Rajpura_Admin.closeModal()">&times;</button>
                     </div>
                     <div class="admin-modal-body">
@@ -3581,12 +3581,12 @@ const Rajpura_Admin = {
                     </div>
                     <div class="admin-modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
                         <button type="button" class="admin-btn-secondary" style="color: #dc2626; border-color: #fecaca; background: #fff5f5;" onclick="Rajpura_Admin.confirmDeleteRow('PackagingOperations', ${rowId})">
-                            🗑️ Delete Product
+                            Delete Product
                         </button>
                         <div style="display: flex; gap: 8px;">
                             <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
                             <button type="button" class="admin-btn-primary" id="btn-save-pkg-prod" onclick="Rajpura_Admin.savePkgProduct(${rowId})">
-                                💾 Save Changes
+                                Save Changes
                             </button>
                         </div>
                     </div>
@@ -3608,7 +3608,7 @@ const Rajpura_Admin = {
         }
 
         const btn = document.getElementById("btn-save-pkg-prod");
-        if (btn) { btn.innerText = "⏳ Saving..."; btn.disabled = true; }
+        if (btn) { btn.innerText = "Saving..."; btn.disabled = true; }
 
         const payload = {
             Title: title,
@@ -3627,7 +3627,7 @@ const Rajpura_Admin = {
             this.renderCurrentTab();
             this.updateStatsCounters();
         } else if (btn) {
-            btn.innerText = "💾 Save Product to SharePoint";
+            btn.innerText = "Save Product to SharePoint";
             btn.disabled = false;
         }
     },
@@ -3642,7 +3642,7 @@ const Rajpura_Admin = {
             <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
                 <div class="admin-modal-card">
                     <div class="admin-modal-header">
-                        <h4 class="admin-modal-title">➕ Add SKU Weight &bull; Packaging Operations</h4>
+                        <h4 class="admin-modal-title">+ Add SKU Weight &bull; Packaging Operations</h4>
                         <button type="button" class="admin-modal-close" onclick="Rajpura_Admin.closeModal()">&times;</button>
                     </div>
                     <div class="admin-modal-body">
@@ -3659,7 +3659,7 @@ const Rajpura_Admin = {
                     <div class="admin-modal-footer">
                         <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
                         <button type="button" class="admin-btn-primary" id="btn-save-pkg-sku" onclick="Rajpura_Admin.savePkgSku()">
-                            💾 Save SKU to SharePoint
+                            Save SKU to SharePoint
                         </button>
                     </div>
                 </div>
@@ -3676,7 +3676,7 @@ const Rajpura_Admin = {
             <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
                 <div class="admin-modal-card">
                     <div class="admin-modal-header">
-                        <h4 class="admin-modal-title">✏️ Edit SKU Weight &bull; ${this.escapeHtml(row.title)}</h4>
+                        <h4 class="admin-modal-title">Edit SKU Weight &bull; ${this.escapeHtml(row.title)}</h4>
                         <button type="button" class="admin-modal-close" onclick="Rajpura_Admin.closeModal()">&times;</button>
                     </div>
                     <div class="admin-modal-body">
@@ -3692,7 +3692,7 @@ const Rajpura_Admin = {
                     <div class="admin-modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
                         <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
                         <button type="button" class="admin-btn-primary" id="btn-save-pkg-sku" onclick="Rajpura_Admin.savePkgSku(${rowId})">
-                            💾 Save Changes
+                            Save Changes
                         </button>
                     </div>
                 </div>
@@ -3710,7 +3710,7 @@ const Rajpura_Admin = {
         }
 
         const btn = document.getElementById("btn-save-pkg-sku");
-        if (btn) { btn.innerText = "⏳ Saving..."; btn.disabled = true; }
+        if (btn) { btn.innerText = "Saving..."; btn.disabled = true; }
 
         const payload = {
             Title: title,
@@ -3726,7 +3726,7 @@ const Rajpura_Admin = {
             this.renderCurrentTab();
             this.updateStatsCounters();
         } else if (btn) {
-            btn.innerText = "💾 Save SKU to SharePoint";
+            btn.innerText = "Save SKU to SharePoint";
             btn.disabled = false;
         }
     },
@@ -3753,14 +3753,14 @@ const Rajpura_Admin = {
             <div class="admin-panel-card">
                 <div class="admin-panel-header">
                     <div class="admin-panel-title-area">
-                        <h3 class="admin-panel-title">🍪 Product Recipes Master Catalogue <span style="font-size: 13px; font-weight: 600; color: #dc2626; background: #fff1f2; padding: 2px 10px; border-radius: 12px; border: 1px solid #fecdd3; margin-left: 8px;">${recipeRows.length} items</span></h3>
+                        <h3 class="admin-panel-title"> Product Recipes Master Catalogue <span style="font-size: 13px; font-weight: 600; color: #dc2626; background: #fff1f2; padding: 2px 10px; border-radius: 12px; border: 1px solid #fecdd3; margin-left: 8px;">${recipeRows.length} items</span></h3>
                     </div>
                     <div class="admin-panel-actions">
                         <button type="button" id="admin-btn-seed-mb-inline" class="admin-btn-secondary" style="font-size: 13px; font-weight: 700; padding: 7px 14px; border-radius: 8px; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none; display: inline-flex; align-items: center; gap: 6px;" disabled title="Seeding is disabled">
-                            ⚡ Seed Recipes (9)
+                            Seed Recipes (9)
                         </button>
                         <button type="button" class="admin-btn-product-add" onclick="Rajpura_Admin.openAddMbRecipeModal()">
-                            ➕ Add Product Recipe
+                            + Add Product Recipe
                         </button>
                     </div>
                 </div>
@@ -3784,7 +3784,7 @@ const Rajpura_Admin = {
                                 <tr>
                                     <td>
                                         <div class="admin-product-name-cell">
-                                            <div class="product-avatar" style="background: #fef2f2; border-color: #fecaca; color: #dc2626;">🍪</div>
+                                            <div class="product-avatar" style="background: #fef2f2; border-color: #fecaca; color: #dc2626;"></div>
                                             <div>
                                                 <div class="product-name" style="font-weight: 700; color: #0f172a;">${this.escapeHtml(r.title)}</div>
                                                 <div style="margin-top: 4px;">
@@ -3795,9 +3795,9 @@ const Rajpura_Admin = {
                                     </td>
                                     <td>
                                         <div style="font-size: 12px; line-height: 1.6; color: #334155;">
-                                            <div><strong>RPO:</strong> ${s.rpoStandard ? s.rpoStandard + '°C' : '-'} &bull; <strong>Solid Fat:</strong> ${s.solidFatStandard ? s.solidFatStandard + '°C' : '-'} &bull; <strong>Butter:</strong> ${s.butterStandard ? s.butterStandard + '°C' : '-'}</div>
+                                            <div><strong>RPO:</strong> ${s.rpoStandard ? s.rpoStandard + '&deg;C' : '-'} &bull; <strong>Solid Fat:</strong> ${s.solidFatStandard ? s.solidFatStandard + '&deg;C' : '-'} &bull; <strong>Butter:</strong> ${s.butterStandard ? s.butterStandard + '&deg;C' : '-'}</div>
                                             <div><strong>Creaming:</strong> ${s.creamingTimeStandard || '-'} &bull; <strong>Mixing:</strong> ${s.mixingTimeStandard || '-'}</div>
-                                            <div><strong>Dough Temp:</strong> ${s.doughTempStandard ? s.doughTempStandard + '°C' : '-'} &bull; <strong>Standing:</strong> ${s.doughStandingTimeStandard || '-'}</div>
+                                            <div><strong>Dough Temp:</strong> ${s.doughTempStandard ? s.doughTempStandard + '&deg;C' : '-'} &bull; <strong>Standing:</strong> ${s.doughStandingTimeStandard || '-'}</div>
                                         </div>
                                     </td>
                                     <td>
@@ -3811,18 +3811,18 @@ const Rajpura_Admin = {
                                         <div style="font-size: 12px; line-height: 1.6; color: #334155;">
                                             <div><strong>Moisture:</strong> <span style="font-weight: 700; color: #15803d;">${s.moistureStandard || '-'}</span></div>
                                             <div><strong>Colors:</strong> ${s.topColourStandard || 'As per std'}</div>
-                                            <div><strong>Template:</strong> ${s.bakingProfileAsPerTemplate ? '✓ Yes' : 'No'}</div>
+                                            <div><strong>Template:</strong> ${s.bakingProfileAsPerTemplate ? 'Yes' : 'No'}</div>
                                         </div>
                                     </td>
                                     <td>
                                         <span class="admin-status-pill ${r.isActive !== false ? 'active' : 'inactive'}" style="cursor: pointer;" onclick="Rajpura_Admin.toggleMbRecipeActive(${r.id})" title="Click to toggle status">
-                                            ● ${r.isActive !== false ? 'Active' : 'Inactive'}
+                                            &bull; ${r.isActive !== false ? 'Active' : 'Inactive'}
                                         </span>
                                     </td>
                                     <td style="text-align: center;">
                                         <div class="admin-product-actions">
                                             <button type="button" class="admin-btn-action" onclick="Rajpura_Admin.openEditMbRecipeModal(${r.id})" title="Edit Recipe Standards">
-                                                ✏️ Edit
+                                                Edit
                                             </button>
                                         </div>
                                     </td>
@@ -3884,9 +3884,9 @@ const Rajpura_Admin = {
                 <div class="admin-modal-card admin-modal-xl">
                     <div class="admin-modal-header" style="background: linear-gradient(90deg, #fff1f2 0%, #ffffff 100%);">
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 24px;">🍪</span>
+                            <span style="font-size: 24px;"></span>
                             <div>
-                                <h4 class="admin-modal-title">${isEdit ? `✏️ Edit Product Recipe &bull; ${this.escapeHtml(row.title)}` : "➕ Add New Product Recipe &bull; Mixing & Baking"}</h4>
+                                <h4 class="admin-modal-title">${isEdit ? `Edit Product Recipe &bull; ${this.escapeHtml(row.title)}` : "+ Add New Product Recipe &bull; Mixing & Baking"}</h4>
                                 <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Mixing & Baking Quality Target Standards</div>
                             </div>
                         </div>
@@ -3897,7 +3897,7 @@ const Rajpura_Admin = {
                         <!-- PINNED TOP CARD: PRODUCT IDENTIFICATION & STATUS (Always Visible) -->
                         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 18px; margin-bottom: 18px;">
                             <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
-                                <span>📦</span> <span>Product Master Profile</span>
+                                <span></span> <span>Product Master Profile</span>
                             </div>
                             <div class="admin-modal-grid-3" style="align-items: flex-end;">
                                 <div class="admin-form-group">
@@ -3929,61 +3929,61 @@ const Rajpura_Admin = {
                         <!-- 4 SUBPARTS NAVIGATION TABS (Matching Mixing & Baking Process Checklist) -->
                         <div class="admin-modal-tabs-nav">
                             <button type="button" class="admin-modal-tab-btn active" onclick="Rajpura_Admin.switchMbModalTab('mb-modal-tab-ing')">
-                                <span class="tab-step-label">🌡️ 1. Ingredient Temps</span>
+                                <span class="tab-step-label">1. Ingredient Temps</span>
                                 <span class="tab-step-sub">8 Parameters (RPO, Fats, Sugar)</span>
                             </button>
                             <button type="button" class="admin-modal-tab-btn" onclick="Rajpura_Admin.switchMbModalTab('mb-modal-tab-mat')">
-                                <span class="tab-step-label">🍫 2. Materials & Sponge</span>
+                                <span class="tab-step-label"> 2. Materials & Sponge</span>
                                 <span class="tab-step-sub">14 Parameters (Chips, Nuts, Ferm)</span>
                             </button>
                             <button type="button" class="admin-modal-tab-btn" onclick="Rajpura_Admin.switchMbModalTab('mb-modal-tab-mix')">
-                                <span class="tab-step-label">🥣 3. Mixing & Dough</span>
+                                <span class="tab-step-label"> 3. Mixing & Dough</span>
                                 <span class="tab-step-sub">8 Parameters (Timings, Wet Wt)</span>
                             </button>
                             <button type="button" class="admin-modal-tab-btn" onclick="Rajpura_Admin.switchMbModalTab('mb-modal-tab-bake')">
-                                <span class="tab-step-label">🍪 4. Baking & Quality</span>
+                                <span class="tab-step-label"> 4. Baking & Quality</span>
                                 <span class="tab-step-sub">9 Parameters (Dimensions, Moisture)</span>
                             </button>
                         </div>
 
-                        <!-- SUBPART 1: INGREDIENT STANDARD TEMPERATURES (°C) -->
+                        <!-- SUBPART 1: INGREDIENT STANDARD TEMPERATURES (&deg;C) -->
                         <div id="mb-modal-tab-ing" class="admin-mb-modal-pane" style="display: block;">
-                            <div class="admin-modal-section-title">🌡️ Subpart 1 &bull; Ingredient Standard Temperatures (°C)</div>
+                            <div class="admin-modal-section-title">Subpart 1 &bull; Ingredient Standard Temperatures (&deg;C)</div>
                             <div style="font-size: 12px; color: #64748b; margin-bottom: 12px;">Standard target temperatures and particle sizes. When "NA" is set for a product, the form will automatically prefill "NA" for operators.</div>
                             
                             <div class="admin-modal-grid-4">
                                 <div class="admin-form-group">
-                                    <label class="admin-form-label">RPO Standard (°C)</label>
+                                    <label class="admin-form-label">RPO Standard (&deg;C)</label>
                                     <input type="text" id="modal-mb-rpostandard" class="admin-form-input" value="${this.escapeHtml(s.rpoStandard || '45')}" placeholder="e.g. 45" />
                                     <input type="hidden" id="modal-mb-rpoobserved" value="${this.escapeHtml(s.rpoObserved || '')}" />
                                 </div>
                                 <div class="admin-form-group">
-                                    <label class="admin-form-label">Solid Fat Standard (°C)</label>
+                                    <label class="admin-form-label">Solid Fat Standard (&deg;C)</label>
                                     <input type="text" id="modal-mb-solidfatstandard" class="admin-form-input" value="${this.escapeHtml(s.solidFatStandard || 'NA')}" placeholder="e.g. 15 or NA" />
                                     <input type="text" id="modal-mb-solidfatobserved" class="admin-form-input" style="margin-top: 4px; font-size: 11px; padding: 4px 8px; color: #64748b;" value="${this.escapeHtml(s.solidFatObserved || '')}" placeholder="Observed NA default" />
                                 </div>
                                 <div class="admin-form-group">
-                                    <label class="admin-form-label">Butter Standard (°C)</label>
+                                    <label class="admin-form-label">Butter Standard (&deg;C)</label>
                                     <input type="text" id="modal-mb-butterstandard" class="admin-form-input" value="${this.escapeHtml(s.butterStandard || 'NA')}" placeholder="e.g. 5 or NA" />
                                     <input type="text" id="modal-mb-butterobserved" class="admin-form-input" style="margin-top: 4px; font-size: 11px; padding: 4px 8px; color: #64748b;" value="${this.escapeHtml(s.butterObserved || '')}" placeholder="Observed NA default" />
                                 </div>
                                 <div class="admin-form-group">
-                                    <label class="admin-form-label">Black Jack Standard (°C)</label>
+                                    <label class="admin-form-label">Black Jack Standard (&deg;C)</label>
                                     <input type="text" id="modal-mb-blackjackstandard" class="admin-form-input" value="${this.escapeHtml(s.blackJackStandard || '35')}" placeholder="e.g. 35 or NA" />
                                     <input type="text" id="modal-mb-blackjackobserved" class="admin-form-input" style="margin-top: 4px; font-size: 11px; padding: 4px 8px; color: #64748b;" value="${this.escapeHtml(s.blackJackObserved || '')}" placeholder="Observed NA default" />
                                 </div>
                                 <div class="admin-form-group">
-                                    <label class="admin-form-label">Sponge Temp Std (°C)</label>
+                                    <label class="admin-form-label">Sponge Temp Std (&deg;C)</label>
                                     <input type="text" id="modal-mb-spongetempstandard" class="admin-form-input" value="${this.escapeHtml(s.spongeTempStandard || 'NA')}" placeholder="e.g. 28-30 or NA" />
                                     <input type="text" id="modal-mb-spongetempobserved" class="admin-form-input" style="margin-top: 4px; font-size: 11px; padding: 4px 8px; color: #64748b;" value="${this.escapeHtml(s.spongeTempObserved || '')}" placeholder="Observed NA default" />
                                 </div>
                                 <div class="admin-form-group">
-                                    <label class="admin-form-label">Slurry Standard (°C)</label>
+                                    <label class="admin-form-label">Slurry Standard (&deg;C)</label>
                                     <input type="text" id="modal-mb-slurrystandard" class="admin-form-input" value="${this.escapeHtml(s.slurryStandard || 'NA')}" placeholder="e.g. 30 or NA" />
                                     <input type="text" id="modal-mb-slurryobserved" class="admin-form-input" style="margin-top: 4px; font-size: 11px; padding: 4px 8px; color: #64748b;" value="${this.escapeHtml(s.slurryObserved || '')}" placeholder="Observed NA default" />
                                 </div>
                                 <div class="admin-form-group">
-                                    <label class="admin-form-label">Ground Sugar Temp Std (°C)</label>
+                                    <label class="admin-form-label">Ground Sugar Temp Std (&deg;C)</label>
                                     <input type="text" id="modal-mb-groundsugartempstandard" class="admin-form-input" value="${this.escapeHtml(s.groundSugarTempStandard || 'NA')}" placeholder="e.g. 25 or NA" />
                                     <input type="text" id="modal-mb-groundsugartempobserved" class="admin-form-input" style="margin-top: 4px; font-size: 11px; padding: 4px 8px; color: #64748b;" value="${this.escapeHtml(s.groundSugarTempObserved || '')}" placeholder="Observed NA default" />
                                 </div>
@@ -3997,21 +3997,21 @@ const Rajpura_Admin = {
                             <div class="admin-subpart-nav-footer">
                                 <span style="font-size: 12px; color: #64748b;">Subpart 1 of 4 completed</span>
                                 <button type="button" class="admin-btn-secondary" style="font-weight: 700; color: #dc2626; border-color: #f87171;" onclick="Rajpura_Admin.switchMbModalTab('mb-modal-tab-mat')">
-                                    Next: 2. Materials & Sponge ➔
+                                    Next: 2. Materials & Sponge
                                 </button>
                             </div>
                         </div>
 
                         <!-- SUBPART 2: RAW MATERIALS, SYRUPS & SPONGE -->
                         <div id="mb-modal-tab-mat" class="admin-mb-modal-pane" style="display: none;">
-                            <div class="admin-modal-section-title">🍫 Subpart 2.1 &bull; Choco Chips Specifications</div>
+                            <div class="admin-modal-section-title"> Subpart 2.1 &bull; Choco Chips Specifications</div>
                             <div class="admin-modal-grid-4">
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Supplier Name</label>
                                     <input type="text" id="modal-mb-chocochipssupplier" class="admin-form-input" value="${this.escapeHtml(s.chocoChipsSupplier || 'NA')}" placeholder="Supplier or NA" />
                                 </div>
                                 <div class="admin-form-group">
-                                    <label class="admin-form-label">Temp (°C)</label>
+                                    <label class="admin-form-label">Temp (&deg;C)</label>
                                     <input type="text" id="modal-mb-chocochipstemp" class="admin-form-input" value="${this.escapeHtml(s.chocoChipsTemp || 'NA')}" placeholder="Temp or NA" />
                                 </div>
                                 <div class="admin-form-group">
@@ -4024,14 +4024,14 @@ const Rajpura_Admin = {
                                 </div>
                             </div>
 
-                            <div class="admin-modal-section-title">🥜 Subpart 2.2 &bull; Cashew & Flour Specifications</div>
+                            <div class="admin-modal-section-title"> Subpart 2.2 &bull; Cashew & Flour Specifications</div>
                             <div class="admin-modal-grid-4">
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Cashew Supplier</label>
                                     <input type="text" id="modal-mb-cashewsupplier" class="admin-form-input" value="${this.escapeHtml(s.cashewSupplier || 'NA')}" placeholder="Supplier or NA" />
                                 </div>
                                 <div class="admin-form-group">
-                                    <label class="admin-form-label">Cashew Temp (°C)</label>
+                                    <label class="admin-form-label">Cashew Temp (&deg;C)</label>
                                     <input type="text" id="modal-mb-cashewtemp" class="admin-form-input" value="${this.escapeHtml(s.cashewTemp || 'NA')}" placeholder="Temp or NA" />
                                 </div>
                                 <div class="admin-form-group">
@@ -4044,19 +4044,19 @@ const Rajpura_Admin = {
                                 </div>
                             </div>
 
-                            <div class="admin-modal-section-title">🍯 Subpart 2.3 &bull; Syrups & Liquid Sugars</div>
+                            <div class="admin-modal-section-title"> Subpart 2.3 &bull; Syrups & Liquid Sugars</div>
                             <div class="admin-modal-grid-2">
                                 <div class="admin-form-group">
-                                    <label class="admin-form-label">Invert Syrup Temp (°C)</label>
+                                    <label class="admin-form-label">Invert Syrup Temp (&deg;C)</label>
                                     <input type="text" id="modal-mb-invertsyruptemp" class="admin-form-input" value="${this.escapeHtml(s.invertSyrupTemp || '35')}" placeholder="e.g. 35 or NA" />
                                 </div>
                                 <div class="admin-form-group">
-                                    <label class="admin-form-label">Black Jack (2nd Stage) Temp (°C)</label>
+                                    <label class="admin-form-label">Black Jack (2nd Stage) Temp (&deg;C)</label>
                                     <input type="text" id="modal-mb-blackjack2temp" class="admin-form-input" value="${this.escapeHtml(s.blackJack2Temp || '35')}" placeholder="e.g. 35 or NA" />
                                 </div>
                             </div>
 
-                            <div class="admin-modal-section-title">🍞 Subpart 2.4 &bull; Mixing Sponge & Fermentation Targets</div>
+                            <div class="admin-modal-section-title"> Subpart 2.4 &bull; Mixing Sponge & Fermentation Targets</div>
                             <div class="admin-modal-grid-4">
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Sponge Product Name</label>
@@ -4071,15 +4071,15 @@ const Rajpura_Admin = {
                                     <input type="text" id="modal-mb-spongeyeastquantity" class="admin-form-input" value="${this.escapeHtml(s.spongeYeastQuantity || 'NA')}" placeholder="Qty or NA" />
                                 </div>
                                 <div class="admin-form-group">
-                                    <label class="admin-form-label">Water Temp (°C)</label>
+                                    <label class="admin-form-label">Water Temp (&deg;C)</label>
                                     <input type="text" id="modal-mb-spongewatertemp" class="admin-form-input" value="${this.escapeHtml(s.spongeWaterTemp || 'NA')}" placeholder="Temp or NA" />
                                 </div>
                                 <div class="admin-form-group">
-                                    <label class="admin-form-label">Ferm Start Temp (°C)</label>
+                                    <label class="admin-form-label">Ferm Start Temp (&deg;C)</label>
                                     <input type="text" id="modal-mb-fermentationstarttemp" class="admin-form-input" value="${this.escapeHtml(s.fermentationStartTemp || 'NA')}" placeholder="Temp or NA" />
                                 </div>
                                 <div class="admin-form-group">
-                                    <label class="admin-form-label">Ferm Room Temp (°C)</label>
+                                    <label class="admin-form-label">Ferm Room Temp (&deg;C)</label>
                                     <input type="text" id="modal-mb-fermentationroomtemp" class="admin-form-input" value="${this.escapeHtml(s.fermentationRoomTemp || 'NA')}" placeholder="Temp or NA" />
                                 </div>
                                 <div class="admin-form-group">
@@ -4094,17 +4094,17 @@ const Rajpura_Admin = {
 
                             <div class="admin-subpart-nav-footer">
                                 <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.switchMbModalTab('mb-modal-tab-ing')">
-                                    ⬅ Back: 1. Ingredient Temps
+                                    Back: 1. Ingredient Temps
                                 </button>
                                 <button type="button" class="admin-btn-secondary" style="font-weight: 700; color: #dc2626; border-color: #f87171;" onclick="Rajpura_Admin.switchMbModalTab('mb-modal-tab-mix')">
-                                    Next: 3. Mixing & Dough ➔
+                                    Next: 3. Mixing & Dough
                                 </button>
                             </div>
                         </div>
 
                         <!-- SUBPART 3: DOUGH MIXING & FORMING -->
                         <div id="mb-modal-tab-mix" class="admin-mb-modal-pane" style="display: none;">
-                            <div class="admin-modal-section-title">🥣 Subpart 3.1 &bull; Dough Mixing Targets</div>
+                            <div class="admin-modal-section-title"> Subpart 3.1 &bull; Dough Mixing Targets</div>
                             <div class="admin-modal-grid-4">
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Creaming Time Std</label>
@@ -4117,7 +4117,7 @@ const Rajpura_Admin = {
                                     <input type="hidden" id="modal-mb-mixingtimeobserved" value="${this.escapeHtml(s.mixingTimeObserved || '')}" />
                                 </div>
                                 <div class="admin-form-group">
-                                    <label class="admin-form-label">Dough Temp Std (°C)</label>
+                                    <label class="admin-form-label">Dough Temp Std (&deg;C)</label>
                                     <input type="text" id="modal-mb-doughtempstandard" class="admin-form-input" value="${this.escapeHtml(s.doughTempStandard || '32-35')}" placeholder="e.g. 32-35" />
                                     <input type="hidden" id="modal-mb-doughtempobserved" value="${this.escapeHtml(s.doughTempObserved || '')}" />
                                 </div>
@@ -4128,7 +4128,7 @@ const Rajpura_Admin = {
                                 </div>
                             </div>
 
-                            <div class="admin-modal-section-title">📐 Subpart 3.2 &bull; Forming & Moulding Specifications</div>
+                            <div class="admin-modal-section-title">Subpart 3.2 &bull; Forming & Moulding Specifications</div>
                             <div class="admin-modal-grid-3">
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Moulder RPM / Strokes</label>
@@ -4146,25 +4146,25 @@ const Rajpura_Admin = {
 
                             <div class="admin-subpart-nav-footer">
                                 <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.switchMbModalTab('mb-modal-tab-mat')">
-                                    ⬅ Back: 2. Materials & Sponge
+                                    Back: 2. Materials & Sponge
                                 </button>
                                 <button type="button" class="admin-btn-secondary" style="font-weight: 700; color: #dc2626; border-color: #f87171;" onclick="Rajpura_Admin.switchMbModalTab('mb-modal-tab-bake')">
-                                    Next: 4. Baking & Quality ➔
+                                    Next: 4. Baking & Quality
                                 </button>
                             </div>
                         </div>
 
                         <!-- SUBPART 4: BAKING & BISCUIT STANDARDS -->
                         <div id="mb-modal-tab-bake" class="admin-mb-modal-pane" style="display: none;">
-                            <div class="admin-modal-section-title">🔥 Subpart 4.1 &bull; Baking Profile Master</div>
+                            <div class="admin-modal-section-title"> Subpart 4.1 &bull; Baking Profile Master</div>
                             <div class="admin-form-group" style="margin-bottom: 14px;">
                                 <label style="cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13.5px; background: #fff5f5; border: 1px solid #fed7aa; padding: 10px 14px; border-radius: 8px;">
                                     <input type="checkbox" id="modal-mb-bakingprofileaspertemplate" ${s.bakingProfileAsPerTemplate !== false ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer;" />
-                                    <span>✓ Baking Profile As Per Template (Standard Recipe Baking Zone Temperatures Master)</span>
+                                    <span>Baking Profile As Per Template (Standard Recipe Baking Zone Temperatures Master)</span>
                                 </label>
                             </div>
 
-                            <div class="admin-modal-section-title">📏 Subpart 4.2 &bull; Biscuit Physical Dimensions</div>
+                            <div class="admin-modal-section-title"> Subpart 4.2 &bull; Biscuit Physical Dimensions</div>
                             <div class="admin-modal-grid-3">
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Length (mm)</label>
@@ -4192,7 +4192,7 @@ const Rajpura_Admin = {
                                 </div>
                             </div>
 
-                            <div class="admin-modal-section-title">💧 Subpart 4.3 &bull; Quality & Moisture %</div>
+                            <div class="admin-modal-section-title"> Subpart 4.3 &bull; Quality & Moisture %</div>
                             <div class="admin-modal-grid-3">
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Top Colour Standard</label>
@@ -4212,10 +4212,10 @@ const Rajpura_Admin = {
 
                             <div class="admin-subpart-nav-footer">
                                 <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.switchMbModalTab('mb-modal-tab-mix')">
-                                    ⬅ Back: 3. Mixing & Dough
+                                    Back: 3. Mixing & Dough
                                 </button>
                                 <button type="button" class="admin-btn-primary" style="background: #dc2626; border-color: #dc2626; font-weight: 700;" onclick="Rajpura_Admin.saveMbRecipe(${rowId || 'null'})">
-                                    💾 Save Complete Recipe (All 4 Subparts)
+                                    Save Complete Recipe (All 4 Subparts)
                                 </button>
                             </div>
                         </div>
@@ -4224,7 +4224,7 @@ const Rajpura_Admin = {
                     <div class="admin-modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
                         <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
                         <button type="button" class="admin-btn-primary" id="btn-save-mb-recipe" style="background: #dc2626; border-color: #dc2626;" onclick="Rajpura_Admin.saveMbRecipe(${rowId || 'null'})">
-                            💾 ${isEdit ? 'Save Recipe Changes' : 'Save Product Recipe'}
+                            ${isEdit ? 'Save Recipe Changes' : 'Save Product Recipe'}
                         </button>
                     </div>
                 </div>
@@ -4253,7 +4253,7 @@ const Rajpura_Admin = {
         };
 
         const standards = {
-            // 1. Ingredient Standard Temperatures (°C)
+            // 1. Ingredient Standard Temperatures (&deg;C)
             rpoStandard: val("modal-mb-rpostandard") || "NA",
             solidFatStandard: val("modal-mb-solidfatstandard") || "NA",
             butterStandard: val("modal-mb-butterstandard") || "NA",
@@ -4335,7 +4335,7 @@ const Rajpura_Admin = {
         };
 
         const btn = document.getElementById("btn-save-mb-recipe");
-        if (btn) { btn.innerText = "⏳ Saving Recipe..."; btn.disabled = true; }
+        if (btn) { btn.innerText = "Saving Recipe..."; btn.disabled = true; }
 
         const payload = {
             Title: title,
@@ -4357,7 +4357,7 @@ const Rajpura_Admin = {
             this.renderCurrentTab();
             this.updateStatsCounters();
         } else if (btn) {
-            btn.innerText = "💾 Save Product Recipe";
+            btn.innerText = "Save Product Recipe";
             btn.disabled = false;
         }
     },
@@ -4696,7 +4696,7 @@ const Rajpura_Admin = {
         } finally {
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = `⚡ Seed 9 Master Recipes to SharePoint`;
+                btn.innerHTML = `Seed 9 Master Recipes to SharePoint`;
             }
         }
     },
@@ -4716,7 +4716,7 @@ const Rajpura_Admin = {
                 : []);
 
         if (rawSeedList.length === 0) {
-            updateBtns(`⏳ Loading seed dataset...`, true);
+            updateBtns(`Loading seed dataset...`, true);
             try {
                 const siteUrl = this.getSiteUrl();
                 const seedUrl = (siteUrl ? siteUrl : "/sites/Mrs_Bectors_PTMS") + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/pkg-products-seed.js?v=" + Date.now();
@@ -4739,13 +4739,13 @@ const Rajpura_Admin = {
         }
 
         if (rawSeedList.length === 0) {
-            this.showToast("⚠️ Could not load master seed products from pkg-products-seed.js.", "warning");
-            updateBtns(`⚡ Bulk Add / Seed (1,105)`, false);
-            if (btn1) btn1.innerHTML = `⚡ Seed Master Records (1,105)`;
+            this.showToast("Could not load master seed products from pkg-products-seed.js.", "warning");
+            updateBtns(`Bulk Add / Seed (1,105)`, false);
+            if (btn1) btn1.innerHTML = `Seed Master Records (1,105)`;
             return;
         }
 
-        updateBtns(`⏳ Initializing (${rawSeedList.length} items)...`, true);
+        updateBtns(`Initializing (${rawSeedList.length} items)...`, true);
 
         const siteUrl = this.getSiteUrl();
         const listName = "Quality-Rajpura-PackagingOperations";
@@ -4807,7 +4807,7 @@ const Rajpura_Admin = {
             const chunkSize = 15;
             for (let i = 0; i < toInsert.length; i += chunkSize) {
                 const chunk = toInsert.slice(i, i + chunkSize);
-                updateBtns(`⏳ Seeding Products (${insertedCount + skippedCount} / ${rawSeedList.length})...`, true);
+                updateBtns(`Seeding Products (${insertedCount + skippedCount} / ${rawSeedList.length})...`, true);
 
                 await Promise.all(chunk.map(async (item) => {
                     const postUrl = `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items`;
@@ -4882,8 +4882,8 @@ const Rajpura_Admin = {
             await this.loadSingleFormConfig("PackagingOperations");
             this.renderCurrentTab();
         } finally {
-            updateBtns(`⚡ Bulk Add / Seed (1,105)`, false);
-            if (btn1) btn1.innerHTML = `⚡ Seed Master Records (1,105)`;
+            updateBtns(`Bulk Add / Seed (1,105)`, false);
+            if (btn1) btn1.innerHTML = `Seed Master Records (1,105)`;
         }
     },
 
@@ -4908,9 +4908,9 @@ const Rajpura_Admin = {
                 <div class="admin-modal-card">
                     <div class="admin-modal-header" style="background: linear-gradient(90deg, #faf5ff 0%, #ffffff 100%);">
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 24px;">📦</span>
+                            <span style="font-size: 24px;"></span>
                             <div>
-                                <h4 class="admin-modal-title">${isEdit ? `✏️ Edit Product Master &bull; ${this.escapeHtml(row.title)}` : "➕ Add New Packaging Product Master"}</h4>
+                                <h4 class="admin-modal-title">${isEdit ? `Edit Product Master &bull; ${this.escapeHtml(row.title)}` : "+ Add New Packaging Product Master"}</h4>
                                 <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Packaging Operations &bull; Master Catalogue</div>
                             </div>
                         </div>
@@ -4957,7 +4957,7 @@ const Rajpura_Admin = {
                     <div class="admin-modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0;">
                         <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
                         <button type="button" class="admin-btn-primary" style="background: #7c3aed; border-color: #7c3aed; font-weight: 700;" onclick="Rajpura_Admin.savePkgProduct(${isEdit ? rowId : 'null'})">
-                            💾 ${isEdit ? "Update Product" : "Save Product"}
+                            ${isEdit ? "Update Product" : "Save Product"}
                         </button>
                     </div>
                 </div>
@@ -5025,9 +5025,9 @@ const Rajpura_Admin = {
                 <div class="admin-modal-card">
                     <div class="admin-modal-header" style="background: linear-gradient(90deg, #faf5ff 0%, #ffffff 100%);">
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 24px;">🏷️</span>
+                            <span style="font-size: 24px;"></span>
                             <div>
-                                <h4 class="admin-modal-title">${isEdit ? `✏️ Edit SKU Weight &bull; ${this.escapeHtml(row.title)}` : "➕ Add New SKU Weight"}</h4>
+                                <h4 class="admin-modal-title">${isEdit ? `Edit SKU Weight &bull; ${this.escapeHtml(row.title)}` : "+ Add New SKU Weight"}</h4>
                                 <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Packaging Operations &bull; Standard Weights</div>
                             </div>
                         </div>
@@ -5050,7 +5050,7 @@ const Rajpura_Admin = {
                     <div class="admin-modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0;">
                         <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
                         <button type="button" class="admin-btn-primary" style="background: #7c3aed; border-color: #7c3aed; font-weight: 700;" onclick="Rajpura_Admin.savePkgSku(${isEdit ? rowId : 'null'})">
-                            💾 ${isEdit ? "Update SKU Weight" : "Save SKU Weight"}
+                            ${isEdit ? "Update SKU Weight" : "Save SKU Weight"}
                         </button>
                     </div>
                 </div>
@@ -5103,7 +5103,7 @@ const Rajpura_Admin = {
                 : []);
 
         if (rawSeedList.length === 0) {
-            updateBtns(`⏳ Loading seed dataset...`, true);
+            updateBtns(`Loading seed dataset...`, true);
             try {
                 const siteUrl = this.getSiteUrl();
                 const seedUrl = (siteUrl ? siteUrl : "/sites/Mrs_Bectors_PTMS") + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/ccp-products-seed.js?v=" + Date.now();
@@ -5126,12 +5126,12 @@ const Rajpura_Admin = {
         }
 
         if (rawSeedList.length === 0) {
-            this.showToast("⚠️ Could not load master seed products from ccp-products-seed.js.", "warning");
-            updateBtns(`⚡ Seed CCP Products (13)`, false);
+            this.showToast("Could not load master seed products from ccp-products-seed.js.", "warning");
+            updateBtns(`Seed CCP Products (13)`, false);
             return;
         }
 
-        updateBtns(`⏳ Initializing (${rawSeedList.length} items)...`, true);
+        updateBtns(`Initializing (${rawSeedList.length} items)...`, true);
 
         const siteUrl = this.getSiteUrl();
         const listName = "Quality-Rajpura-CCPOPRP";
@@ -5192,7 +5192,7 @@ const Rajpura_Admin = {
             const chunkSize = 10;
             for (let i = 0; i < toInsert.length; i += chunkSize) {
                 const chunk = toInsert.slice(i, i + chunkSize);
-                updateBtns(`⏳ Seeding Products (${insertedCount + skippedCount} / ${rawSeedList.length})...`, true);
+                updateBtns(`Seeding Products (${insertedCount + skippedCount} / ${rawSeedList.length})...`, true);
 
                 await Promise.all(chunk.map(async (item) => {
                     const postUrl = `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items`;
@@ -5267,7 +5267,7 @@ const Rajpura_Admin = {
             await this.loadSingleFormConfig("CCP_OPRP_Sieves");
             this.renderCurrentTab();
         } finally {
-            updateBtns(`⚡ Seed CCP Products (13)`, false);
+            updateBtns(`Seed CCP Products (13)`, false);
         }
     },
 
@@ -5292,9 +5292,9 @@ const Rajpura_Admin = {
                 <div class="admin-modal-card">
                     <div class="admin-modal-header" style="background: linear-gradient(90deg, #fffbeb 0%, #ffffff 100%);">
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 24px;">📦</span>
+                            <span style="font-size: 24px;"></span>
                             <div>
-                                <h4 class="admin-modal-title">${isEdit ? `✏️ Edit Product Master &bull; ${this.escapeHtml(row.title)}` : "➕ Add New CCP Product Master"}</h4>
+                                <h4 class="admin-modal-title">${isEdit ? `Edit Product Master &bull; ${this.escapeHtml(row.title)}` : "+ Add New CCP Product Master"}</h4>
                                 <div style="font-size: 12px; color: #64748b; margin-top: 2px;">CCP & OPRP &bull; Master Catalogue</div>
                             </div>
                         </div>
@@ -5342,7 +5342,7 @@ const Rajpura_Admin = {
                     <div class="admin-modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0;">
                         <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
                         <button type="button" class="admin-btn-primary" style="background: #d97706; border-color: #d97706; font-weight: 700;" onclick="Rajpura_Admin.saveCcpProduct(${isEdit ? rowId : 'null'})">
-                            💾 ${isEdit ? "Update Product" : "Save Product"}
+                            ${isEdit ? "Update Product" : "Save Product"}
                         </button>
                     </div>
                 </div>
@@ -5539,7 +5539,7 @@ const Rajpura_Admin = {
             this.showToast(`Local Environment: ${allSeedItems.length} default master records initialized in memory.`, "success");
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = `⚡ Populate Master Seed Records`;
+                btn.innerHTML = `Populate Master Seed Records`;
             }
             return;
         }
@@ -5623,7 +5623,7 @@ const Rajpura_Admin = {
         } finally {
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = `⚡ Populate Master Seed Records`;
+                btn.innerHTML = `Populate Master Seed Records`;
             }
         }
     },
@@ -5648,7 +5648,7 @@ const Rajpura_Admin = {
                         </div>
                     ` : `
                         <div class="admin-empty-state">
-                            <span class="admin-empty-icon">🔍</span>
+                            <span class="admin-empty-icon"></span>
                             <div style="font-size: 15px; font-weight: 600; color: #0f172a; margin-bottom: 4px;">No Roles Found</div>
                             <div style="font-size: 13px; color: #64748b;">No configuration rows match your search query. Try clearing the search filter.</div>
                         </div>
@@ -5706,26 +5706,26 @@ const Rajpura_Admin = {
         const hasMgr = isAlc ? (isQa && !!form.managerFieldNames) : (isPkgOps ? false : !!form.managerFieldNames);
 
         let userLabel = form.userLabel || "Assigned QA Executives / Operators";
-        let userIcon = "🛡️";
+        let userIcon = "";
         let userChipClass = "qa";
         if (isAlc) {
             if (isProd) {
                 userLabel = "Assigned Product Executives";
-                userIcon = "👨‍💼";
+                userIcon = "";
                 userChipClass = "prod";
             } else {
                 userLabel = "Assigned QA Executives / Operators";
-                userIcon = "🛡️";
+                userIcon = "";
                 userChipClass = "qa";
             }
         } else if (isPkgOps) {
             if (isProd) {
                 userLabel = "Assigned Production Incharges";
-                userIcon = "🏭";
+                userIcon = "";
                 userChipClass = "prod";
             } else {
                 userLabel = "Assigned QA Executives / Operators";
-                userIcon = "🛡️";
+                userIcon = "";
                 userChipClass = "qa";
             }
         }
@@ -5775,18 +5775,18 @@ const Rajpura_Admin = {
                         <div class="admin-card-title-row">
                             <h4 class="admin-card-role-title">${this.escapeHtml(row.title || row.configType)}</h4>
                             <span class="admin-card-status-badge">
-                                <span class="status-dot">●</span>
+                                <span class="status-dot">&bull;</span>
                                 <span>${userCount} Personnel Assigned</span>
                             </span>
                         </div>
                         <div class="admin-card-tags">
                             ${row.configType && row.configType !== row.title ? `<span class="admin-card-tag config">${this.escapeHtml(row.configType)}</span>` : ""}
-                            ${row.area ? `<span class="admin-card-tag area">📍 ${this.escapeHtml(row.area)}</span>` : ""}
+                            ${row.area ? `<span class="admin-card-tag area"> ${this.escapeHtml(row.area)}</span>` : ""}
                         </div>
                     </div>
                     <div class="admin-card-header-right">
                         <button type="button" class="admin-btn-manage-users" onclick="Rajpura_Admin.openEditModal('${form.key}', ${row.id})" title="Manage user assignments for ${this.escapeHtml(row.title || row.configType)}">
-                            <span class="btn-icon">👤</span> Manage Users
+                            <span class="btn-icon"></span> Manage Users
                         </button>
                     </div>
                 </div>
@@ -5811,7 +5811,7 @@ const Rajpura_Admin = {
                         <div class="admin-card-section has-divider">
                             <div class="admin-card-section-header">
                                 <div class="admin-card-section-title">
-                                    <span class="role-icon">🏭</span>
+                                    <span class="role-icon"></span>
                                     <span>${this.escapeHtml(form.prodLabel || "Production Incharge")}</span>
                                     <span class="admin-count-pill">${(row.productionIncharges || []).length}</span>
                                 </div>
@@ -5827,7 +5827,7 @@ const Rajpura_Admin = {
                         <div class="admin-card-section has-divider">
                             <div class="admin-card-section-header">
                                 <div class="admin-card-section-title">
-                                    <span class="role-icon">👔</span>
+                                    <span class="role-icon"></span>
                                     <span>Escalation Manager</span>
                                     <span class="admin-count-pill">${(row.escalationManagers || []).length}</span>
                                 </div>
@@ -5853,19 +5853,19 @@ const Rajpura_Admin = {
                 <div class="admin-product-card">
                     <div class="admin-product-header">
                         <div class="admin-product-header-info">
-                            <h3 class="admin-product-title">📦 Product Management &bull; ${form.name}</h3>
+                            <h3 class="admin-product-title"> Product Management &bull; ${form.name}</h3>
                             <p class="admin-product-subtitle">Manage products, recipes, SKU codes, and line associations configured for ${form.shortName}.</p>
                         </div>
                         <div class="admin-product-header-actions">
                             <button type="button" class="admin-btn-product-add" onclick="Rajpura_Admin.openAddProductModal('${form.key}')">
-                                ➕ Add Product
+                                + Add Product
                             </button>
                         </div>
                     </div>
 
                     <!-- SharePoint Integration Readiness Alert Banner -->
                     <div class="admin-product-alert">
-                        <div class="admin-product-alert-icon">⚡</div>
+                        <div class="admin-product-alert-icon"></div>
                         <div class="admin-product-alert-content">
                             <div class="admin-product-alert-title">SharePoint Product List Ready for Live Connection</div>
                             <div class="admin-product-alert-text">
@@ -5912,7 +5912,7 @@ const Rajpura_Admin = {
                                     <tr>
                                         <td>
                                             <div class="admin-product-name-cell">
-                                                <div class="product-avatar">🍪</div>
+                                                <div class="product-avatar"></div>
                                                 <div>
                                                     <div class="product-name">${this.escapeHtml(p.name)}</div>
                                                     <div class="product-subtext">${this.escapeHtml(p.brand || "Mrs. Bectors")} &bull; Pack: ${this.escapeHtml(p.packSize || "Standard")}</div>
@@ -5930,16 +5930,16 @@ const Rajpura_Admin = {
                                         </td>
                                         <td>
                                             <span class="admin-status-pill ${p.status === 'Active' ? 'active' : 'inactive'}">
-                                                ● ${p.status}
+                                                &bull; ${p.status}
                                             </span>
                                         </td>
                                         <td style="text-align: center;">
                                             <div class="admin-product-actions">
                                                 <button type="button" class="admin-btn-action" onclick="Rajpura_Admin.editProductItem('${form.key}', '${p.sku}')" title="Edit Product">
-                                                    ✏️ Edit
+                                                    Edit
                                                 </button>
                                                 <button type="button" class="admin-btn-action" onclick="Rajpura_Admin.toggleProductStatus('${form.key}', '${p.sku}')" title="Toggle Status">
-                                                    ${p.status === 'Active' ? '⏸️ Deactivate' : '▶️ Activate'}
+                                                    ${p.status === 'Active' ? 'Deactivate' : 'Activate'}
                                                 </button>
                                             </div>
                                         </td>
@@ -6154,7 +6154,7 @@ const Rajpura_Admin = {
             <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
                 <div class="admin-modal-card">
                     <div class="admin-modal-header">
-                        <h4 class="admin-modal-title">➕ Add New Assignment &bull; ${form.name}</h4>
+                        <h4 class="admin-modal-title">+ Add New Assignment &bull; ${form.name}</h4>
                         <button type="button" class="admin-modal-close" onclick="Rajpura_Admin.closeModal()">&times;</button>
                     </div>
                     <div class="admin-modal-body">
@@ -6209,7 +6209,7 @@ const Rajpura_Admin = {
                     <div class="admin-modal-footer">
                         <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
                         <button type="button" class="admin-btn-primary" id="btn-save-assignment" onclick="Rajpura_Admin.submitAddAssignment('${formKey}')">
-                            💾 Save to SharePoint
+                            Save to SharePoint
                         </button>
                     </div>
                 </div>
@@ -6249,31 +6249,31 @@ const Rajpura_Admin = {
         // In PackagingOperations: NO cards have Escalation Manager
         const showMgr = isAlc ? (isQa && !!form.managerFieldNames) : (isPkgOps ? false : !!form.managerFieldNames);
 
-        let modalTitle = `👤 Assign Users • ${form.name}`;
+        let modalTitle = ` Assign Users - ${form.name}`;
         let userSectionTitle = form.userLabel || "Assigned Users (QA Executives / Operators)";
         let userPlaceholder = "Type employee name or email to assign...";
         let userHelper = "Search from master EmployeeList to add users. Click &times; on chip to remove.";
 
         if (isAlc) {
             if (isProd) {
-                modalTitle = `👤 Assign Product Executives • ${row.title || row.configType}`;
+                modalTitle = ` Assign Product Executives - ${row.title || row.configType}`;
                 userSectionTitle = "Assigned Product Executives";
                 userPlaceholder = "Type employee name or email to add Product Executive...";
                 userHelper = "Search from master EmployeeList to assign Product Executives. Click &times; on chip to remove.";
             } else {
-                modalTitle = `👤 Assign QA Executives & Escalation Managers • ${row.title || row.configType}`;
+                modalTitle = ` Assign QA Executives & Escalation Managers - ${row.title || row.configType}`;
                 userSectionTitle = "Assigned QA Executives / Operators";
                 userPlaceholder = "Type employee name or email to add QA Executive...";
                 userHelper = "Search from master EmployeeList to assign QA Executives and Escalation Managers. Click &times; on chip to remove.";
             }
         } else if (isPkgOps) {
             if (isProd) {
-                modalTitle = `👤 Assign Production Incharges • ${row.title || row.configType}`;
+                modalTitle = ` Assign Production Incharges - ${row.title || row.configType}`;
                 userSectionTitle = "Assigned Production Incharges";
                 userPlaceholder = "Type employee name or email to add Production Incharge...";
                 userHelper = "Search from master EmployeeList to assign Production Incharges. Click &times; on chip to remove.";
             } else {
-                modalTitle = `👤 Assign QA Executives • ${row.title || row.configType}`;
+                modalTitle = ` Assign QA Executives - ${row.title || row.configType}`;
                 userSectionTitle = "Assigned QA Executives / Operators";
                 userPlaceholder = "Type employee name or email to add QA Executive...";
                 userHelper = "Search from master EmployeeList to assign QA Executives. Click &times; on chip to remove.";
@@ -6305,7 +6305,7 @@ const Rajpura_Admin = {
                         <div class="admin-form-group">
                             <label class="admin-form-label" style="display: flex; justify-content: space-between; align-items: center;">
                                 <span>${this.escapeHtml(userSectionTitle)}</span>
-                                <span style="font-size: 11.5px; color: #1e40af; font-weight: 600;">✓ Editable &bull; Multi-User</span>
+                                <span style="font-size: 11.5px; color: #1e40af; font-weight: 600;">Editable &bull; Multi-User</span>
                             </label>
                             <div class="admin-user-picker-container" id="modal-picker-users">
                                 <div class="admin-selected-chips-box" onclick="document.getElementById('picker-input-users').focus()">
@@ -6322,7 +6322,7 @@ const Rajpura_Admin = {
                             <div class="admin-form-group">
                                 <label class="admin-form-label" style="display: flex; justify-content: space-between; align-items: center;">
                                     <span>${form.prodLabel || "Production Incharge"}</span>
-                                    <span style="font-size: 11.5px; color: #1e40af; font-weight: 600;">✓ Editable &bull; Multi-User</span>
+                                    <span style="font-size: 11.5px; color: #1e40af; font-weight: 600;">Editable &bull; Multi-User</span>
                                 </label>
                                 <div class="admin-user-picker-container" id="modal-picker-prod">
                                     <div class="admin-selected-chips-box" onclick="document.getElementById('picker-input-prod').focus()">
@@ -6339,7 +6339,7 @@ const Rajpura_Admin = {
                             <div class="admin-form-group">
                                 <label class="admin-form-label" style="display: flex; justify-content: space-between; align-items: center;">
                                     <span>Escalation Manager</span>
-                                    <span style="font-size: 11.5px; color: #1e40af; font-weight: 600;">✓ Editable</span>
+                                    <span style="font-size: 11.5px; color: #1e40af; font-weight: 600;">Editable</span>
                                 </label>
                                 <div class="admin-user-picker-container" id="modal-picker-mgr">
                                     <div class="admin-selected-chips-box" onclick="document.getElementById('picker-input-mgr').focus()">
@@ -6354,7 +6354,7 @@ const Rajpura_Admin = {
                     <div class="admin-modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
                         <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
                         <button type="button" class="admin-btn-primary" id="btn-save-assignment" onclick="Rajpura_Admin.submitUpdateAssignment('${formKey}', ${rowId})">
-                            💾 Save User Assignments
+                            Save User Assignments
                         </button>
                     </div>
                 </div>
@@ -6568,7 +6568,7 @@ const Rajpura_Admin = {
 
         const btnSave = document.getElementById("btn-save-assignment");
         if (btnSave) {
-            btnSave.innerText = "⏳ Saving...";
+            btnSave.innerText = "Saving...";
             btnSave.disabled = true;
         }
 
@@ -6590,7 +6590,7 @@ const Rajpura_Admin = {
             this.updateStatsCounters();
         } else {
             if (btnSave) {
-                btnSave.innerText = "💾 Save to SharePoint";
+                btnSave.innerText = "Save to SharePoint";
                 btnSave.disabled = false;
             }
         }
@@ -6619,7 +6619,7 @@ const Rajpura_Admin = {
 
         const btnSave = document.getElementById("btn-save-assignment");
         if (btnSave) {
-            btnSave.innerText = "⏳ Saving User Assignments...";
+            btnSave.innerText = "Saving User Assignments...";
             btnSave.disabled = true;
         }
 
@@ -6644,7 +6644,7 @@ const Rajpura_Admin = {
             this.updateStatsCounters();
         } else {
             if (btnSave) {
-                btnSave.innerText = "💾 Save User Assignments";
+                btnSave.innerText = "Save User Assignments";
                 btnSave.disabled = false;
             }
         }
@@ -6946,7 +6946,7 @@ const Rajpura_Admin = {
 
         const toast = document.createElement("div");
         toast.className = `admin-toast ${type}`;
-        const icon = type === "success" ? "✅" : (type === "error" ? "❌" : (type === "warning" ? "⚠️" : "ℹ️"));
+        const icon = type === "success" ? "&#10003;" : (type === "error" ? "&times;" : (type === "warning" ? "" : "i"));
         toast.innerHTML = `<span>${icon}</span><span>${this.escapeHtml(message)}</span>`;
 
         container.appendChild(toast);

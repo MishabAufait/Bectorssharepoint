@@ -133,18 +133,18 @@ const PKGOPS_Summary = {
             const r = rows[0] || {};
             html = `
                 <div class="row mt-3 g-3">
-                    ${this.createSummaryCard("th-line-temp", "Packaging Line Temp", `${r.cr3ea_pkglinetemp || "-"} °C`)}
+                    ${this.createSummaryCard("th-line-temp", "Packaging Line Temp", `${r.cr3ea_pkglinetemp || "-"} &deg;C`)}
                     ${this.createSummaryCard("th-line-hum", "Packaging Line Humidity", `${r.cr3ea_pkglinehumidity || "-"} %`)}
-                    ${this.createSummaryCard("th-tunnel-temp", "Cooling Tunnel Temp", `${r.cr3ea_coolingtunneltemp || "-"} °C`)}
-                    ${this.createSummaryCard("th-cream-temp", "Cream Room Temp", `${r.cr3ea_creamroomtemp || "-"} °C`)}
-                    ${this.createSummaryCard("th-cold1-temp", "Cold Storage 1 Temp", `${r.cr3ea_coldstorage1nbtemp || "-"} °C`)}
-                    ${this.createSummaryCard("th-cold2-temp", "Cold Storage 2 Temp", `${r.cr3ea_coldstorage2nbtemp || "-"} °C`)}
-                    ${this.createSummaryCard("th-flav-temp", "Flavour Room Temp", `${r.cr3ea_flavourroomtemp || "-"} °C`)}
+                    ${this.createSummaryCard("th-tunnel-temp", "Cooling Tunnel Temp", `${r.cr3ea_coolingtunneltemp || "-"} &deg;C`)}
+                    ${this.createSummaryCard("th-cream-temp", "Cream Room Temp", `${r.cr3ea_creamroomtemp || "-"} &deg;C`)}
+                    ${this.createSummaryCard("th-cold1-temp", "Cold Storage 1 Temp", `${r.cr3ea_coldstorage1nbtemp || "-"} &deg;C`)}
+                    ${this.createSummaryCard("th-cold2-temp", "Cold Storage 2 Temp", `${r.cr3ea_coldstorage2nbtemp || "-"} &deg;C`)}
+                    ${this.createSummaryCard("th-flav-temp", "Flavour Room Temp", `${r.cr3ea_flavourroomtemp || "-"} &deg;C`)}
                     ${this.createSummaryCard("th-dh-hum", "DH Room Humidity", `${r.cr3ea_dhroomhumidity || "-"} %`)}
-                    ${this.createSummaryCard("th-cr1-temp", "Cold Room 1 Temp", `${r.cr3ea_coldroom1obtemp || "-"} °C`)}
-                    ${this.createSummaryCard("th-cr2-temp", "Cold Room 2 Temp", `${r.cr3ea_coldroom2obtemp || "-"} °C`)}
-                    ${this.createSummaryCard("th-cr3-temp", "Cold Room 3 Temp", `${r.cr3ea_coldroom3obtemp || "-"} °C`)}
-                    ${this.createSummaryCard("th-yeast-temp", "Deep Freezer for Yeast", `${r.cr3ea_deepfreezeryeasttemp || "-"} °C`)}
+                    ${this.createSummaryCard("th-cr1-temp", "Cold Room 1 Temp", `${r.cr3ea_coldroom1obtemp || "-"} &deg;C`)}
+                    ${this.createSummaryCard("th-cr2-temp", "Cold Room 2 Temp", `${r.cr3ea_coldroom2obtemp || "-"} &deg;C`)}
+                    ${this.createSummaryCard("th-cr3-temp", "Cold Room 3 Temp", `${r.cr3ea_coldroom3obtemp || "-"} &deg;C`)}
+                    ${this.createSummaryCard("th-yeast-temp", "Deep Freezer for Yeast", `${r.cr3ea_deepfreezeryeasttemp || "-"} &deg;C`)}
                 </div>
             `;
         } 

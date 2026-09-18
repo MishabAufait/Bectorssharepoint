@@ -96,7 +96,7 @@ const GMPChecklistScreen = {
                                    placeholder="Remarks (required if Not Okay)" style="display: none; width: 100%;">
                             <div class="gmp-file-wrapper" id="gmp-file-wrapper-${item.id}" style="display: none; margin-top: 6px; text-align: left;">
                                 <label class="form-label" style="font-size: 11px; margin-bottom: 2px; color: #64748b; font-weight: 600; display: block;">
-                                    📷 Proof Image/Doc (Optional):
+                                    Proof Image/Doc (Optional):
                                 </label>
                                 <input type="file" class="form-control gmp-proof-file" id="gmp-proof-${item.id}" accept="image/*,application/pdf" style="font-size: 12px; padding: 4px 8px; height: auto;">
                                 <div id="gmp-existing-proof-${item.id}" style="display: none; margin-top: 4px;"></div>
@@ -330,7 +330,7 @@ const GMPChecklistScreen = {
                 }
 
                 let alertMsg = "Please complete all required fields before submitting:\n";
-                missingList.forEach(item => alertMsg += `• ${item}\n`);
+                missingList.forEach(item => alertMsg += `- ${item}\n`);
                 alert(alertMsg.trim());
 
                 if (firstInvalidEl) {
@@ -461,7 +461,10 @@ const GMPChecklistScreen = {
             }
         } catch (error) {
             console.error("Failed submitting GMP checklist:", error);
-            alert(`Error during submission: ${error.message}`);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "submit GMP checklist")
+                : `Error during submission: ${error.message}`;
+            alert(msg);
         } finally {
             HideLoader();
         }
@@ -592,7 +595,10 @@ const GMPChecklistScreen = {
 
         } catch (error) {
             console.error("Failed pausing GMP checklist:", error);
-            alert(`Error during pause: ${error.message}`);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "pause GMP checklist")
+                : `Error during pause: ${error.message}`;
+            alert(msg);
         } finally {
             HideLoader();
         }
@@ -642,7 +648,7 @@ const GMPChecklistScreen = {
                                     if (proofUrl && existingProofEl) {
                                         existingProofEl.style.display = "block";
                                         existingProofEl.setAttribute("data-url", proofUrl);
-                                        existingProofEl.innerHTML = `<a href="${proofUrl}" target="_blank" class="badge food-safety-proof-badge" style="background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; text-decoration: none !important; padding: 4px 10px !important; border-radius: 4px !important; display: inline-flex !important; align-items: center !important; gap: 5px !important; font-size: 11px !important; font-weight: 600 !important;"><span style="color: #ffffff !important;">📷 View Attached Proof</span></a>`;
+                                        existingProofEl.innerHTML = `<a href="${proofUrl}" target="_blank" class="badge food-safety-proof-badge" style="background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; text-decoration: none !important; padding: 4px 10px !important; border-radius: 4px !important; display: inline-flex !important; align-items: center !important; gap: 5px !important; font-size: 11px !important; font-weight: 600 !important;"><span style="color: #ffffff !important;">View Attached Proof</span></a>`;
                                     }
                                 }
                             }

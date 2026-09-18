@@ -112,7 +112,7 @@ const PPEChecklistScreen = {
                         <input type="text" class="form-control ppe-remarks-input" id="ppe-remarks-${index}" placeholder="Remarks (optional)" style="font-size: 12px; margin-bottom: 5px; width: 100%;">
                         <div class="ppe-file-wrapper" id="ppe-file-wrapper-${index}">
                             <label class="form-label" style="font-size: 11px; margin-bottom: 2px; color: #64748b; font-weight: 600; display: block;">
-                                📷 Proof Image/Doc (Optional):
+                                Proof Image/Doc (Optional):
                             </label>
                             <input type="file" class="form-control ppe-proof-file" id="ppe-proof-${index}" accept="image/*,application/pdf" style="font-size: 12px; padding: 4px 8px; height: auto;">
                             <div id="ppe-existing-proof-${index}" style="display: none; margin-top: 4px;"></div>
@@ -174,7 +174,7 @@ const PPEChecklistScreen = {
 
             if (warningEl) {
                 warningEl.style.display = "block";
-                warningEl.innerHTML = `⚠️ Defect count cannot exceed remaining sample capacity (<strong>${maxAllowedForThisInput}</strong>). Total defects cannot exceed defined Sample Size (<strong>${sampleSize}</strong>).`;
+                warningEl.innerHTML = `Defect count cannot exceed remaining sample capacity (<strong>${maxAllowedForThisInput}</strong>). Total defects cannot exceed defined Sample Size (<strong>${sampleSize}</strong>).`;
                 clearTimeout(this._warningTimeout);
                 this._warningTimeout = setTimeout(() => {
                     if (warningEl) warningEl.style.display = "none";
@@ -527,7 +527,10 @@ const PPEChecklistScreen = {
             }
         } catch (error) {
             console.error("Failed submitting PPE checklist:", error);
-            alert(`Error during submission: ${error.message}`);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "submit PPE checklist")
+                : `Error during submission: ${error.message}`;
+            alert(msg);
         } finally {
             HideLoader();
         }
@@ -676,7 +679,10 @@ const PPEChecklistScreen = {
 
         } catch (error) {
             console.error("Failed pausing PPE checklist:", error);
-            alert(`Error during pause: ${error.message}`);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "pause PPE checklist")
+                : `Error during pause: ${error.message}`;
+            alert(msg);
         } finally {
             HideLoader();
         }
@@ -734,7 +740,7 @@ const PPEChecklistScreen = {
                             if (proofUrl && existingProofEl) {
                                 existingProofEl.style.display = "block";
                                 existingProofEl.setAttribute("data-url", proofUrl);
-                                existingProofEl.innerHTML = `<a href="${proofUrl}" target="_blank" class="badge food-safety-proof-badge" style="background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; text-decoration: none !important; padding: 4px 10px !important; border-radius: 4px !important; display: inline-flex !important; align-items: center !important; gap: 5px !important; font-size: 11px !important; font-weight: 600 !important;"><span style="color: #ffffff !important;">📷 View Attached Proof</span></a>`;
+                                existingProofEl.innerHTML = `<a href="${proofUrl}" target="_blank" class="badge food-safety-proof-badge" style="background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; text-decoration: none !important; padding: 4px 10px !important; border-radius: 4px !important; display: inline-flex !important; align-items: center !important; gap: 5px !important; font-size: 11px !important; font-weight: 600 !important;"><span style="color: #ffffff !important;">View Attached Proof</span></a>`;
                             }
                         }
                     }

@@ -374,7 +374,7 @@ const ALC_StateMachine = {
                 // Completed previous steps
                 html += `
                     <div class="breadcrumb-step completed" style="display: flex; align-items: center; color: #16a34a; font-weight: 500; gap: 4px;">
-                        <span style="font-weight: bold; font-size: 14px;">✓</span>
+                        <span style="font-weight: bold; font-size: 14px;">&#10003;</span>
                         <span>${step.label}</span>
                     </div>
                     <div class="breadcrumb-separator" style="color: #cbd5e1; font-weight: bold; margin: 0 4px;">&gt;</div>

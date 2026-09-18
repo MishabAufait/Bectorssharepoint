@@ -232,6 +232,32 @@ const QualityRajpura_Config = {
         return clean;
     },
 
+    // Formats error messages clearly distinguishing Internet/Network issues from Dataverse/Server errors
+    formatDataverseError: function (error, context) {
+        context = context || "perform this operation";
+        const isOffline = typeof navigator !== "undefined" && navigator && navigator.onLine === false;
+        const errMsg = (error && (error.message || error.statusText || String(error))) || "";
+        const errLower = errMsg.toLowerCase();
+
+        const isNetworkIssue = isOffline ||
+            errLower.includes("failed to fetch") ||
+            errLower.includes("networkerror") ||
+            errLower.includes("network error") ||
+            errLower.includes("network request failed") ||
+            errLower.includes("net::err_") ||
+            errLower.includes("offline") ||
+            errLower.includes("internet") ||
+            errLower.includes("err_name_not_resolved") ||
+            errLower.includes("err_internet_disconnected") ||
+            (error && error.name === "TypeError" && (errLower.includes("fetch") || errLower.includes("network")));
+
+        if (isNetworkIssue) {
+            return `Internet Connection Error: Unable to ${context} because the device is offline or the network connection was lost.\n\nPlease check your internet connection and try again.\n\nDetails: ${errMsg || "Network connection failed"}`;
+        }
+
+        return `Dataverse Connection Failed: Unable to ${context}.\n\nDetails: ${errMsg || "Please check your network or login session."}`;
+    },
+
     // Resolves current server-relative site URL based on environment (DEV, UAT, PROD)
     getSiteBaseUrl: function () {
         if (typeof _spPageContextInfo !== "undefined" && _spPageContextInfo.webServerRelativeUrl) {

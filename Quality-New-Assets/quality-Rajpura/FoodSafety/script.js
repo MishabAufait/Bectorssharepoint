@@ -280,7 +280,10 @@ const FoodSafety_Main = {
             }
         } catch (e) {
             console.error("Error resuming session:", e);
-            alert("Dataverse Connection Failed: " + (e.message || "Failed to load tour session details from Dataverse."));
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(e, "load Food Safety tour session")
+                : `Dataverse Connection Failed: Unable to load Food Safety tour session.\n\n${(!navigator.onLine ? "No internet connection detected. Please reconnect and try again.\n\n" : "")}${e.message || "Failed to load tour session details from Dataverse."}`;
+            alert(msg);
             const welcomeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
                 ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
                 : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";

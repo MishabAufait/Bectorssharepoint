@@ -943,7 +943,7 @@ ul {
 }
 
 .tour-date::before {
-    content: "• "; /* Remove this if unnecessary */
+    content: "\2022 "; /* Remove this if unnecessary */
 }
 
 

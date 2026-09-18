@@ -49,7 +49,7 @@ const ALC_QARequest = {
         if (headerTime) headerTime.value = todayTime;
 
         const currentDayEl = document.getElementById("currentDay");
-        if (currentDayEl) currentDayEl.innerText = `• ${todayDate}`;
+        if (currentDayEl) currentDayEl.innerText = todayDate;
 
         // Populate Line dropdown with format: ${Title} - ${LineName} (e.g. Line No. 1 - HAAS)
         const lineSelect = document.getElementById("header-line");
@@ -525,7 +525,10 @@ const ALC_QARequest = {
         } catch (error) {
             HideLoader();
             console.error("Failed to submit request to Dataverse:", error);
-            alert("Dataverse Error: Failed to submit request - " + error.message);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "submit QA request")
+                : ("Dataverse Error: Failed to submit request - " + error.message);
+            alert(msg);
         }
     },
 
@@ -778,7 +781,10 @@ const ALC_QARequest = {
             ALC_StateMachine.transitionTo(ALC_STATES.QA_CHECKLIST);
         } catch (error) {
             HideLoader();
-            alert("Failed to accept request: " + error.message);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "accept QA request")
+                : ("Failed to accept request: " + error.message);
+            alert(msg);
         }
     }
 };

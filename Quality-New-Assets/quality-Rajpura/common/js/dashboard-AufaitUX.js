@@ -247,7 +247,7 @@ const ALC_Dashboard = {
         const refreshBtn = document.getElementById("btn-refresh-dashboard");
         if (refreshBtn) {
             refreshBtn.disabled = true;
-            refreshBtn.innerHTML = "⌛ Refreshing...";
+            refreshBtn.innerHTML = "Refreshing...";
         }
         try {
             const token = typeof getAccessToken === "function" ? await getAccessToken() : null;
@@ -418,7 +418,7 @@ const ALC_Dashboard = {
         } finally {
             if (refreshBtn) {
                 refreshBtn.disabled = false;
-                refreshBtn.innerHTML = "🔄 Refresh";
+                refreshBtn.innerHTML = "Refresh";
             }
         }
     },

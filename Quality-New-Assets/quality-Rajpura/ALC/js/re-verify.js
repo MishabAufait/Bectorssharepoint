@@ -29,7 +29,10 @@ const ALC_ReVerification = {
         } catch (error) {
             HideLoader();
             console.error("Failed to load checkpoints for QA re-verification:", error);
-            alert("Dataverse Error: Failed to load checkpoints for QA re-verification - " + (error.message || ""));
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "load checkpoints for QA re-verification")
+                : ("Dataverse Error: Failed to load checkpoints for QA re-verification - " + (error.message || ""));
+            alert(msg);
         }
     },
 
@@ -138,7 +141,7 @@ const ALC_ReVerification = {
 
         // Cache the file object to be uploaded on submission
         this.uploadedFiles[index] = file;
-        if (fileStatus) fileStatus.innerHTML = `<span class="text-success">✔ ${file.name} ready</span>`;
+        if (fileStatus) fileStatus.innerHTML = `<span class="text-success">&#10003; ${file.name} ready</span>`;
     },
 
     // QA Submits Re-Verification
@@ -351,7 +354,10 @@ const ALC_ReVerification = {
 
         } catch (error) {
             HideLoader();
-            alert("Dataverse Error: Failed to submit re-verification - " + error.message);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "submit re-verification")
+                : ("Dataverse Error: Failed to submit re-verification - " + error.message);
+            alert(msg);
         }
     },
 

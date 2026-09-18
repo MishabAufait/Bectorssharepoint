@@ -28,7 +28,10 @@ document.addEventListener("DOMContentLoaded", async function () {
         await ALC_Main.init();
     } catch (error) {
         console.error("Failed to initialize ALC module:", error);
-        alert("Dataverse Connection Failed: Unable to initialize ALC module.\n\n" + (error.message || "Please check network or login session."));
+        const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+            ? QualityRajpura_Config.formatDataverseError(error, "initialize ALC module")
+            : `Dataverse Connection Failed: Unable to initialize ALC module.\n\n${(!navigator.onLine ? "No internet connection detected. Please reconnect and try again.\n\n" : "")}${error.message || "Please check network or login session."}`;
+        alert(msg);
     } finally {
         HideLoader();
     }
@@ -126,7 +129,7 @@ const ALC_Main = {
                     if (c.Area && c.Area.trim() !== "") return c.Area.trim();
                     const title = (c.Title || "").trim();
                     if (title.includes(" - ")) return title.split(" - ")[1].trim();
-                    return title.replace(/^AREA-\d+\s*•?\s*/i, "").trim();
+                    return title.replace(/^AREA-\d+\s*[-:\u2022]?\s*/i, "").trim();
                 })
                 .filter(Boolean);
 
@@ -469,7 +472,10 @@ const ALC_Main = {
             await this.transitionByStatus(finalStatus, session);
         } catch (error) {
             console.error("Failed to fetch session from Dataverse:", error);
-            alert("Dataverse Connection Failed: Tour session not found in database or failed to load.\n\n" + (error.message || ""));
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "load ALC tour session")
+                : `Dataverse Connection Failed: Tour session not found in database or failed to load.\n\n${(!navigator.onLine ? "No internet connection detected. Please reconnect and try again.\n\n" : "")}${error.message || ""}`;
+            alert(msg);
             const welcomeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
                 ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
                 : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
@@ -843,7 +849,7 @@ const ALC_Main = {
         setVal("header-time", timeFormatted);
 
         const currentDayEl = document.getElementById("currentDay");
-        if (currentDayEl) currentDayEl.innerText = `• ${dateFormatted}`;
+        if (currentDayEl) currentDayEl.innerText = dateFormatted;
 
         const shiftBadgeEl = document.getElementById("shiftBadge");
         if (shiftBadgeEl) shiftBadgeEl.innerText = shift || "Shift 1";

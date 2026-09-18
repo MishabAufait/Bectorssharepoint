@@ -2,7 +2,7 @@
  * ==========================================================================
  * Rajpura Mixing & Baking - Master Product Recipe Seed Data
  * Contains standard quality targets across all 4 subparts:
- *   1. Ingredient Standard Temperatures (°C)
+ *   1. Ingredient Standard Temperatures (deg C)
  *   2. Raw Material, Syrups & Sponge
  *   3. Mixing & Dough Parameters
  *   4. Baking, Dimensions & Quality Moisture %

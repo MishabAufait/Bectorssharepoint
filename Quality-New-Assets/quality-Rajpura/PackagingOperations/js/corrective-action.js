@@ -251,7 +251,10 @@ const PKGOPS_CorrectiveAction = {
         } catch (error) {
             if (typeof HideLoader === "function") HideLoader();
             console.error("Failed to submit corrective action: ", error);
-            alert("Submission failed. Please check files and try again.");
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "submit corrective actions")
+                : ("Submission failed: " + (error.message || "Please check connection and files, and try again."));
+            alert(msg);
         }
     }
 };

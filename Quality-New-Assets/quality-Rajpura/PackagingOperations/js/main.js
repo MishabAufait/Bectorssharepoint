@@ -160,7 +160,10 @@ const PKGOPS_Main = {
             } catch (e) {
                 if (typeof HideLoader === "function") HideLoader();
                 console.error("Failed to initialize active session: ", e);
-                alert("Dataverse Connection Failed: Unable to initialize Packaging Operations module.\n\n" + (e.message || "Please check network or login session."));
+                const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                    ? QualityRajpura_Config.formatDataverseError(e, "initialize Packaging Operations module")
+                    : `Dataverse Connection Failed: Unable to initialize Packaging Operations module.\n\n${(!navigator.onLine ? "No internet connection detected. Please reconnect and try again.\n\n" : "")}${e.message || "Please check network or login session."}`;
+                alert(msg);
             }
         }
     },
