@@ -688,6 +688,53 @@ const PKGOPS_DAL = {
 
         const cleanRecord = { ...record };
 
+        // Define valid table columns per sub-checklist to protect against OData 400 Bad Request
+        const SUB_CHECKLIST_COLUMNS = {
+            CHILD_TEMP_HUMIDITY: [
+                "cr3ea_name", "cr3ea_pkglinetemp", "cr3ea_pkglinehumidity", "cr3ea_coolingtunneltemp",
+                "cr3ea_creamroomtemp", "cr3ea_coldstorage1nbtemp", "cr3ea_coldstorage2nbtemp",
+                "cr3ea_flavourroomtemp", "cr3ea_dhroomhumidity", "cr3ea_coldroom1obtemp",
+                "cr3ea_coldroom2obtemp", "cr3ea_coldroom3obtemp", "cr3ea_deepfreezeryeasttemp",
+                "cr3ea_qualitytourid@odata.bind"
+            ],
+            CHILD_CODE_VERIFICATION: [
+                "cr3ea_name", "cr3ea_productname", "cr3ea_sku", "cr3ea_batchno", "cr3ea_pkd",
+                "cr3ea_expirydate", "cr3ea_noofsamples", "cr3ea_defecttype", "cr3ea_defectcount",
+                "cr3ea_codepictureurl", "cr3ea_deviationstatus", "cr3ea_actiontaken",
+                "cr3ea_qualitytourid@odata.bind"
+            ],
+            CHILD_PAPA: [
+                "cr3ea_name", "cr3ea_productname", "cr3ea_sku", "cr3ea_noofsamples",
+                "cr3ea_defecttype", "cr3ea_defectcount", "cr3ea_defectwisepercentage",
+                "cr3ea_overalldefectpercentage", "cr3ea_deviationstatus", "cr3ea_actiontaken",
+                "cr3ea_qualitytourid@odata.bind"
+            ],
+            CHILD_PQI_NET_WEIGHT: [
+                "cr3ea_name", "cr3ea_productname", "cr3ea_sku", "cr3ea_averageweight", "cr3ea_giveaway",
+                "cr3ea_qualitytourid@odata.bind",
+                ...Array.from({ length: 32 }, (_, i) => `cr3ea_sampleweight${i + 1}`)
+            ],
+            CHILD_PQI_EVALUATION: [
+                "cr3ea_name", "cr3ea_evaluationtype", "cr3ea_productname", "cr3ea_sku", "cr3ea_pkd",
+                "cr3ea_batchcode", "cr3ea_samplenumber", "cr3ea_sampleresult", "cr3ea_defectcategory",
+                "cr3ea_defectdetail", "cr3ea_batchcodepictureurl", "cr3ea_deviationstatus", "cr3ea_actiontaken",
+                "cr3ea_qualitytourid@odata.bind"
+            ],
+            CHILD_SEAL_INTEGRITY: [
+                "cr3ea_name", "cr3ea_productname", "cr3ea_sku", "cr3ea_machineno",
+                "cr3ea_samplequantity", "cr3ea_noofleakage", "cr3ea_leakagetype",
+                "cr3ea_deviationstatus", "cr3ea_actiontaken",
+                "cr3ea_qualitytourid@odata.bind"
+            ],
+            CHILD_QUALITY_WALL: [
+                "cr3ea_name", "cr3ea_productname", "cr3ea_lineno", "cr3ea_pkdbatchno", "cr3ea_facilitator",
+                "cr3ea_sku", "cr3ea_typeofqualitywall", "cr3ea_memberspresent",
+                "cr3ea_packappearancerating", "cr3ea_sealingqualityrating", "cr3ea_codingrating",
+                "cr3ea_overallrating", "cr3ea_remarks", "cr3ea_deviationstatus", "cr3ea_actiontaken",
+                "cr3ea_qualitytourid@odata.bind"
+            ]
+        };
+
         if (existingRowId) {
             url += `(${existingRowId})`;
             method = "PATCH";
@@ -695,10 +742,30 @@ const PKGOPS_DAL = {
             delete cleanRecord["cr3ea_prod_rajpura_pkgops_" + baseSuffix];
             delete cleanRecord["cr3ea_rajpura_pkgops_" + baseSuffix];
             delete cleanRecord.id;
+            delete cleanRecord["cr3ea_qualitytourid@odata.bind"];
 
             // Strip any table primary ID property ending with "id" so PATCH never fails on schema mismatch
             Object.keys(cleanRecord).forEach(k => {
                 if (k.endsWith("id") && !k.includes("@") && k !== "cr3ea_plantid") {
+                    delete cleanRecord[k];
+                }
+            });
+        } else {
+            // Auto-normalize @odata.bind for POST to match current environment parent tour entity
+            if (cleanRecord["cr3ea_qualitytourid@odata.bind"]) {
+                const parentTable = QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR;
+                const matchTour = cleanRecord["cr3ea_qualitytourid@odata.bind"].match(/\(([0-9a-fA-F-]+)\)/);
+                const tourIdClean = matchTour ? matchTour[1] : String(cleanRecord["cr3ea_qualitytourid@odata.bind"]).replace(/[^0-9a-fA-F-]/g, "");
+                cleanRecord["cr3ea_qualitytourid@odata.bind"] = `/${parentTable}(${tourIdClean})`;
+            }
+        }
+
+        // Sanitize cleanRecord against allowed columns
+        const allowedCols = SUB_CHECKLIST_COLUMNS[subChecklistKey];
+        if (allowedCols) {
+            const allowedSet = new Set(allowedCols);
+            Object.keys(cleanRecord).forEach(k => {
+                if (!allowedSet.has(k)) {
                     delete cleanRecord[k];
                 }
             });

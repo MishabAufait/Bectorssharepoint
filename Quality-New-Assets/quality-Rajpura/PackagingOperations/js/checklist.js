@@ -1128,14 +1128,14 @@ const PKGOPS_Checklist = {
                 const avg = weights.reduce((a, b) => a + b, 0) / weights.length;
                 const giveAway = standard > avg ? standard - avg : 0;
 
+                const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
                 const netWeightRecord = {
                     cr3ea_name: `PQI_NetWeight_${sku}_${moment().format("DD-MM-YYYY")}`,
                     cr3ea_productname: product,
                     cr3ea_sku: sku,
-                    cr3ea_standardweight: String(standard),
                     cr3ea_averageweight: Number(avg.toFixed(2)),
                     cr3ea_giveaway: Number(giveAway.toFixed(2)),
-                    "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
+                    "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
                 };
 
                 // Add weights
@@ -1145,7 +1145,7 @@ const PKGOPS_Checklist = {
 
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_PQI_NET_WEIGHT", this.currentTourId);
                 await PKGOPS_DAL.saveSubChecklistRow("CHILD_PQI_NET_WEIGHT", netWeightRecord);
-                this.savedPqiNetWeight = netWeightRecord;
+                this.savedPqiNetWeight = { ...netWeightRecord, cr3ea_standardweight: standard };
                 this.pqiSubChecklistsFilled.NetWeight = true;
                 this.updatePqiBadges();
             } else {
@@ -1210,6 +1210,7 @@ const PKGOPS_Checklist = {
                 const sku = document.getElementById("pqi-eval-sku").value;
                 const pkd = document.getElementById("pqi-eval-pkd").value;
                 const batch = document.getElementById("pqi-eval-batch").value;
+                const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
 
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_PQI_EVALUATION", this.currentTourId, val);
                 const newEvalRows = [];
@@ -1242,7 +1243,7 @@ const PKGOPS_Checklist = {
                         cr3ea_defectcategory: cat,
                         cr3ea_defectdetail: detail,
                         cr3ea_batchcodepictureurl: pictureUrl,
-                        "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
+                        "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
                     };
 
                     await PKGOPS_DAL.saveSubChecklistRow("CHILD_PQI_EVALUATION", evalRecord);
@@ -1259,7 +1260,10 @@ const PKGOPS_Checklist = {
         } catch (error) {
             if (typeof HideLoader === "function") HideLoader();
             console.error("Failed to save PQI component: ", error);
-            alert("Failed to save component entry. Please try again.");
+            const msg = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "save evaluation component entry")
+                : `Failed to save component entry: ${error.message || error}`;
+            alert(msg);
         }
     },
 
@@ -2427,15 +2431,15 @@ const PKGOPS_Checklist = {
                         const filledWeights = weights.filter(w => w > 0);
                         const avg = filledWeights.length > 0 ? (filledWeights.reduce((a, b) => a + b, 0) / filledWeights.length) : 0;
                         const giveAway = (standard > 0 && standard > avg && avg > 0) ? (standard - avg) : 0;
+                        const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
 
                         const netWeightRecord = {
                             cr3ea_name: `PQI_NetWeight_${sku || 'Draft'}_${moment().format("DD-MM-YYYY")}`,
                             cr3ea_productname: product,
                             cr3ea_sku: sku,
-                            cr3ea_standardweight: String(standard || 150),
                             cr3ea_averageweight: Number(avg.toFixed(2)),
                             cr3ea_giveaway: Number(giveAway.toFixed(2)),
-                            "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
+                            "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
                         };
 
                         weights.forEach((w, idx) => {
@@ -2444,7 +2448,7 @@ const PKGOPS_Checklist = {
 
                         await PKGOPS_DAL.cleanSubChecklistRows("CHILD_PQI_NET_WEIGHT", this.currentTourId);
                         await PKGOPS_DAL.saveSubChecklistRow("CHILD_PQI_NET_WEIGHT", netWeightRecord);
-                        this.savedPqiNetWeight = netWeightRecord;
+                        this.savedPqiNetWeight = { ...netWeightRecord, cr3ea_standardweight: standard };
                         this.pqiSubChecklistsFilled.NetWeight = true;
                         this.updatePqiBadges();
                     }
@@ -2466,6 +2470,7 @@ const PKGOPS_Checklist = {
                     }
 
                     if (hasAnyData) {
+                        const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
                         await PKGOPS_DAL.cleanSubChecklistRows("CHILD_PQI_EVALUATION", this.currentTourId, val);
                         const newEvalRows = [];
                         for (let idx = 0; idx < 10; idx++) {
@@ -2495,7 +2500,7 @@ const PKGOPS_Checklist = {
                                 cr3ea_defectcategory: cat,
                                 cr3ea_defectdetail: detail,
                                 cr3ea_batchcodepictureurl: pictureUrl,
-                                "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
+                                "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
                             };
                             if (pkd) evalRecord.cr3ea_pkd = pkd;
 
@@ -2515,6 +2520,7 @@ const PKGOPS_Checklist = {
                 const qty = document.getElementById("seal-qty")?.value || "";
                 const leakage = parseInt(document.getElementById("seal-leak-count")?.value) || 0;
                 const type = document.getElementById("seal-leak-type")?.value || "None";
+                const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
 
                 const sealRecord = {
                     cr3ea_name: `SealIntegrity_${sku}`,
@@ -2525,7 +2531,7 @@ const PKGOPS_Checklist = {
                     cr3ea_noofleakage: String(leakage),
                     cr3ea_leakagetype: type,
                     cr3ea_deviationstatus: leakage > 0 ? "Open" : "None",
-                    "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
+                    "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
                 };
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_SEAL_INTEGRITY", this.currentTourId);
                 await PKGOPS_DAL.saveSubChecklistRow("CHILD_SEAL_INTEGRITY", sealRecord);
@@ -2541,6 +2547,7 @@ const PKGOPS_Checklist = {
                 const seal = clamp(document.getElementById("wall-rating-sealing")?.value);
                 const cod = clamp(document.getElementById("wall-rating-coding")?.value);
                 const remarks = document.getElementById("wall-remarks")?.value || "";
+                const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
 
                 const ratingVal = ((app + seal + cod) / 3).toFixed(2);
 
@@ -2556,7 +2563,7 @@ const PKGOPS_Checklist = {
                     cr3ea_codingrating: String(cod),
                     cr3ea_overallrating: String(ratingVal),
                     cr3ea_remarks: remarks,
-                    "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
+                    "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
                 };
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_QUALITY_WALL", this.currentTourId);
                 await PKGOPS_DAL.saveSubChecklistRow("CHILD_QUALITY_WALL", wallRecord);
@@ -2585,7 +2592,10 @@ const PKGOPS_Checklist = {
         } catch (e) {
             if (typeof HideLoader === "function") HideLoader();
             console.error("Failed to pause tour: ", e);
-            alert("Failed to pause tour. Please try again.");
+            const msg = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(e, "pause tour")
+                : `Failed to pause tour: ${e.message || e}`;
+            alert(msg);
         }
     },
 

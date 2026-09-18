@@ -434,7 +434,10 @@ const PKGOPS_QARequest = {
         } catch (e) {
             if (typeof HideLoader === "function") HideLoader();
             console.error("Failed to start Packaging Operations tour:", e);
-            alert("Failed to start Packaging Operations session. Please try again.");
+            const msg = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(e, "start Packaging Operations session")
+                : `Failed to start Packaging Operations session: ${e.message || e}`;
+            alert(msg);
         }
     }
 };
