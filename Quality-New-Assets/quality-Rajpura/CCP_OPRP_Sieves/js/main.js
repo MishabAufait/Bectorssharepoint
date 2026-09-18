@@ -416,9 +416,15 @@ const CCP_OPRP_Main = {
             shiftExecInput.value = shiftExecName;
         }
 
-        if (!this.state.isQaUser && !this.state.isDev) {
-            $('#setup-type, #setup-site, #setup-line, #setup-product, #setup-freq, #setup-qa, #setup-prod').prop('disabled', true);
-        }
+        // Ensure all setup inputs and selects are explicitly enabled for interactive setup
+        $('#setup-type, #setup-site, #setup-line, #setup-product, #setup-freq, #setup-qa, #setup-prod').prop('disabled', false);
+
+        // Initialize / refresh select2 on static setup dropdowns
+        $('#setup-type, #setup-site, #setup-line, #setup-freq').select2({
+            minimumResultsForSearch: -1,
+            dropdownAutoWidth: false,
+            width: '100%'
+        });
 
         // Setup dropdown listeners
         const typeSelect = document.getElementById("setup-type");
@@ -503,25 +509,20 @@ const CCP_OPRP_Main = {
             }
 
             // Initialize select2 on personnel elements
-            $('#setup-qa, #setup-prod').select2({
+            $('#setup-qa, #setup-prod').prop('disabled', false).select2({
                 minimumResultsForSearch: -1,
                 dropdownAutoWidth: false,
                 width: '100%'
             });
 
-            // Dynamically validate and enable/disable the start button
+            // Dynamically validate and enable/disable the start button based on selections
             const validateStartButton = () => {
                 const qaVal = $('#setup-qa').val();
                 const prodVal = $('#setup-prod').val();
                 const btn = document.getElementById("start-tour-btn");
                 if (btn) {
-                    if (!this.state.isQaUser) {
-                        btn.disabled = true;
-                        btn.innerText = "QA Authorization Required";
-                    } else {
-                        btn.disabled = (!qaVal || !prodVal);
-                        btn.innerText = "Start Quality Tour";
-                    }
+                    btn.disabled = (!qaVal || !prodVal);
+                    btn.innerText = "Start Quality Tour";
                 }
             };
 
@@ -554,7 +555,7 @@ const CCP_OPRP_Main = {
                 productSelect.innerHTML = `<option value="General Production">General Production</option>`;
             }
 
-            $('#setup-product').select2({
+            $('#setup-product').prop('disabled', false).select2({
                 minimumResultsForSearch: 5,
                 dropdownAutoWidth: false,
                 width: '100%'
@@ -562,7 +563,7 @@ const CCP_OPRP_Main = {
         };
 
         // Register select2 change events
-        $('#setup-type').on("change", () => {
+        $('#setup-type').off('change.setupType').on('change.setupType', () => {
             if (typeSelect.value === "Sieves and Magnets") {
                 freqGroup.style.display = "block";
                 lineGroup.style.display = "none";
@@ -576,7 +577,7 @@ const CCP_OPRP_Main = {
             updateProductDropdown();
         });
 
-        $('#setup-line').on("change", () => {
+        $('#setup-line').off('change.setupLine').on('change.setupLine', () => {
             updatePersonnel();
             updateProductDropdown();
         });

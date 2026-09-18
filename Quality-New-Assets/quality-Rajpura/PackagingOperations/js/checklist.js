@@ -1061,7 +1061,7 @@ const PKGOPS_Checklist = {
         }
 
         const avg = weights.reduce((a, b) => a + b, 0) / weights.length;
-        const giveAway = stdWeight > avg ? stdWeight - avg : 0;
+        const giveAway = (stdWeight > 0 && avg > stdWeight) ? (avg - stdWeight) : 0;
 
         avgSpan.innerText = `${avg.toFixed(2)} g`;
         gaSpan.innerText = `${giveAway.toFixed(2)} g`;
@@ -1126,7 +1126,7 @@ const PKGOPS_Checklist = {
                 }
 
                 const avg = weights.reduce((a, b) => a + b, 0) / weights.length;
-                const giveAway = standard > avg ? standard - avg : 0;
+                const giveAway = (standard > 0 && avg > standard) ? (avg - standard) : 0;
 
                 const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
                 const netWeightRecord = {
@@ -2430,7 +2430,7 @@ const PKGOPS_Checklist = {
                     if (product || sku || hasAnyWeight || standard > 0) {
                         const filledWeights = weights.filter(w => w > 0);
                         const avg = filledWeights.length > 0 ? (filledWeights.reduce((a, b) => a + b, 0) / filledWeights.length) : 0;
-                        const giveAway = (standard > 0 && standard > avg && avg > 0) ? (standard - avg) : 0;
+                        const giveAway = (standard > 0 && avg > standard && avg > 0) ? (avg - standard) : 0;
                         const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
 
                         const netWeightRecord = {
@@ -2759,7 +2759,13 @@ const PKGOPS_Checklist = {
             if (row) {
                 if (document.getElementById("pqi-nw-product")) this.setProductWithCategory("pqi-nw", row.cr3ea_productname);
                 if (document.getElementById("pqi-nw-sku")) this.setSelectValueSafely("pqi-nw-sku", row.cr3ea_sku);
-                if (document.getElementById("pqi-nw-standard")) document.getElementById("pqi-nw-standard").value = row.cr3ea_standardweight || "150";
+                
+                let std = row.cr3ea_standardweight;
+                if (!std && row.cr3ea_sku) {
+                    const skuNum = parseFloat(String(row.cr3ea_sku).replace(/[^0-9.]/g, ""));
+                    if (!isNaN(skuNum) && skuNum > 0) std = skuNum;
+                }
+                if (document.getElementById("pqi-nw-standard")) document.getElementById("pqi-nw-standard").value = std || "150";
 
                 for (let i = 0; i < 15; i++) {
                     const weightEl = document.getElementById(`pqi-weight-${i}`);
