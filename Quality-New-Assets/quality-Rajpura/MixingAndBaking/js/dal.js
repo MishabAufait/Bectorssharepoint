@@ -172,31 +172,46 @@ const MixingBaking_DAL = {
                 return match;
             };
 
-            const userField = findField(["QAExecutive", "QA_x0020_Executive", "AssignedUser", "Assigned_x0020_User", "AssignedQA"], ["QA Executive", "QAExecutive", "Assigned User"]);
-            const prodField = findField(["ProductionExecutive", "Production_x0020_Executive", "ProductionIncharge", "Production_x0020_Incharge"], ["Production Executive", "Production Incharge", "ProductionExecutive"]);
+            const userField = findField(["QA_x0020_Executive", "QAExecutive", "AssignedUser", "Assigned_x0020_User", "AssignedQA"], ["QA Executive", "QAExecutive", "Assigned User"]);
+            const prodField = findField(["Production_x0020_Executive", "ProductionExecutive", "ProductionIncharge", "Production_x0020_Incharge"], ["Production Executive", "Production Incharge", "ProductionExecutive"]);
 
-            const selectParts = ["Id", "Title"];
-            const expandParts = [];
+            const uName = userField ? userField.InternalName : "QA_x0020_Executive";
+            const pName = prodField ? prodField.InternalName : "Production_x0020_Executive";
 
-            if (userField) {
-                const uName = userField.InternalName;
-                selectParts.push(`${uName}/Title`, `${uName}/EMail`, `${uName}/Id`);
-                expandParts.push(uName);
-            }
-            if (prodField) {
-                const pName = prodField.InternalName;
-                selectParts.push(`${pName}/Title`, `${pName}/EMail`, `${pName}/Id`);
-                expandParts.push(pName);
-            }
+            let selectParts = ["Id", "Title", `${uName}/Title`, `${uName}/EMail`, `${uName}/Id`, `${pName}/Title`, `${pName}/EMail`, `${pName}/Id`];
+            let expandParts = [uName, pName];
 
             let query = `?$select=${selectParts.join(",")}&$top=500`;
             if (expandParts.length > 0) query += `&$expand=${expandParts.join(",")}`;
 
             const url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
-            const response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
+            let response = null;
+            try {
+                response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
+            } catch (fetchErr) {
+                console.warn("MixingBaking_DAL: Initial users query failed:", fetchErr);
+            }
 
-            if (!response.ok) {
-                throw new Error(`SharePoint fetch failed with status ${response.status}`);
+            // Robust fallback attempts if initial query failed
+            if (!response || !response.ok) {
+                const fbQueries = [
+                    "?$select=Id,Title,QA_x0020_Executive/Title,QA_x0020_Executive/EMail,QA_x0020_Executive/Id,Production_x0020_Executive/Title,Production_x0020_Executive/EMail,Production_x0020_Executive/Id&$expand=QA_x0020_Executive,Production_x0020_Executive&$top=500",
+                    "?$select=Id,Title,QAExecutive/Title,QAExecutive/EMail,QAExecutive/Id,ProductionExecutive/Title,ProductionExecutive/EMail,ProductionExecutive/Id&$expand=QAExecutive,ProductionExecutive&$top=500",
+                    "?$select=Id,Title,AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id&$expand=AssignedUser&$top=500"
+                ];
+                for (const fbQ of fbQueries) {
+                    try {
+                        const fbRes = await fetch(`${webUrl}/_api/web/lists/getByTitle('${listName}')/items${fbQ}`, { headers: { "Accept": "application/json; odata=verbose" } });
+                        if (fbRes.ok) {
+                            response = fbRes;
+                            break;
+                        }
+                    } catch (e) {}
+                }
+            }
+
+            if (!response || !response.ok) {
+                throw new Error(`SharePoint fetch failed with status ${response ? response.status : 'unknown'}`);
             }
 
             const data = await response.json();
@@ -728,12 +743,27 @@ const MixingBaking_DAL = {
 
         try {
             let allFetchedItems = [];
-            let nextUrl = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items?$select=Id,Title,ConfigType,Config_x0020_Type,ProductCategory,Plant,IsActive,RecipeConfig,Remarks,Description&$top=5000`;
+            let nextUrl = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items?$select=Id,Title,ConfigType,ProductCategory,Plant,IsActive,RecipeConfig&$top=5000`;
 
             // Loop through all pages to retrieve all product recipes without SharePoint 100-item cutoff
             while (nextUrl) {
-                const response = await fetch(nextUrl, { headers: { "Accept": "application/json; odata=verbose" } });
-                if (!response.ok) {
+                let response = null;
+                try {
+                    response = await fetch(nextUrl, { headers: { "Accept": "application/json; odata=verbose" } });
+                } catch (e) {}
+
+                if (!response || !response.ok) {
+                    // Fallback to Config_x0020_Type only if ConfigType query failed
+                    if (allFetchedItems.length === 0 && nextUrl.includes("ConfigType")) {
+                        const fallbackUrl = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items?$select=Id,Title,Config_x0020_Type,ProductCategory,Plant,IsActive,RecipeConfig&$top=5000`;
+                        try {
+                            const fbRes = await fetch(fallbackUrl, { headers: { "Accept": "application/json; odata=verbose" } });
+                            if (fbRes.ok) response = fbRes;
+                        } catch (err2) {}
+                    }
+                }
+
+                if (!response || !response.ok) {
                     break;
                 }
                 const data = await response.json();

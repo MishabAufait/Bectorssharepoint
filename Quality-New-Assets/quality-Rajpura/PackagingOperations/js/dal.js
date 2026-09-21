@@ -156,7 +156,7 @@ const PKGOPS_DAL = {
             allFetchedItems = [];
             try {
                 // Fallback attempt with commonly used fields
-                const fbQuery = "?$select=Id,Title,ConfigType,Config_x0020_Type,Plant,Area,ProductCode,LineName,ProductCategory,IsActive,AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id&$expand=AssignedUser&$top=5000";
+                const fbQuery = "?$select=Id,Title,ConfigType,Plant,Area,ProductCode,LineName,ProductCategory,IsActive,AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id&$expand=AssignedUser&$top=5000";
                 let fbUrl = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${fbQuery}`;
                 while (fbUrl) {
                     const fbRes = await fetch(fbUrl, { headers: { "Accept": "application/json; odata=verbose" } });
@@ -169,7 +169,7 @@ const PKGOPS_DAL = {
             } catch (errFb1) {
                 console.warn("Fallback query with AssignedUser failed, attempting Assigned_x0020_User query:", errFb1);
                 try {
-                    const fbQuery2 = "?$select=Id,Title,ConfigType,Config_x0020_Type,Plant,Area,ProductCode,LineName,ProductCategory,IsActive,Assigned_x0020_User/Title,Assigned_x0020_User/EMail,Assigned_x0020_User/Id&$expand=Assigned_x0020_User&$top=5000";
+                    const fbQuery2 = "?$select=Id,Title,ConfigType,Plant,Area,ProductCode,LineName,ProductCategory,IsActive,Assigned_x0020_User/Title,Assigned_x0020_User/EMail,Assigned_x0020_User/Id&$expand=Assigned_x0020_User&$top=5000";
                     let fbUrl2 = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${fbQuery2}`;
                     while (fbUrl2) {
                         const fbRes2 = await fetch(fbUrl2, { headers: { "Accept": "application/json; odata=verbose" } });

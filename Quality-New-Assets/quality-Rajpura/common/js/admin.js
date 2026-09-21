@@ -97,8 +97,8 @@ const Rajpura_Admin = {
             roleLabel: "Configuration",
             userLabel: "QA Executive",
             prodLabel: "Production Executive",
-            userFieldNames: ["QAExecutive", "QA_x0020_Executive", "AssignedUser", "Assigned_x0020_User"],
-            prodFieldNames: ["ProductionExecutive", "Production_x0020_Executive", "ProductionIncharge", "Production_x0020_Incharge"],
+            userFieldNames: ["QA_x0020_Executive", "QAExecutive", "AssignedUser", "Assigned_x0020_User"],
+            prodFieldNames: ["Production_x0020_Executive", "ProductionExecutive", "ProductionIncharge", "Production_x0020_Incharge"],
             managerFieldNames: null,
             hasLines: false
         },
@@ -635,16 +635,19 @@ const Rajpura_Admin = {
             const areaField = schema ? schema.findField(["Area"], "Area") : null;
             const checklistTypeField = schema ? schema.findField(["ChecklistType", "Checklist_x0020_Type"], "Checklist Type") : null;
 
-            const userField = schema ? schema.findField(formDef.userFieldNames, ["QA Executive", "QAExecutive", "Assigned User", "Assigned QA"]) : null;
-            const prodField = schema && formDef.prodFieldNames ? schema.findField(formDef.prodFieldNames, ["Production Executive", "Production Incharge", "Production Shift"]) : null;
-            const managerField = schema && formDef.managerFieldNames ? schema.findField(formDef.managerFieldNames, ["Escalation Manager"]) : null;
+            const userField = schema ? schema.findField(formDef.userFieldNames, ["QA Executive", "QAExecutive", "QA_x0020_Executive", "Assigned User", "Assigned QA"]) : null;
+            const prodField = schema && formDef.prodFieldNames ? schema.findField(formDef.prodFieldNames, ["Production Executive", "ProductionExecutive", "Production_x0020_Executive", "Production Incharge", "Production Shift"]) : null;
+            const managerField = schema && formDef.managerFieldNames ? schema.findField(formDef.managerFieldNames, ["Escalation Manager", "EscalationManager", "Escalation_x0020_Manager"]) : null;
 
             const selectParts = ["Id", "Title"];
             const expandParts = [];
 
             if (configTypeField) selectParts.push(configTypeField.InternalName);
+            else if (formKey === "MixingAndBaking") selectParts.push("ConfigType");
+
             if (plantField) selectParts.push(plantField.InternalName);
-            else if (formKey === "FoodSafety" && !selectParts.includes("Plant")) selectParts.push("Plant");
+            else if (formKey === "FoodSafety" || formKey === "MixingAndBaking") selectParts.push("Plant");
+
             if (areaField) selectParts.push(areaField.InternalName);
             if (checklistTypeField) selectParts.push(checklistTypeField.InternalName);
             else if (formKey === "FoodSafety" && !selectParts.includes("ChecklistType")) selectParts.push("ChecklistType");
@@ -655,18 +658,20 @@ const Rajpura_Admin = {
             } else if (formKey === "PackagingOperations" || formKey === "CCP_OPRP_Sieves") {
                 selectParts.push("ProductCode", "LineName", "ProductCategory", "IsActive");
             } else if (formKey === "MixingAndBaking") {
-                selectParts.push("ProductCategory", "IsActive", "RecipeConfig", "Remarks", "Description");
+                selectParts.push("ProductCategory", "IsActive", "RecipeConfig");
+                if (schema && schema.findField(["Remarks", "Remarks_x0020_Text"], "Remarks")) selectParts.push("Remarks");
+                if (schema && schema.findField(["Description"], "Description")) selectParts.push("Description");
             }
 
             // User Field
-            const uInternalName = userField ? userField.InternalName : (formKey === "MixingAndBaking" || formKey === "FoodSafety" ? "QAExecutive" : null);
+            const uInternalName = userField ? userField.InternalName : (formKey === "MixingAndBaking" ? "QA_x0020_Executive" : (formKey === "FoodSafety" ? "QAExecutive" : null));
             if (uInternalName) {
                 selectParts.push(`${uInternalName}/Title`, `${uInternalName}/EMail`, `${uInternalName}/Id`);
                 expandParts.push(uInternalName);
             }
 
             // Production Field
-            const pInternalName = prodField ? prodField.InternalName : (formKey === "MixingAndBaking" ? "ProductionExecutive" : (formKey === "FoodSafety" ? "ProductionIncharge" : null));
+            const pInternalName = prodField ? prodField.InternalName : (formKey === "MixingAndBaking" ? "Production_x0020_Executive" : (formKey === "FoodSafety" ? "ProductionIncharge" : null));
             if (pInternalName) {
                 selectParts.push(`${pInternalName}/Title`, `${pInternalName}/EMail`, `${pInternalName}/Id`);
                 expandParts.push(pInternalName);
@@ -705,21 +710,22 @@ const Rajpura_Admin = {
 
             // Fallback for space-encoded field names (QA_x0020_Executive, Production_x0020_Executive)
             if ((!response || !response.ok) && formKey === "MixingAndBaking") {
-                const fbQuery = "?$select=Id,Title,ConfigType,Config_x0020_Type,Plant,ProductCategory,IsActive,RecipeConfig,Remarks,Description,QA_x0020_Executive/Title,QA_x0020_Executive/EMail,QA_x0020_Executive/Id,Production_x0020_Executive/Title,Production_x0020_Executive/EMail,Production_x0020_Executive/Id&$expand=QA_x0020_Executive,Production_x0020_Executive&$top=5000";
-                const fbUrl = `${siteUrl}/_api/web/lists/getByTitle('${listName}')/items${fbQuery}`;
-                try {
-                    const fbRes = await fetch(fbUrl, { headers: { "Accept": "application/json; odata=verbose" } });
-                    if (fbRes.ok) response = fbRes;
-                } catch (err) {}
-
-                // Fallback without user field expansion if user fields are missing
-                if (!response || !response.ok) {
-                    const simpleQuery = "?$select=Id,Title,ConfigType,Config_x0020_Type,Plant,ProductCategory,IsActive,RecipeConfig,Remarks,Description&$top=5000";
-                    const simpleUrl = `${siteUrl}/_api/web/lists/getByTitle('${listName}')/items${simpleQuery}`;
+                const fbQueries = [
+                    "?$select=Id,Title,ConfigType,Plant,ProductCategory,IsActive,RecipeConfig,QA_x0020_Executive/Title,QA_x0020_Executive/EMail,QA_x0020_Executive/Id,Production_x0020_Executive/Title,Production_x0020_Executive/EMail,Production_x0020_Executive/Id&$expand=QA_x0020_Executive,Production_x0020_Executive&$top=5000",
+                    "?$select=Id,Title,ConfigType,Plant,ProductCategory,IsActive,RecipeConfig,QAExecutive/Title,QAExecutive/EMail,QAExecutive/Id,ProductionExecutive/Title,ProductionExecutive/EMail,ProductionExecutive/Id&$expand=QAExecutive,ProductionExecutive&$top=5000",
+                    "?$select=Id,Title,ConfigType,Plant,ProductCategory,IsActive,RecipeConfig,AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id&$expand=AssignedUser&$top=5000",
+                    "?$select=Id,Title,ConfigType,Plant,ProductCategory,IsActive,RecipeConfig&$top=5000",
+                    "?$select=Id,Title,Config_x0020_Type,Plant,ProductCategory,IsActive,RecipeConfig,QA_x0020_Executive/Title,QA_x0020_Executive/EMail,QA_x0020_Executive/Id,Production_x0020_Executive/Title,Production_x0020_Executive/EMail,Production_x0020_Executive/Id&$expand=QA_x0020_Executive,Production_x0020_Executive&$top=5000"
+                ];
+                for (const q of fbQueries) {
                     try {
-                        const simpleRes = await fetch(simpleUrl, { headers: { "Accept": "application/json; odata=verbose" } });
-                        if (simpleRes.ok) response = simpleRes;
-                    } catch (err2) {}
+                        const fbUrl = `${siteUrl}/_api/web/lists/getByTitle('${listName}')/items${q}`;
+                        const fbRes = await fetch(fbUrl, { headers: { "Accept": "application/json; odata=verbose" } });
+                        if (fbRes.ok) {
+                            response = fbRes;
+                            break;
+                        }
+                    } catch (err) {}
                 }
             }
 
@@ -4622,7 +4628,7 @@ const Rajpura_Admin = {
                 }
             } catch (e) {}
 
-            const getUrl = `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items?$select=Id,Title,ConfigType,Config_x0020_Type&$top=500`;
+            const getUrl = `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items?$select=Id,Title,ConfigType&$top=500`;
             let existingItems = [];
             try {
                 const existingRes = await fetch(getUrl, {
@@ -4771,7 +4777,7 @@ const Rajpura_Admin = {
             // Query existing items with pagination to avoid duplicates
             let existingItems = [];
             try {
-                let nextUrl = `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items?$select=Id,Title,ProductCode,ConfigType,Config_x0020_Type&$top=5000`;
+                let nextUrl = `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items?$select=Id,Title,ProductCode,ConfigType&$top=5000`;
                 while (nextUrl) {
                     const existingRes = await fetch(nextUrl, {
                         headers: { "Accept": "application/json;odata=verbose" }
@@ -5157,7 +5163,7 @@ const Rajpura_Admin = {
             // Query existing items to avoid duplicates
             let existingItems = [];
             try {
-                let nextUrl = `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items?$select=Id,Title,ProductCode,ConfigType,Config_x0020_Type&$top=5000`;
+                let nextUrl = `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items?$select=Id,Title,ProductCode,ConfigType&$top=5000`;
                 while (nextUrl) {
                     const existingRes = await fetch(nextUrl, {
                         headers: { "Accept": "application/json;odata=verbose" }
@@ -6792,7 +6798,9 @@ const Rajpura_Admin = {
                 const isMulti = userField.TypeAsString === "UserMulti" || userField.AllowMultipleValues;
                 const idProp = `${userField.InternalName}Id`;
                 spPayload[idProp] = isMulti ? { results: userIds } : (userIds.length > 0 ? userIds[0] : null);
-            } else if (formKey === "MixingAndBaking" || formKey === "FoodSafety") {
+            } else if (formKey === "MixingAndBaking") {
+                spPayload["QA_x0020_ExecutiveId"] = { results: userIds };
+            } else if (formKey === "FoodSafety") {
                 spPayload["QAExecutiveId"] = { results: userIds };
             }
 
@@ -6802,7 +6810,7 @@ const Rajpura_Admin = {
                 const idProp = `${prodField.InternalName}Id`;
                 spPayload[idProp] = isMulti ? { results: prodIds } : (prodIds.length > 0 ? prodIds[0] : null);
             } else if (formKey === "MixingAndBaking") {
-                spPayload["ProductionExecutiveId"] = { results: prodIds };
+                spPayload["Production_x0020_ExecutiveId"] = { results: prodIds };
             } else if (formKey === "FoodSafety") {
                 spPayload["ProductionInchargeId"] = { results: prodIds };
             }
