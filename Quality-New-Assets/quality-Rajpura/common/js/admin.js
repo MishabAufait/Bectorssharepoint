@@ -1621,8 +1621,8 @@ const Rajpura_Admin = {
                         </button>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <button type="button" id="admin-btn-seed-mb" class="admin-btn-secondary" onclick="Rajpura_Admin.seedMbRecipesMasterData()" style="font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 8px; border: 1px solid #dc2626; color: #dc2626; background: #fff; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" title="Seed Standard Product Recipes (71)">
-                            Seed / Sync Recipes (71)
+                        <button type="button" id="admin-btn-seed-mb" class="admin-btn-secondary" style="font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 8px; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none; display: inline-flex; align-items: center; gap: 5px;" disabled title="Seeding is disabled">
+                            Seed Recipes
                         </button>
                     </div>
                 </div>
@@ -2157,7 +2157,7 @@ const Rajpura_Admin = {
                                                 Edit
                                             </button>
                                             <button type="button" class="admin-btn-action" style="color: #dc2626;" onclick="Rajpura_Admin.confirmDeleteRow('ALC', ${r.id})" title="Delete Product">
-                                                
+                                                Delete
                                             </button>
                                         </div>
                                     </td>
@@ -2266,9 +2266,9 @@ const Rajpura_Admin = {
                             <span>&bull;</span>
                             <span class="standard-count">Standard: <strong>${standardCount}</strong></span>
                         </div>
-                        <button type="button" id="btn-sync-alc-questions" class="admin-btn-sync-questions" onclick="Rajpura_Admin.syncAlcQuestionsToSharePoint()" title="Sync and insert all 46 checklist questions into SharePoint list Quality-Rajpura-ALC">
+                        <button type="button" id="btn-sync-alc-questions" class="admin-btn-sync-questions" style="border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none;" disabled title="Syncing questions is disabled">
                             <span style="font-size: 14px;">🔄</span>
-                            <span>${syncedCount >= 46 ? 'Re-Sync Questions to List' : 'Sync 46 Questions to SharePoint List'}</span>
+                            <span>Sync 46 Questions to SharePoint List</span>
                         </button>
                     </div>
                 </div>
@@ -2284,7 +2284,7 @@ const Rajpura_Admin = {
                                 Checklist questions have not been added to <code>Quality-Rajpura-ALC</code> list yet. Click <strong>Sync 46 Questions to SharePoint List</strong> to populate all 46 parameters.
                             </div>
                         </div>
-                        <button type="button" class="admin-btn-sync-questions" style="font-size: 12px; padding: 6px 14px;" onclick="Rajpura_Admin.syncAlcQuestionsToSharePoint()">
+                        <button type="button" class="admin-btn-sync-questions" style="font-size: 12px; padding: 6px 14px; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none;" disabled title="Syncing questions is disabled">
                             Sync 46 Questions Now
                         </button>
                     </div>
@@ -2294,7 +2294,7 @@ const Rajpura_Admin = {
                             ✓ <strong>${syncedCount} Questions Synced from SharePoint:</strong> Maintained live in <code>Quality-Rajpura-ALC</code> list. Criticality toggles update live.
                         </div>
                         ${syncedCount < 46 ? `
-                            <button type="button" class="admin-btn-sync-questions" style="font-size: 12px; padding: 5px 14px;" onclick="Rajpura_Admin.syncAlcQuestionsToSharePoint()">
+                            <button type="button" class="admin-btn-sync-questions" style="font-size: 12px; padding: 5px 14px; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none;" disabled title="Syncing questions is disabled">
                                 Sync Remaining Questions
                             </button>
                         ` : ''}
@@ -2391,7 +2391,7 @@ const Rajpura_Admin = {
                                             <div style="font-size: 13px; color: #64748b; max-width: 520px; margin: 0 auto 16px auto; line-height: 1.5;">
                                                 Checklist questions have not been added to <code>Quality-Rajpura-ALC</code> list yet. Click the sync button below to add all 46 standard parameters.
                                             </div>
-                                            <button type="button" class="admin-btn-sync-questions" onclick="Rajpura_Admin.syncAlcQuestionsToSharePoint()">
+                                            <button type="button" class="admin-btn-sync-questions" style="border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none;" disabled title="Syncing questions is disabled">
                                                 <span>🔄</span>
                                                 <span>Sync 46 Questions to SharePoint List</span>
                                             </button>
@@ -2444,115 +2444,9 @@ const Rajpura_Admin = {
      * Sync and bulk-insert all 46 standard checklist questions into Quality-Rajpura-ALC SharePoint list
      */
     syncAlcQuestionsToSharePoint: async function () {
-        const defaultList = this.DEFAULT_ALC_QUESTIONS || [];
-        const total = defaultList.length;
-
-        if (!confirm(`Sync all ${total} standard checklist questions into the Quality-Rajpura-ALC SharePoint list?`)) {
-            return;
-        }
-
-        const btn = document.getElementById("btn-sync-alc-questions");
-        const originalText = btn ? btn.innerHTML : "";
-        if (btn) {
-            btn.innerHTML = `<span style="font-size: 14px;">⏳</span> <span>Syncing (0/${total})...</span>`;
-            btn.disabled = true;
-        }
-
-        try {
-            if (typeof ShowProgressLoader === "function") {
-                ShowProgressLoader(5, `Starting sync of ${total} ALC questions to SharePoint...`);
-            }
-
-            // 1. Force refresh schema & live items from SharePoint list
-            delete this.listSchemas["Quality-Rajpura-ALC"];
-            await this.loadSingleFormConfig("ALC");
-            const currentItems = this.configs.ALC || [];
-            const existingQMap = {};
-            currentItems.forEach(item => {
-                const cfgType = (item.configType || item.ConfigType || "").toLowerCase();
-                if (cfgType === "checklist question" && item.id > 0) {
-                    const seq = parseInt(item.sequence || item.shiftCode || item.productCode || 0, 10);
-                    if (seq > 0) existingQMap[seq] = item;
-                    else if (item.title) existingQMap[item.title.trim().toLowerCase()] = item;
-                }
-            });
-
-            let addedCount = 0;
-            let updatedCount = 0;
-            let failureCount = 0;
-
-            for (let i = 0; i < total; i++) {
-                const q = defaultList[i];
-                const seq = q.sequence;
-                const existing = existingQMap[seq] || existingQMap[q.title.trim().toLowerCase()];
-
-                const isCrit = (existing && existing.productCategory) 
-                    ? (existing.productCategory === "Critical" || existing.isCritical === true) 
-                    : q.isCritical;
-
-                // Always encode sequence number and [CRITICAL] marker into Title so it persists even without extra columns
-                const formattedTitle = `${seq}. ${isCrit ? '[CRITICAL] ' : ''}${q.title}`;
-
-                const payload = {
-                    Title: formattedTitle,
-                    ConfigType: "Checklist Question",
-                    Area: q.area,
-                    ShiftCode: String(seq),
-                    ProductCode: String(seq),
-                    Sequence: seq,
-                    ProductCategory: isCrit ? "Critical" : "Standard",
-                    IsCritical: isCrit,
-                    Remarks: isCrit ? "Critical" : "",
-                    Plant: "Rajpura",
-                    Region: "North",
-                    IsActive: q.isActive !== false
-                };
-
-                const progressPercent = Math.round(10 + ((i + 1) / total) * 85);
-                if (typeof ShowProgressLoader === "function") {
-                    ShowProgressLoader(progressPercent, `Syncing question ${i + 1} of ${total} (${q.area})...`);
-                }
-                if (btn) {
-                    btn.innerHTML = `<span style="font-size: 14px;">⏳</span> <span>Syncing (${i + 1}/${total})...</span>`;
-                }
-
-                let success = false;
-                if (existing && existing.id > 0) {
-                    success = await this.persistItemToSharePoint("ALC", existing.id, payload);
-                    if (success) updatedCount++;
-                    else failureCount++;
-                } else {
-                    success = await this.persistItemToSharePoint("ALC", null, payload);
-                    if (success) addedCount++;
-                    else failureCount++;
-                }
-            }
-
-            if (typeof ShowProgressLoader === "function") {
-                ShowProgressLoader(100, "Reloading ALC configurations...");
-            }
-
-            // Reload ALC configs from SharePoint
-            await this.loadSingleFormConfig("ALC");
-            this.renderCurrentTab();
-            this.updateStatsCounters();
-
-            if (addedCount > 0 || updatedCount > 0) {
-                this.showToast(`Successfully synced ${addedCount + updatedCount} of ${total} questions to SharePoint list`, "success");
-            } else {
-                this.showToast(`Failed to sync questions to SharePoint list. Check console for error details.`, "error");
-            }
-
-        } catch (err) {
-            console.error("Error syncing ALC questions to SharePoint:", err);
-            this.showToast(`Error syncing questions: ${err.message || err}`, "error");
-        } finally {
-            if (typeof HideLoader === "function") HideLoader();
-            if (btn) {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            }
-        }
+        console.warn("Syncing ALC questions functionality is disabled in the admin panel.");
+        this.showToast("Syncing checklist questions is currently disabled.", "warning");
+        return;
     },
 
     toggleAlcQuestionCritical: async function (rowId, sequence) {
@@ -3043,7 +2937,7 @@ const Rajpura_Admin = {
                                 Edit
                             </button>
                             <button type="button" class="admin-btn-action" style="color: #dc2626;" onclick="Rajpura_Admin.confirmDeleteRow('PackagingOperations', ${r.id})" title="Delete Product">
-                                
+                                Delete
                             </button>
                         </div>
                     </td>
@@ -3483,7 +3377,7 @@ const Rajpura_Admin = {
                                 Edit
                             </button>
                             <button type="button" class="admin-btn-action" style="color: #dc2626;" onclick="Rajpura_Admin.confirmDeleteRow('CCP_OPRP_Sieves', ${r.id})" title="Delete Product">
-                                
+                                Delete
                             </button>
                         </div>
                     </td>
@@ -4679,8 +4573,8 @@ const Rajpura_Admin = {
                         <h3 class="admin-panel-title"> Product Recipes Master Catalogue <span class="admin-badge" id="mb-recipe-counter-badge" style="font-size: 13px; font-weight: 600; color: #dc2626; background: #fef2f2; padding: 2px 10px; border-radius: 12px; border: 1px solid #fecaca; margin-left: 8px;">${allRecipes.length} items</span></h3>
                     </div>
                     <div class="admin-panel-actions">
-                        <button type="button" id="admin-btn-seed-mb-inline" class="admin-btn-secondary" onclick="Rajpura_Admin.seedMbRecipesMasterData()" style="font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 8px; border: 1px solid #dc2626; color: #dc2626; background: #fff; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" title="Seed Standard Product Recipes">
-                            Seed / Sync Recipes (71)
+                        <button type="button" id="admin-btn-seed-mb-inline" class="admin-btn-secondary" style="font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 8px; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none; display: inline-flex; align-items: center; gap: 6px;" disabled title="Seeding is disabled">
+                            Seed Recipes
                         </button>
                         <button type="button" class="admin-btn-product-add" style="background: #dc2626; border-color: #dc2626;" onclick="Rajpura_Admin.openAddMbRecipeModal()">
                             + Add Product Recipe
@@ -4941,7 +4835,7 @@ const Rajpura_Admin = {
                                 Edit
                             </button>
                             <button type="button" class="admin-btn-action" style="color: #dc2626;" onclick="Rajpura_Admin.deleteMbRecipe(${r.id})" title="Delete Recipe">
-                                
+                                Delete
                             </button>
                         </div>
                     </td>
@@ -5857,209 +5751,11 @@ const Rajpura_Admin = {
     },
 
     seedMbRecipesMasterData: async function () {
-        const btn1 = document.getElementById("admin-btn-seed-mb");
-        const btn2 = document.getElementById("admin-btn-seed-mb-inline");
-        const updateBtns = (txt, dis) => {
-            [btn1, btn2].forEach(b => {
-                if (b) {
-                    b.disabled = !!dis;
-                    b.innerHTML = txt;
-                }
-            });
-        };
-
-        const siteUrl = this.getSiteUrl();
-        const listName = "Quality-Rajpura-MixingBaking";
-
-        let seedRecipes = (typeof MB_RECIPES_SEED_DATA !== "undefined" && Array.isArray(MB_RECIPES_SEED_DATA) && MB_RECIPES_SEED_DATA.length > 0)
-            ? MB_RECIPES_SEED_DATA
-            : ((typeof window.MB_RECIPES_SEED_DATA !== "undefined" && Array.isArray(window.MB_RECIPES_SEED_DATA) && window.MB_RECIPES_SEED_DATA.length > 0)
-                ? window.MB_RECIPES_SEED_DATA
-                : this.getStandardMbSeedRecipes());
-
-        if (seedRecipes.length === 0) {
-            updateBtns(`Loading seed dataset...`, true);
-            try {
-                await new Promise((resolve, reject) => {
-                    const s = document.createElement("script");
-                    const seedUrl = (siteUrl ? siteUrl : "/sites/Mrs_Bectors_PTMS") + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/mb-recipes-seed.js?v=" + Date.now();
-                    s.src = seedUrl;
-                    s.onload = resolve;
-                    s.onerror = reject;
-                    document.head.appendChild(s);
-                });
-            } catch (e) {
-                console.warn("Dynamic load of mb-recipes-seed.js failed:", e);
-            }
-            seedRecipes = (typeof MB_RECIPES_SEED_DATA !== "undefined" && Array.isArray(MB_RECIPES_SEED_DATA) && MB_RECIPES_SEED_DATA.length > 0)
-                ? MB_RECIPES_SEED_DATA
-                : ((typeof window !== "undefined" && window.MB_RECIPES_SEED_DATA && Array.isArray(window.MB_RECIPES_SEED_DATA)) ? window.MB_RECIPES_SEED_DATA : []);
-        }
-
-        if (seedRecipes.length === 0) {
-            this.showToast("Could not load master seed recipe dataset.", "warning");
-            updateBtns(`Seed / Sync Recipes`, false);
-            return;
-        }
-
-        if (!confirm(`This will DELETE all existing mixing & baking recipes in SharePoint and reinsert ${seedRecipes.length} new product recipes. Proceed?`)) {
-            return;
-        }
-
-        updateBtns(`Deleting existing recipes...`, true);
-
-        try {
-            const digest = await this.getFormDigest();
-            let insertedCount = 0;
-            let deletedCount = 0;
-
-            let entityTypeName = `SP.Data.Quality_x002d_Rajpura_x002d_MixingBakingListItem`;
-            try {
-                const listMetaRes = await fetch(`${siteUrl}/_api/web/lists/getbytitle('${listName}')?$select=ListItemEntityTypeFullName`, {
-                    headers: { "Accept": "application/json;odata=verbose" }
-                });
-                if (listMetaRes.ok) {
-                    const listMetaData = await listMetaRes.json();
-                    if (listMetaData.d && listMetaData.d.ListItemEntityTypeFullName) {
-                        entityTypeName = listMetaData.d.ListItemEntityTypeFullName;
-                    }
-                }
-            } catch (e) {}
-
-            // Step 1: Query all existing items in Quality-Rajpura-MixingBaking to delete old recipes
-            let existingItems = [];
-            try {
-                let existingRes = await fetch(`${siteUrl}/_api/web/lists/getbytitle('${listName}')/items?$select=Id,Title,ConfigType&$top=5000`, {
-                    headers: { "Accept": "application/json;odata=verbose" }
-                });
-                if (!existingRes.ok) {
-                    existingRes = await fetch(`${siteUrl}/_api/web/lists/getbytitle('${listName}')/items?$select=Id,Title&$top=5000`, {
-                        headers: { "Accept": "application/json;odata=verbose" }
-                    });
-                }
-                if (existingRes.ok) {
-                    const existingData = await existingRes.json();
-                    existingItems = (existingData.d && existingData.d.results) || [];
-                }
-            } catch (fetchErr) {
-                console.warn("Could not query existing items from list, proceeding with direct seed:", fetchErr);
-            }
-
-            const recipeItemsToDelete = existingItems.filter(ex => {
-                const ct = (ex.ConfigType || "").trim().toLowerCase();
-                return ct === "product recipe" || ct === "productrecipe" || ct === "recipe" || (ex.Id && ex.Id > 1);
-            });
-
-            // Delete all existing product recipes from SharePoint
-            if (recipeItemsToDelete.length > 0) {
-                let delIdx = 0;
-                for (const oldItem of recipeItemsToDelete) {
-                    delIdx++;
-                    if (delIdx % 5 === 0 || delIdx === recipeItemsToDelete.length) {
-                        updateBtns(`Deleting old recipes (${delIdx} / ${recipeItemsToDelete.length})...`, true);
-                    }
-                    const deleteUrl = `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items(${oldItem.Id})`;
-                    try {
-                        const delRes = await fetch(deleteUrl, {
-                            method: "POST",
-                            headers: {
-                                "Accept": "application/json;odata=verbose",
-                                "Content-Type": "application/json;odata=verbose",
-                                "X-RequestDigest": digest,
-                                "X-HTTP-Method": "DELETE",
-                                "If-Match": "*"
-                            }
-                        });
-                        if (delRes.ok) {
-                            deletedCount++;
-                        }
-                    } catch (delErr) {
-                        console.warn("Error deleting old recipe item ID " + oldItem.Id, delErr);
-                    }
-                }
-            }
-
-            // Step 2: Insert all new seed recipes fresh into SharePoint
-            let insIdx = 0;
-            for (const item of seedRecipes) {
-                insIdx++;
-                if (insIdx % 5 === 0 || insIdx === seedRecipes.length) {
-                    updateBtns(`Inserting Recipes (${insIdx} / ${seedRecipes.length})...`, true);
-                }
-
-                const payload = {
-                    __metadata: { type: entityTypeName },
-                    Title: item.title || item.variety,
-                    ConfigType: "Product Recipe",
-                    ProductCategory: item.productCategory || "General",
-                    Plant: "Rajpura",
-                    IsActive: item.isActive !== false,
-                    RecipeConfig: JSON.stringify(item.standards || {})
-                };
-
-                const postUrl = `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items`;
-                try {
-                    const res = await fetch(postUrl, {
-                        method: "POST",
-                        headers: {
-                            "Accept": "application/json;odata=verbose",
-                            "Content-Type": "application/json;odata=verbose",
-                            "X-RequestDigest": digest
-                        },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (res.ok) {
-                        insertedCount++;
-                    } else {
-                        console.warn("Failed to insert seed recipe to SharePoint:", item.title, await res.text());
-                    }
-                } catch (postErr) {
-                    console.warn("Network error inserting seed recipe:", item.title, postErr);
-                }
-            }
-
-            // Clear local caches and reload
-            if (typeof MixingBaking_DAL !== "undefined" && MixingBaking_DAL.recipesCache) {
-                MixingBaking_DAL.recipesCache = null;
-            }
-
-            // Update in-memory config cache
-            if (this.configs && this.configs.MixingAndBaking) {
-                const nonRecipes = (this.configs.MixingAndBaking || []).filter(r => r.configType !== "Product Recipe");
-                const newMemoryRecipes = seedRecipes.map((r, idx) => ({
-                    id: r.id || (901 + idx),
-                    title: r.title,
-                    configType: "Product Recipe",
-                    productCategory: r.productCategory || "General",
-                    plant: "Rajpura",
-                    isActive: r.isActive !== false,
-                    recipeConfig: r.standards || {},
-                    assignedUsers: [],
-                    productionIncharges: [],
-                    escalationManagers: []
-                }));
-                this.configs.MixingAndBaking = [...nonRecipes, ...newMemoryRecipes];
-            }
-
-            if (insertedCount > 0) {
-                this.showToast(`Product Recipes: Deleted ${deletedCount} old items, inserted ${insertedCount} new recipes into SharePoint.`, "success");
-            } else {
-                this.showToast(`Reset ${seedRecipes.length} product recipes in local preview memory.`, "info");
-            }
-
-            await this.loadSingleFormConfig("MixingAndBaking");
-            this.renderCurrentTab();
-            this.updateStatsCounters();
-        } catch (err) {
-            console.error("Error seeding MB recipes:", err);
-            this.showToast("Local preview: " + seedRecipes.length + " recipes loaded into memory (" + (err.message || err) + ")", "warning");
-            await this.loadSingleFormConfig("MixingAndBaking");
-            this.renderCurrentTab();
-        } finally {
-            updateBtns(`Seed / Sync Recipes (${seedRecipes.length})`, false);
-        }
+        console.warn("Seeding functionality is disabled in the admin panel.");
+        this.showToast("Seeding master data is currently disabled.", "warning");
+        return;
     },
+
     /**
      * seedPkgProductMasterData: async function () {
         console.warn("Seeding functionality is disabled in the admin panel.");
