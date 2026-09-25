@@ -44,10 +44,31 @@ function isRajpuraPlant() {
   var hdnPlant = typeof $ !== 'undefined' ? $('#hdnPlantId').val() : '';
   if (hdnPlant == '14' || hdnPlant == '2') return true;
   if (typeof QualityRajpura_Config !== 'undefined' && hdnPlant == QualityRajpura_Config.PLANT_ID) return true;
+
+  if (typeof $ !== 'undefined') {
+    var deptText = $('#DepartmentDropDownId option:selected').text() || '';
+    if (deptText.toLowerCase().indexOf('rajpura') !== -1) return true;
+    var selectedDept = $('#DepartmentDropDownId').val();
+    if (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.QUALITY_DEPT_IDS && QualityRajpura_Config.QUALITY_DEPT_IDS.indexOf(String(selectedDept)) !== -1) return true;
+  }
+
   return false;
 }
 
 function isQualityDepartment() {
+  if (typeof $ !== 'undefined') {
+    var selectedDept = $('#DepartmentDropDownId').val();
+    if (selectedDept && selectedDept !== 'All') {
+      if (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.QUALITY_DEPT_IDS) {
+        if (QualityRajpura_Config.QUALITY_DEPT_IDS.indexOf(String(selectedDept)) !== -1) return true;
+      }
+      var qDepts = ['39', '80', '81', '135', '18'];
+      if (qDepts.indexOf(String(selectedDept)) !== -1) return true;
+      var deptText = $('#DepartmentDropDownId option:selected').text() || '';
+      if (deptText.toLowerCase().indexOf('quality') !== -1) return true;
+    }
+  }
+
   if (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.QUALITY_DEPT_IDS) {
     if (QualityRajpura_Config.QUALITY_DEPT_IDS.indexOf(String(userDepratmentId)) !== -1) return true;
   }
@@ -308,8 +329,12 @@ function tourPopup() {
   localStorage.setItem("shiftValue", '');
 
   const shiftPopup = document.querySelector("#shiftPopup");
-  shiftPopup.classList.add("is-popup-active");
+  if (shiftPopup) {
+    shiftPopup.classList.add("is-popup-active");
+  }
   $('#shiftPopup').addClass('is-popup-active');
+
+  const isRajpuraQuality = isQualityDepartment() && isRajpuraPlant();
 
   if (userDepratmentId == 82) {
     $('#tourSelect').empty().append(
@@ -322,6 +347,7 @@ function tourPopup() {
       '<option value="Sieves and magnets">Sieves and magnets</option>'
     );
     $('#shiftPopupDone').attr("onclick", "SaveBakeryDataItem()");
+    $('#shiftPopup .shift-popup-content-wrapper').show();
   } else if (isQualityDepartment()) {
     if (isRajpuraPlant()) {
       $('#tourSelect').empty().append(
@@ -332,6 +358,8 @@ function tourPopup() {
         '<option value="Food Safety">Food Safety</option>'
       );
       $('#shiftPopupDone').attr("onclick", "SaveQualityDataItem()");
+      // Quality - Rajpura: hide shift selection, only template selection is required
+      $('#shiftPopup .shift-popup-content-wrapper').hide();
     } else {
       $('#tourSelect').empty().append(
         '<option value="Area Line Clearance Checklist">Area Line Clearance Checklist</option>' +
@@ -348,7 +376,10 @@ function tourPopup() {
         '<option value="Sieves And Magnets Old Plant">Sieves And Magnets Old Plant</option>'
       );
       $('#shiftPopupDone').attr("onclick", "SaveQualityDataItem()");
+      $('#shiftPopup .shift-popup-content-wrapper').show();
     }
+  } else {
+    $('#shiftPopup .shift-popup-content-wrapper').show();
   }
 
   const $popupBody = $('#shiftPopup .popup-body');
@@ -370,12 +401,17 @@ function tourPopup() {
       dropdownParent: $popupBody
     });
 
-    $('#shiftSelect').select2({
-      minimumResultsForSearch: -1,
-      dropdownAutoWidth: true,
-      width: "100%",
-      dropdownParent: $popupBody
-    });
+    if (isRajpuraQuality) {
+      $('#shiftPopup .shift-popup-content-wrapper').hide();
+    } else {
+      $('#shiftPopup .shift-popup-content-wrapper').show();
+      $('#shiftSelect').select2({
+        minimumResultsForSearch: -1,
+        dropdownAutoWidth: true,
+        width: "100%",
+        dropdownParent: $popupBody
+      });
+    }
   }, 50);
 
   HideLoader();

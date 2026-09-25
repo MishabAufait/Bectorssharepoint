@@ -169,7 +169,7 @@ const ALC_Main = {
         if (status === "Pending QA") {
             ALC_StateMachine.init(this.userRole, ALC_STATES.PENDING_QA_ACCEPTANCE, this.currentTourId);
             ALC_QARequest.startTimer(ALC_QARequest.requestTimeResolved || session.cr3ea_tourstartdate || session.cr3ea_request_time, session.cr3ea_tourby);
-        } else if (status === "QA In Progress") {
+        } else if (status === "QA In Progress" || status.startsWith("QA In Progress")) {
             ALC_StateMachine.init(this.userRole, ALC_STATES.QA_CHECKLIST, this.currentTourId);
             ALC_Checklist.renderChecklist();
         } else if (status === "Completed") {

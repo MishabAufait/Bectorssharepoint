@@ -101,6 +101,103 @@ const PKGOPS_PAPA_DEFECTS_FLAT = [
     { category: "C", type: "Pack", name: "Others" }
 ];
 
+const PKGOPS_DEFECT_DETAILS_BY_CATEGORY = {
+    "Category A": [
+        "Foreign matter",
+        "Burnt taste",
+        "Rancid cookie",
+        "Off Odour/flavour",
+        "Soggy/Moist cookie",
+        "Stale taste",
+        "Sugary/Grainy feel in cream",
+        "Unpleasant After taste",
+        "Crushed Biscuits",
+        "Carbon Particles at bottom",
+        "Flaking",
+        "Illegible code",
+        "No Code",
+        "Wrong Code",
+        "Underweight Below MPE",
+        "Cross packing/labelling",
+        "Wrong MRP",
+        "Art work & label error",
+        "Torn/Tear Pack",
+        "Pack Delamination",
+        "Disc Out",
+        "Flap Open",
+        "Empty Pack",
+        "Cut pack/Pin hole",
+        "Wrinkles in sealing (>2mm)",
+        "Damaged tin",
+        "Wrong lid",
+        "Wrong colour or artwork",
+        "Others"
+    ],
+    "Category B": [
+        "Blister",
+        "Dust on Biscuit",
+        "Broken",
+        "DE shaped",
+        "Mould Embossing absent",
+        "Edge Dark",
+        "Oozing",
+        "Less Nuts",
+        "Hard bite",
+        "Bottom scrap/tailing",
+        "Joint biscuits",
+        "Less seasoning",
+        "Slight unbaked",
+        "Assortment not proper",
+        "Less sugar/excess sugar",
+        "Carton Skewing",
+        "Damaged CBB",
+        "Burnt seal",
+        "Loose pack",
+        "Coding out",
+        "Code smudged",
+        "CBB tape in open",
+        "Improper taping of CBB",
+        "Poor Gazetting",
+        "Torn poly",
+        "Polybag - unsealed",
+        "Seal leakage/Cut On Seal",
+        "Silver line on sealing",
+        "Illegible code on CBB",
+        "Improper sealing on cup",
+        "Damge duplex/open duplex",
+        "Cross Pasting",
+        "Glue excess/less",
+        "Underweight above MPE",
+        "Flap open <10 mm",
+        "Weak seal",
+        "Tight Lid",
+        "Code smudge on TIN",
+        "Dent on tin/Disc out",
+        "Less bulge",
+        "Others"
+    ],
+    "Category C": [
+        "Tailing",
+        "Oozing Out",
+        "Chipping",
+        "Chocking",
+        "Docker pin not visible",
+        "Bottom chippings",
+        "Wegging",
+        "ROGH TAPING ON TIN",
+        "Wrinkles on primary pack",
+        "Slant pack",
+        "Overweight >5% of declared weight",
+        "Code smudge on TIN",
+        "Dent on tin/Disc out",
+        "Less bulge",
+        "Others"
+    ]
+};
+PKGOPS_DEFECT_DETAILS_BY_CATEGORY["A"] = PKGOPS_DEFECT_DETAILS_BY_CATEGORY["Category A"];
+PKGOPS_DEFECT_DETAILS_BY_CATEGORY["B"] = PKGOPS_DEFECT_DETAILS_BY_CATEGORY["Category B"];
+PKGOPS_DEFECT_DETAILS_BY_CATEGORY["C"] = PKGOPS_DEFECT_DETAILS_BY_CATEGORY["Category C"];
+
 const PKGOPS_Validator = {
     highlight: function (element, isInvalid) {
         if (!element) return;
@@ -124,6 +221,85 @@ const PKGOPS_Checklist = {
     currentTourId: null,
     pkgopsType: null,
     activeSubChecklistKey: null,
+    uploadedFiles: {}, // Maps key (e.g. "cv-0", "pqi-0") to Array of File objects: [File1, File2, ...]
+
+    escapeHtml: function (str) {
+        if (!str) return "";
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    },
+
+    onFileSelected: async function (input, key) {
+        if (!input.files || input.files.length === 0) return;
+
+        if (!this.uploadedFiles[key]) {
+            this.uploadedFiles[key] = [];
+        }
+
+        const selectedFiles = Array.from(input.files);
+        let invalidCount = 0;
+
+        for (const file of selectedFiles) {
+            const isImage = file.type.startsWith("image/") || /\.(jpe?g|png|gif|webp|bmp|heic)$/i.test(file.name);
+            if (!isImage) {
+                invalidCount++;
+                continue;
+            }
+            const exists = this.uploadedFiles[key].some(f => f.name === file.name && f.size === file.size);
+            if (!exists) {
+                this.uploadedFiles[key].push(file);
+            }
+        }
+
+        if (invalidCount > 0) {
+            alert(`${invalidCount} non-image file(s) were ignored. Only image files (JPG, PNG, WebP, etc.) are allowed.`);
+        }
+
+        input.value = "";
+        this.renderFileStatus(key);
+    },
+
+    removeFile: function (key, fileIdx) {
+        if (this.uploadedFiles[key] && this.uploadedFiles[key][fileIdx]) {
+            this.uploadedFiles[key].splice(fileIdx, 1);
+            if (this.uploadedFiles[key].length === 0) {
+                delete this.uploadedFiles[key];
+            }
+        }
+        this.renderFileStatus(key);
+    },
+
+    renderFileStatus: function (key) {
+        const fileStatus = document.getElementById(`file-status-${key}`);
+        if (!fileStatus) return;
+
+        const files = this.uploadedFiles[key] || [];
+        if (files.length === 0) {
+            const row = fileStatus.closest("tr");
+            const existingFiles = row ? row.getAttribute("data-existing-files") : null;
+            if (!existingFiles) {
+                fileStatus.innerHTML = "";
+            }
+            return;
+        }
+
+        let chipsHtml = `<div class="pkgops-file-chips-container">`;
+        chipsHtml += `<div style="font-size: 11px; font-weight: 600; color: #15803d; display: flex; align-items: center; gap: 4px;"><i class="fa fa-check-circle"></i> ${files.length} photo(s) selected:</div>`;
+        files.forEach((file, fIdx) => {
+            chipsHtml += `
+                <div class="pkgops-file-chip">
+                    <span class="chip-name" title="${this.escapeHtml(file.name)}"><i class="fa fa-image"></i> ${this.escapeHtml(file.name)}</span>
+                    <button type="button" class="chip-remove-btn" onclick="PKGOPS_Checklist.removeFile('${key}', ${fIdx})" title="Remove photo">&times;</button>
+                </div>`;
+        });
+        chipsHtml += `</div>`;
+        fileStatus.innerHTML = chipsHtml;
+    },
+
     pqiSubChecklistsFilled: {
         NetWeight: false,
         Product: false,
@@ -265,6 +441,7 @@ const PKGOPS_Checklist = {
     onCategoryChange: function (sectionPrefix) {
         const catEl = document.getElementById(`${sectionPrefix}-category`);
         const prodEl = document.getElementById(`${sectionPrefix}-product`);
+        const skuEl = document.getElementById(`${sectionPrefix}-sku`);
         if (!prodEl) return;
         const selectedCategory = catEl ? catEl.value : "";
         
@@ -275,14 +452,31 @@ const PKGOPS_Checklist = {
         } else {
             prodEl.value = "";
         }
+
+        if (skuEl) {
+            skuEl.value = "";
+            if (sectionPrefix === "pqi" && typeof this.onPqiSkuChange === "function") {
+                this.onPqiSkuChange();
+            }
+        }
     },
 
     onProductChange: function (sectionPrefix) {
         const prodEl = document.getElementById(`${sectionPrefix}-product`);
         const catEl = document.getElementById(`${sectionPrefix}-category`);
+        const skuEl = document.getElementById(`${sectionPrefix}-sku`);
         if (!prodEl) return;
         
-        const selectedTitle = prodEl.value;
+        const selectedTitle = prodEl.value || "";
+
+        // Instantly populate SKU with selected Product Name
+        if (skuEl) {
+            skuEl.value = selectedTitle;
+            if (sectionPrefix === "pqi" && typeof this.onPqiSkuChange === "function") {
+                this.onPqiSkuChange();
+            }
+        }
+
         if (!selectedTitle) return;
 
         // Find the selected product in allProducts
@@ -299,6 +493,9 @@ const PKGOPS_Checklist = {
                 if (window.jQuery && $.fn.select2 && $(prodEl).hasClass("select2-hidden-accessible")) {
                     $(prodEl).val(selectedTitle).trigger('change.select2');
                 }
+                if (skuEl) {
+                    skuEl.value = selectedTitle;
+                }
             }
         }
     },
@@ -307,6 +504,7 @@ const PKGOPS_Checklist = {
         if (!productName) return;
         const catEl = document.getElementById(`${sectionPrefix}-category`);
         const prodEl = document.getElementById(`${sectionPrefix}-product`);
+        const skuEl = document.getElementById(`${sectionPrefix}-sku`);
         if (!prodEl) return;
 
         const matched = (this.allProducts || []).find(p => p.Title === productName || `${p.Title} (${p.ProductCode})` === productName || p.ProductCode === productName);
@@ -323,6 +521,13 @@ const PKGOPS_Checklist = {
         }
 
         this.setSelectValueSafely(`${sectionPrefix}-product`, productName);
+
+        if (skuEl) {
+            skuEl.value = productName;
+            if (sectionPrefix === "pqi" && typeof this.onPqiSkuChange === "function") {
+                this.onPqiSkuChange();
+            }
+        }
     },
 
     getSkuOptionsHtml: function (selectedValue) {
@@ -353,6 +558,14 @@ const PKGOPS_Checklist = {
                             width: '100%'
                         });
                     }
+                });
+
+                // Ensure product dropdown changes instantly propagate to SKU
+                const prefixes = ["cv", "papa", "pqi", "seal", "cream", "wall"];
+                prefixes.forEach(prefix => {
+                    $(`#${prefix}-product`).off("change.pkgupsku select2:select.pkgupsku").on("change.pkgupsku select2:select.pkgupsku", function () {
+                        PKGOPS_Checklist.onProductChange(prefix);
+                    });
                 });
             }, 50);
         }
@@ -423,6 +636,19 @@ const PKGOPS_Checklist = {
         }
 
         this.initSelect2OnChecklist();
+        this.updateSubmitButtonVisibility();
+    },
+
+    updateSubmitButtonVisibility: function () {
+        const submitBtn = document.getElementById("btnSubmitChecklist");
+        if (!submitBtn) return;
+        if (this.pkgopsType === "PQI") {
+            const keys = ["NetWeight", "Product", "Primary", "Secondary", "CBB"];
+            const allFilled = keys.every(k => !!(this.pqiSubChecklistsFilled && this.pqiSubChecklistsFilled[k]));
+            submitBtn.style.display = allFilled ? "inline-block" : "none";
+        } else {
+            submitBtn.style.display = "inline-block";
+        }
     },
 
     // 1. Temperatures & Humidity Form
@@ -487,8 +713,7 @@ const PKGOPS_Checklist = {
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">SKU</label>
-                    <input type="text" class="form-control" id="cv-sku" list="sku-master-datalist" placeholder="e.g. 50g, 100g, 250g">
-                    ${this.getSkuDatalistHtml()}
+                    <input type="text" class="form-control" id="cv-sku" placeholder="SKU" readonly style="background-color: #f1f5f9; cursor: not-allowed;">
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Batch No</label>
@@ -539,7 +764,8 @@ const PKGOPS_Checklist = {
                                         <input type="number" class="form-control cv-defect-count" id="cv-count-${idx}" placeholder="Count" min="1" disabled>
                                     </td>
                                     <td>
-                                        <input type="file" class="form-control cv-file-upload" id="cv-file-${idx}" accept="image/*" disabled>
+                                        <input type="file" class="form-control cv-file-upload" id="cv-file-${idx}" accept="image/*" multiple disabled onchange="PKGOPS_Checklist.onFileSelected(this, 'cv-${idx}')">
+                                        <div id="file-status-cv-${idx}" class="form-text text-muted" style="margin-top: 4px; font-size: 11px;"></div>
                                     </td>
                                 </tr>
                             `).join('')}
@@ -567,6 +793,8 @@ const PKGOPS_Checklist = {
             defectSelect.value = "";
             countInput.value = "";
             fileInput.value = "";
+            delete this.uploadedFiles[`cv-${idx}`];
+            this.renderFileStatus(`cv-${idx}`);
         }
     },
 
@@ -590,13 +818,23 @@ const PKGOPS_Checklist = {
         ["A", "B", "C"].forEach(cat => {
             const prodList = grouped[cat]["Product"];
             const packList = grouped[cat]["Pack"];
+            const catLabel = cat === 'A' ? 'Critical' : (cat === 'B' ? 'Major' : 'Minor');
+            const badgeBg = cat === 'A' ? 'bg-danger' : (cat === 'B' ? 'bg-warning text-dark' : 'bg-secondary');
 
             categoriesHtml += `
                 <div class="card mb-4 shadow-sm border rounded" style="border-radius: 8px; overflow: hidden;">
-                    <div class="card-header py-2.5 px-4" style="background-color: #1e3a8a; color: #ffffff; border-bottom: 2px solid #1d4ed8;">
+                    <div class="card-header py-2.5 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2" style="background-color: #1e3a8a; color: #ffffff; border-bottom: 2px solid #1d4ed8;">
                         <h5 class="mb-0 fw-bold" style="font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">
-                            Category ${cat} Defects
+                            Category ${cat} Defects (${catLabel})
                         </h5>
+                        <div class="d-flex align-items-center gap-2">
+                            <span id="papa-cat-${cat.toLowerCase()}-header-text" class="badge ${badgeBg}" style="font-size: 11px; font-weight: 600;">
+                                0 Defects (0.00%)
+                            </span>
+                            <div class="progress" style="height: 8px; width: 130px; background-color: rgba(255,255,255,0.25); border-radius: 4px; overflow: hidden;">
+                                <div id="papa-cat-${cat.toLowerCase()}-header-bar" class="progress-bar ${badgeBg}" style="width: 0%; transition: width 0.3s ease;"></div>
+                            </div>
+                        </div>
                     </div>
                     <div class="card-body p-3">
                         <div class="row g-4">
@@ -695,8 +933,7 @@ const PKGOPS_Checklist = {
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-bold">SKU</label>
-                    <input type="text" class="form-control" id="papa-sku" list="sku-master-datalist" placeholder="e.g. 50g, 100g, 250g">
-                    ${this.getSkuDatalistHtml()}
+                    <input type="text" class="form-control" id="papa-sku" placeholder="SKU" readonly style="background-color: #f1f5f9; cursor: not-allowed;">
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Sample Size (Biscuits)</label>
@@ -711,18 +948,71 @@ const PKGOPS_Checklist = {
                 </div>
             </div>
 
-            <!-- Overall Summary Card -->
-            <div class="card mb-4 shadow-sm border rounded bg-light" style="border-radius: 8px;">
-                <div class="card-body p-3 d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0 fw-bold text-dark" style="font-size: 14px;">Overall Defect Summary</h5>
-                    <div class="d-flex gap-4">
-                        <div>
-                            <span class="text-secondary fw-semibold">Total Defect Count:</span>
-                            <span id="papa-total-count" class="fw-bold text-primary ms-2" style="font-size: 15px;">0</span>
+            <!-- Category-wise & Overall Defect Summary Card with Progress Bars -->
+            <div class="card mb-4 shadow-sm border rounded bg-white" style="border-radius: 8px; border: 1px solid #cbd5e1 !important;">
+                <div class="card-header py-3 px-4 bg-light border-bottom d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold text-dark" style="font-size: 15px;">
+                        <i class="fa fa-chart-pie text-primary me-2"></i> Category-wise Defect Progress & Summary
+                    </h5>
+                    <span class="text-muted" style="font-size: 12px; font-weight: 500;">Live Defect Percentage Tracking</span>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-4">
+                        <!-- Category A (Critical) -->
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded bg-light h-100">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-bold text-danger" style="font-size: 13px;">Category A (Critical)</span>
+                                    <span id="papa-cat-a-count-badge" class="badge bg-danger" style="font-size: 11px;">0 Defects</span>
+                                </div>
+                                <h4 class="mb-1 fw-bold text-dark" id="papa-cat-a-pct-text">0.00%</h4>
+                                <div class="progress mb-2" style="height: 8px; background-color: #e2e8f0; border-radius: 4px; overflow: hidden;">
+                                    <div id="papa-cat-a-bar" class="progress-bar bg-danger" role="progressbar" style="width: 0%; transition: width 0.3s ease;"></div>
+                                </div>
+                                <small class="text-muted" style="font-size: 11px;">Critical product/pack defects</small>
+                            </div>
                         </div>
-                        <div>
-                            <span class="text-secondary fw-semibold">Overall Defect Percentage:</span>
-                            <span id="papa-total-pct" class="fw-bold text-danger ms-2" style="font-size: 15px;">0.00%</span>
+                        <!-- Category B (Major) -->
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded bg-light h-100">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-bold text-warning text-dark" style="font-size: 13px;">Category B (Major)</span>
+                                    <span id="papa-cat-b-count-badge" class="badge bg-warning text-dark" style="font-size: 11px;">0 Defects</span>
+                                </div>
+                                <h4 class="mb-1 fw-bold text-dark" id="papa-cat-b-pct-text">0.00%</h4>
+                                <div class="progress mb-2" style="height: 8px; background-color: #e2e8f0; border-radius: 4px; overflow: hidden;">
+                                    <div id="papa-cat-b-bar" class="progress-bar bg-warning text-dark" role="progressbar" style="width: 0%; transition: width 0.3s ease;"></div>
+                                </div>
+                                <small class="text-muted" style="font-size: 11px;">Major quality defects</small>
+                            </div>
+                        </div>
+                        <!-- Category C (Minor) -->
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded bg-light h-100">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-bold text-secondary" style="font-size: 13px;">Category C (Minor)</span>
+                                    <span id="papa-cat-c-count-badge" class="badge bg-secondary" style="font-size: 11px;">0 Defects</span>
+                                </div>
+                                <h4 class="mb-1 fw-bold text-dark" id="papa-cat-c-pct-text">0.00%</h4>
+                                <div class="progress mb-2" style="height: 8px; background-color: #e2e8f0; border-radius: 4px; overflow: hidden;">
+                                    <div id="papa-cat-c-bar" class="progress-bar bg-secondary" role="progressbar" style="width: 0%; transition: width 0.3s ease;"></div>
+                                </div>
+                                <small class="text-muted" style="font-size: 11px;">Minor aesthetic defects</small>
+                            </div>
+                        </div>
+                        <!-- Overall Defect Summary -->
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded bg-light h-100" style="border-left: 4px solid #1e3a8a !important;">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-bold text-primary" style="font-size: 13px;">Overall Defect Rate</span>
+                                    <span id="papa-total-count" class="badge bg-primary" style="font-size: 11px;">0 Total Defects</span>
+                                </div>
+                                <h4 class="mb-1 fw-bold text-danger" id="papa-total-pct">0.00%</h4>
+                                <div class="progress mb-2" style="height: 8px; background-color: #e2e8f0; border-radius: 4px; overflow: hidden;">
+                                    <div id="papa-total-bar" class="progress-bar bg-danger" role="progressbar" style="width: 0%; transition: width 0.3s ease;"></div>
+                                </div>
+                                <small class="text-muted" style="font-size: 11px;">Combined PAPA deviation rate</small>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -744,10 +1034,14 @@ const PKGOPS_Checklist = {
     },
 
     calculatePapaPercentages: function () {
-        const sampleSize = parseInt(document.getElementById("papa-sample-size").value) || 100;
+        const sampleSize = parseInt(document.getElementById("papa-sample-size")?.value) || 100;
         let totalCount = 0;
+        let catACount = 0;
+        let catBCount = 0;
+        let catCCount = 0;
 
         for (let i = 0; i < PKGOPS_PAPA_DEFECTS_FLAT.length; i++) {
+            const defectItem = PKGOPS_PAPA_DEFECTS_FLAT[i];
             const countInput = document.getElementById(`papa-count-${i}`);
             if (!countInput) continue;
             
@@ -765,22 +1059,110 @@ const PKGOPS_Checklist = {
             const pct = (countVal / sampleSize) * 100;
             if (pctSpan) pctSpan.innerText = `${pct.toFixed(2)}%`;
             totalCount += countVal;
+
+            if (defectItem.category === "A") catACount += countVal;
+            else if (defectItem.category === "B") catBCount += countVal;
+            else if (defectItem.category === "C") catCCount += countVal;
         }
 
-        const totalCountSpan = document.getElementById("papa-total-count");
-        const totalPctSpan = document.getElementById("papa-total-pct");
+        const catAPct = ((catACount / sampleSize) * 100);
+        const catBPct = ((catBCount / sampleSize) * 100);
+        const catCPct = ((catCCount / sampleSize) * 100);
+        const totalPct = ((totalCount / sampleSize) * 100);
 
-        if (totalCountSpan) totalCountSpan.innerText = totalCount;
-        if (totalPctSpan) totalPctSpan.innerText = `${((totalCount / sampleSize) * 100).toFixed(2)}%`;
+        // Update Category A metrics & progress bar
+        const catACntBadge = document.getElementById("papa-cat-a-count-badge");
+        if (catACntBadge) catACntBadge.innerText = `${catACount} Defect${catACount !== 1 ? 's' : ''}`;
+        const catAPctText = document.getElementById("papa-cat-a-pct-text");
+        if (catAPctText) catAPctText.innerText = `${catAPct.toFixed(2)}%`;
+        const catABar = document.getElementById("papa-cat-a-bar");
+        if (catABar) catABar.style.width = `${Math.min(catAPct, 100)}%`;
+        const catAHdrText = document.getElementById("papa-cat-a-header-text");
+        if (catAHdrText) catAHdrText.innerText = `${catACount} Defects (${catAPct.toFixed(2)}%)`;
+        const catAHdrBar = document.getElementById("papa-cat-a-header-bar");
+        if (catAHdrBar) catAHdrBar.style.width = `${Math.min(catAPct, 100)}%`;
+
+        // Update Category B metrics & progress bar
+        const catBCntBadge = document.getElementById("papa-cat-b-count-badge");
+        if (catBCntBadge) catBCntBadge.innerText = `${catBCount} Defect${catBCount !== 1 ? 's' : ''}`;
+        const catBPctText = document.getElementById("papa-cat-b-pct-text");
+        if (catBPctText) catBPctText.innerText = `${catBPct.toFixed(2)}%`;
+        const catBBar = document.getElementById("papa-cat-b-bar");
+        if (catBBar) catBBar.style.width = `${Math.min(catBPct, 100)}%`;
+        const catBHdrText = document.getElementById("papa-cat-b-header-text");
+        if (catBHdrText) catBHdrText.innerText = `${catBCount} Defects (${catBPct.toFixed(2)}%)`;
+        const catBHdrBar = document.getElementById("papa-cat-b-header-bar");
+        if (catBHdrBar) catBHdrBar.style.width = `${Math.min(catBPct, 100)}%`;
+
+        // Update Category C metrics & progress bar
+        const catCCntBadge = document.getElementById("papa-cat-c-count-badge");
+        if (catCCntBadge) catCCntBadge.innerText = `${catCCount} Defect${catCCount !== 1 ? 's' : ''}`;
+        const catCPctText = document.getElementById("papa-cat-c-pct-text");
+        if (catCPctText) catCPctText.innerText = `${catCPct.toFixed(2)}%`;
+        const catCBar = document.getElementById("papa-cat-c-bar");
+        if (catCBar) catCBar.style.width = `${Math.min(catCPct, 100)}%`;
+        const catCHdrText = document.getElementById("papa-cat-c-header-text");
+        if (catCHdrText) catCHdrText.innerText = `${catCCount} Defects (${catCPct.toFixed(2)}%)`;
+        const catCHdrBar = document.getElementById("papa-cat-c-header-bar");
+        if (catCHdrBar) catCHdrBar.style.width = `${Math.min(catCPct, 100)}%`;
+
+        // Update Overall Total metrics & progress bar
+        const totalCountSpan = document.getElementById("papa-total-count");
+        if (totalCountSpan) totalCountSpan.innerText = `${totalCount} Total Defect${totalCount !== 1 ? 's' : ''}`;
+        const totalPctSpan = document.getElementById("papa-total-pct");
+        if (totalPctSpan) totalPctSpan.innerText = `${totalPct.toFixed(2)}%`;
+        const totalBar = document.getElementById("papa-total-bar");
+        if (totalBar) {
+            totalBar.style.width = `${Math.min(totalPct, 100)}%`;
+            totalBar.className = totalCount > 0 ? "progress-bar bg-danger" : "progress-bar bg-success";
+        }
     },
 
     // 4. PQI branching screen
     renderPQI: function (container) {
         this._previousPqiSubSelect = "NetWeight";
         container.innerHTML = `
-            <div class="row">
+            <!-- PQI Common Header Details Card (Frozen on top for all sub-evaluations) -->
+            <div class="card mb-3 shadow-sm border rounded bg-white" style="border-radius: 8px; border: 1px solid #cbd5e1 !important;">
+                <div class="card-header py-2.5 px-3 bg-light border-bottom d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-bold text-dark"><i class="fa fa-box text-primary me-2"></i>PQI Common Header Details</h6>
+                    <span class="text-muted" style="font-size: 11px; font-weight: 500;">Common for Net Weight to CBB Evaluation</span>
+                </div>
+                <div class="card-body p-3">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Product Category</label>
+                            <select class="form-select" id="pqi-category" onchange="PKGOPS_Checklist.onCategoryChange('pqi')">
+                                ${this.getCategoryOptionsHtml()}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Product Name</label>
+                            <div class="select2-parent">
+                                <select class="form-select" id="pqi-product" onchange="PKGOPS_Checklist.onProductChange('pqi')">
+                                    ${this.getProductOptionsHtml()}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">SKU</label>
+                            <input type="text" class="form-control" id="pqi-sku" placeholder="SKU" readonly style="background-color: #f1f5f9; cursor: not-allowed;" onchange="PKGOPS_Checklist.onPqiSkuChange()" oninput="PKGOPS_Checklist.onPqiSkuChange()">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">PKD</label>
+                            <input type="date" class="form-control" id="pqi-pkd">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">Batch Code</label>
+                            <input type="text" class="form-control" id="pqi-batch" placeholder="Batch Code">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row align-items-center mt-2">
                 <div class="col-md-6">
-                    <div class="form-group mb-3">
+                    <div class="form-group mb-0">
                         <label class="form-label fw-bold">PQI Sub-Evaluation Select</label>
                         <select id="pqi-sub-select" class="form-select" onchange="PKGOPS_Checklist.loadPqiSubForm()" style="font-weight: 600;">
                             <option value="NetWeight">1. Net Weight Evaluation</option>
@@ -791,7 +1173,7 @@ const PKGOPS_Checklist = {
                         </select>
                     </div>
                 </div>
-                <div class="col-md-6 d-flex align-items-center justify-content-end gap-2">
+                <div class="col-md-6 d-flex align-items-center justify-content-end gap-2 flex-wrap pt-md-3">
                     <span class="badge bg-secondary pqi-status-badge" id="badge-pqi-netweight">Net Weight: Pending</span>
                     <span class="badge bg-secondary pqi-status-badge" id="badge-pqi-product">Product: Pending</span>
                     <span class="badge bg-secondary pqi-status-badge" id="badge-pqi-primary">Primary: Pending</span>
@@ -807,6 +1189,19 @@ const PKGOPS_Checklist = {
             </div>
         `;
         this.loadPqiSubForm();
+        this.updatePqiBadges();
+    },
+
+    onPqiSkuChange: function () {
+        const skuVal = document.getElementById("pqi-sku")?.value || "";
+        const stdInput = document.getElementById("pqi-nw-standard");
+        if (stdInput && skuVal) {
+            const skuNum = parseFloat(String(skuVal).replace(/[^0-9.]/g, ""));
+            if (!isNaN(skuNum) && skuNum > 0) {
+                stdInput.value = skuNum;
+                this.calculateNetWeightMetrics();
+            }
+        }
     },
 
     updatePqiBadges: function () {
@@ -823,15 +1218,18 @@ const PKGOPS_Checklist = {
                 badge.innerText = `${k === "NetWeight" ? "Net Weight" : k}: Pending`;
             }
         });
+
+        this.updateSubmitButtonVisibility();
     },
 
     captureActivePqiSubFormState: function (prevVal) {
         if (!prevVal) return;
+        const product = document.getElementById("pqi-product")?.value || "";
+        const sku = document.getElementById("pqi-sku")?.value || "";
+        const pkd = document.getElementById("pqi-pkd")?.value || "";
+        const batch = document.getElementById("pqi-batch")?.value || "";
+
         if (prevVal === "NetWeight") {
-            const prodEl = document.getElementById("pqi-nw-product");
-            if (!prodEl) return;
-            const product = prodEl.value || "";
-            const sku = document.getElementById("pqi-nw-sku")?.value || "";
             const standard = document.getElementById("pqi-nw-standard")?.value || "150";
             const weights = {};
             let hasAny = false;
@@ -852,13 +1250,6 @@ const PKGOPS_Checklist = {
                 };
             }
         } else {
-            const prodEl = document.getElementById("pqi-eval-product");
-            if (!prodEl) return;
-            const product = prodEl.value || "";
-            const sku = document.getElementById("pqi-eval-sku")?.value || "";
-            const pkd = document.getElementById("pqi-eval-pkd")?.value || "";
-            const batch = document.getElementById("pqi-eval-batch")?.value || "";
-
             const capturedRows = [];
             let hasAny = !!(product || sku || pkd || batch);
             for (let idx = 0; idx < 10; idx++) {
@@ -901,30 +1292,18 @@ const PKGOPS_Checklist = {
         subContainer.innerHTML = "";
 
         if (val === "NetWeight") {
+            const skuVal = document.getElementById("pqi-sku")?.value || "";
+            let defaultStd = "150";
+            if (skuVal) {
+                const skuNum = parseFloat(String(skuVal).replace(/[^0-9.]/g, ""));
+                if (!isNaN(skuNum) && skuNum > 0) defaultStd = String(skuNum);
+            }
+
             subContainer.innerHTML = `
                 <div class="row g-3">
                     <div class="col-md-3">
-                        <label class="form-label">Product Category</label>
-                        <select class="form-select" id="pqi-nw-category" onchange="PKGOPS_Checklist.onCategoryChange('pqi-nw')">
-                            ${this.getCategoryOptionsHtml()}
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Product Name</label>
-                        <div class="select2-parent">
-                            <select class="form-select" id="pqi-nw-product" onchange="PKGOPS_Checklist.onProductChange('pqi-nw')">
-                                ${this.getProductOptionsHtml()}
-                            </select>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">SKU</label>
-                        <input type="text" class="form-control" id="pqi-nw-sku" list="sku-master-datalist" placeholder="e.g. 150g">
-                        ${this.getSkuDatalistHtml()}
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Standard Weight (g)</label>
-                        <input type="number" class="form-control" id="pqi-nw-standard" value="150" oninput="PKGOPS_Checklist.calculateNetWeightMetrics()">
+                        <label class="form-label fw-bold">Standard Weight (g)</label>
+                        <input type="number" class="form-control" id="pqi-nw-standard" value="${defaultStd}" oninput="PKGOPS_Checklist.calculateNetWeightMetrics()">
                     </div>
                 </div>
                 <div class="row mt-4">
@@ -950,37 +1329,31 @@ const PKGOPS_Checklist = {
         } else {
             // Render evaluation forms (Product, Primary, Secondary, CBB)
             subContainer.innerHTML = `
-                <div class="row g-3">
-                    <div class="col-md-3">
-                        <label class="form-label">Product Category</label>
-                        <select class="form-select" id="pqi-eval-category" onchange="PKGOPS_Checklist.onCategoryChange('pqi-eval')">
-                            ${this.getCategoryOptionsHtml()}
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Product Name</label>
-                        <div class="select2-parent">
-                            <select class="form-select" id="pqi-eval-product" onchange="PKGOPS_Checklist.onProductChange('pqi-eval')">
-                                ${this.getProductOptionsHtml()}
-                            </select>
-                        </div>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">SKU</label>
-                        <input type="text" class="form-control" id="pqi-eval-sku" list="sku-master-datalist" placeholder="e.g. 150g">
-                        ${this.getSkuDatalistHtml()}
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">PKD</label>
-                        <input type="date" class="form-control" id="pqi-eval-pkd">
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Batch Code</label>
-                        <input type="text" class="form-control" id="pqi-eval-batch" placeholder="Batch Code">
-                    </div>
-                </div>
-                <div class="row mt-4">
+                <div class="row">
                     <div class="col-md-12">
+                        <!-- Live Evaluation Defect Summary with Progress Bar -->
+                        <div class="card mb-3 border rounded shadow-sm bg-white" style="border: 1px solid #cbd5e1 !important;">
+                            <div class="card-body p-3 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                                <div>
+                                    <h6 class="mb-1 fw-bold text-dark" style="font-size: 14px;">
+                                        <i class="fa fa-tachometer text-primary me-1"></i> ${val} Evaluation Defect Rate
+                                    </h6>
+                                    <span id="pqi-eval-defect-stats" class="text-secondary fw-semibold" style="font-size: 12px;">
+                                        0 of 10 Samples Defective (0.00% Defect Rate)
+                                    </span>
+                                </div>
+                                <div style="flex: 1; max-width: 320px; min-width: 180px;">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="text-muted fw-bold" style="font-size: 11px;">DEFECT %</span>
+                                        <span id="pqi-eval-defect-pct-badge" class="badge bg-success" style="font-size: 11px;">0.00%</span>
+                                    </div>
+                                    <div class="progress" style="height: 8px; background-color: #e2e8f0; border-radius: 4px; overflow: hidden;">
+                                        <div id="pqi-eval-defect-bar" class="progress-bar bg-success" role="progressbar" style="width: 0%; transition: width 0.3s ease;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <h4 class="form-section-title">Sample Evaluation (Ok / Not Ok)</h4>
                         <table class="table table-bordered mt-2 text-center align-middle">
                             <thead class="table-light">
@@ -1001,13 +1374,21 @@ const PKGOPS_Checklist = {
                                             </select>
                                         </td>
                                         <td>
-                                            <input type="text" class="form-control pqi-eval-defect-cat" id="pqi-eval-cat-${idx}" placeholder="Category" disabled>
+                                            <select class="form-select pqi-eval-defect-cat" id="pqi-eval-cat-${idx}" disabled onchange="PKGOPS_Checklist.onPqiDefectCatChange(${idx})">
+                                                <option value="">-- Select Category --</option>
+                                                <option value="Category A">Category A</option>
+                                                <option value="Category B">Category B</option>
+                                                <option value="Category C">Category C</option>
+                                            </select>
                                         </td>
                                         <td>
-                                            <input type="text" class="form-control pqi-eval-defect-detail" id="pqi-eval-detail-${idx}" placeholder="Detail" disabled>
+                                            <select class="form-select pqi-eval-defect-detail" id="pqi-eval-detail-${idx}" disabled>
+                                                <option value="">-- Select Detail --</option>
+                                            </select>
                                         </td>
                                         <td>
-                                            <input type="file" class="form-control pqi-eval-file" id="pqi-eval-file-${idx}" accept="image/*" disabled>
+                                            <input type="file" class="form-control pqi-eval-file" id="pqi-eval-file-${idx}" accept="image/*" multiple disabled onchange="PKGOPS_Checklist.onFileSelected(this, 'pqi-${idx}')">
+                                            <div id="file-status-pqi-${idx}" class="form-text text-muted" style="margin-top: 4px; font-size: 11px;"></div>
                                         </td>
                                     </tr>
                                 `).join('')}
@@ -1022,28 +1403,115 @@ const PKGOPS_Checklist = {
         this.initSelect2OnChecklist();
     },
 
+    onPqiDefectCatChange: function (idx, selectedDetail) {
+        const catSelect = document.getElementById(`pqi-eval-cat-${idx}`);
+        const detailSelect = document.getElementById(`pqi-eval-detail-${idx}`);
+        if (!catSelect || !detailSelect) return;
+
+        PKGOPS_Validator.highlight(catSelect, false);
+
+        const catVal = (catSelect.value || "").trim();
+        const details = PKGOPS_DEFECT_DETAILS_BY_CATEGORY[catVal] || [];
+
+        if (!catVal || details.length === 0) {
+            detailSelect.innerHTML = `<option value="">-- Select Detail --</option>`;
+            detailSelect.disabled = true;
+            detailSelect.value = "";
+        } else {
+            let optionsHtml = `<option value="">-- Select Detail --</option>`;
+            details.forEach(d => {
+                optionsHtml += `<option value="${d}">${d}</option>`;
+            });
+            detailSelect.innerHTML = optionsHtml;
+            const statusEl = document.getElementById(`pqi-eval-status-${idx}`);
+            if (statusEl && statusEl.value === "Not Okay") {
+                detailSelect.disabled = false;
+            }
+            if (selectedDetail) {
+                detailSelect.value = selectedDetail;
+                if (!detailSelect.value && selectedDetail) {
+                    const opt = document.createElement("option");
+                    opt.value = selectedDetail;
+                    opt.textContent = selectedDetail;
+                    opt.selected = true;
+                    detailSelect.appendChild(opt);
+                    detailSelect.value = selectedDetail;
+                }
+            }
+        }
+    },
+
     togglePqiDefectFields: function (idx) {
-        const status = document.getElementById(`pqi-eval-status-${idx}`).value;
-        const catInput = document.getElementById(`pqi-eval-cat-${idx}`);
-        const detailInput = document.getElementById(`pqi-eval-detail-${idx}`);
+        const status = document.getElementById(`pqi-eval-status-${idx}`)?.value;
+        const catSelect = document.getElementById(`pqi-eval-cat-${idx}`);
+        const detailSelect = document.getElementById(`pqi-eval-detail-${idx}`);
         const fileInput = document.getElementById(`pqi-eval-file-${idx}`);
 
         if (status === "Not Okay") {
-            catInput.disabled = false;
-            detailInput.disabled = false;
-            fileInput.disabled = false;
+            if (catSelect) catSelect.disabled = false;
+            if (detailSelect) {
+                if (catSelect && catSelect.value) {
+                    detailSelect.disabled = false;
+                } else {
+                    detailSelect.disabled = true;
+                }
+            }
+            if (fileInput) fileInput.disabled = false;
         } else {
-            catInput.disabled = true;
-            detailInput.disabled = true;
-            fileInput.disabled = true;
-            catInput.value = "";
-            detailInput.value = "";
-            fileInput.value = "";
+            if (catSelect) {
+                catSelect.disabled = true;
+                catSelect.value = "";
+                PKGOPS_Validator.highlight(catSelect, false);
+            }
+            if (detailSelect) {
+                detailSelect.disabled = true;
+                detailSelect.innerHTML = `<option value="">-- Select Detail --</option>`;
+                detailSelect.value = "";
+                PKGOPS_Validator.highlight(detailSelect, false);
+            }
+            if (fileInput) {
+                fileInput.disabled = true;
+                fileInput.value = "";
+                PKGOPS_Validator.highlight(fileInput, false);
+                const row = fileInput.closest("tr");
+                if (row) row.removeAttribute("data-existing-files");
+            }
+            delete this.uploadedFiles[`pqi-${idx}`];
+            const fileStatus = document.getElementById(`file-status-pqi-${idx}`);
+            if (fileStatus) fileStatus.innerHTML = "";
+        }
+        this.calculatePqiEvaluationMetrics();
+    },
+
+    calculatePqiEvaluationMetrics: function () {
+        let notOkCount = 0;
+        const totalSamples = 10;
+        for (let i = 0; i < totalSamples; i++) {
+            const statusEl = document.getElementById(`pqi-eval-status-${i}`);
+            if (statusEl && statusEl.value === "Not Okay") {
+                notOkCount++;
+            }
+        }
+        const pct = (notOkCount / totalSamples) * 100;
+        const statsEl = document.getElementById("pqi-eval-defect-stats");
+        const pctBadge = document.getElementById("pqi-eval-defect-pct-badge");
+        const prgBar = document.getElementById("pqi-eval-defect-bar");
+
+        if (statsEl) {
+            statsEl.innerHTML = `<strong>${notOkCount}</strong> of <strong>${totalSamples}</strong> Samples Defective (<strong>${pct.toFixed(2)}%</strong> Defect Rate)`;
+        }
+        if (pctBadge) {
+            pctBadge.innerText = `${pct.toFixed(2)}%`;
+            pctBadge.className = notOkCount > 0 ? "badge bg-danger" : "badge bg-success";
+        }
+        if (prgBar) {
+            prgBar.style.width = `${Math.min(pct, 100)}%`;
+            prgBar.className = notOkCount > 0 ? "progress-bar bg-danger" : "progress-bar bg-success";
         }
     },
 
     calculateNetWeightMetrics: function () {
-        const stdWeight = parseFloat(document.getElementById("pqi-nw-standard").value) || 0;
+        const stdWeight = parseFloat(document.getElementById("pqi-nw-standard")?.value) || 0;
         const weights = [];
 
         document.querySelectorAll(".pqi-weight-input").forEach(input => {
@@ -1053,6 +1521,8 @@ const PKGOPS_Checklist = {
 
         const avgSpan = document.getElementById("pqi-average-weight");
         const gaSpan = document.getElementById("pqi-giveaway");
+
+        if (!avgSpan || !gaSpan) return;
 
         if (weights.length === 0) {
             avgSpan.innerText = "-";
@@ -1074,31 +1544,50 @@ const PKGOPS_Checklist = {
         if (typeof ShowLoader === "function") ShowLoader();
 
         try {
+            PKGOPS_Validator.clearAll("checklist-form-area");
+
+            // Validate common top fields first
+            const commonHeaders = [
+                { id: "pqi-product", name: "Product Name" },
+                { id: "pqi-sku", name: "SKU" }
+            ];
+            if (val !== "NetWeight") {
+                commonHeaders.push({ id: "pqi-pkd", name: "PKD" });
+                commonHeaders.push({ id: "pqi-batch", name: "Batch Code" });
+            }
+
+            for (let h of commonHeaders) {
+                const el = document.getElementById(h.id);
+                if (!el || !el.value.trim()) {
+                    if (el) PKGOPS_Validator.highlight(el, true);
+                    if (typeof HideLoader === "function") HideLoader();
+                    alert(`Please fill in the required field: ${h.name}`);
+                    if (el) el.focus();
+                    return;
+                }
+            }
+
+            const product = document.getElementById("pqi-product").value;
+            const sku = document.getElementById("pqi-sku").value;
+            const pkd = document.getElementById("pqi-pkd")?.value || "";
+            const batch = document.getElementById("pqi-batch")?.value || "";
+
             if (val === "NetWeight") {
-                PKGOPS_Validator.clearAll("pqi-sub-container");
-                const headers = [
-                    { id: "pqi-nw-product", name: "Product Name" },
-                    { id: "pqi-nw-sku", name: "SKU" },
-                    { id: "pqi-nw-standard", name: "Standard Weight" }
-                ];
-                for (let h of headers) {
-                    const el = document.getElementById(h.id);
-                    if (!el || !el.value.trim()) {
-                        if (el) PKGOPS_Validator.highlight(el, true);
-                        if (typeof HideLoader === "function") HideLoader();
-                        alert(`Please fill in the required field: ${h.name}`);
-                        if (el) el.focus();
-                        return;
-                    }
+                const standardEl = document.getElementById("pqi-nw-standard");
+                if (!standardEl || !standardEl.value.trim()) {
+                    if (standardEl) PKGOPS_Validator.highlight(standardEl, true);
+                    if (typeof HideLoader === "function") HideLoader();
+                    alert("Please fill in the required field: Standard Weight");
+                    if (standardEl) standardEl.focus();
+                    return;
                 }
 
-                const standardVal = parseFloat(document.getElementById("pqi-nw-standard").value) || 0;
+                const standardVal = parseFloat(standardEl.value) || 0;
                 if (standardVal <= 0) {
-                    const el = document.getElementById("pqi-nw-standard");
-                    PKGOPS_Validator.highlight(el, true);
+                    PKGOPS_Validator.highlight(standardEl, true);
                     if (typeof HideLoader === "function") HideLoader();
                     alert("Standard Weight must be greater than 0.");
-                    el.focus();
+                    standardEl.focus();
                     return;
                 }
 
@@ -1115,10 +1604,6 @@ const PKGOPS_Checklist = {
                     }
                 }
 
-                const product = document.getElementById("pqi-nw-product").value;
-                const sku = document.getElementById("pqi-nw-sku").value;
-                const standard = parseFloat(document.getElementById("pqi-nw-standard").value) || 0;
-
                 const weights = [];
                 for (let i = 0; i < 15; i++) {
                     const weightVal = parseFloat(document.getElementById(`pqi-weight-${i}`).value) || 0;
@@ -1126,7 +1611,7 @@ const PKGOPS_Checklist = {
                 }
 
                 const avg = weights.reduce((a, b) => a + b, 0) / weights.length;
-                const giveAway = (standard > 0 && avg > standard) ? (avg - standard) : 0;
+                const giveAway = (standardVal > 0 && avg > standardVal) ? (avg - standardVal) : 0;
 
                 const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
                 const netWeightRecord = {
@@ -1145,28 +1630,10 @@ const PKGOPS_Checklist = {
 
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_PQI_NET_WEIGHT", this.currentTourId);
                 await PKGOPS_DAL.saveSubChecklistRow("CHILD_PQI_NET_WEIGHT", netWeightRecord);
-                this.savedPqiNetWeight = { ...netWeightRecord, cr3ea_standardweight: standard };
+                this.savedPqiNetWeight = { ...netWeightRecord, cr3ea_standardweight: standardVal };
                 this.pqiSubChecklistsFilled.NetWeight = true;
                 this.updatePqiBadges();
             } else {
-                PKGOPS_Validator.clearAll("pqi-sub-container");
-                const headers = [
-                    { id: "pqi-eval-product", name: "Product Name" },
-                    { id: "pqi-eval-sku", name: "SKU" },
-                    { id: "pqi-eval-pkd", name: "PKD" },
-                    { id: "pqi-eval-batch", name: "Batch Code" }
-                ];
-                for (let h of headers) {
-                    const el = document.getElementById(h.id);
-                    if (!el || !el.value.trim()) {
-                        if (el) PKGOPS_Validator.highlight(el, true);
-                        if (typeof HideLoader === "function") HideLoader();
-                        alert(`Please fill in the required field: ${h.name}`);
-                        if (el) el.focus();
-                        return;
-                    }
-                }
-
                 // Validate 10 sample evaluation rows
                 for (let idx = 0; idx < 10; idx++) {
                     const statusEl = document.getElementById(`pqi-eval-status-${idx}`);
@@ -1179,7 +1646,7 @@ const PKGOPS_Checklist = {
                         if (!catEl || !catEl.value.trim()) {
                             if (catEl) PKGOPS_Validator.highlight(catEl, true);
                             if (typeof HideLoader === "function") HideLoader();
-                            alert(`Please enter a defect category for Sample ${idx + 1}.`);
+                            alert(`Please select a defect category for Sample ${idx + 1}.`);
                             if (catEl) catEl.focus();
                             return;
                         }
@@ -1187,15 +1654,16 @@ const PKGOPS_Checklist = {
                         if (!detailEl || !detailEl.value.trim()) {
                             if (detailEl) PKGOPS_Validator.highlight(detailEl, true);
                             if (typeof HideLoader === "function") HideLoader();
-                            alert(`Please enter defect details for Sample ${idx + 1}.`);
+                            alert(`Please select defect details for Sample ${idx + 1}.`);
                             if (detailEl) detailEl.focus();
                             return;
                         }
 
+                        const files = this.uploadedFiles[`pqi-${idx}`] || (fileInput && fileInput.files && fileInput.files.length ? Array.from(fileInput.files) : []);
                         const existingPrev = (this.savedPqiEvaluations || []).find(r => r.cr3ea_evaluationtype === val && r.cr3ea_samplenumber === `Sample ${idx + 1}`);
                         const hasOldPhoto = existingPrev && existingPrev.cr3ea_batchcodepictureurl;
 
-                        if ((!fileInput || !fileInput.files || !fileInput.files[0]) && !hasOldPhoto) {
+                        if (files.length === 0 && !hasOldPhoto) {
                             if (fileInput) PKGOPS_Validator.highlight(fileInput, true);
                             if (typeof HideLoader === "function") HideLoader();
                             alert(`Please upload a proof image for defective Sample ${idx + 1}.`);
@@ -1205,11 +1673,6 @@ const PKGOPS_Checklist = {
                     }
                 }
 
-                // Save Pack evaluation
-                const product = document.getElementById("pqi-eval-product").value;
-                const sku = document.getElementById("pqi-eval-sku").value;
-                const pkd = document.getElementById("pqi-eval-pkd").value;
-                const batch = document.getElementById("pqi-eval-batch").value;
                 const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
 
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_PQI_EVALUATION", this.currentTourId, val);
@@ -1222,8 +1685,18 @@ const PKGOPS_Checklist = {
                     const fileInput = document.getElementById(`pqi-eval-file-${idx}`);
 
                     let pictureUrl = "";
-                    if (fileInput && fileInput.files && fileInput.files[0]) {
-                        pictureUrl = await PKGOPS_DAL.uploadAttachmentFile(fileInput.files[0], this.currentTourId, `PQI_${val}`, `PQI-Sample-${idx}`, detail);
+                    const files = this.uploadedFiles[`pqi-${idx}`] || (fileInput && fileInput.files && fileInput.files.length ? Array.from(fileInput.files) : []);
+                    if (files.length > 0) {
+                        const uploadPromises = files.map(file => PKGOPS_DAL.uploadAttachmentFile(file, this.currentTourId, `PQI_${val}`, `PQI-Sample-${idx}`, detail));
+                        const urls = await Promise.all(uploadPromises);
+                        const validUrls = urls.filter(Boolean);
+                        const existingPrev = (this.savedPqiEvaluations || []).find(r => r.cr3ea_evaluationtype === val && r.cr3ea_samplenumber === `Sample ${idx + 1}`);
+                        const existingUrl = (existingPrev && existingPrev.cr3ea_batchcodepictureurl) ? existingPrev.cr3ea_batchcodepictureurl.trim() : "";
+                        if (existingUrl) {
+                            pictureUrl = existingUrl + ", " + validUrls.join(", ");
+                        } else {
+                            pictureUrl = validUrls.join(", ");
+                        }
                     } else {
                         const existingPrev = (this.savedPqiEvaluations || []).find(r => r.cr3ea_evaluationtype === val && r.cr3ea_samplenumber === `Sample ${idx + 1}`);
                         if (existingPrev && existingPrev.cr3ea_batchcodepictureurl) {
@@ -1292,8 +1765,7 @@ const PKGOPS_Checklist = {
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">SKU</label>
-                    <input type="text" class="form-control" id="seal-sku" list="sku-master-datalist" placeholder="e.g. 50g, 100g">
-                    ${this.getSkuDatalistHtml()}
+                    <input type="text" class="form-control" id="seal-sku" placeholder="SKU" readonly style="background-color: #f1f5f9; cursor: not-allowed;">
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Machine No</label>
@@ -1345,8 +1817,7 @@ const PKGOPS_Checklist = {
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">SKU</label>
-                    <input type="text" class="form-control" id="cream-sku" list="sku-master-datalist" placeholder="e.g. 50g, 100g">
-                    ${this.getSkuDatalistHtml()}
+                    <input type="text" class="form-control" id="cream-sku" placeholder="SKU" readonly style="background-color: #f1f5f9; cursor: not-allowed;">
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Sample Size</label>
@@ -1412,8 +1883,7 @@ const PKGOPS_Checklist = {
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">SKU</label>
-                    <input type="text" class="form-control" id="wall-sku" list="sku-master-datalist" placeholder="e.g. 50g, 100g">
-                    ${this.getSkuDatalistHtml()}
+                    <input type="text" class="form-control" id="wall-sku" placeholder="SKU" readonly style="background-color: #f1f5f9; cursor: not-allowed;">
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Wall Type</label>
@@ -1774,6 +2244,7 @@ const PKGOPS_Checklist = {
 
         try {
             let hasDeviation = false;
+            let categoryADefects = [];
             let targetTourRecord = {
                 cr3ea_prod_rajpura_quality_tourid: this.currentTourId,
                 cr3ea_islineclear: true,
@@ -1898,7 +2369,11 @@ const PKGOPS_Checklist = {
                             return;
                         }
 
-                        if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+                        const files = this.uploadedFiles[`cv-${i}`] || (fileInput && fileInput.files && fileInput.files.length ? Array.from(fileInput.files) : []);
+                        const existingPrev = (this.savedCodeVerificationRows || []).find(r => r.cr3ea_samplenumber === `Sample ${i + 1}`);
+                        const hasOldPhoto = existingPrev && existingPrev.cr3ea_codepictureurl;
+
+                        if (files.length === 0 && !hasOldPhoto) {
                             if (fileInput) PKGOPS_Validator.highlight(fileInput, true);
                             if (typeof HideLoader === "function") HideLoader();
                             alert(`Please upload a proof image for defective Sample ${i + 1}.`);
@@ -1922,8 +2397,23 @@ const PKGOPS_Checklist = {
                     const fileInput = document.getElementById(`cv-file-${i}`);
 
                     let pictureUrl = "";
-                    if (fileInput && fileInput.files && fileInput.files[0]) {
-                        pictureUrl = await PKGOPS_DAL.uploadAttachmentFile(fileInput.files[0], this.currentTourId, "Code Verification", `Sample-${i}`, defect);
+                    const files = this.uploadedFiles[`cv-${i}`] || (fileInput && fileInput.files && fileInput.files.length ? Array.from(fileInput.files) : []);
+                    if (files.length > 0) {
+                        const uploadPromises = files.map(file => PKGOPS_DAL.uploadAttachmentFile(file, this.currentTourId, "Code Verification", `Sample-${i}`, defect));
+                        const urls = await Promise.all(uploadPromises);
+                        const validUrls = urls.filter(Boolean);
+                        const existingPrev = (this.savedCodeVerificationRows || []).find(r => r.cr3ea_samplenumber === `Sample ${i + 1}`);
+                        const existingUrl = (existingPrev && existingPrev.cr3ea_codepictureurl) ? existingPrev.cr3ea_codepictureurl.trim() : "";
+                        if (existingUrl) {
+                            pictureUrl = existingUrl + ", " + validUrls.join(", ");
+                        } else {
+                            pictureUrl = validUrls.join(", ");
+                        }
+                    } else {
+                        const existingPrev = (this.savedCodeVerificationRows || []).find(r => r.cr3ea_samplenumber === `Sample ${i + 1}`);
+                        if (existingPrev && existingPrev.cr3ea_codepictureurl) {
+                            pictureUrl = existingPrev.cr3ea_codepictureurl;
+                        }
                     }
 
                     if (status === "Not Okay") {
@@ -2003,6 +2493,7 @@ const PKGOPS_Checklist = {
                 const sku = document.getElementById("papa-sku").value;
 
                 let overallDefectCount = 0;
+                categoryADefects = [];
 
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_PAPA", this.currentTourId);
                 for (let i = 0; i < PKGOPS_PAPA_DEFECTS_FLAT.length; i++) {
@@ -2015,12 +2506,22 @@ const PKGOPS_Checklist = {
                         hasDeviation = true;
                         overallDefectCount += count;
 
+                        const defectItem = PKGOPS_PAPA_DEFECTS_FLAT[i];
+                        if (defectItem.category === "Category A" || defectItem.category === "A") {
+                            categoryADefects.push({
+                                name: defectItem.name,
+                                count: count,
+                                remarks: `${product} (SKU: ${sku})`,
+                                area: `PAPA (${defectItem.type || "Defect"})`
+                            });
+                        }
+
                         const papaRecord = {
                             cr3ea_name: `PAPA_${sku}`,
                             cr3ea_productname: product,
                             cr3ea_sku: sku,
                             cr3ea_noofsamples: String(sampleSize),
-                            cr3ea_defecttype: `${PKGOPS_PAPA_DEFECTS_FLAT[i].name} (${PKGOPS_PAPA_DEFECTS_FLAT[i].category} - ${PKGOPS_PAPA_DEFECTS_FLAT[i].type})`,
+                            cr3ea_defecttype: `${defectItem.name} (${defectItem.category} - ${defectItem.type})`,
                             cr3ea_defectcount: String(count),
                             cr3ea_defectwisepercentage: `${((count / sampleSize) * 100).toFixed(2)}%`,
                             cr3ea_deviationstatus: "Open",
@@ -2060,6 +2561,22 @@ const PKGOPS_Checklist = {
                 const pqiFails = pqiRows.some(r => r.cr3ea_sampleresult === "Not Okay");
                 if (pqiFails) {
                     hasDeviation = true;
+                }
+
+                // Collect Category A defects from all 4 evaluation components (Product, Primary, Secondary, CBB - Net Weight is excluded as it has no Category A)
+                categoryADefects = [];
+                for (let r of pqiRows) {
+                    if (r.cr3ea_sampleresult === "Not Okay") {
+                        const cat = (r.cr3ea_defectcategory || "").trim();
+                        if (cat === "Category A" || cat === "A") {
+                            categoryADefects.push({
+                                name: r.cr3ea_defectdetail || r.cr3ea_defectcategory || "Critical Defect",
+                                count: 1,
+                                remarks: `${r.cr3ea_productname || ""} (SKU: ${r.cr3ea_sku || ""}) - ${r.cr3ea_samplenumber || ""}`,
+                                area: `PQI (${r.cr3ea_evaluationtype || "Evaluation"})`
+                            });
+                        }
+                    }
                 }
             } 
             else if (this.pkgopsType === "Seal Integrity") {
@@ -2259,15 +2776,33 @@ const PKGOPS_Checklist = {
                     const score = hasDeviation ? 0 : 100;
                     const result = hasDeviation ? "Fail" : "Pass";
                     const isPass = !hasDeviation;
+                    const mergedSession = {
+                        ...PKGOPS_StateMachine.currentSession,
+                        ...targetTourRecord
+                    };
                     await ALC_Notification.sendVerificationComplete(
-                        {
-                            ...PKGOPS_StateMachine.currentSession,
-                            ...targetTourRecord
-                        },
+                        mergedSession,
                         score,
                         result,
                         isPass
                     );
+
+                    // Send detailed Category A critical defect notification to Top Management (General)
+                    if (categoryADefects.length > 0) {
+                        try {
+                            await ALC_Notification.sendCategoryAFailureNotification(
+                                mergedSession,
+                                categoryADefects,
+                                {
+                                    prefix: "PKGOPS_",
+                                    parentType: "Packaging_Operations",
+                                    type: this.pkgopsType || "Packaging Operations"
+                                }
+                            );
+                        } catch (catAErr) {
+                            console.warn("Failed to dispatch Category A critical defect notification:", catAErr);
+                        }
+                    }
                 } catch (notifErr) {
                     console.warn("ALC_Notification trigger failed (non-blocking):", notifErr);
                 }
@@ -2343,8 +2878,23 @@ const PKGOPS_Checklist = {
                     const fileInput = document.getElementById(`cv-file-${i}`);
 
                     let pictureUrl = "";
-                    if (fileInput && fileInput.files && fileInput.files[0]) {
-                        pictureUrl = await PKGOPS_DAL.uploadAttachmentFile(fileInput.files[0], this.currentTourId, "Code Verification", `Sample-${i}`, defect);
+                    const files = this.uploadedFiles[`cv-${i}`] || (fileInput && fileInput.files && fileInput.files.length ? Array.from(fileInput.files) : []);
+                    if (files.length > 0) {
+                        const uploadPromises = files.map(file => PKGOPS_DAL.uploadAttachmentFile(file, this.currentTourId, "Code Verification", `Sample-${i}`, defect));
+                        const urls = await Promise.all(uploadPromises);
+                        const validUrls = urls.filter(Boolean);
+                        const existingPrev = (this.savedCodeVerificationRows || []).find(r => r.cr3ea_samplenumber === `Sample ${i + 1}`);
+                        const existingUrl = (existingPrev && existingPrev.cr3ea_codepictureurl) ? existingPrev.cr3ea_codepictureurl.trim() : "";
+                        if (existingUrl) {
+                            pictureUrl = existingUrl + ", " + validUrls.join(", ");
+                        } else {
+                            pictureUrl = validUrls.join(", ");
+                        }
+                    } else {
+                        const existingPrev = (this.savedCodeVerificationRows || []).find(r => r.cr3ea_samplenumber === `Sample ${i + 1}`);
+                        if (existingPrev && existingPrev.cr3ea_codepictureurl) {
+                            pictureUrl = existingPrev.cr3ea_codepictureurl;
+                        }
                     }
 
                     const cvRecord = {
@@ -2412,10 +2962,13 @@ const PKGOPS_Checklist = {
                 await PKGOPS_DAL.saveSubChecklistRow("CHILD_PAPA", finalPapaRecord);
             } 
             else if (this.pkgopsType === "PQI") {
+                const product = document.getElementById("pqi-product")?.value || "";
+                const sku = document.getElementById("pqi-sku")?.value || "";
+                const pkd = document.getElementById("pqi-pkd")?.value || null;
+                const batch = document.getElementById("pqi-batch")?.value || "";
                 const val = document.getElementById("pqi-sub-select")?.value || "NetWeight";
+
                 if (val === "NetWeight") {
-                    const product = document.getElementById("pqi-nw-product")?.value || "";
-                    const sku = document.getElementById("pqi-nw-sku")?.value || "";
                     const standard = parseFloat(document.getElementById("pqi-nw-standard")?.value) || 0;
 
                     const weights = [];
@@ -2457,11 +3010,6 @@ const PKGOPS_Checklist = {
                         this.updatePqiBadges();
                     }
                 } else {
-                    const product = document.getElementById("pqi-eval-product")?.value || "";
-                    const sku = document.getElementById("pqi-eval-sku")?.value || "";
-                    const pkd = document.getElementById("pqi-eval-pkd")?.value || null;
-                    const batch = document.getElementById("pqi-eval-batch")?.value || "";
-
                     let hasAnyData = !!(product || sku || pkd || batch);
                     for (let idx = 0; idx < 10; idx++) {
                         const status = document.getElementById(`pqi-eval-status-${idx}`)?.value || "Okay";
@@ -2484,8 +3032,18 @@ const PKGOPS_Checklist = {
                             const fileInput = document.getElementById(`pqi-eval-file-${idx}`);
 
                             let pictureUrl = "";
-                            if (fileInput && fileInput.files && fileInput.files[0]) {
-                                pictureUrl = await PKGOPS_DAL.uploadAttachmentFile(fileInput.files[0], this.currentTourId, `PQI_${val}`, `PQI-Sample-${idx}`, detail);
+                            const files = this.uploadedFiles[`pqi-${idx}`] || (fileInput && fileInput.files && fileInput.files.length ? Array.from(fileInput.files) : []);
+                            if (files.length > 0) {
+                                const uploadPromises = files.map(file => PKGOPS_DAL.uploadAttachmentFile(file, this.currentTourId, `PQI_${val}`, `PQI-Sample-${idx}`, detail));
+                                const urls = await Promise.all(uploadPromises);
+                                const validUrls = urls.filter(Boolean);
+                                const existingPrev = (this.savedPqiEvaluations || []).find(r => r.cr3ea_evaluationtype === val && r.cr3ea_samplenumber === `Sample ${idx + 1}`);
+                                const existingUrl = (existingPrev && existingPrev.cr3ea_batchcodepictureurl) ? existingPrev.cr3ea_batchcodepictureurl.trim() : "";
+                                if (existingUrl) {
+                                    pictureUrl = existingUrl + ", " + validUrls.join(", ");
+                                } else {
+                                    pictureUrl = validUrls.join(", ");
+                                }
                             } else {
                                 const existingPrev = (this.savedPqiEvaluations || []).find(r => r.cr3ea_evaluationtype === val && r.cr3ea_samplenumber === `Sample ${idx + 1}`);
                                 if (existingPrev && existingPrev.cr3ea_batchcodepictureurl) {
@@ -2626,6 +3184,7 @@ const PKGOPS_Checklist = {
             else if (this.pkgopsType === "Code Verification") {
                 const rows = await PKGOPS_DAL.getSubChecklistRows("CHILD_CODE_VERIFICATION", this.currentTourId);
                 if (rows && rows.length > 0) {
+                    this.savedCodeVerificationRows = rows;
                     const firstRow = rows[0];
                     if (document.getElementById("cv-product")) this.setProductWithCategory("cv", firstRow.cr3ea_productname);
                     if (document.getElementById("cv-sku")) this.setSelectValueSafely("cv-sku", firstRow.cr3ea_sku);
@@ -2650,6 +3209,25 @@ const PKGOPS_Checklist = {
                                 if (defectSelect) defectSelect.value = row.cr3ea_defecttype || "";
                                 const countInput = document.getElementById(`cv-count-${i}`);
                                 if (countInput) countInput.value = row.cr3ea_defectcount || "";
+
+                                const savedUrls = (row.cr3ea_codepictureurl || "").split(",").map(u => u.trim()).filter(Boolean);
+                                if (savedUrls.length > 0) {
+                                    const fileStatus = document.getElementById(`file-status-cv-${i}`);
+                                    const fileInput = document.getElementById(`cv-file-${i}`);
+                                    if (fileInput) {
+                                        const tr = fileInput.closest("tr");
+                                        if (tr) tr.setAttribute("data-existing-files", "true");
+                                    }
+                                    if (fileStatus) {
+                                        let linksHtml = `<div class="pkgops-saved-file-links-container">`;
+                                        savedUrls.forEach((u, uIdx) => {
+                                            const fileName = u.substring(u.lastIndexOf("/") + 1) || `Photo ${uIdx + 1}`;
+                                            linksHtml += `<a href="${u}" target="_blank" class="pkgops-saved-file-link"><i class="fa fa-paperclip"></i> ${fileName}</a>`;
+                                        });
+                                        linksHtml += `</div>`;
+                                        fileStatus.innerHTML = linksHtml;
+                                    }
+                                }
                             }
                         }
                     });
@@ -2753,24 +3331,54 @@ const PKGOPS_Checklist = {
         }
     },
 
+    populatePqiCommonFields: function () {
+        const prodEl = document.getElementById("pqi-product");
+        if (!prodEl) return;
+
+        const nw = this.savedPqiNetWeight;
+        const evals = this.savedPqiEvaluations || [];
+        const firstEval = evals.length > 0 ? evals[0] : null;
+
+        const savedProd = (nw && nw.cr3ea_productname) || (firstEval && firstEval.cr3ea_productname) || "";
+        const savedSku = (nw && nw.cr3ea_sku) || (firstEval && firstEval.cr3ea_sku) || "";
+        const savedPkd = (firstEval && firstEval.cr3ea_pkd) || "";
+        const savedBatch = (firstEval && firstEval.cr3ea_batchcode) || "";
+
+        if (savedProd && !prodEl.value) {
+            this.setProductWithCategory("pqi", savedProd);
+        }
+        if (savedSku && document.getElementById("pqi-sku") && !document.getElementById("pqi-sku").value) {
+            this.setSelectValueSafely("pqi-sku", savedSku);
+        }
+        if (savedPkd && document.getElementById("pqi-pkd") && !document.getElementById("pqi-pkd").value) {
+            document.getElementById("pqi-pkd").value = moment(savedPkd).format("YYYY-MM-DD");
+        }
+        if (savedBatch && document.getElementById("pqi-batch") && !document.getElementById("pqi-batch").value) {
+            document.getElementById("pqi-batch").value = savedBatch;
+        }
+    },
+
     populateActivePqiSubForm: function () {
+        this.populatePqiCommonFields();
         const select = document.getElementById("pqi-sub-select");
         if (!select) return;
         const val = select.value;
 
         if (val === "NetWeight") {
             const row = this.savedPqiNetWeight;
-            if (row) {
-                if (document.getElementById("pqi-nw-product")) this.setProductWithCategory("pqi-nw", row.cr3ea_productname);
-                if (document.getElementById("pqi-nw-sku")) this.setSelectValueSafely("pqi-nw-sku", row.cr3ea_sku);
-                
-                let std = row.cr3ea_standardweight;
-                if (!std && row.cr3ea_sku) {
-                    const skuNum = parseFloat(String(row.cr3ea_sku).replace(/[^0-9.]/g, ""));
+            let std = row ? row.cr3ea_standardweight : null;
+            if (!std) {
+                const currentSku = document.getElementById("pqi-sku")?.value || (row && row.cr3ea_sku);
+                if (currentSku) {
+                    const skuNum = parseFloat(String(currentSku).replace(/[^0-9.]/g, ""));
                     if (!isNaN(skuNum) && skuNum > 0) std = skuNum;
                 }
-                if (document.getElementById("pqi-nw-standard")) document.getElementById("pqi-nw-standard").value = std || "150";
+            }
+            if (document.getElementById("pqi-nw-standard")) {
+                document.getElementById("pqi-nw-standard").value = std || "150";
+            }
 
+            if (row) {
                 for (let i = 0; i < 15; i++) {
                     const weightEl = document.getElementById(`pqi-weight-${i}`);
                     if (weightEl) {
@@ -2785,14 +3393,6 @@ const PKGOPS_Checklist = {
             if (rows && rows.length > 0) {
                 const subRows = rows.filter(r => r.cr3ea_evaluationtype === val);
                 if (subRows.length > 0) {
-                    const firstRow = subRows[0];
-                    if (document.getElementById("pqi-eval-product")) this.setProductWithCategory("pqi-eval", firstRow.cr3ea_productname);
-                    if (document.getElementById("pqi-eval-sku")) this.setSelectValueSafely("pqi-eval-sku", firstRow.cr3ea_sku);
-                    if (document.getElementById("pqi-eval-pkd") && firstRow.cr3ea_pkd) {
-                        document.getElementById("pqi-eval-pkd").value = moment(firstRow.cr3ea_pkd).format("YYYY-MM-DD");
-                    }
-                    if (document.getElementById("pqi-eval-batch")) document.getElementById("pqi-eval-batch").value = firstRow.cr3ea_batchcode || "";
-
                     subRows.forEach((row, i) => {
                         if (i < 10) {
                             const statusSelect = document.getElementById(`pqi-eval-status-${i}`);
@@ -2800,12 +3400,37 @@ const PKGOPS_Checklist = {
                                 statusSelect.value = row.cr3ea_sampleresult || "Okay";
                                 PKGOPS_Checklist.togglePqiDefectFields(i);
                             }
-                            const catInput = document.getElementById(`pqi-eval-cat-${i}`);
-                            if (catInput) catInput.value = row.cr3ea_defectcategory || "";
-                            const detailInput = document.getElementById(`pqi-eval-detail-${i}`);
-                            if (detailInput) detailInput.value = row.cr3ea_defectdetail || "";
+                            const catSelect = document.getElementById(`pqi-eval-cat-${i}`);
+                            if (catSelect && row.cr3ea_defectcategory) {
+                                let catVal = row.cr3ea_defectcategory;
+                                if (catVal === "A") catVal = "Category A";
+                                if (catVal === "B") catVal = "Category B";
+                                if (catVal === "C") catVal = "Category C";
+                                catSelect.value = catVal;
+                                PKGOPS_Checklist.onPqiDefectCatChange(i, row.cr3ea_defectdetail || "");
+                            }
+
+                            const savedUrls = (row.cr3ea_batchcodepictureurl || "").split(",").map(u => u.trim()).filter(Boolean);
+                            if (savedUrls.length > 0) {
+                                const fileStatus = document.getElementById(`file-status-pqi-${i}`);
+                                const fileInput = document.getElementById(`pqi-eval-file-${i}`);
+                                if (fileInput) {
+                                    const tr = fileInput.closest("tr");
+                                    if (tr) tr.setAttribute("data-existing-files", "true");
+                                }
+                                if (fileStatus) {
+                                    let linksHtml = `<div class="pkgops-saved-file-links-container">`;
+                                    savedUrls.forEach((u, uIdx) => {
+                                        const fileName = u.substring(u.lastIndexOf("/") + 1) || `Photo ${uIdx + 1}`;
+                                        linksHtml += `<a href="${u}" target="_blank" class="pkgops-saved-file-link"><i class="fa fa-paperclip"></i> ${fileName}</a>`;
+                                    });
+                                    linksHtml += `</div>`;
+                                    fileStatus.innerHTML = linksHtml;
+                                }
+                            }
                         }
                     });
+                    PKGOPS_Checklist.calculatePqiEvaluationMetrics();
                 }
             }
         }

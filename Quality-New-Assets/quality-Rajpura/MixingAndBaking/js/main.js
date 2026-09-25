@@ -253,18 +253,6 @@ const MixingBaking_Main = {
                 await this.loadCyclesHistory();
             }
 
-            // Toggle complete tour button visibility
-            const compContainer = document.getElementById("complete-tour-btn-container");
-            if (compContainer) {
-                const isTourCompleted = this.state.tourData && (
-                    this.state.tourData.cr3ea_status === "Completed" || 
-                    this.state.tourData.cr3ea_status === "Success" || 
-                    this.state.tourData.cr3ea_status === "Closed" || 
-                    this.state.tourData.cr3ea_status === "Closed - Expired"
-                );
-                compContainer.style.display = (isTourCompleted || !this.state.canEditChecklist || !this.state.product) ? "none" : "flex";
-            }
-
         } catch (err) {
             console.error("Mixing & Baking Initialization failed:", err);
             const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
@@ -388,6 +376,10 @@ const MixingBaking_Main = {
                                  this.state.tourData?.cr3ea_status === "Closed" || 
                                  this.state.tourData?.cr3ea_status === "Closed - Expired";
 
+        // Hide add-cycle button since each tour has strictly only 1 cycle
+        const addBtnContainer = document.getElementById("add-cycle-btn-container");
+        if (addBtnContainer) addBtnContainer.style.display = "none";
+
         if (completedCycles && completedCycles.length > 0) {
             const firstCycle = completedCycles[0];
             if (firstCycle.cr3ea_productname) this.state.product = firstCycle.cr3ea_productname;
@@ -398,21 +390,10 @@ const MixingBaking_Main = {
             if (firstCycle.cr3ea_productionincharge) this.state.productionIncharge = firstCycle.cr3ea_productionincharge;
             if (firstCycle.cr3ea_shift) this.state.shift = firstCycle.cr3ea_shift;
 
-            const cycleNumbers = [];
             completedCycles.forEach(cycleRecord => {
                 const cycleNum = getCycleNum(cycleRecord.cr3ea_cycle) || 1;
-                cycleNumbers.push(cycleNum);
                 MixingBaking_Checklist.createCycleSection(cycleNum, true, cycleRecord);
             });
-
-            // Find next cycle number
-            const validNums = cycleNumbers.filter(n => !isNaN(n) && n > 0);
-            this.state.cycleCounter = validNums.length > 0 ? Math.max(...validNums) + 1 : completedCycles.length + 1;
-            
-            // Only render active card if tour is not completed
-            if (!isTourCompleted) {
-                MixingBaking_Checklist.createCycleSection(this.state.cycleCounter, false);
-            }
         } else {
             // Start fresh ONLY if tour is not completed
             if (!isTourCompleted) {

@@ -284,9 +284,10 @@ const CCP_OPRP_Checklist = {
                                 <div><strong>Line:</strong> ${cycleData.location || "N/A"}</div>
                                 <div><strong>Response:</strong> ${cycleData.response || "OK"}</div>
                             ` : `
+                                <div><strong>Line / Section:</strong> ${cycleData.location || CCP_OPRP_Main.state.selectedLine || "N/A"}</div>
                                 <div><strong>Production Executive:</strong> ${this.resolveUserName(cycleData.productionIncharge || CCP_OPRP_Main.state.productionIncharge) || "N/A"}</div>
                                 <div><strong>QA Executive:</strong> ${this.resolveUserName(cycleData.executiveName || CCP_OPRP_Main.state.qaExecutive) || "N/A"}</div>
-                                <div><strong>Frequency:</strong> ${CCP_OPRP_Main.state.frequency === "4hrs" ? "4-Hour Check" : "Once a Shift (8-Hour Check)"}</div>
+                                <div><strong>Frequency:</strong> ${(CCP_OPRP_Main.state.frequency === "8hrs" || String(CCP_OPRP_Main.state.frequency).includes("8")) ? "Once a Shift (8-Hour Check)" : "4-Hour Check"}</div>
                                 <div><strong>Response:</strong> ${cycleData.response || "OK"}</div>
                             `}
                         </div>
@@ -449,7 +450,9 @@ const CCP_OPRP_Checklist = {
                 <div class="form-footer" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
                     <button type="button" class="bs-btn bs-btn-outline-primary" onclick="window.location.reload()">Cancel</button>
                     <button type="button" class="bs-btn bs-btn-secondary" style="display: ${displayBtn}; background-color: #64748b !important; color: #ffffff !important; border: none !important;" onclick="CCP_OPRP_Checklist.saveSession(${cycleNum}, true)">Pause</button>
-                    <button type="button" class="bs-btn bs-btn-primary" style="display: ${displayBtn};" onclick="CCP_OPRP_Checklist.saveSession(${cycleNum}, false)">Save Session</button>
+                    <button type="button" id="complete-tour-form-btn-${cycleNum}" class="bs-btn bs-btn-success" style="display: ${displayBtn}; background-color: #10b981 !important; color: #ffffff !important; border: none !important; font-weight: 700; padding: 10px 28px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);" onclick="CCP_OPRP_Checklist.completeCycleAndTour(${cycleNum})">
+                        <i class="fa fa-check-circle me-1"></i> Complete Tour
+                    </button>
                 </div>
             </div>
         `;
@@ -834,8 +837,18 @@ const CCP_OPRP_Checklist = {
             tabsHeader.style.display = "none";
             
             // Get checklist items based on frequency and plant grouping
-            const plantGroup = CCP_OPRP_Main.state.site === "Rajpura" ? "NewPlant" : "OldPlant";
-            const freqSuffix = CCP_OPRP_Main.state.frequency === "4hrs" ? "4hrs" : "8hrs";
+            const lineVal = String(CCP_OPRP_Main.state.selectedLine || "").trim();
+            let plantGroup = "NewPlant";
+            if (lineVal.includes("1,2,3,4,8") || lineVal.includes("1, 2, 3, 4, 8") || lineVal === "OldPlant" || lineVal === "Line-1" || lineVal === "Line-2" || lineVal === "Line-3" || lineVal === "Line-4" || lineVal === "Line-8") {
+                plantGroup = "OldPlant";
+            } else if (lineVal.includes("5,6,7") || lineVal.includes("5, 6, 7") || lineVal === "NewPlant" || lineVal === "Line-5" || lineVal === "Line-6" || lineVal === "Line-7") {
+                plantGroup = "NewPlant";
+            } else if (CCP_OPRP_Main.state.site === "Phillaur" || CCP_OPRP_Main.state.site === "Tahliwal" || CCP_OPRP_Main.state.site === "Indore") {
+                plantGroup = "OldPlant";
+            }
+
+            const freqVal = String(CCP_OPRP_Main.state.frequency || "").toLowerCase();
+            const freqSuffix = (freqVal === "8hrs" || freqVal.includes("8") || freqVal.includes("shift")) ? "8hrs" : "4hrs";
             const items = this.sieveItems[`${plantGroup}_${freqSuffix}`] || [];
 
             let listHtml = `
@@ -1254,14 +1267,37 @@ const CCP_OPRP_Checklist = {
                         ShowProgressLoader(95, "Dispatching deviation notifications...");
                     }
                     await Promise.all(deviations.map(saved => CCP_OPRP_Workflow.notifyProductionDepartment(saved)));
+                    
+                    if (typeof ShowProgressLoader === "function") {
+                        ShowProgressLoader(100, "Finalizing tour submission...");
+                    }
+                    alert("Checklist saved with deviations. Tour submitted to Production for Corrective Actions.");
+                } else {
+                    // No deviations: Mark parent tour as Completed
+                    try {
+                        await CCP_OPRP_DAL.updateParentTour(tourId, {
+                            cr3ea_status: "Completed",
+                            cr3ea_processstatus: "Completed"
+                        });
+                        if (CCP_OPRP_Main.state.tourData) {
+                            CCP_OPRP_Main.state.tourData.cr3ea_status = "Completed";
+                            CCP_OPRP_Main.state.tourData.cr3ea_processstatus = "Completed";
+                        }
+                    } catch (e) {
+                        console.warn("Could not update parent tour to Completed:", e);
+                    }
+
+                    if (typeof ShowProgressLoader === "function") {
+                        ShowProgressLoader(100, "Finalizing tour completion...");
+                    }
+                    alert("Quality Tour completed and locked successfully!");
                 }
+            } else {
+                if (typeof ShowProgressLoader === "function") {
+                    ShowProgressLoader(100, "Finalizing pause...");
+                }
+                alert("Progress paused and saved successfully.");
             }
-
-            if (typeof ShowProgressLoader === "function") {
-                ShowProgressLoader(100, isPause ? "Finalizing pause..." : "Finalizing session...");
-            }
-
-            alert(isPause ? "Progress paused and saved successfully." : "Cycle session saved successfully.");
             HideLoader();
             const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
                 ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
@@ -1306,7 +1342,15 @@ const CCP_OPRP_Checklist = {
             };
 
             await CCP_OPRP_DAL.saveChecklistItem(shutdownRecord, "CCP");
-            alert("Shutdown/Closure logged successfully.");
+            try {
+                await CCP_OPRP_DAL.updateParentTour(tourId, {
+                    cr3ea_status: "Completed",
+                    cr3ea_processstatus: "Completed"
+                });
+            } catch (e) {
+                console.warn("Could not update parent tour on shutdown:", e);
+            }
+            alert("Shutdown/Closure logged and tour completed successfully.");
             HideLoader();
             const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
                 ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
@@ -1871,12 +1915,17 @@ const CCP_OPRP_Checklist = {
 
             try {
                 const tourId = CCP_OPRP_Main.state.varTourID;
-                const nextStatus = isApproved ? "In Progress" : "Pending Production Action";
-                await CCP_OPRP_DAL.updateParentTour(tourId, {
+                const nextStatus = isApproved ? "Completed" : "Pending Production Action";
+                const payload = {
                     cr3ea_processstatus: nextStatus
-                });
+                };
+                if (isApproved) {
+                    payload.cr3ea_status = "Completed";
+                }
+                await CCP_OPRP_DAL.updateParentTour(tourId, payload);
                 if (CCP_OPRP_Main.state.tourData) {
                     CCP_OPRP_Main.state.tourData.cr3ea_processstatus = nextStatus;
+                    if (isApproved) CCP_OPRP_Main.state.tourData.cr3ea_status = "Completed";
                 }
             } catch (e) {
                 console.warn("Could not update parent tour process status:", e);
@@ -1885,7 +1934,7 @@ const CCP_OPRP_Checklist = {
             if (typeof ShowProgressLoader === "function") {
                 ShowProgressLoader(100, "Finalizing closure...");
             }
-            alert(isApproved ? "Cycle closed successfully." : "Corrective action rejected. Cycle returned to production.");
+            alert(isApproved ? "Deviations approved and Quality Tour completed successfully." : "Corrective action rejected. Cycle returned to production.");
             HideLoader();
             const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
                 ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
@@ -1902,6 +1951,18 @@ const CCP_OPRP_Checklist = {
         }
     },
 
+    completeCycleAndTour: async function (cycleNum) {
+        if (!CCP_OPRP_Main.state.canEditChecklist) {
+            alert("Access Denied: Only the assigned QA Executive can complete this tour.");
+            return;
+        }
+
+        const confirmComplete = confirm("Are you sure you want to complete this Quality Tour? This will submit all checklist observations and complete the tour.");
+        if (!confirmComplete) return;
+
+        await this.saveSession(cycleNum, false);
+    },
+
     completeTour: async function () {
         if (!CCP_OPRP_Main.state.varTourID) {
             alert("No active tour found to complete.");
@@ -1912,6 +1973,12 @@ const CCP_OPRP_Checklist = {
         if (!canComplete) {
             alert("Access Denied: Only the assigned QA Executive can complete this Quality Tour.");
             return;
+        }
+
+        // If active uncompleted cycle form exists on page, trigger completeCycleAndTour
+        const activeChecklistForm = document.getElementById("checklist-form-1");
+        if (activeChecklistForm && activeChecklistForm.style.display !== "none") {
+            return this.completeCycleAndTour(1);
         }
 
         const confirmComplete = confirm("Are you sure you want to complete this Quality Tour? This will lock the tour from further edits.");

@@ -27,7 +27,7 @@ const QualityRajpura_Config = {
         DEV: {
             TENANT_URL: "https://aufaitcloud.sharepoint.com/sites/Mrs_Bectors_PTMS",
             DATAVERSE_URL: "https://org487f0635.crm8.dynamics.com",
-            FLOW_URL: "https://prod-23.northcentralus.logic.azure.com:443/workflows/placeholder-dev-flow", // Replace with actual Dev Notification Flow URL
+            FLOW_URL: "https://86c49df27027e13c808b32506fa981.d1.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/12/workflows/42a6c8814f9f4479b348f034f1084f99/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=rd6tp8DE5TveTIWR97PfKAKQRcH2d9qQ4BAUyGhHDm4", // Replace with actual Dev Notification Flow URL
             PLANT_ID: "14",
             PLANT_NAME: "Rajpura",
             QUALITY_DEPT_IDS: ["80", "81", "135"],
@@ -223,6 +223,7 @@ const QualityRajpura_Config = {
         if (payload.cr3ea_lineid && !payload.cr3ea_lineno) payload.cr3ea_lineno = payload.cr3ea_lineid;
         if (payload.cr3ea_food_safety_cycle && !payload.cr3ea_cycle) payload.cr3ea_cycle = payload.cr3ea_food_safety_cycle;
         if (payload.cr3ea_ccp_oprp_sieves_productvariety && !payload.cr3ea_runningvariety) payload.cr3ea_runningvariety = payload.cr3ea_ccp_oprp_sieves_productvariety;
+        if (payload.cr3ea_shiftexecutivequality && !payload.cr3ea_executivename) payload.cr3ea_executivename = payload.cr3ea_shiftexecutivequality;
 
         for (const key of Object.keys(payload)) {
             if (validSet.has(key)) {
@@ -230,6 +231,64 @@ const QualityRajpura_Config = {
             }
         }
         return clean;
+    },
+
+    // Validates whether an email is valid and not a dummy/mock email address
+    isDummyEmail: function (email) {
+        if (!email || typeof email !== "string") return true;
+        const trimmed = email.trim().toLowerCase();
+        if (!trimmed.includes("@") || !trimmed.includes(".")) return true;
+        const dummyDomains = [
+            "bectorfoods.com",
+            "example.com",
+            "test.com",
+            "sample.com",
+            "invalid.com",
+            "temp.com",
+            "localhost",
+            "domain.com"
+        ];
+        const parts = trimmed.split("@");
+        if (parts.length !== 2) return true;
+        const domain = parts[1];
+        if (dummyDomains.some(d => domain === d || domain.endsWith("." + d))) return true;
+        const dummyKeywords = ["dummy", "fake", "placeholder", "mockuser", "testuser", "nobody"];
+        if (dummyKeywords.some(k => trimmed.includes(k))) return true;
+        return false;
+    },
+
+    // Escalation contacts & audit payload utilities (Zero Schema Dataverse storage)
+    parseEscalationContacts: function (contactsStr) {
+        if (!contactsStr || typeof contactsStr !== "string") return [];
+        const emailsPart = contactsStr.split("||")[0].trim();
+        return emailsPart.split(",")
+            .map(e => e.trim().toLowerCase())
+            .filter(e => !this.isDummyEmail(e));
+    },
+
+    parseEscalationAudit: function (sessionOrContacts) {
+        if (!sessionOrContacts) return null;
+        let str = typeof sessionOrContacts === "string" ? sessionOrContacts : (sessionOrContacts.cr3ea_escalation_contacts || "");
+        if (!str || !str.includes("||")) return null;
+        try {
+            const auditPart = str.split("||")[1].trim();
+            if (auditPart.startsWith("AUDIT:")) {
+                return JSON.parse(auditPart.substring(6).trim());
+            }
+            return JSON.parse(auditPart);
+        } catch (e) {
+            console.warn("Could not parse escalation audit payload:", e);
+            return null;
+        }
+    },
+
+    formatEscalationContacts: function (emailsList, auditObj) {
+        const cleanEmails = (Array.isArray(emailsList) ? emailsList : (emailsList || "").split(","))
+            .map(e => String(e).trim().toLowerCase())
+            .filter(e => !this.isDummyEmail(e));
+        const emailsStr = cleanEmails.join(",");
+        if (!auditObj) return emailsStr;
+        return `${emailsStr} || AUDIT:${JSON.stringify(auditObj)}`;
     },
 
     // Formats error messages clearly distinguishing Internet/Network issues from Dataverse/Server errors
@@ -445,13 +504,14 @@ const QualityRajpura_Config = {
 
         const normLine = (str) => {
             let s = String(str || "").toLowerCase().replace(/[\s\-_]/g, "");
-            if (s.startsWith("line")) {
-                s = s.substring(4);
-            }
+            if (s.startsWith("lineno.")) s = s.substring(7);
+            else if (s.startsWith("lineno")) s = s.substring(6);
+            else if (s.startsWith("line")) s = s.substring(4);
             return s;
         };
 
         const cleanLine = normLine(line);
+        const rawLine = String(line || "").trim().toLowerCase();
         const cleanCurrentId = currentTourId ? String(currentTourId).replace(/[{}]/g, "").trim().toLowerCase() : "";
         const todayStr = (typeof moment !== "undefined") ? moment().format("YYYY-MM-DD") : new Date().toISOString().split("T")[0];
 
@@ -463,9 +523,12 @@ const QualityRajpura_Config = {
                 const cleanSessionId = sid ? String(sid).replace(/[{}]/g, "").trim().toLowerCase() : "";
                 if (cleanCurrentId && cleanSessionId === cleanCurrentId) return false;
 
-                // Line match (e.g. "Line 1", "Line-1", "Line1", "1")
-                const sLine = normLine(s.cr3ea_lineno || s.cr3ea_lineid || "");
-                if (sLine !== cleanLine) return false;
+                // Line match (e.g. "Line 1", "Line-1", "Line 2 - IMAFORNI", "Line No. 2")
+                const sLineRaw = String(s.cr3ea_lineno || s.cr3ea_lineid || "").trim().toLowerCase();
+                const sLine = normLine(sLineRaw);
+                const isLineMatch = (sLine && cleanLine && (sLine === cleanLine || sLine.includes(cleanLine) || cleanLine.includes(sLine))) ||
+                                    (sLineRaw && rawLine && (sLineRaw === rawLine || sLineRaw.includes(rawLine) || rawLine.includes(sLineRaw)));
+                if (!isLineMatch) return false;
 
                 // Module match
                 const title = s.cr3ea_title || "";

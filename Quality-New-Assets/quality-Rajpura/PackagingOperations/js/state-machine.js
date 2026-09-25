@@ -178,7 +178,7 @@ const PKGOPS_StateMachine = {
         const status = session ? (session.cr3ea_processstatus || session.cr3ea_status || "") : "";
         const isPendingProdAction = status.includes("Pending Production") || status.includes("Pending Observation") || status === "Failed - Pending Production" || status === "Production Action Needed";
         const isPendingQAVerify = status.includes("Pending Re-Verification") || status.includes("Pending QA Re-Verification");
-        const isTourInProgress = status === "QA In Progress" || status === "In Progress" || status === "Pending QA" || status === "InProgress-paused";
+        const isTourInProgress = status === "QA In Progress" || status.startsWith("QA In Progress") || status === "In Progress" || status === "Pending QA" || status === "InProgress-paused";
 
         let isQaRole = false;
         let isProdRole = false;
@@ -400,7 +400,15 @@ const PKGOPS_StateMachine = {
             }
         });
         const saveButton = document.getElementById("btnSubmitChecklist");
-        if (saveButton) saveButton.style.display = shouldLock ? "none" : "block";
+        if (saveButton) {
+            if (shouldLock) {
+                saveButton.style.display = "none";
+            } else if (typeof PKGOPS_Checklist !== "undefined" && PKGOPS_Checklist.updateSubmitButtonVisibility) {
+                PKGOPS_Checklist.updateSubmitButtonVisibility();
+            } else {
+                saveButton.style.display = "block";
+            }
+        }
         const pauseButton = document.getElementById("btnPauseChecklist");
         if (pauseButton) pauseButton.style.display = shouldLock ? "none" : "inline-block";
     },

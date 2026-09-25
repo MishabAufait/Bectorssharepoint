@@ -55,15 +55,15 @@ const PKGOPS_QARequest = {
                     Plant: "Rajpura",
                     AssignedUser: {
                         results: [
-                            { Id: 101, Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com" },
-                            { Id: 108, Title: "Gokul K", EMail: "gokul.k@bectorfoods.com" },
-                            { Id: 112, Title: "Babifas P", EMail: "babifas.p@bectorfoods.com" }
+                            { Id: 101, Title: "Mishab Muhammed", EMail: "" },
+                            { Id: 108, Title: "Gokul K", EMail: "" },
+                            { Id: 112, Title: "Babifas P", EMail: "" }
                         ]
                     },
                     assignedUsers: [
-                        { id: 101, title: "Mishab Muhammed", email: "mishab@bectorfoods.com" },
-                        { id: 108, title: "Gokul K", email: "gokul.k@bectorfoods.com" },
-                        { id: 112, title: "Babifas P", email: "babifas.p@bectorfoods.com" }
+                        { id: 101, title: "Mishab Muhammed", email: "" },
+                        { id: 108, title: "Gokul K", email: "" },
+                        { id: 112, title: "Babifas P", email: "" }
                     ]
                 }
             ];
@@ -89,27 +89,27 @@ const PKGOPS_QARequest = {
                     Plant: "Rajpura",
                     AssignedUser: {
                         results: [
-                            { Id: 101, Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com" },
-                            { Id: 108, Title: "Gokul K", EMail: "gokul.k@bectorfoods.com" },
-                            { Id: 112, Title: "Babifas P", EMail: "babifas.p@bectorfoods.com" }
+                            { Id: 101, Title: "Mishab Muhammed", EMail: "" },
+                            { Id: 108, Title: "Gokul K", EMail: "" },
+                            { Id: 112, Title: "Babifas P", EMail: "" }
                         ]
                     },
                     assignedUsers: [
-                        { id: 101, title: "Mishab Muhammed", email: "mishab@bectorfoods.com" },
-                        { id: 108, title: "Gokul K", email: "gokul.k@bectorfoods.com" },
-                        { id: 112, title: "Babifas P", email: "babifas.p@bectorfoods.com" }
+                        { id: 101, title: "Mishab Muhammed", email: "" },
+                        { id: 108, title: "Gokul K", email: "" },
+                        { id: 112, title: "Babifas P", email: "" }
                     ],
                     ProductionIncharge: {
                         results: [
-                            { Id: 101, Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com" },
-                            { Id: 108, Title: "Gokul K", EMail: "gokul.k@bectorfoods.com" },
-                            { Id: 112, Title: "Babifas P", EMail: "babifas.p@bectorfoods.com" }
+                            { Id: 101, Title: "Mishab Muhammed", EMail: "" },
+                            { Id: 108, Title: "Gokul K", EMail: "" },
+                            { Id: 112, Title: "Babifas P", EMail: "" }
                         ]
                     },
                     productionIncharges: [
-                        { id: 101, title: "Mishab Muhammed", email: "mishab@bectorfoods.com" },
-                        { id: 108, title: "Gokul K", email: "gokul.k@bectorfoods.com" },
-                        { id: 112, title: "Babifas P", email: "babifas.p@bectorfoods.com" }
+                        { id: 101, title: "Mishab Muhammed", email: "" },
+                        { id: 108, title: "Gokul K", email: "" },
+                        { id: 112, title: "Babifas P", email: "" }
                     ]
                 }
             ];
@@ -330,7 +330,9 @@ const PKGOPS_QARequest = {
         }
 
         const selectedOption = qaSelect.options[qaSelect.selectedIndex];
-        const assignedQaEmail = selectedOption.getAttribute("data-email") || selectedOption.value || selectedOption.textContent || "";
+        const optQaEmail = (selectedOption.getAttribute("data-email") || "").trim();
+        const isQaDummy = typeof QualityRajpura_Utils !== 'undefined' ? QualityRajpura_Utils.isDummyEmail(optQaEmail) : optQaEmail.includes("bectorfoods.com");
+        const assignedQaEmail = (!isQaDummy && optQaEmail) ? optQaEmail : (selectedOption.value || selectedOption.textContent || "");
         const configRowId = selectedOption.getAttribute("data-rowid");
 
         // Shift Executive (logged-in user starting tour)
@@ -343,7 +345,9 @@ const PKGOPS_QARequest = {
         if (prodSelect) {
             if (prodSelect.tagName === "SELECT" && prodSelect.selectedIndex >= 0) {
                 const opt = prodSelect.options[prodSelect.selectedIndex];
-                productionExecEmailOrName = opt.getAttribute("data-email") || opt.value || opt.textContent || "";
+                const optEmail = (opt.getAttribute("data-email") || "").trim();
+                const isDummy = typeof QualityRajpura_Utils !== 'undefined' ? QualityRajpura_Utils.isDummyEmail(optEmail) : optEmail.includes("bectorfoods.com");
+                productionExecEmailOrName = (!isDummy && optEmail) ? optEmail : (opt.textContent || opt.value || "");
             } else {
                 productionExecEmailOrName = prodSelect.value || "";
             }
@@ -351,16 +355,6 @@ const PKGOPS_QARequest = {
         if (!productionExecEmailOrName) {
             alert("Please select a Production Executive.");
             return;
-        }
-
-        // Escalation managers
-        const configRow = (this.qaList || []).find(c => (c.Id == configRowId || c.id == configRowId));
-        let escalationEmails = [];
-        if (configRow) {
-            const mgrs = configRow.EscalationManager?.results || configRow.escalationManagers || [];
-            if (Array.isArray(mgrs)) {
-                escalationEmails = mgrs.map(em => em.EMail || em.email).filter(Boolean);
-            }
         }
 
         const site = document.getElementById("setup-site")?.value || "Rajpura";
@@ -384,7 +378,7 @@ const PKGOPS_QARequest = {
             cr3ea_lineno: line,
             cr3ea_shift: shift,
             cr3ea_assigned_qa: assignedQaEmail,
-            cr3ea_escalation_contacts: escalationEmails.join(","),
+            cr3ea_escalation_contacts: "",
             cr3ea_islineclear: false,
             cr3ea_pkgops_type: pkgOpsType
         };
@@ -415,7 +409,7 @@ const PKGOPS_QARequest = {
             
             // Trigger notification
             if (typeof ALC_Notification !== "undefined") {
-                await ALC_Notification.sendSubmitRequest(savedTour, assignedQaEmail, escalationEmails);
+                await ALC_Notification.sendSubmitRequest(savedTour, assignedQaEmail, []);
             }
 
             if (typeof HideLoader === "function") HideLoader();

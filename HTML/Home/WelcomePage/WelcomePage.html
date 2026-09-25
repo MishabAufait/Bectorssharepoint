@@ -19,19 +19,19 @@
             siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/main.min.css?v=2.0",
             siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/home-page.min.css?v=3.7",
             siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/style.css?v=2.0",
-            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=5.8",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=5.9",
             siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/admin.css?v=6.0"
         ];
 
         var jsScripts = [
-            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=5.8",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=6.1",
             siteBaseUrl + "/BectorsSourceCode/JS/Home/WelcomeWebPart/WelcomeDAL.js?v=2.0",
-            siteBaseUrl + "/BectorsSourceCode/JS/Home/WelcomeWebPart/WelcomeBAL.js?v=2.0",
+            siteBaseUrl + "/BectorsSourceCode/JS/Home/WelcomeWebPart/WelcomeBAL.js?v=2.1",
             siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/js/custom/shiftpopup.js?v=2.0",
             siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/pkg-products-seed.js?v=5.8",
-            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/mb-recipes-seed.js?v=5.8",
-            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/dashboard.js?v=6.5",
-            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/admin.js?v=6.4"
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/mb-recipes-seed.js?v=7.3",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/dashboard.js?v=7.0",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/admin.js?v=9.2"
         ];
 
         // Dynamically load CSS stylesheets (href)
@@ -411,6 +411,62 @@ html, body {
                 <div class="bs-card" style="flex: 1; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; text-align: center; background: #f8fafc; margin-bottom: 0 !important;">
                     <div style="font-size: 14px; color: #64748b; font-weight: 500;">Open Re-verifications</div>
                     <div id="kpi-pending-reverify" style="font-size: 28px; font-weight: bold; color: #2563eb; margin-top: 5px;">0</div>
+                </div>
+            </div>
+
+            <!-- Interactive Filters Bar (Line & Date Filters) -->
+            <div id="dashboardFilterPanel" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 22px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);">
+                <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 15px;">
+                    <!-- Line Filter -->
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label for="dashboardLineSelect" style="font-size: 13px; font-weight: 600; color: #475569; margin: 0; white-space: nowrap;">Line:</label>
+                        <select id="dashboardLineSelect" style="height: 36px; padding: 6px 12px; font-size: 13px; font-weight: 500; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #1e293b; cursor: pointer; min-width: 140px;">
+                            <option value="All">All Lines</option>
+                            <option value="Line No. 1">Line No. 1</option>
+                            <option value="Line No. 2">Line No. 2</option>
+                            <option value="Line No. 3">Line No. 3</option>
+                            <option value="Line No. 4">Line No. 4</option>
+                            <option value="Line No. 5">Line No. 5</option>
+                            <option value="Line No. 6">Line No. 6</option>
+                            <option value="Line No. 7">Line No. 7</option>
+                            <option value="Line No. 8">Line No. 8</option>
+                        </select>
+                    </div>
+
+                    <!-- Date Range Preset -->
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label for="dashboardDatePreset" style="font-size: 13px; font-weight: 600; color: #475569; margin: 0; white-space: nowrap;"> Date:</label>
+                        <select id="dashboardDatePreset" style="height: 36px; padding: 6px 12px; font-size: 13px; font-weight: 500; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #1e293b; cursor: pointer; min-width: 130px;">
+                            <option value="All">All Dates</option>
+                            <option value="Today">Today</option>
+                            <option value="Yesterday">Yesterday</option>
+                            <option value="Last7Days">Last 7 Days</option>
+                            <option value="Last30Days">Last 30 Days</option>
+                            <option value="Custom">Custom Range</option>
+                        </select>
+                    </div>
+
+                    <!-- Custom Date Range Inputs (From & To) -->
+                    <div id="dashboardCustomDateRange" style="display: none; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                            <span style="font-size: 12px; color: #64748b; font-weight: 500;">From:</span>
+                            <input type="date" id="dashboardFromDate" style="height: 36px; padding: 4px 8px; font-size: 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #1e293b; cursor: pointer;" />
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                            <span style="font-size: 12px; color: #64748b; font-weight: 500;">To:</span>
+                            <input type="date" id="dashboardToDate" style="height: 36px; padding: 4px 8px; font-size: 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #1e293b; cursor: pointer;" />
+                        </div>
+                    </div>
+
+                    <!-- Reset Filters Button -->
+                    <button type="button" id="btn-reset-filters" onclick="ALC_Dashboard.resetFilters()" style="display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; font-size: 13px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #475569; cursor: pointer; transition: all 0.15s ease;" title="Reset all filters">
+                        Reset
+                    </button>
+                </div>
+
+                <!-- Active Filter Result Count Badge -->
+                <div id="dashboardFilterCountBadge" style="font-size: 12px; font-weight: 600; color: #0369a1; background: #e0f2fe; padding: 5px 12px; border-radius: 12px; border: 1px solid #bae6fd; white-space: nowrap;">
+                    Showing all tours
                 </div>
             </div>
             

@@ -73,7 +73,7 @@ const PKGOPS_DAL = {
 
         try {
             // Step 1: Dynamically probe list schema fields to prevent OData 400 Bad Request
-            const fieldsUrl = `${webUrl}/_api/web/lists/getByTitle('${listName}')/Fields?$select=InternalName,Title,TypeAsString,AllowMultipleValues`;
+            const fieldsUrl = `${webUrl}/_api/web/lists/getByTitle('${listName}')/Fields?$select=InternalName,Title,TypeAsString`;
             let listFields = [];
             try {
                 const fieldsResponse = await fetch(fieldsUrl, { headers: { "Accept": "application/json; odata=verbose" } });
@@ -281,15 +281,15 @@ const PKGOPS_DAL = {
                 isActive: true,
                 AssignedUser: {
                     results: [
-                        { Id: 101, Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com" },
-                        { Id: 108, Title: "Gokul K", EMail: "gokul.k@bectorfoods.com" },
-                        { Id: 112, Title: "Babifas P", EMail: "babifas.p@bectorfoods.com" }
+                        { Id: 101, Title: "Mishab Muhammed", EMail: "" },
+                        { Id: 108, Title: "Gokul K", EMail: "" },
+                        { Id: 112, Title: "Babifas P", EMail: "" }
                     ]
                 },
                 assignedUsers: [
-                    { id: 101, title: "Mishab Muhammed", email: "mishab@bectorfoods.com" },
-                    { id: 108, title: "Gokul K", email: "gokul.k@bectorfoods.com" },
-                    { id: 112, title: "Babifas P", email: "babifas.p@bectorfoods.com" }
+                    { id: 101, title: "Mishab Muhammed", email: "" },
+                    { id: 108, title: "Gokul K", email: "" },
+                    { id: 112, title: "Babifas P", email: "" }
                 ],
                 EscalationManager: { results: [] },
                 escalationManagers: []
@@ -307,11 +307,11 @@ const PKGOPS_DAL = {
                 isActive: true,
                 AssignedUser: {
                     results: [
-                        { Id: 101, Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com" }
+                        { Id: 101, Title: "Mishab Muhammed", EMail: "" }
                     ]
                 },
                 assignedUsers: [
-                    { id: 101, title: "Mishab Muhammed", email: "mishab@bectorfoods.com" }
+                    { id: 101, title: "Mishab Muhammed", email: "" }
                 ],
                 EscalationManager: { results: [] },
                 escalationManagers: []

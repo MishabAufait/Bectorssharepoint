@@ -22,6 +22,16 @@ const PKGOPS_Summary = {
         return num.toFixed(2);
     },
 
+    formatProofLinks: function (proofString, label = "Proof") {
+        if (!proofString) return "";
+        const urls = String(proofString).split(",").map(u => u.trim()).filter(Boolean);
+        if (urls.length === 0) return "";
+        return urls.map((u, i) => {
+            const text = urls.length > 1 ? `${label} ${i + 1}` : `View ${label}`;
+            return ` <a href="${u}" target="_blank" class="badge bg-info text-decoration-none" style="font-size: 10px; font-weight: 600; margin: 1px;"><i class="fa fa-image"></i> ${text}</a>`;
+        }).join("");
+    },
+
     init: async function (tourId, pkgopsType, pendingMessage) {
         this.currentTourId = tourId;
         this.pkgopsType = pkgopsType;
@@ -182,8 +192,9 @@ const PKGOPS_Summary = {
                                          const qaRemarks = qaPart.split(" | Proof: ")[0] || "-";
                                          const qaProof = qaPart.split(" | Proof: ")[1] || "";
 
-                                         const prodLinkHtml = prodProof ? ` <a href="${prodProof}" target="_blank" class="badge bg-info text-decoration-none" style="font-size: 10px; font-weight: 600;"><i class="fa fa-image"></i> View Proof</a>` : "";
-                                         const qaLinkHtml = qaProof ? ` <a href="${qaProof}" target="_blank" class="badge bg-info text-decoration-none" style="font-size: 10px; font-weight: 600;"><i class="fa fa-image"></i> View Proof</a>` : "";
+                                         const defectLinkHtml = row.cr3ea_codepictureurl ? `<br>${PKGOPS_Summary.formatProofLinks(row.cr3ea_codepictureurl, "Defect Photo")}` : "";
+                                         const prodLinkHtml = prodProof ? PKGOPS_Summary.formatProofLinks(prodProof, "Proof") : "";
+                                         const qaLinkHtml = qaProof ? PKGOPS_Summary.formatProofLinks(qaProof, "QA Proof") : "";
 
                                          let rowStyle = "";
                                          if (hasDefect && isResolved) {
@@ -196,7 +207,7 @@ const PKGOPS_Summary = {
                                              <tr style="${rowStyle} border-bottom: 1px solid #e2e8f0;">
                                                  <td style="padding: 12px 16px; font-weight: 600;">Sample ${idx + 1}</td>
                                                  <td style="padding: 12px 16px;">Batch: ${row.cr3ea_batchno || "-"} <br> <small class="text-secondary">PKD: ${row.cr3ea_pkd || "-"}</small></td>
-                                                 <td style="padding: 12px 16px; font-weight: 700;" class="${hasDefect ? 'text-danger' : ''}">${row.cr3ea_defecttype || "-"}</td>
+                                                 <td style="padding: 12px 16px; font-weight: 700;" class="${hasDefect ? 'text-danger' : ''}">${row.cr3ea_defecttype || "-"}${defectLinkHtml}</td>
                                                  <td style="padding: 12px 16px; font-weight: 600;">${row.cr3ea_defectcount || "0"}</td>
                                                  <td style="padding: 12px 16px; text-align: left; font-size: 13px; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${prodRemarks}${prodLinkHtml}</td>
                                                  <td style="padding: 12px 16px; text-align: left; font-size: 13px; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${qaRemarks}${qaLinkHtml}</td>
@@ -294,7 +305,10 @@ const PKGOPS_Summary = {
                             <div class="card-body p-3">
                                 <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Conformance Rate</span>
                                 <h4 class="mt-1 mb-0 text-success fw-bold">${conformancePct}%</h4>
-                                <small class="text-success fw-semibold">${conformingCount} / ${sampleSize} Units Pass</small>
+                                <div class="progress mt-2" style="height: 6px; background-color: #f1f5f9; border-radius: 3px; overflow: hidden;">
+                                    <div class="progress-bar bg-success" style="width: ${Math.min(conformancePct, 100)}%;"></div>
+                                </div>
+                                <small class="text-success fw-semibold mt-1 d-block">${conformingCount} / ${sampleSize} Units Pass</small>
                             </div>
                         </div>
                     </div>
@@ -303,47 +317,50 @@ const PKGOPS_Summary = {
                             <div class="card-body p-3">
                                 <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Overall Defect Rate</span>
                                 <h4 class="mt-1 mb-0 ${totalDefectCount > 0 ? 'text-danger' : 'text-success'} fw-bold">${overallDefectPct}%</h4>
-                                <small class="${totalDefectCount > 0 ? 'text-danger' : 'text-success'} fw-semibold">${totalDefectCount} Total Defect Units</small>
+                                <div class="progress mt-2" style="height: 6px; background-color: #f1f5f9; border-radius: 3px; overflow: hidden;">
+                                    <div class="progress-bar ${totalDefectCount > 0 ? 'bg-danger' : 'bg-success'}" style="width: ${Math.min(overallDefectPct, 100)}%;"></div>
+                                </div>
+                                <small class="${totalDefectCount > 0 ? 'text-danger' : 'text-success'} fw-semibold mt-1 d-block">${totalDefectCount} Total Defect Units</small>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Severity & Classification Cards -->
+                <!-- Severity & Classification Cards with Category Progress Bars -->
                 <div class="row mt-3 g-3">
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <div class="card border-0 shadow-sm rounded bg-white h-100">
                             <div class="card-body p-3">
                                 <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Category A (Critical)</span>
                                 <h4 class="mt-1 mb-0 ${catACount > 0 ? 'text-danger' : 'text-dark'} fw-bold">${catACount} <span style="font-size: 13px; font-weight: 500; color: #64748b;">(${((catACount/sampleSize)*100).toFixed(2)}%)</span></h4>
-                                <small class="${catACount > 0 ? 'text-danger fw-semibold' : 'text-muted'}">${catACount > 0 ? 'Critical Deviations' : 'Zero Critical Defects'}</small>
+                                <div class="progress mt-2" style="height: 6px; background-color: #fee2e2; border-radius: 3px; overflow: hidden;">
+                                    <div class="progress-bar bg-danger" style="width: ${Math.min((catACount/sampleSize)*100, 100)}%;"></div>
+                                </div>
+                                <small class="${catACount > 0 ? 'text-danger fw-semibold' : 'text-muted'} mt-1 d-block">${catACount > 0 ? 'Critical Deviations' : 'Zero Critical Defects'}</small>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <div class="card border-0 shadow-sm rounded bg-white h-100">
                             <div class="card-body p-3">
                                 <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Category B (Major)</span>
                                 <h4 class="mt-1 mb-0 ${catBCount > 0 ? 'text-warning text-dark' : 'text-dark'} fw-bold">${catBCount} <span style="font-size: 13px; font-weight: 500; color: #64748b;">(${((catBCount/sampleSize)*100).toFixed(2)}%)</span></h4>
-                                <small class="${catBCount > 0 ? 'text-warning text-dark fw-semibold' : 'text-muted'}">${catBCount > 0 ? 'Major Deviations' : 'Zero Major Defects'}</small>
+                                <div class="progress mt-2" style="height: 6px; background-color: #fef3c7; border-radius: 3px; overflow: hidden;">
+                                    <div class="progress-bar bg-warning text-dark" style="width: ${Math.min((catBCount/sampleSize)*100, 100)}%;"></div>
+                                </div>
+                                <small class="${catBCount > 0 ? 'text-warning text-dark fw-semibold' : 'text-muted'} mt-1 d-block">${catBCount > 0 ? 'Major Deviations' : 'Zero Major Defects'}</small>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <div class="card border-0 shadow-sm rounded bg-white h-100">
                             <div class="card-body p-3">
                                 <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Category C (Minor)</span>
                                 <h4 class="mt-1 mb-0 ${catCCount > 0 ? 'text-secondary' : 'text-dark'} fw-bold">${catCCount} <span style="font-size: 13px; font-weight: 500; color: #64748b;">(${((catCCount/sampleSize)*100).toFixed(2)}%)</span></h4>
-                                <small class="text-muted">${catCCount > 0 ? 'Minor Deviations' : 'Zero Minor Defects'}</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card border-0 shadow-sm rounded bg-white h-100">
-                            <div class="card-body p-3">
-                                <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Defect Domain Scope</span>
-                                <h5 class="mt-1 mb-0 text-dark fw-bold">Product: ${prodDefectCount} | Pack: ${packDefectCount}</h5>
-                                <small class="text-muted">Observed Distribution</small>
+                                <div class="progress mt-2" style="height: 6px; background-color: #f1f5f9; border-radius: 3px; overflow: hidden;">
+                                    <div class="progress-bar bg-secondary" style="width: ${Math.min((catCCount/sampleSize)*100, 100)}%;"></div>
+                                </div>
+                                <small class="text-muted mt-1 d-block">${catCCount > 0 ? 'Minor Deviations' : 'Zero Minor Defects'}</small>
                             </div>
                         </div>
                     </div>
@@ -386,8 +403,8 @@ const PKGOPS_Summary = {
                                                 const qaRemarks = qaPart.split(" | Proof: ")[0] || "-";
                                                 const qaProof = qaPart.split(" | Proof: ")[1] || "";
 
-                                                const prodLinkHtml = prodProof ? ` <a href="${prodProof}" target="_blank" class="badge bg-info text-decoration-none" style="font-size: 10px; font-weight: 600;"><i class="fa fa-image"></i> View Proof</a>` : "";
-                                                const qaLinkHtml = qaProof ? ` <a href="${qaProof}" target="_blank" class="badge bg-info text-decoration-none" style="font-size: 10px; font-weight: 600;"><i class="fa fa-image"></i> View Proof</a>` : "";
+                                                const prodLinkHtml = prodProof ? PKGOPS_Summary.formatProofLinks(prodProof, "Proof") : "";
+                                                const qaLinkHtml = qaProof ? PKGOPS_Summary.formatProofLinks(qaProof, "QA Proof") : "";
 
                                                 const badge = isResolved
                                                     ? `<span class="badge" style="background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 11px; display: inline-block;">OKAY</span>`
@@ -403,8 +420,8 @@ const PKGOPS_Summary = {
                                                 return `
                                                     <tr style="${rowStyle} border-bottom: 1px solid #e2e8f0;">
                                                         <td style="padding: 12px 16px; text-align: left; font-weight: 600;">
-                                                            <div>${defectInfo.name}</div>
-                                                            <div class="mt-1">${defectInfo.badge}</div>
+                                                             <div>${defectInfo.name}</div>
+                                                             <div class="mt-1">${defectInfo.badge}</div>
                                                         </td>
                                                         <td style="padding: 12px 16px; font-weight: 700; font-size: 15px;">${row.cr3ea_defectcount || "0"}</td>
                                                         <td style="padding: 12px 16px; font-weight: 600;">${formattedPct}</td>
@@ -444,15 +461,58 @@ const PKGOPS_Summary = {
                 groups[evalType].push(row);
             });
 
+            const evalCategories = ["Product", "Primary", "Secondary", "CBB"];
+            const catDisplayNames = {
+                "Product": "Product Defects",
+                "Primary": "Primary Pack Defects",
+                "Secondary": "Secondary Pack Defects",
+                "CBB": "CBB Defects"
+            };
+
+            let totalPQIEvaluated = 0;
+            let totalPQIDefective = 0;
+            const catStats = {};
+
+            evalCategories.forEach(cat => {
+                const subRows = groups[cat] || [];
+                const total = subRows.length;
+                const defective = subRows.filter(r => r.cr3ea_sampleresult === "Not Okay").length;
+                const pct = total > 0 ? ((defective / total) * 100).toFixed(2) : "0.00";
+                catStats[cat] = { total, defective, pct };
+                if (total > 0) {
+                    totalPQIEvaluated += total;
+                    totalPQIDefective += defective;
+                }
+            });
+
+            const overallPQIDefectPct = totalPQIEvaluated > 0 
+                ? ((totalPQIDefective / totalPQIEvaluated) * 100).toFixed(2) 
+                : "0.00";
+            const firstRow = rows[0] || {};
+            const productName = firstRow.cr3ea_productname || "-";
+            const sku = firstRow.cr3ea_sku || "-";
+
             let groupsHtml = "";
             Object.keys(groups).forEach(evalType => {
                 const groupRows = groups[evalType];
+                const st = catStats[evalType] || { total: groupRows.length, defective: groupRows.filter(r => r.cr3ea_sampleresult === "Not Okay").length, pct: ((groupRows.filter(r => r.cr3ea_sampleresult === "Not Okay").length / (groupRows.length || 1)) * 100).toFixed(2) };
+                const isDefective = st.defective > 0;
+                const badgeCls = isDefective ? 'bg-danger' : 'bg-success';
+
                 groupsHtml += `
                     <div class="card mb-4 shadow-sm rounded border bg-white" style="overflow: hidden; border-radius: 8px;">
-                        <div class="card-header py-3 px-4" style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+                        <div class="card-header py-3 px-4" style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
                             <h5 class="mb-0 fw-bold" style="color: #1e3a8a; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px;">
                                 <i class="fa fa-folder text-primary me-2"></i> ${evalType} Evaluation
                             </h5>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge ${badgeCls}" style="font-size: 11px; font-weight: 600; padding: 4px 8px;">
+                                    ${st.defective} / ${st.total} Defective (${st.pct}%)
+                                </span>
+                                <div class="progress" style="height: 8px; width: 110px; background-color: #e2e8f0; border-radius: 4px; overflow: hidden;">
+                                    <div class="progress-bar ${isDefective ? 'bg-danger' : 'bg-success'}" style="width: ${Math.min(parseFloat(st.pct) || 0, 100)}%;"></div>
+                                </div>
+                            </div>
                         </div>
                         <div class="table-responsive" style="overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch;">
                             <table class="table table-hover align-middle mb-0" style="border-collapse: collapse; width: 100%; min-width: 850px; table-layout: fixed;">
@@ -482,8 +542,9 @@ const PKGOPS_Summary = {
                                          const qaRemarks = qaPart.split(" | Proof: ")[0] || "-";
                                          const qaProof = qaPart.split(" | Proof: ")[1] || "";
 
-                                         const prodLinkHtml = prodProof ? ` <a href="${prodProof}" target="_blank" class="badge bg-info text-decoration-none" style="font-size: 10px; font-weight: 600;"><i class="fa fa-image"></i> View Proof</a>` : "";
-                                         const qaLinkHtml = qaProof ? ` <a href="${qaProof}" target="_blank" class="badge bg-info text-decoration-none" style="font-size: 10px; font-weight: 600;"><i class="fa fa-image"></i> View Proof</a>` : "";
+                                         const defectLinkHtml = row.cr3ea_batchcodepictureurl ? `<br>${PKGOPS_Summary.formatProofLinks(row.cr3ea_batchcodepictureurl, "Defect Photo")}` : "";
+                                         const prodLinkHtml = prodProof ? PKGOPS_Summary.formatProofLinks(prodProof, "Proof") : "";
+                                         const qaLinkHtml = qaProof ? PKGOPS_Summary.formatProofLinks(qaProof, "QA Proof") : "";
 
                                          let rowStyle = "";
                                          if (isNotOk && isResolved) {
@@ -496,7 +557,7 @@ const PKGOPS_Summary = {
                                              <tr style="${rowStyle} border-bottom: 1px solid #e2e8f0;">
                                                  <td style="padding: 12px 16px; font-weight: 600;">${row.cr3ea_samplenumber || "-"}</td>
                                                  <td style="padding: 12px 16px;">${badge}</td>
-                                                 <td style="padding: 12px 16px; text-align: left; font-weight: 500;">${row.cr3ea_defectcategory || "-"} - ${row.cr3ea_defectdetail || "-"}</td>
+                                                 <td style="padding: 12px 16px; text-align: left; font-weight: 500;">${row.cr3ea_defectcategory || "-"} - ${row.cr3ea_defectdetail || "-"}${defectLinkHtml}</td>
                                                  <td style="padding: 12px 16px; text-align: left; font-size: 13px; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${prodRemarks}${prodLinkHtml}</td>
                                                  <td style="padding: 12px 16px; text-align: left; font-size: 13px; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${qaRemarks}${qaLinkHtml}</td>
                                              </tr>
@@ -510,6 +571,59 @@ const PKGOPS_Summary = {
             });
 
             html = `
+                <!-- PQI Executive Category-wise Defect Rate KPI Cards with Progress Bars -->
+                <div class="row mt-3 g-3">
+                    ${evalCategories.map(catKey => {
+                        const st = catStats[catKey] || { total: 10, defective: 0, pct: "0.00" };
+                        const isDef = st.defective > 0;
+                        const dispName = catDisplayNames[catKey] || `${catKey} Defects`;
+                        return `
+                            <div class="col-md-3">
+                                <div class="card border-0 shadow-sm rounded bg-white h-100">
+                                    <div class="card-body p-3">
+                                        <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">${dispName}</span>
+                                        <h4 class="mt-1 mb-0 ${isDef ? 'text-danger' : 'text-success'} fw-bold">
+                                            ${st.defective} <span style="font-size: 13px; font-weight: 500; color: #64748b;">/ ${st.total || 10}</span>
+                                            <span style="font-size: 13px; font-weight: 600;">(${st.pct}%)</span>
+                                        </h4>
+                                        <div class="progress mt-2" style="height: 6px; background-color: #f1f5f9; border-radius: 3px; overflow: hidden;">
+                                            <div class="progress-bar ${isDef ? 'bg-danger' : 'bg-success'}" style="width: ${Math.min(parseFloat(st.pct) || 0, 100)}%;"></div>
+                                        </div>
+                                        <small class="${isDef ? 'text-danger fw-semibold' : 'text-success'} mt-1 d-block">${isDef ? st.defective + ' Defective Sample(s)' : '100% Quality Conformance'}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <!-- Overall PQI Evaluation Summary Card -->
+                <div class="card my-3 shadow-sm border rounded bg-white" style="border-radius: 8px; border: 1px solid #cbd5e1 !important;">
+                    <div class="card-body p-3 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <div>
+                            <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Overall PQI Evaluation Status</span>
+                            <h5 class="mb-0 fw-bold text-dark mt-1">
+                                Product: <strong>${productName}</strong> <span class="text-muted fw-normal ms-2">| SKU: <strong>${sku}</strong></span>
+                            </h5>
+                        </div>
+                        <div class="d-flex align-items-center gap-4 flex-wrap">
+                            <div>
+                                <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Total Evaluated</span>
+                                <h5 class="mb-0 fw-bold text-dark">${totalPQIEvaluated} Samples</h5>
+                            </div>
+                            <div style="min-width: 200px;">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Overall Defect Rate</span>
+                                    <span class="badge ${totalPQIDefective > 0 ? 'bg-danger' : 'bg-success'}" style="font-size: 11px;">${overallPQIDefectPct}%</span>
+                                </div>
+                                <div class="progress" style="height: 8px; background-color: #f1f5f9; border-radius: 4px; overflow: hidden;">
+                                    <div class="progress-bar ${totalPQIDefective > 0 ? 'bg-danger' : 'bg-success'}" style="width: ${Math.min(parseFloat(overallPQIDefectPct) || 0, 100)}%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="row mt-3">
                     <div class="col-md-12">
                         ${groupsHtml}
@@ -537,8 +651,8 @@ const PKGOPS_Summary = {
                     const qaRemarks = qaPart.split(" | Proof: ")[0] || "-";
                     const qaProof = qaPart.split(" | Proof: ")[1] || "";
 
-                    const prodLinkHtml = prodProof ? ` <a href="${prodProof}" target="_blank" class="badge bg-info text-decoration-none">View Proof</a>` : "";
-                    const qaLinkHtml = qaProof ? ` <a href="${qaProof}" target="_blank" class="badge bg-info text-decoration-none">View Proof</a>` : "";
+                    const prodLinkHtml = prodProof ? PKGOPS_Summary.formatProofLinks(prodProof, "Proof") : "";
+                    const qaLinkHtml = qaProof ? PKGOPS_Summary.formatProofLinks(qaProof, "QA Proof") : "";
 
                     return `
                         <div class="row mt-3">

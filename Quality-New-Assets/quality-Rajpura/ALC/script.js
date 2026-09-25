@@ -26,7 +26,8 @@ async function handleALCSubmit() {
             execProd: document.getElementById("header-exec-prod")?.value || "",
             prevProduct: document.getElementById("header-prev-product")?.value || "",
             newProduct: document.getElementById("header-new-product")?.value || "",
-            execQual: document.getElementById("header-exec-qual")?.value || ""
+            execQual: document.getElementById("header-exec-qual")?.value || "",
+            qaShiftExec: (window.jQuery && $("#header-qa-shift-exec").length) ? ($("#header-qa-shift-exec").val() || "") : (document.getElementById("header-qa-shift-exec")?.value || "")
         };
 
         // Dynamically fetch UserName from SharePoint context if the custom global is missing
@@ -97,7 +98,7 @@ async function handleALCSubmit() {
                         "cr3ea_time": headerData.time,
                         "cr3ea_plant": headerData.plant,
                         "cr3ea_shiftexecutiveproduction": headerData.execProd,
-                        "cr3ea_shiftexecutivequality": headerData.execQual
+                        "cr3ea_executivename": headerData.qaShiftExec || headerData.execQual || ""
                     });
                 }
             });

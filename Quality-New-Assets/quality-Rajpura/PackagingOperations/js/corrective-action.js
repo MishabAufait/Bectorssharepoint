@@ -6,10 +6,85 @@ const PKGOPS_CorrectiveAction = {
     pkgopsType: null,
     activeSubChecklistKey: null,
     deviatedRows: [],
+    uploadedFiles: {}, // Maps idx to Array of File objects
+
+    escapeHtml: function (str) {
+        if (!str) return "";
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    },
+
+    onFileSelected: async function (input, idx) {
+        if (!input.files || input.files.length === 0) return;
+
+        if (!this.uploadedFiles[idx]) {
+            this.uploadedFiles[idx] = [];
+        }
+
+        const selectedFiles = Array.from(input.files);
+        let invalidCount = 0;
+
+        for (const file of selectedFiles) {
+            const isImage = file.type.startsWith("image/") || /\.(jpe?g|png|gif|webp|bmp|heic)$/i.test(file.name);
+            if (!isImage) {
+                invalidCount++;
+                continue;
+            }
+            const exists = this.uploadedFiles[idx].some(f => f.name === file.name && f.size === file.size);
+            if (!exists) {
+                this.uploadedFiles[idx].push(file);
+            }
+        }
+
+        if (invalidCount > 0) {
+            alert(`${invalidCount} non-image file(s) were ignored. Only image files (JPG, PNG, WebP, etc.) are allowed.`);
+        }
+
+        input.value = "";
+        this.renderFileStatus(idx);
+    },
+
+    removeFile: function (idx, fileIdx) {
+        if (this.uploadedFiles[idx] && this.uploadedFiles[idx][fileIdx]) {
+            this.uploadedFiles[idx].splice(fileIdx, 1);
+            if (this.uploadedFiles[idx].length === 0) {
+                delete this.uploadedFiles[idx];
+            }
+        }
+        this.renderFileStatus(idx);
+    },
+
+    renderFileStatus: function (idx) {
+        const fileStatus = document.getElementById(`act-file-status-${idx}`);
+        if (!fileStatus) return;
+
+        const files = this.uploadedFiles[idx] || [];
+        if (files.length === 0) {
+            fileStatus.innerHTML = "";
+            return;
+        }
+
+        let chipsHtml = `<div class="pkgops-file-chips-container">`;
+        chipsHtml += `<div style="font-size: 11px; font-weight: 600; color: #15803d; display: flex; align-items: center; gap: 4px;"><i class="fa fa-check-circle"></i> ${files.length} photo(s) selected:</div>`;
+        files.forEach((file, fIdx) => {
+            chipsHtml += `
+                <div class="pkgops-file-chip">
+                    <span class="chip-name" title="${this.escapeHtml(file.name)}"><i class="fa fa-image"></i> ${this.escapeHtml(file.name)}</span>
+                    <button type="button" class="chip-remove-btn" onclick="PKGOPS_CorrectiveAction.removeFile(${idx}, ${fIdx})" title="Remove photo">&times;</button>
+                </div>`;
+        });
+        chipsHtml += `</div>`;
+        fileStatus.innerHTML = chipsHtml;
+    },
 
     init: async function (tourId, pkgopsType) {
         this.currentTourId = tourId;
         this.pkgopsType = pkgopsType;
+        this.uploadedFiles = {};
         
         // Map table keys
         switch (this.pkgopsType) {
@@ -112,8 +187,17 @@ const PKGOPS_CorrectiveAction = {
                                     rowId = row.cr3ea_rajpura_pkgops_sealintegrityid || row.cr3ea_prod_rajpura_pkgops_sealintegrityid || row.id;
                                 }
 
+                                const defectPhotos = (row.cr3ea_codepictureurl || row.cr3ea_batchcodepictureurl || "").split(",").map(u => u.trim()).filter(Boolean);
+                                let defectPhotosHtml = "";
+                                if (defectPhotos.length > 0) {
+                                    defectPhotosHtml = `<div class="mt-1 pkgops-saved-file-links-container">` +
+                                        defectPhotos.map((u, pIdx) => `<a href="${u}" target="_blank" class="pkgops-saved-file-link"><i class="fa fa-image"></i> Defect Photo ${defectPhotos.length > 1 ? pIdx + 1 : ''}</a>`).join("") +
+                                        `</div>`;
+                                }
+
                                 const actionRaw = row.cr3ea_actiontaken || "";
                                 const actionRemarksOnly = actionRaw.split(" | QA: ")[0].split(" | Proof: ")[0] || "";
+                                const actionProof = actionRaw.split(" | QA: ")[0].split(" | Proof: ")[1] || "";
 
                                 const qaPart = actionRaw.split(" | QA: ")[1] || "";
                                 const qaRemarks = qaPart.split(" | Proof: ")[0] || "";
@@ -121,12 +205,23 @@ const PKGOPS_CorrectiveAction = {
 
                                 let qaReverifyHtml = "";
                                 if (qaRemarks || qaProof) {
-                                    const proofBadge = qaProof 
-                                        ? `<br><a href="${qaProof}" target="_blank" class="badge bg-warning text-dark text-decoration-none mt-1"><i class="fa fa-image"></i> View QA Proof</a>` 
-                                        : "";
+                                    const qaProofUrls = (qaProof || "").split(",").map(u => u.trim()).filter(Boolean);
+                                    const proofBadges = qaProofUrls.map((u, pIdx) => 
+                                        `<a href="${u}" target="_blank" class="badge bg-warning text-dark text-decoration-none mt-1 me-1"><i class="fa fa-image"></i> View QA Proof ${qaProofUrls.length > 1 ? pIdx + 1 : ''}</a>`
+                                    ).join("");
                                     qaReverifyHtml = `<div class="mt-2 p-1 border border-danger rounded bg-light-danger" style="font-size: 11px; text-align: left; background-color: #fff5f5; color: #c53030; border-color: #feb2b2;">
-                                        <strong>QA Reject Remarks:</strong> ${qaRemarks || "None"}${proofBadge}
+                                        <strong>QA Reject Remarks:</strong> ${qaRemarks || "None"}${proofBadges ? '<br>' + proofBadges : ''}
                                     </div>`;
+                                }
+
+                                let existingProofHtml = "";
+                                if (actionProof) {
+                                    const existingUrls = actionProof.split(",").map(u => u.trim()).filter(Boolean);
+                                    if (existingUrls.length > 0) {
+                                        existingProofHtml = `<div class="pkgops-saved-file-links-container mt-1">` +
+                                            existingUrls.map((u, pIdx) => `<a href="${u}" target="_blank" class="pkgops-saved-file-link"><i class="fa fa-paperclip"></i> Saved Proof ${existingUrls.length > 1 ? pIdx + 1 : ''}</a>`).join("") +
+                                            `</div>`;
+                                    }
                                 }
 
                                 return `
@@ -134,13 +229,17 @@ const PKGOPS_CorrectiveAction = {
                                         <td><strong>${defectDesc}</strong></td>
                                         <td>
                                             <div>${obsDetails}</div>
+                                            ${defectPhotosHtml}
                                             ${qaReverifyHtml}
                                         </td>
                                         <td>
                                             <textarea class="form-control action-taken-input" id="act-remarks-${idx}" rows="2" placeholder="Describe actions taken...">${actionRemarksOnly}</textarea>
                                         </td>
                                         <td>
-                                            <input type="file" class="form-control action-file-input" id="act-file-${idx}" accept="image/*">
+                                            <input type="file" class="form-control action-file-input" id="act-file-${idx}" accept="image/*" multiple onchange="PKGOPS_CorrectiveAction.onFileSelected(this, ${idx})">
+                                            <div id="act-file-status-${idx}" class="form-text text-muted" style="margin-top: 4px; font-size: 11px;">
+                                                ${existingProofHtml}
+                                            </div>
                                         </td>
                                     </tr>
                                 `;
@@ -182,9 +281,22 @@ const PKGOPS_CorrectiveAction = {
                     return;
                 }
 
+                const actionRaw = row.cr3ea_actiontaken || "";
+                const existingActionProof = actionRaw.split(" | QA: ")[0].split(" | Proof: ")[1] || "";
+
+                const files = this.uploadedFiles[idx] || (fileInput && fileInput.files && fileInput.files.length ? Array.from(fileInput.files) : []);
                 let proofUrl = "";
-                if (fileInput && fileInput.files && fileInput.files[0]) {
-                    proofUrl = await PKGOPS_DAL.uploadAttachmentFile(fileInput.files[0], this.currentTourId, `Corrective_${this.pkgopsType}`, `CA-${idx}`, remarksVal);
+                if (files.length > 0) {
+                    const uploadPromises = files.map(file => PKGOPS_DAL.uploadAttachmentFile(file, this.currentTourId, `Corrective_${this.pkgopsType}`, `CA-${idx}`, remarksVal));
+                    const urls = await Promise.all(uploadPromises);
+                    const validUrls = urls.filter(Boolean);
+                    if (existingActionProof) {
+                        proofUrl = existingActionProof + ", " + validUrls.join(", ");
+                    } else {
+                        proofUrl = validUrls.join(", ");
+                    }
+                } else if (existingActionProof) {
+                    proofUrl = existingActionProof;
                 }
 
                 let actionValue = remarksVal;
@@ -209,10 +321,10 @@ const PKGOPS_CorrectiveAction = {
                     cr3ea_deviationstatus: "Pending Re-Verification"
                 };
 
-                if (this.pkgopsType === "Code Verification" && (proofUrl || row.cr3ea_codepictureurl)) {
-                    updatePayload.cr3ea_codepictureurl = proofUrl || row.cr3ea_codepictureurl;
-                } else if (this.pkgopsType === "PQI" && (proofUrl || row.cr3ea_batchcodepictureurl)) {
-                    updatePayload.cr3ea_batchcodepictureurl = proofUrl || row.cr3ea_batchcodepictureurl;
+                if (this.pkgopsType === "Code Verification" && row.cr3ea_codepictureurl) {
+                    updatePayload.cr3ea_codepictureurl = row.cr3ea_codepictureurl;
+                } else if (this.pkgopsType === "PQI" && row.cr3ea_batchcodepictureurl) {
+                    updatePayload.cr3ea_batchcodepictureurl = row.cr3ea_batchcodepictureurl;
                 }
 
                 await PKGOPS_DAL.saveSubChecklistRow(this.activeSubChecklistKey, updatePayload);

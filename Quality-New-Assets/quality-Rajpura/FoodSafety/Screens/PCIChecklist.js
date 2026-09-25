@@ -26,7 +26,7 @@ const PCIChecklistScreen = {
         "Mondelez Packing", "Line 8 Packing", "Line 8 Mixing", "FG Main Warehouse"
     ],
 
-    observationTypes: ["Lizard", "Insects", "Rodents", "Cockroach", "Store Insects", "Others"],
+    observationTypes: ["Lizard", "Insects", "Rodents", "Cockroach", "Store Insects", "Moth", "Others"],
 
     init: function () {
         console.log("Initializing PCI Checklist Screen...");
@@ -151,8 +151,9 @@ const PCIChecklistScreen = {
         row.style.gap = "10px";
         row.style.marginBottom = "10px";
 
-        // Generate type options
+        // Generate type and count options
         const typeOptions = this.observationTypes.map(t => `<option value="${t}">${t}</option>`).join("");
+        const countOptions = Array.from({ length: 20 }, (_, i) => `<option value="${i + 1}" ${i === 0 ? 'selected' : ''}>${i + 1}</option>`).join("");
 
         row.innerHTML = `
             <div class="select2-parent" style="flex: 2; min-width: 150px;">
@@ -160,9 +161,10 @@ const PCIChecklistScreen = {
                     ${typeOptions}
                 </select>
             </div>
-            <div style="flex: 1; min-width: 80px;">
-                <input type="number" class="form-control pci-obs-count" id="pci-obs-count-${locIndex}-${obsIndex}" 
-                       min="1" value="1" style="height: 42px; text-align: center;" placeholder="Count">
+            <div class="select2-parent" style="flex: 1; min-width: 80px;">
+                <select class="form-select pci-obs-count" id="pci-obs-count-${locIndex}-${obsIndex}">
+                    ${countOptions}
+                </select>
             </div>
             <div style="width: 45px; display: flex; align-items: center; justify-content: center;">
                 <button type="button" style="background: transparent; border: none; padding: 0; width: 42px; height: 42px; font-size: 22px; font-weight: bold; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;" onclick="PCIChecklistScreen.removeObservation(${locIndex}, ${obsIndex})" title="Remove observation">
@@ -173,21 +175,20 @@ const PCIChecklistScreen = {
 
         list.appendChild(row);
 
-        // Initialize newly added type Select2 dropdown
+        // Initialize newly added Select2 dropdowns
         DropdownComponent.init(`pci-obs-type-${locIndex}-${obsIndex}`);
+        DropdownComponent.init(`pci-obs-count-${locIndex}-${obsIndex}`);
+
         $(`#pci-obs-type-${locIndex}-${obsIndex}`).on("change", function () {
             if (typeof FoodSafety_Validator !== "undefined") {
                 FoodSafety_Validator.highlight(this, false);
             }
         });
-        const cntInput = document.getElementById(`pci-obs-count-${locIndex}-${obsIndex}`);
-        if (cntInput) {
-            cntInput.addEventListener("input", function () {
-                if (typeof FoodSafety_Validator !== "undefined") {
-                    FoodSafety_Validator.highlight(this, false);
-                }
-            });
-        }
+        $(`#pci-obs-count-${locIndex}-${obsIndex}`).on("change", function () {
+            if (typeof FoodSafety_Validator !== "undefined") {
+                FoodSafety_Validator.highlight(this, false);
+            }
+        });
     },
 
     // Remove repeatable observation sub-form row
@@ -686,7 +687,10 @@ const PCIChecklistScreen = {
                                         `<option value="${t}" ${t === obsType ? 'selected' : ''}>${t}</option>`
                                     ).join("");
 
-                                    const obsCount = match.cr3ea_food_safety_defectcount || match.cr953_food_safety_defectcount || 1;
+                                    const obsCount = parseInt(match.cr3ea_food_safety_defectcount || match.cr953_food_safety_defectcount || 1);
+                                    const countOptions = Array.from({ length: 20 }, (_, i) => 
+                                        `<option value="${i + 1}" ${(i + 1) === obsCount ? 'selected' : ''}>${i + 1}</option>`
+                                    ).join("");
 
                                     row.innerHTML = `
                                         <div class="select2-parent" style="flex: 2; min-width: 150px;">
@@ -694,9 +698,10 @@ const PCIChecklistScreen = {
                                                  ${typeOptions}
                                              </select>
                                         </div>
-                                        <div style="flex: 1; min-width: 80px;">
-                                             <input type="number" class="form-control pci-obs-count" id="pci-obs-count-${idx}-${obsIdx}" 
-                                                    min="1" value="${obsCount}" style="height: 42px; text-align: center;">
+                                        <div class="select2-parent" style="flex: 1; min-width: 80px;">
+                                             <select class="form-select pci-obs-count" id="pci-obs-count-${idx}-${obsIdx}">
+                                                 ${countOptions}
+                                             </select>
                                         </div>
                                         <div style="width: 45px; display: flex; align-items: center; justify-content: center;">
                                              <button type="button" style="background: transparent; border: none; padding: 0; width: 42px; height: 42px; font-size: 22px; font-weight: bold; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;" onclick="PCIChecklistScreen.removeObservation(${idx}, ${obsIdx})" title="Remove observation">
@@ -706,6 +711,7 @@ const PCIChecklistScreen = {
                                     `;
                                     list.appendChild(row);
                                     DropdownComponent.init(`pci-obs-type-${idx}-${obsIdx}`);
+                                    DropdownComponent.init(`pci-obs-count-${idx}-${obsIdx}`);
                                 });
 
                                 // Check for proof URL in any match

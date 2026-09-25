@@ -475,17 +475,82 @@ select.form-select::-ms-expand {
     opacity: 1 !important;
 }
 
-/* Table container positioning override */
+/* Layout overrides to prevent duplicate middle scrollbar and allow full height rendering */
 #rajpura-alc-main-container {
     max-width: 100% !important;
     margin: 0 auto;
-    padding: 15px 15px 40px 15px !important;
-    height: calc(100vh - 20px) !important;
-    overflow-y: auto !important;
+    padding: 15px 15px 30px 15px !important;
+    overflow: visible !important;
+    max-height: none !important;
+    min-height: auto !important;
+    height: auto !important;
     box-sizing: border-box !important;
 }
 
+#rajpura-alc-main-container .plan-tour-body {
+    overflow: visible !important;
+    max-height: none !important;
+    min-height: auto !important;
+    display: block !important;
+}
+
 html, body {
-    overflow: auto !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
     height: 100% !important;
+}
+
+/* Food Safety Checklist Scroll Containers (PCI, GMP, PPE) */
+.fs-checklist-scroll-container {
+    max-height: calc(100vh - 190px);
+    min-height: 540px;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding-right: 6px;
+    padding-top: 2px;
+    padding-bottom: 8px;
+    scroll-behavior: smooth;
+    position: relative;
+    border-radius: 8px;
+}
+
+/* Custom sleek scrollbars for Food Safety scroll containers */
+.fs-checklist-scroll-container::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.fs-checklist-scroll-container::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+.fs-checklist-scroll-container::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.fs-checklist-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Progress tracker banners stay stationary top headers above scroll containers */
+.checklist-tracker-banner,
+#pci-tracker-banner,
+#gmp-tracker-banner,
+#ppe-tracker-banner {
+    position: relative !important;
+    z-index: 10 !important;
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    margin-bottom: 15px !important;
+}
+
+@media (max-width: 768px) {
+    .fs-checklist-scroll-container {
+        max-height: calc(100vh - 130px);
+        min-height: 420px;
+    }
 }

@@ -117,7 +117,7 @@ const PKGOPS_Main = {
                 }
 
                 // If tour is In Progress and current user is NOT the assigned QA, restrict access and redirect to dashboard like ALC
-                const isPkgOpsInProgress = (currentStatus === "QA In Progress" || currentStatus === "In Progress" || currentStatus === "InProgress-paused" || currentStatus === "Pending QA");
+                const isPkgOpsInProgress = (currentStatus === "QA In Progress" || currentStatus.startsWith("QA In Progress") || currentStatus === "In Progress" || currentStatus === "InProgress-paused" || currentStatus === "Pending QA");
                 if (isPkgOpsInProgress && !PKGOPS_StateMachine.isQaUser) {
                     if (typeof HideLoader === "function") HideLoader();
                     alert("This tour is currently in progress for QA evaluation. Access is restricted to the assigned QA Executive.");

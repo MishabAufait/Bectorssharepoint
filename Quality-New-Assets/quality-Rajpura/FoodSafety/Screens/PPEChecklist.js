@@ -13,9 +13,16 @@ const PPEChecklistScreen = {
         console.log("Initializing PPE Checklist Screen...");
         
         // 1. Setup default values
+        const defaultSampleSize = 50;
         document.getElementById("ppeAreaSelect").value = "Mixing + Oven";
-        document.getElementById("ppe-sample-size-input").value = 50;
-        document.getElementById("ppe-possible-defects-input").value = 2;
+        document.getElementById("ppe-sample-size-input").value = defaultSampleSize;
+        const possibleDefectsEl = document.getElementById("ppe-possible-defects-input");
+        if (possibleDefectsEl) {
+            possibleDefectsEl.value = defaultSampleSize * 4;
+            possibleDefectsEl.readOnly = true;
+            possibleDefectsEl.style.backgroundColor = "#f1f5f9";
+            possibleDefectsEl.style.cursor = "not-allowed";
+        }
 
         // 2. Initialize Select2
         DropdownComponent.init("ppeAreaSelect");
@@ -24,13 +31,21 @@ const PPEChecklistScreen = {
         this.renderChecklistTable();
 
         // 4. Hook up change events
-        document.getElementById("ppeAreaSelect").addEventListener("change", () => this.handleAreaChange());
-        document.getElementById("ppe-sample-size-input").addEventListener("input", () => this.handleSampleSizeChange());
-        document.getElementById("ppe-sample-size-input").addEventListener("change", () => this.handleSampleSizeChange());
-        document.getElementById("ppe-possible-defects-input").addEventListener("input", () => this.calculateScores());
+        this.bindEvents();
 
         // 5. Render header component
         HeaderComponent.render("ppe-header-wrapper");
+    },
+
+    bindEvents: function () {
+        const areaEl = document.getElementById("ppeAreaSelect");
+        if (areaEl) {
+            $(areaEl).off("change.ppe").on("change.ppe", () => this.handleAreaChange());
+        }
+        const sampleSizeEl = document.getElementById("ppe-sample-size-input");
+        if (sampleSizeEl) {
+            $(sampleSizeEl).off("input.ppe change.ppe").on("input.ppe change.ppe", () => this.handleSampleSizeChange());
+        }
     },
 
     // Handle dependent defaults for Area
@@ -54,6 +69,15 @@ const PPEChecklistScreen = {
         if (sampleSize < 1) {
             sampleSize = 1;
             if (sampleSizeInput) sampleSizeInput.value = 1;
+        }
+
+        // Auto-calculate Total Possible Defects (Sample Size * 4) and keep it disabled/readonly
+        const possibleDefectsInput = document.getElementById("ppe-possible-defects-input");
+        if (possibleDefectsInput) {
+            possibleDefectsInput.value = sampleSize * 4;
+            possibleDefectsInput.readOnly = true;
+            possibleDefectsInput.style.backgroundColor = "#f1f5f9";
+            possibleDefectsInput.style.cursor = "not-allowed";
         }
 
         // Update max attribute and display
@@ -288,7 +312,11 @@ const PPEChecklistScreen = {
             const trTotalDefects = trackerBanner.querySelector(".tracker-count-totaldefects");
             const trPossibleDefects = trackerBanner.querySelector(".tracker-count-possibledefects");
 
-            const possibleDefectsVal = parseInt(document.getElementById("ppe-possible-defects-input").value) || 0;
+            const possibleDefectsVal = sampleSize * 4;
+            const possibleDefectsInput = document.getElementById("ppe-possible-defects-input");
+            if (possibleDefectsInput) {
+                possibleDefectsInput.value = possibleDefectsVal;
+            }
 
             if (trSampleSize) trSampleSize.innerText = sampleSize;
             if (trTotalDefects) trTotalDefects.innerText = filledCount > 0 ? totalDefects : 0;
@@ -704,7 +732,13 @@ const PPEChecklistScreen = {
                 document.getElementById("ppeAreaSelect").value = first.cr3ea_food_safety_area || first.cr953_food_safety_area || "Mixing + Oven";
                 const loadedSampleSize = first.cr3ea_food_safety_samplesize || first.cr953_food_safety_samplesize || 50;
                 document.getElementById("ppe-sample-size-input").value = loadedSampleSize;
-                document.getElementById("ppe-possible-defects-input").value = first.cr3ea_food_safety_totalpossibledefects || first.cr953_food_safety_totalpossibledefects || 2;
+                const possibleDefectsEl = document.getElementById("ppe-possible-defects-input");
+                if (possibleDefectsEl) {
+                    possibleDefectsEl.value = loadedSampleSize * 4;
+                    possibleDefectsEl.readOnly = true;
+                    possibleDefectsEl.style.backgroundColor = "#f1f5f9";
+                    possibleDefectsEl.style.cursor = "not-allowed";
+                }
                 
                 DropdownComponent.init("ppeAreaSelect");
 
@@ -746,9 +780,13 @@ const PPEChecklistScreen = {
                     }
                 });
 
+                // Bind change and input events
+                this.bindEvents();
+
                 // Apply sample size bounds and recalculate scores
                 this.handleSampleSizeChange();
             } else {
+                this.bindEvents();
                 this.calculateScores();
             }
         } catch (err) {

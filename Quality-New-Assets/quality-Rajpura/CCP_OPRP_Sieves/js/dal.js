@@ -254,10 +254,10 @@ const CCP_OPRP_DAL = {
                 Plant: "Rajpura",
                 LineName: "Line-1",
                 IsActive: true,
-                AssignedQA: { results: [{ Id: 101, Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com" }] },
-                AssignedUser: { results: [{ Id: 101, Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com" }] },
-                ProductionIncharge: { results: [{ Id: 104, Title: "Mahesh Singh", EMail: "mahesh.singh@bectorfoods.com" }] },
-                EscalationManager: { results: [{ Id: 103, Title: "Suresh Kumar", EMail: "suresh.kumar@bectorfoods.com" }] }
+                AssignedQA: { results: [{ Id: 101, Title: "Mishab Muhammed", EMail: "" }] },
+                AssignedUser: { results: [{ Id: 101, Title: "Mishab Muhammed", EMail: "" }] },
+                ProductionIncharge: { results: [{ Id: 104, Title: "Mahesh Singh", EMail: "" }] },
+                EscalationManager: { results: [{ Id: 103, Title: "Suresh Kumar", EMail: "" }] }
             },
             {
                 Id: 22,
@@ -266,10 +266,10 @@ const CCP_OPRP_DAL = {
                 Plant: "Rajpura",
                 LineName: "Line-1",
                 IsActive: true,
-                AssignedQA: { results: [{ Id: 101, Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com" }, { Id: 108, Title: "Gokul K", EMail: "gokul.k@bectorfoods.com" }] },
-                AssignedUser: { results: [{ Id: 101, Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com" }, { Id: 108, Title: "Gokul K", EMail: "gokul.k@bectorfoods.com" }] },
-                ProductionIncharge: { results: [{ Id: 105, Title: "Rajesh Verma", EMail: "rajesh.verma@bectorfoods.com" }] },
-                EscalationManager: { results: [{ Id: 103, Title: "Suresh Kumar", EMail: "suresh.kumar@bectorfoods.com" }] }
+                AssignedQA: { results: [{ Id: 101, Title: "Mishab Muhammed", EMail: "" }, { Id: 108, Title: "Gokul K", EMail: "" }] },
+                AssignedUser: { results: [{ Id: 101, Title: "Mishab Muhammed", EMail: "" }, { Id: 108, Title: "Gokul K", EMail: "" }] },
+                ProductionIncharge: { results: [{ Id: 105, Title: "Rajesh Verma", EMail: "" }] },
+                EscalationManager: { results: [{ Id: 103, Title: "Suresh Kumar", EMail: "" }] }
             },
             ...seedProducts
         ];

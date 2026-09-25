@@ -3,7 +3,87 @@ console.log("ALC Re-Verification script loaded");
 
 const ALC_ReVerification = {
     failedCheckpoints: [],
-    uploadedFiles: {},
+    uploadedFiles: {}, // Maps checkpoint index to Array of File objects: [File1, File2, ...]
+
+    // Helper to escape HTML safely
+    escapeHtml: function (str) {
+        if (!str) return "";
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    },
+
+    // Handle file input selection (supporting multiple files)
+    onFileSelected: async function (input, index) {
+        if (!input.files || input.files.length === 0) return;
+
+        if (!this.uploadedFiles[index]) {
+            this.uploadedFiles[index] = [];
+        }
+
+        const selectedFiles = Array.from(input.files);
+        let invalidCount = 0;
+
+        for (const file of selectedFiles) {
+            const isImage = file.type.startsWith("image/") || /\.(jpe?g|png|gif|webp|bmp|heic)$/i.test(file.name);
+            if (!isImage) {
+                invalidCount++;
+                continue;
+            }
+            // Avoid duplicate additions in the same checkpoint
+            const alreadyAdded = this.uploadedFiles[index].some(f => f.name === file.name && f.size === file.size);
+            if (!alreadyAdded) {
+                this.uploadedFiles[index].push(file);
+            }
+        }
+
+        if (invalidCount > 0) {
+            alert(`${invalidCount} non-image file(s) were ignored. Only image files (JPG, PNG, WebP, etc.) are allowed.`);
+        }
+
+        // Reset input value so user can click to add more files or re-select
+        input.value = "";
+
+        this.renderFileStatus(index);
+    },
+
+    // Remove single file from selected list before submitting
+    removeFile: function (index, fileIdx) {
+        if (this.uploadedFiles[index] && this.uploadedFiles[index][fileIdx]) {
+            this.uploadedFiles[index].splice(fileIdx, 1);
+            if (this.uploadedFiles[index].length === 0) {
+                delete this.uploadedFiles[index];
+            }
+        }
+        this.renderFileStatus(index);
+    },
+
+    // Render chips and count for selected files
+    renderFileStatus: function (index) {
+        const fileStatus = document.getElementById(`reverify-file-status-${index}`);
+        if (!fileStatus) return;
+
+        const files = this.uploadedFiles[index] || [];
+        if (files.length === 0) {
+            fileStatus.innerHTML = '<span class="text-muted">No image uploaded</span>';
+            return;
+        }
+
+        let chipsHtml = `<div class="alc-file-chips-container">`;
+        chipsHtml += `<div style="font-size: 11px; font-weight: 600; color: #15803d; display: flex; align-items: center; gap: 4px;"><i class="fa fa-check-circle"></i> ${files.length} photo(s) selected:</div>`;
+        files.forEach((file, fIdx) => {
+            chipsHtml += `
+                <div class="alc-file-chip">
+                    <span class="chip-name" title="${this.escapeHtml(file.name)}"><i class="fa fa-image"></i> ${this.escapeHtml(file.name)}</span>
+                    <button type="button" class="chip-remove-btn" onclick="ALC_ReVerification.removeFile(${index}, ${fIdx})" title="Remove photo">&times;</button>
+                </div>`;
+        });
+        chipsHtml += `</div>`;
+        fileStatus.innerHTML = chipsHtml;
+    },
 
     // Load and render failed items for re-verification
     loadReverificationItems: async function () {
@@ -50,23 +130,69 @@ const ALC_ReVerification = {
         this.failedCheckpoints.forEach((cp, index) => {
             const row = document.createElement("tr");
 
-            let remarksHtml = cp.cr3ea_productionremarks || "";
-            if (!remarksHtml && cp.cr3ea_defectremarks && cp.cr3ea_defectremarks.startsWith("Action:")) {
-                remarksHtml = cp.cr3ea_defectremarks;
+            // Display QA initial defect remarks & proof if present
+            let qaDefectHtml = "";
+            const qaDefectFiles = [];
+            const defectRemark = cp.cr3ea_defectremarks || "";
+            if (defectRemark) {
+                let cleanDefectRemark = defectRemark;
+                let defectFileName = "";
+                if (defectRemark.toLowerCase().includes("file:")) {
+                    const idx = defectRemark.toLowerCase().indexOf("file:");
+                    defectFileName = defectRemark.substring(idx + 5).trim();
+                    let textPart = defectRemark.substring(0, idx).trim();
+                    if (textPart.endsWith("|")) {
+                        textPart = textPart.substring(0, textPart.length - 1).trim();
+                    }
+                    cleanDefectRemark = textPart;
+                }
+                if (!cleanDefectRemark && defectFileName) {
+                    cleanDefectRemark = "Image Proof Uploaded";
+                }
+                let defectFileBadges = "";
+                if (defectFileName) {
+                    const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
+                    const dFiles = defectFileName.split(",").map(f => f.trim()).filter(Boolean);
+                    dFiles.forEach(f => qaDefectFiles.push(f));
+                    defectFileBadges = dFiles.map((f, fIdx) => {
+                        const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${f}`;
+                        return `<a href="${fileUrl}" target="_blank" class="btn btn-xs btn-outline-danger" style="margin-left: 4px; padding: 1px 5px; font-size: 10px; text-decoration: none; border-radius: 3px;" title="${f}"><i class="fa fa-paperclip"></i> Defect Photo${dFiles.length > 1 ? ' (' + (fIdx + 1) + ')' : ''}</a>`;
+                    }).join("");
+                }
+                qaDefectHtml = `<div style="margin-top: 4px; font-size: 11px; color: #991b1b;">
+                    <strong>QA Defect:</strong> ${cleanDefectRemark}${defectFileBadges}
+                </div>`;
             }
-            if (remarksHtml.includes(" | Re-verified:")) {
-                remarksHtml = remarksHtml.split(" | Re-verified:")[0].trim();
-            }
-            const isReady = remarksHtml && remarksHtml.trim().startsWith("Action:");
 
-            if (remarksHtml.includes("| File:")) {
-                const parts = remarksHtml.split("| File:");
+            // Display Production Corrective Action remarks & proof
+            let prodRemarksHtml = cp.cr3ea_productionremarks || "";
+            if (!prodRemarksHtml && cp.cr3ea_defectremarks && cp.cr3ea_defectremarks.startsWith("Action:")) {
+                prodRemarksHtml = cp.cr3ea_defectremarks;
+            }
+            if (prodRemarksHtml.includes(" | Re-verified:")) {
+                prodRemarksHtml = prodRemarksHtml.split(" | Re-verified:")[0].trim();
+            }
+            const isReady = prodRemarksHtml && prodRemarksHtml.trim().startsWith("Action:");
+
+            if (prodRemarksHtml.includes("| File:")) {
+                const parts = prodRemarksHtml.split("| File:");
                 const textPart = parts[0].trim();
                 const fileName = parts[1] ? parts[1].trim() : "";
                 if (fileName) {
                     const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-                    const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${fileName}`;
-                    remarksHtml = `${textPart} | <a href="${fileUrl}" target="_blank" style="text-decoration: underline; color: #1a73e8; font-weight: bold;">View Proof (${fileName})</a>`;
+                    let fList = fileName.split(",").map(f => f.trim()).filter(Boolean);
+                    // Filter out QA defect files if they were previously merged into production remarks
+                    if (qaDefectFiles.length > 0) {
+                        const prodOnly = fList.filter(f => !qaDefectFiles.includes(f));
+                        if (prodOnly.length > 0) {
+                            fList = prodOnly;
+                        }
+                    }
+                    const links = fList.map((f, fIdx) => {
+                        const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${f}`;
+                        return `<a href="${fileUrl}" target="_blank" style="text-decoration: underline; color: #1a73e8; font-weight: bold; margin-left: 4px;" title="${f}">View Proof${fList.length > 1 ? ' (' + (fIdx + 1) + ')' : ''}</a>`;
+                    }).join("");
+                    prodRemarksHtml = `${textPart} | ${links}`;
                 }
             }
 
@@ -76,8 +202,11 @@ const ALC_ReVerification = {
                  <td>${index + 1}</td>
                  <td style="text-align: left;">
                      <strong>${cp.cr3ea_area}</strong><br>
-                     <span class="text-secondary">${cp.cr3ea_criteria}</span><br>
-                     <small class="text-info">${isReady ? remarksHtml : '<span class="badge" style="background-color: #fef3c7; color: #d97706; border: 1px solid #fde68a; padding: 2px 6px; border-radius: 4px; font-weight: 500; font-size: 11px;">Waiting for Production Action</span>'}</small>
+                     <span class="text-secondary">${cp.cr3ea_criteria}</span>
+                     ${qaDefectHtml}
+                     <div style="margin-top: 4px;">
+                         <small class="text-info">${isReady ? prodRemarksHtml : '<span class="badge" style="background-color: #fef3c7; color: #d97706; border: 1px solid #fde68a; padding: 2px 6px; border-radius: 4px; font-weight: 500; font-size: 11px;">Waiting for Production Action</span>'}</small>
+                     </div>
                  </td>
                  <td>
                       <select class="form-select reverify-score-select" data-index="${index}" ${disabledAttr}>
@@ -92,8 +221,8 @@ const ALC_ReVerification = {
                  </td>
                  <td>
                      <div class="custom-file-upload">
-                         <input type="file" class="form-control-file file-upload-input" data-index="${index}" onchange="ALC_ReVerification.onFileSelected(this, ${index})" ${disabledAttr}>
-                         <small id="reverify-file-status-${index}" class="form-text text-muted">No image uploaded</small>
+                         <input type="file" class="form-control-file file-upload-input" data-index="${index}" accept="image/*" multiple onchange="ALC_ReVerification.onFileSelected(this, ${index})" ${disabledAttr}>
+                         <div id="reverify-file-status-${index}" class="form-text text-muted" style="margin-top: 4px; font-size: 11px;">No image uploaded</div>
                      </div>
                  </td>
              `;
@@ -123,27 +252,6 @@ const ALC_ReVerification = {
         this.updateTracker();
     },
 
-    // Handle file input selection
-    onFileSelected: async function (input, index) {
-        const file = input.files[0];
-        if (!file) return;
-
-        const fileStatus = document.getElementById(`reverify-file-status-${index}`);
-        if (fileStatus) fileStatus.innerText = `Reading file: ${file.name}...`;
-
-        // Check if image format
-        if (!file.type.startsWith("image/")) {
-            alert("Only image files are allowed.");
-            input.value = "";
-            if (fileStatus) fileStatus.innerText = "No image uploaded";
-            return;
-        }
-
-        // Cache the file object to be uploaded on submission
-        this.uploadedFiles[index] = file;
-        if (fileStatus) fileStatus.innerHTML = `<span class="text-success">&#10003; ${file.name} ready</span>`;
-    },
-
     // QA Submits Re-Verification
     submitReverification: async function () {
         if (!ALC_StateMachine.currentTourId) return;
@@ -152,6 +260,7 @@ const ALC_ReVerification = {
         let isIncomplete = false;
         let hasMissingMandatoryFile = false;
         let missingFileIndex = -1;
+        let firstInvalidEl = null;
 
         for (let i = 0; i < this.failedCheckpoints.length; i++) {
             const selectEl = document.querySelector(`.reverify-score-select[data-index='${i}']`);
@@ -159,12 +268,19 @@ const ALC_ReVerification = {
                 const val = selectEl.value;
                 if (!val) {
                     isIncomplete = true;
-                } else if (val.includes("Non-Compliant")) {
-                    const file = this.uploadedFiles[i];
-                    if (!file) {
-                        hasMissingMandatoryFile = true;
-                        if (missingFileIndex === -1) {
-                            missingFileIndex = i + 1;
+                    selectEl.style.borderColor = "#ef4444";
+                    if (!firstInvalidEl) firstInvalidEl = selectEl;
+                } else {
+                    selectEl.style.borderColor = "";
+                    if (val.includes("Non-Compliant")) {
+                        const files = this.uploadedFiles[i] || [];
+                        if (files.length === 0) {
+                            hasMissingMandatoryFile = true;
+                            if (missingFileIndex === -1) {
+                                missingFileIndex = i + 1;
+                            }
+                            const fileInput = document.querySelector(`.file-upload-input[data-index='${i}']`);
+                            if (fileInput && !firstInvalidEl) firstInvalidEl = fileInput;
                         }
                     }
                 }
@@ -173,11 +289,17 @@ const ALC_ReVerification = {
 
         if (isIncomplete) {
             alert("Please select compliance score for all checkpoints before submitting.");
+            if (firstInvalidEl) {
+                firstInvalidEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
             return;
         }
 
         if (hasMissingMandatoryFile) {
             alert(`Uploading a proof image is mandatory for Non-Compliant checkpoint #${missingFileIndex}.`);
+            if (firstInvalidEl) {
+                firstInvalidEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
             return;
         }
 
@@ -207,33 +329,39 @@ const ALC_ReVerification = {
                 }
 
                 // Upload QA Re-verification Image if selected
-                const file = this.uploadedFiles[i];
-                let fileName = "";
-                if (file) {
+                const files = this.uploadedFiles[i] || [];
+                let uploadedFileNames = [];
+                if (files.length > 0) {
                     try {
-                        const uploadedUrl = await ALC_DAL.uploadCorrectiveActionFile(
-                            file,
-                            ALC_StateMachine.currentTourId,
-                            cp.cr3ea_area,
-                            cp.cr3ea_rajpura_alcsid || `CP-${i}`,
-                            remarks
+                        const uploadPromises = files.map(file =>
+                            ALC_DAL.uploadCorrectiveActionFile(
+                                file,
+                                ALC_StateMachine.currentTourId,
+                                cp.cr3ea_area,
+                                cp.cr3ea_rajpura_alcsid || `CP-${i}`,
+                                remarks
+                            ).then(uploadedUrl => {
+                                if (uploadedUrl) {
+                                    return uploadedUrl.substring(uploadedUrl.lastIndexOf("/") + 1);
+                                }
+                                return file.name;
+                            })
                         );
-                        if (uploadedUrl) {
-                            fileName = uploadedUrl.substring(uploadedUrl.lastIndexOf("/") + 1);
-                        } else {
-                            fileName = file.name;
-                        }
+                        uploadedFileNames = await Promise.all(uploadPromises);
                     } catch (uploadError) {
                         console.error(`Failed to upload QA re-verification file for checkpoint #${i + 1}:`, uploadError);
                         alert(`File upload failed for checkpoint #${i + 1}. Storing without file.`);
                     }
                 }
 
+                const validNames = uploadedFileNames.filter(Boolean);
+                const fileString = validNames.join(", ");
+
                 let baseRemark = cp.cr3ea_defectremarks || "";
 
                 let reverifyVal = remarks;
-                if (fileName) {
-                    reverifyVal = reverifyVal ? `${reverifyVal} | File: ${fileName}` : ` | File: ${fileName}`;
+                if (fileString) {
+                    reverifyVal = reverifyVal ? `${reverifyVal} | File: ${fileString}` : ` | File: ${fileString}`;
                 }
 
                 const finalRemarks = reverifyVal
@@ -255,10 +383,20 @@ const ALC_ReVerification = {
                 await ALC_DAL.saveChecklistRow(updatedRecord);
             }
 
-            // Compute overall score
+            // Compute overall score & check critical items
             const allCheckpoints = await ALC_DAL.getCheckpoints(ALC_StateMachine.currentTourId);
             let totalMaxScore = allCheckpoints.length * 2;
             let totalObtainedScore = 0;
+            let hasCriticalFailure = false;
+            const failedCriticalItems = [];
+
+            let configs = [];
+            try {
+                configs = await ALC_DAL.getConfig();
+            } catch (cfgErr) {
+                console.warn("Could not load configs in reverify:", cfgErr);
+            }
+            const questionConfigs = configs.filter(c => c.ConfigType === "Checklist Question");
 
             allCheckpoints.forEach(cp => {
                 const scoreText = cp.cr3ea_defectcategory || "Okay (2)";
@@ -269,6 +407,41 @@ const ALC_ReVerification = {
                     numericScore = 1;
                 }
                 totalObtainedScore += numericScore;
+
+                // Check if this checkpoint is critical
+                let isCritical = false;
+                const criteriaText = (cp.cr3ea_criteria || "").toLowerCase().trim();
+                const matchedCfg = questionConfigs.find(q => {
+                    const qTitle = (q.Title || "").toLowerCase().trim();
+                    const qRemarks = (q.Remarks || "").toLowerCase().trim();
+                    return (qTitle && (criteriaText.includes(qTitle) || qTitle.includes(criteriaText))) ||
+                           (qRemarks && (criteriaText.includes(qRemarks) || qRemarks.includes(criteriaText)));
+                });
+
+                if (matchedCfg) {
+                    isCritical = !!(matchedCfg.isCritical ||
+                        matchedCfg.IsCritical === true ||
+                        matchedCfg.ProductCategory === "Critical" ||
+                        matchedCfg.Remarks === "Critical");
+                } else if (typeof ALC_CHECKLIST_SEED_DATA !== 'undefined' && Array.isArray(ALC_CHECKLIST_SEED_DATA)) {
+                    const seedItem = ALC_CHECKLIST_SEED_DATA.find(s => {
+                        const sText = (s.description || s.title || "").toLowerCase().trim();
+                        return sText && (criteriaText.includes(sText) || sText.includes(criteriaText));
+                    });
+                    if (seedItem) {
+                        isCritical = !!seedItem.isCritical;
+                    }
+                }
+
+                if (isCritical && (numericScore === 0 || numericScore === 1)) {
+                    hasCriticalFailure = true;
+                    failedCriticalItems.push({
+                        criteria: cp.cr3ea_criteria || "Critical Checkpoint",
+                        score: numericScore,
+                        remarks: cp.cr3ea_defectremarks || cp.cr3ea_defectcategory || "Non-Compliant",
+                        area: cp.cr3ea_area || ""
+                    });
+                }
             });
 
             const overallPercentRaw = totalMaxScore > 0 ? (totalObtainedScore / totalMaxScore) * 100 : 0;
@@ -283,8 +456,8 @@ const ALC_ReVerification = {
                 }
             }
 
-            // 2. Evaluate overall result based on score threshold (80%)
-            let isPass = (parseFloat(overallPercent) >= 80);
+            // 2. Evaluate overall result based on score threshold (80%) AND critical items
+            let isPass = (parseFloat(overallPercent) >= 80) && !hasCriticalFailure;
             let statusText = "Completed";
             let stateNext = ALC_STATES.SUMMARY;
 
@@ -292,6 +465,10 @@ const ALC_ReVerification = {
                 isPass = false;
                 statusText = "Closed - Expired";
                 stateNext = ALC_STATES.SUMMARY;
+            } else if (hasCriticalFailure) {
+                isPass = false;
+                statusText = "Failed - Pending Production";
+                stateNext = (ALC_StateMachine.isProductionUser || ALC_StateMachine.isProductUser) ? ALC_STATES.PRODUCTION_ACTION : ALC_STATES.SUMMARY;
             } else if (hasUnresolvedItems) {
                 statusText = isPass ? "Success - Pending Production" : "Failed - Pending Production";
                 // QA (not in production team) should go to Summary page instead of Production Action
@@ -305,7 +482,7 @@ const ALC_ReVerification = {
 
             const dbStatusValue = statusText === "Success - Pending Production" ? "Failed - Pending Production" : statusText;
 
-            const isLineClearVal = (parseFloat(overallPercent) >= 80 || ALC_StateMachine.isPreviousDay);
+            const isLineClearVal = isPass && !ALC_StateMachine.isPreviousDay;
 
             const sessionUpdate = {
                 cr3ea_prod_rajpura_quality_tourid: ALC_StateMachine.currentTourId,
@@ -313,7 +490,7 @@ const ALC_ReVerification = {
                 cr3ea_processstatus: statusText,
                 cr3ea_title: cleanBaseTitle,
                 cr3ea_overall_score: String(overallPercent),
-                cr3ea_checklist_result: ALC_StateMachine.isPreviousDay ? "Expired" : (parseFloat(overallPercent) >= 80 ? "Pass" : "Fail"),
+                cr3ea_checklist_result: ALC_StateMachine.isPreviousDay ? "Expired" : (isPass ? "Pass" : "Fail"),
                 cr3ea_islineclear: isLineClearVal
             };
             await ALC_DAL.saveSession(sessionUpdate);
@@ -329,6 +506,19 @@ const ALC_ReVerification = {
                         sessionUpdate.cr3ea_checklist_result,
                         isPass
                     );
+
+                    // Send detailed Critical Gate incident alert to Top Management (ALC) team if any critical parameter failed
+                    if (hasCriticalFailure && failedCriticalItems.length > 0) {
+                        try {
+                            await ALC_Notification.sendCriticalGateFailureNotification(
+                                fullSession,
+                                failedCriticalItems,
+                                configs
+                            );
+                        } catch (critNotifErr) {
+                            console.warn("Failed to trigger Critical Gate failure alert in reverify:", critNotifErr);
+                        }
+                    }
                 }
             } catch (err) {
                 console.error("Failed to trigger re-verification complete notification:", err);
@@ -346,11 +536,11 @@ const ALC_ReVerification = {
                 alert(`Re-Verification failed. Current score is: ${overallPercent}%. Some checkpoints are still non-compliant. Returning to production.`);
             }
 
-            // Transition state
-            ALC_StateMachine.transitionTo(stateNext);
-            if (stateNext === ALC_STATES.SUMMARY) {
-                await ALC_Summary.init(ALC_StateMachine.currentTourId);
-            }
+            // Redirect to dashboard
+            const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
+            window.location.href = homeUrl;
 
         } catch (error) {
             HideLoader();

@@ -274,7 +274,7 @@ const ALC_Main = {
                 if (this.userRole === ALC_ROLES.QUALITY) {
                     if (status === "Pending QA") {
                         actionBtnHtml = `<button type="button" class="bs-btn bs-btn-primary bs-btn-sm" onclick="ALC_Main.routeToSession('${tourId}')">Accept Request</button>`;
-                    } else if (status === "QA In Progress") {
+                    } else if (status === "QA In Progress" || status.startsWith("QA In Progress")) {
                         actionBtnHtml = `<button type="button" class="bs-btn bs-btn-primary bs-btn-sm" onclick="ALC_Main.routeToSession('${tourId}')">Resume Checklist</button>`;
                     } else if (status === "Pending Re-Verification") {
                         actionBtnHtml = `<button type="button" class="bs-btn bs-btn-primary bs-btn-sm" onclick="ALC_Main.routeToSession('${tourId}')">Re-Verify</button>`;
@@ -342,75 +342,77 @@ const ALC_Main = {
             ALC_StateMachine.currentSession = session;
 
             // Restrict QA role access only to the assigned QA for this specific tour session
-            if (ALC_StateMachine.isQaUser) {
-                const assignedQAString = (session.cr3ea_assigned_qa || session.cr3ea_tourby || "").toLowerCase().trim();
-                const myEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? String(_spPageContextInfo.userEmail).toLowerCase().trim() : "";
-                const myName1 = (typeof currentUser !== "undefined" && currentUser) ? String(currentUser).toLowerCase().trim() : "";
-                const myName2 = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? String(_spPageContextInfo.userDisplayName).toLowerCase().trim() : "";
+            // Check if current user is the assigned QA for this specific tour session
+            const assignedQAString = (session.cr3ea_assigned_qa || session.cr3ea_tourby || "").toLowerCase().trim();
+            const myEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? String(_spPageContextInfo.userEmail).toLowerCase().trim() : ((typeof currentUserEmail !== 'undefined' && currentUserEmail) ? String(currentUserEmail).toLowerCase().trim() : "");
+            const myName1 = (typeof currentUser !== "undefined" && currentUser) ? String(currentUser).toLowerCase().trim() : "";
+            const myName2 = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? String(_spPageContextInfo.userDisplayName).toLowerCase().trim() : "";
 
-                let isAssignedQA = false;
+            let isAssignedQA = false;
 
-                if (assignedQAString) {
-                    const cleanAssigned = assignedQAString;
-                    const cleanMyEmail = myEmail;
-                    
-                    const assignedUserPart = cleanAssigned.includes("@") ? cleanAssigned.split("@")[0].replace(/[^a-z0-9]/g, "") : cleanAssigned.replace(/[^a-z0-9]/g, "");
-                    const myEmailUserPart = cleanMyEmail.includes("@") ? cleanMyEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : cleanMyEmail.replace(/[^a-z0-9]/g, "");
+            if (assignedQAString) {
+                const cleanAssigned = assignedQAString;
+                const cleanMyEmail = myEmail;
+                
+                const assignedUserPart = cleanAssigned.includes("@") ? cleanAssigned.split("@")[0].replace(/[^a-z0-9]/g, "") : cleanAssigned.replace(/[^a-z0-9]/g, "");
+                const myEmailUserPart = cleanMyEmail.includes("@") ? cleanMyEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : cleanMyEmail.replace(/[^a-z0-9]/g, "");
 
-                    const cleanName1 = myName1.replace(/[^a-z0-9]/g, "");
-                    const cleanName2 = myName2.replace(/[^a-z0-9]/g, "");
+                const cleanName1 = myName1.replace(/[^a-z0-9]/g, "");
+                const cleanName2 = myName2.replace(/[^a-z0-9]/g, "");
 
-                    if (cleanMyEmail && (cleanMyEmail === cleanAssigned || cleanAssigned.includes(cleanMyEmail) || cleanMyEmail.includes(cleanAssigned))) {
-                        isAssignedQA = true;
-                    } else if (assignedUserPart && myEmailUserPart && assignedUserPart === myEmailUserPart && myEmailUserPart.length > 0) {
-                        isAssignedQA = true;
-                    } else if (cleanName1 && (cleanAssigned.includes(cleanName1) || cleanName1.includes(assignedUserPart) || (assignedUserPart && cleanName1.includes(assignedUserPart)))) {
-                        isAssignedQA = true;
-                    } else if (cleanName2 && (cleanAssigned.includes(cleanName2) || cleanName2.includes(assignedUserPart) || (assignedUserPart && cleanName2.includes(assignedUserPart)))) {
-                        isAssignedQA = true;
-                    } else {
-                        // Check SharePoint configurations to see if the assigned user matches the logged-in user
-                        const configs = await ALC_DAL.getConfig();
-                        const matchedConfig = configs.find(c =>
-                            c.ConfigType === "QA User" &&
-                            c.AssignedUser &&
-                            c.AssignedUser.results &&
-                            c.AssignedUser.results.some(u => {
-                                const uTitle = (u.Title || "").toLowerCase().trim();
-                                const uEmail = (u.EMail || "").toLowerCase().trim();
-
-                                const uTitleClean = uTitle.replace(/[^a-z0-9]/g, "");
-                                const uEmailUserPart = uEmail.includes("@") ? uEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : uEmail.replace(/[^a-z0-9]/g, "");
-
-                                const matchesAssigned = (uTitle === cleanAssigned || uEmail === cleanAssigned || 
-                                                         uTitleClean === assignedUserPart || uEmailUserPart === assignedUserPart ||
-                                                         cleanAssigned.includes(uTitleClean) || cleanAssigned.includes(uEmailUserPart));
-
-                                const matchesMe = (uTitle === myName1 || uTitle === myName2 || 
-                                                   uTitleClean === cleanName1 || uTitleClean === cleanName2 ||
-                                                   (uEmail && uEmail === cleanMyEmail) || (uEmailUserPart && uEmailUserPart === myEmailUserPart && myEmailUserPart.length > 0));
-
-                                return matchesAssigned && matchesMe;
-                            })
-                        );
-                        if (matchedConfig) isAssignedQA = true;
-                    }
-                } else {
-                    // Default to true if no QA has been assigned yet
+                if (cleanMyEmail && (cleanMyEmail === cleanAssigned || cleanAssigned.includes(cleanMyEmail) || cleanMyEmail.includes(cleanAssigned))) {
                     isAssignedQA = true;
-                }
+                } else if (assignedUserPart && myEmailUserPart && assignedUserPart === myEmailUserPart && myEmailUserPart.length > 0) {
+                    isAssignedQA = true;
+                } else if (cleanName1 && (cleanAssigned.includes(cleanName1) || cleanName1.includes(assignedUserPart) || (assignedUserPart && cleanName1.includes(assignedUserPart)))) {
+                    isAssignedQA = true;
+                } else if (cleanName2 && (cleanAssigned.includes(cleanName2) || cleanName2.includes(assignedUserPart) || (assignedUserPart && cleanName2.includes(assignedUserPart)))) {
+                    isAssignedQA = true;
+                } else {
+                    // Check SharePoint configurations to see if the assigned user matches the logged-in user
+                    const configs = await ALC_DAL.getConfig();
+                    const matchedConfig = configs.find(c =>
+                        (c.ConfigType === "QA User" || c.ConfigType === "Quality User") &&
+                        c.AssignedUser &&
+                        c.AssignedUser.results &&
+                        c.AssignedUser.results.some(u => {
+                            const uTitle = (u.Title || "").toLowerCase().trim();
+                            const uEmail = (u.EMail || "").toLowerCase().trim();
 
-                ALC_StateMachine.isQaUser = isAssignedQA;
-                if (!isAssignedQA) {
-                    if (ALC_StateMachine.userAreas && ALC_StateMachine.userAreas.length > 0) {
-                        this.userRole = ALC_ROLES.PRODUCT;
-                        ALC_StateMachine.isProductUser = true;
-                    } else {
-                        this.userRole = ALC_ROLES.PRODUCTION;
-                    }
+                            const uTitleClean = uTitle.replace(/[^a-z0-9]/g, "");
+                            const uEmailUserPart = uEmail.includes("@") ? uEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : uEmail.replace(/[^a-z0-9]/g, "");
+
+                            const matchesAssigned = (uTitle === cleanAssigned || uEmail === cleanAssigned || 
+                                                     uTitleClean === assignedUserPart || uEmailUserPart === assignedUserPart ||
+                                                     cleanAssigned.includes(uTitleClean) || cleanAssigned.includes(uEmailUserPart));
+
+                            const matchesMe = (uTitle === myName1 || uTitle === myName2 || 
+                                               uTitleClean === cleanName1 || uTitleClean === cleanName2 ||
+                                               (uEmail && uEmail === cleanMyEmail) || (uEmailUserPart && uEmailUserPart === myEmailUserPart && myEmailUserPart.length > 0));
+
+                            return matchesAssigned && matchesMe;
+                        })
+                    );
+                    if (matchedConfig) isAssignedQA = true;
                 }
-                console.log(`QA User Access Check: Assigned QA = ${assignedQAString}, My Email = ${myEmail}, My Name1 = ${myName1}, My Name2 = ${myName2}. Is Assigned QA = ${isAssignedQA}`);
+            } else {
+                // If no QA assigned yet, only General QA is assigned QA
+                isAssignedQA = ALC_StateMachine.isGeneralQaUser || (this.userRole === ALC_ROLES.QUALITY);
             }
+
+            ALC_StateMachine.isQaUser = isAssignedQA;
+            if (isAssignedQA) {
+                // Prioritize QA role if user is also the assigned QA
+                this.userRole = ALC_ROLES.QUALITY;
+            } else if (ALC_StateMachine.isGeneralQaUser) {
+                if (ALC_StateMachine.userAreas && ALC_StateMachine.userAreas.length > 0) {
+                    this.userRole = ALC_ROLES.PRODUCT;
+                    ALC_StateMachine.isProductUser = true;
+                } else {
+                    this.userRole = ALC_ROLES.PRODUCTION;
+                }
+            }
+            console.log(`QA User Access Check: Assigned QA = ${assignedQAString}, My Email = ${myEmail}, My Name1 = ${myName1}, My Name2 = ${myName2}. Is Assigned QA = ${isAssignedQA}`);
 
             // Same-day check
             const creationTime = session.createdon || session.cr3ea_tourstartdate;
@@ -598,17 +600,10 @@ const ALC_Main = {
         }
 
         if (status === "Escalated") {
-            if (ALC_StateMachine.isProductionUser) {
-                ALC_StateMachine.isReadOnly = false;
-                ALC_StateMachine.init(this.userRole, ALC_STATES.INIT_PRODUCTION, this.currentTourId);
-                await ALC_QARequest.init();
-                return;
-            } else {
-                // QA or other user viewing escalated tour: route to PENDING_QA_ACCEPTANCE in locked escalated state
-                ALC_StateMachine.isReadOnly = true;
-                ALC_StateMachine.init(this.userRole, ALC_STATES.PENDING_QA_ACCEPTANCE, this.currentTourId);
-                return;
-            }
+            const hasAction = (ALC_StateMachine.isQaUser || ALC_StateMachine.isProductionUser);
+            ALC_StateMachine.isReadOnly = !hasAction;
+            ALC_StateMachine.init(this.userRole, ALC_STATES.PENDING_QA_ACCEPTANCE, this.currentTourId);
+            return;
         }
 
         if (status === "Pending QA") {
@@ -626,7 +621,7 @@ const ALC_Main = {
             }
 
             if (isExpiredReq) {
-                console.warn("ALC main.js: Request has exceeded 5 minutes while in 'Pending QA'. Escalating.");
+                console.warn("ALC main.js: Request has exceeded 5 minutes while in 'Pending QA'. Marking as Escalated / Delayed.");
                 session.cr3ea_status = "Escalated";
                 session.cr3ea_processstatus = "Escalated";
                 status = "Escalated";
@@ -634,16 +629,10 @@ const ALC_Main = {
                 // Trigger escalation in background / Dataverse if not already escalated
                 ALC_QARequest.triggerEscalation();
 
-                if (ALC_StateMachine.isProductionUser) {
-                    ALC_StateMachine.isReadOnly = false;
-                    ALC_StateMachine.init(this.userRole, ALC_STATES.INIT_PRODUCTION, this.currentTourId);
-                    await ALC_QARequest.init();
-                    return;
-                } else {
-                    ALC_StateMachine.isReadOnly = true;
-                    ALC_StateMachine.init(this.userRole, ALC_STATES.PENDING_QA_ACCEPTANCE, this.currentTourId);
-                    return;
-                }
+                const hasAction = (ALC_StateMachine.isQaUser || ALC_StateMachine.isProductionUser);
+                ALC_StateMachine.isReadOnly = !hasAction;
+                ALC_StateMachine.init(this.userRole, ALC_STATES.PENDING_QA_ACCEPTANCE, this.currentTourId);
+                return;
             }
 
             const hasAcceptAction = ALC_StateMachine.isQaUser;
@@ -658,7 +647,7 @@ const ALC_Main = {
         let hasAction = false;
         let pendingMsg = "";
 
-        if (status === "QA In Progress") {
+        if (status === "QA In Progress" || status.startsWith("QA In Progress")) {
             if (ALC_StateMachine.isQaUser) {
                 hasAction = true;
             } else {
@@ -715,13 +704,13 @@ const ALC_Main = {
             ALC_StateMachine.isReadOnly = false;
             if (status === "Pending QA") {
                 if (typeof ALC_QARequest !== "undefined" && ALC_QARequest.isRequestExpired && ALC_QARequest.isRequestExpired()) {
-                    ALC_StateMachine.isReadOnly = true;
+                    ALC_StateMachine.isReadOnly = false;
                     ALC_StateMachine.init(this.userRole, ALC_STATES.PENDING_QA_ACCEPTANCE, this.currentTourId);
                 } else {
                     ALC_StateMachine.init(this.userRole, ALC_STATES.PENDING_QA_ACCEPTANCE, this.currentTourId);
                     ALC_QARequest.startTimer(ALC_QARequest.requestTimeResolved || session.cr3ea_tourstartdate || session.cr3ea_request_time, session.cr3ea_tourby);
                 }
-            } else if (status === "QA In Progress") {
+            } else if (status === "QA In Progress" || status.startsWith("QA In Progress")) {
                 ALC_StateMachine.init(this.userRole, ALC_STATES.QA_CHECKLIST, this.currentTourId);
             } else if (status === "Failed - Pending Production" || status === "Success - Pending Production") {
                 ALC_StateMachine.init(this.userRole, ALC_STATES.PRODUCTION_ACTION, this.currentTourId);
@@ -742,7 +731,7 @@ const ALC_Main = {
             }
         } else {
             // User does not have action on in-progress tour
-            if (status === "QA In Progress") {
+            if (status === "QA In Progress" || status.startsWith("QA In Progress")) {
                 alert("This tour is currently paused for QA evaluation. Access is restricted to the assigned QA Executive.");
                 const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
                     ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
@@ -829,12 +818,13 @@ const ALC_Main = {
         if (!session.cr3ea_assigned_qa) {
             qaExec = "QA user";
         } else {
-            let qaExecRaw = session.cr3ea_tourby || session.cr3ea_shiftexecutivequality || session.cr3ea_assigned_qa || "";
+            let qaExecRaw = session.cr3ea_tourby || session.cr3ea_assigned_qa || "";
             qaExec = qaExecRaw;
             if (qaExecRaw && qaExecRaw.includes("@") && typeof ALC_StateMachine !== 'undefined' && typeof ALC_StateMachine.resolveQaNameFromEmail === 'function') {
                 qaExec = ALC_StateMachine.resolveQaNameFromEmail(qaExecRaw);
             }
         }
+        let qaShiftExec = session.cr3ea_executivename || session.cr3ea_shiftexecutivequality || "";
 
         // Store resolved values on ALC_QARequest so timer and escalation logic can use them
         ALC_QARequest.requestTimeResolved = requestTime || session.cr3ea_tourstartdate;
@@ -863,6 +853,15 @@ const ALC_Main = {
         const shiftExecDisplay = document.getElementById("shift-executive-display");
         if (shiftExecDisplay) shiftExecDisplay.innerText = prodExec || "N/A";
 
+        const qaShiftDisplay = document.getElementById("qa-shift-display");
+        const qaShiftDisplayWrapper = document.getElementById("qa-shift-display-wrapper");
+        if (qaShiftExec && qaShiftDisplay) {
+            qaShiftDisplay.innerText = qaShiftExec;
+            if (qaShiftDisplayWrapper) qaShiftDisplayWrapper.style.display = "inline-block";
+        } else if (qaShiftDisplayWrapper) {
+            qaShiftDisplayWrapper.style.display = "none";
+        }
+
         const qaDisplay = document.getElementById("qa-executive-display");
         const qaDisplayWrapper = document.getElementById("qa-executive-display-wrapper");
         if (qaExec && qaDisplay) {
@@ -872,12 +871,32 @@ const ALC_Main = {
             qaDisplayWrapper.style.display = "none";
         }
 
+        // Restore QA Shift Executive dropdown selections
+        const qaShiftSelect = document.getElementById("header-qa-shift-exec");
+        if (qaShiftExec && qaShiftSelect) {
+            const selectedNames = qaShiftExec.split(",").map(s => s.trim()).filter(Boolean);
+            selectedNames.forEach(name => {
+                let exists = false;
+                for (let i = 0; i < qaShiftSelect.options.length; i++) {
+                    if (qaShiftSelect.options[i].value === name || qaShiftSelect.options[i].text === name) {
+                        exists = true;
+                        break;
+                    }
+                }
+                if (!exists) {
+                    qaShiftSelect.innerHTML += `<option value="${name}" selected>${name}</option>`;
+                }
+            });
+            $(qaShiftSelect).val(selectedNames);
+        }
+
         // Trigger Select2 updates so dropdown selections render correctly
         if (window.jQuery && $.fn.select2) {
             $("#header-line").trigger("change");
             $("#header-shift").trigger("change");
             $("#header-prev-product").trigger("change");
             $("#header-new-product").trigger("change");
+            if (qaShiftSelect) $(qaShiftSelect).trigger("change");
         }
     },
 
@@ -945,7 +964,7 @@ window.onStateChanged = async function (newState, role) {
     } else if (newState === ALC_STATES.QA_REVERIFYING) {
         ALC_ReVerification.loadReverificationItems();
     } else if (newState === ALC_STATES.QA_CHECKLIST) {
-        ALC_Checklist.renderChecklist();
+        await ALC_Checklist.renderChecklist();
         await ALC_Checklist.loadSavedCheckpoints();
     }
 };

@@ -393,3 +393,93 @@ select.form-select::-ms-expand {
 
 /* Import Admin Panel Styles */
 @import url("admin.css");
+
+/* ==========================================================================
+   Dashboard Interactive Filters Panel (Line & Date Filters)
+   ========================================================================== */
+#dashboardFilterPanel {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    padding: 12px 16px !important;
+    margin-bottom: 22px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    gap: 12px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+.dashboard-filter-group {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+.dashboard-filter-label {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: #475569 !important;
+    margin: 0 !important;
+    white-space: nowrap !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+}
+
+.dashboard-filter-select,
+.dashboard-filter-input {
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 6px 12px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: #1e293b !important;
+    background-color: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    outline: none !important;
+    transition: all 0.15s ease-in-out !important;
+    cursor: pointer !important;
+    font-family: inherit !important;
+}
+
+.dashboard-filter-select:focus,
+.dashboard-filter-input:focus {
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+}
+
+.dashboard-filter-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    height: 36px !important;
+    padding: 0 14px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    border-radius: 6px !important;
+    border: 1px solid #cbd5e1 !important;
+    background-color: #ffffff !important;
+    color: #475569 !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+}
+
+.dashboard-filter-btn:hover {
+    background-color: #f1f5f9 !important;
+    color: #1e293b !important;
+    border-color: #94a3b8 !important;
+}
+
+.dashboard-filter-badge {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    color: #0369a1 !important;
+    background-color: #e0f2fe !important;
+    border: 1px solid #bae6fd !important;
+    padding: 5px 12px !important;
+    border-radius: 12px !important;
+    white-space: nowrap !important;
+}

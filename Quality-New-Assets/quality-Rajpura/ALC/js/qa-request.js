@@ -212,8 +212,9 @@ const ALC_QARequest = {
             matchedRows = matrix;
         }
 
-        // Aggregate QA Executives and Escalation Managers from matched rows
+        // Aggregate QA Executives, QA Shift Executives, and Escalation Managers from matched rows
         const qaUsersMap = new Map();
+        const qaShiftUsersMap = new Map();
         const escalationEmails = [];
 
         matchedRows.forEach(item => {
@@ -223,6 +224,16 @@ const ALC_QARequest = {
                         const key = (user.EMail || user.Title).toLowerCase().trim();
                         if (!qaUsersMap.has(key)) {
                             qaUsersMap.set(key, { ...user, rowId: item.Id });
+                        }
+                    }
+                });
+            }
+            if (item.QAShiftExecutive && item.QAShiftExecutive.results) {
+                item.QAShiftExecutive.results.forEach(user => {
+                    if (user && user.Title) {
+                        const key = (user.EMail || user.Title).toLowerCase().trim();
+                        if (!qaShiftUsersMap.has(key)) {
+                            qaShiftUsersMap.set(key, { ...user, rowId: item.Id });
                         }
                     }
                 });
@@ -249,6 +260,16 @@ const ALC_QARequest = {
                         }
                     });
                 }
+                if (item.QAShiftExecutive && item.QAShiftExecutive.results) {
+                    item.QAShiftExecutive.results.forEach(user => {
+                        if (user && user.Title) {
+                            const key = (user.EMail || user.Title).toLowerCase().trim();
+                            if (!qaShiftUsersMap.has(key)) {
+                                qaShiftUsersMap.set(key, { ...user, rowId: item.Id });
+                            }
+                        }
+                    });
+                }
                 if (item.EscalationManager && item.EscalationManager.results) {
                     item.EscalationManager.results.forEach(em => {
                         if (em && em.EMail && !escalationEmails.includes(em.EMail)) {
@@ -270,36 +291,32 @@ const ALC_QARequest = {
             });
         }
 
+        // Populate QA Shift Executive Normal Single-Select Dropdown
+        const qaShiftSelect = document.getElementById("header-qa-shift-exec");
+        if (qaShiftSelect) {
+            qaShiftSelect.innerHTML = '<option value="">Select QA Shift Executive</option>';
+            const shiftSourceMap = qaShiftUsersMap.size > 0 ? qaShiftUsersMap : qaUsersMap;
+            shiftSourceMap.forEach(user => {
+                qaShiftSelect.innerHTML += `<option value="${user.Title}" data-email="${user.EMail || ''}">${user.Title}</option>`;
+            });
+            if (shiftSourceMap.size === 1) {
+                const firstUser = shiftSourceMap.values().next().value;
+                qaShiftSelect.value = firstUser.Title;
+            }
+        }
+
         // Set the selected value if a session is loaded
         const currentSession = ALC_StateMachine.currentSession;
         if (currentSession) {
             const status = currentSession.cr3ea_processstatus || currentSession.cr3ea_status || "";
             if (status === "Escalated") {
-                const escalationPanel = document.getElementById("escalation-alert-panel");
-                if (escalationPanel) {
-                    escalationPanel.style.display = "block";
-                    escalationPanel.innerHTML = `
-                        <div style="font-size: 14px; margin-bottom: 12px;">
-                            <strong>ESCALATION LOGGED:</strong> QA Executive did not accept the request within the 5-minute limit. This request has been escalated. QA acceptance is locked. The Shift Executive who started the tour can reassign the QA Executive to restart the inspection.
-                        </div>
-                        <div>
-                            <button type="button" class="bs-btn bs-btn-primary" onclick="ALC_Main.reassignQaExecutive()" style="padding: 8px 18px; font-weight: 600; font-size: 14px; cursor: pointer; border-radius: 4px; display: inline-flex; align-items: center; gap: 6px;">
-                                <i class="fa fa-refresh"></i> Reassign QA Executive &amp; Restart Request
-                            </button>
-                        </div>
-                    `;
-                }
-                const qaAcceptPanel = document.getElementById("qa-accept-panel");
-                if (qaAcceptPanel) qaAcceptPanel.style.display = "none";
-                const acceptBtn = document.getElementById("btn-accept-request");
-                if (acceptBtn) {
-                    acceptBtn.disabled = true;
-                    acceptBtn.style.display = "none";
+                if (typeof ALC_StateMachine !== "undefined" && typeof ALC_StateMachine.applyVisibilityRules === "function") {
+                    ALC_StateMachine.applyVisibilityRules();
                 }
             }
 
             const assignedQa = currentSession.cr3ea_assigned_qa || "";
-            const qaExecRaw = currentSession.cr3ea_tourby || currentSession.cr3ea_shiftexecutivequality || currentSession.cr3ea_assigned_qa || "";
+            const qaExecRaw = currentSession.cr3ea_tourby || currentSession.cr3ea_assigned_qa || "";
             let qaExec = qaExecRaw;
             if (qaExecRaw && qaExecRaw.includes("@") && typeof ALC_StateMachine !== 'undefined' && typeof ALC_StateMachine.resolveQaNameFromEmail === 'function') {
                 qaExec = ALC_StateMachine.resolveQaNameFromEmail(qaExecRaw);
@@ -329,6 +346,25 @@ const ALC_QARequest = {
                     }
                 }
             }
+
+            // Restore QA Shift Executive selection (Single Select)
+            const savedQaShift = currentSession.cr3ea_executivename || currentSession.cr3ea_shiftexecutivequality || "";
+            if (savedQaShift && qaShiftSelect) {
+                const firstSaved = savedQaShift.split(",")[0].trim();
+                let exists = false;
+                for (let i = 0; i < qaShiftSelect.options.length; i++) {
+                    if (qaShiftSelect.options[i].value === firstSaved || qaShiftSelect.options[i].text === firstSaved) {
+                        qaShiftSelect.value = qaShiftSelect.options[i].value;
+                        exists = true;
+                        break;
+                    }
+                }
+                if (!exists && firstSaved) {
+                    qaShiftSelect.innerHTML += `<option value="${firstSaved}" selected>${firstSaved}</option>`;
+                    qaShiftSelect.value = firstSaved;
+                }
+                $(qaShiftSelect).trigger("change");
+            }
         }
 
         // Initialize Select2 on ALL selects with .form-select class
@@ -336,11 +372,13 @@ const ALC_QARequest = {
             $('select.form-select').each(function () {
                 if (!$(this).hasClass("select2-hidden-accessible")) {
                     $(this).select2({
-                        dropdownParent: $(document.body)
+                        dropdownParent: $(document.body),
+                        width: "100%"
                     });
                 }
             });
             $(qaSelect).trigger('change.select2');
+            if (qaShiftSelect) $(qaShiftSelect).trigger('change.select2');
         }
     },
 
@@ -356,6 +394,13 @@ const ALC_QARequest = {
         const assignedQaEmail = selectedOption.getAttribute("data-email");
         const assignedQaName = selectedOption.text;
         const configRowId = selectedOption.getAttribute("data-rowid");
+
+        // Resolve QA Shift Executive (Normal Dropdown)
+        const qaShiftSelect = document.getElementById("header-qa-shift-exec");
+        let qaShiftExecsVal = "";
+        if (qaShiftSelect && qaShiftSelect.value) {
+            qaShiftExecsVal = qaShiftSelect.value.trim();
+        }
 
         // Resolve escalation managers
         let escalationEmails = this.escalationEmailsResolved || [];
@@ -385,6 +430,7 @@ const ALC_QARequest = {
             cr3ea_title: "ALC_" + moment().format("MM-DD-YYYY_HH:mm"),
             cr3ea_tourby: assignedQaEmail, // Storing QA Email in tourby (must be unique)
             cr3ea_shiftexecutiveproduction: productionExecEmailOrName,
+            cr3ea_executivename: qaShiftExecsVal, // Storing QA Shift Executive in Dataverse
             cr3ea_lineno: line,
             cr3ea_shift: shift,
             cr3ea_previousrunningvariety: prevProduct,
@@ -434,7 +480,20 @@ const ALC_QARequest = {
                     return false;
                 }
 
-                const isSameLine = s.cr3ea_lineno === line;
+                const normLine = (str) => {
+                    let strVal = String(str || "").toLowerCase().replace(/[\s\-_]/g, "");
+                    if (strVal.startsWith("lineno.")) strVal = strVal.substring(7);
+                    else if (strVal.startsWith("lineno")) strVal = strVal.substring(6);
+                    else if (strVal.startsWith("line")) strVal = strVal.substring(4);
+                    return strVal;
+                };
+
+                const sLineRaw = String(s.cr3ea_lineno || s.cr3ea_lineid || "").trim();
+                const targetLineRaw = String(line || "").trim();
+                const isSameLine = sLineRaw === targetLineRaw ||
+                    (sLineRaw && targetLineRaw && (sLineRaw.toLowerCase().includes(targetLineRaw.toLowerCase()) || targetLineRaw.toLowerCase().includes(sLineRaw.toLowerCase()))) ||
+                    (normLine(sLineRaw) && normLine(targetLineRaw) && (normLine(sLineRaw).includes(normLine(targetLineRaw)) || normLine(targetLineRaw).includes(normLine(sLineRaw))));
+
                 const isClearedVal = s.cr3ea_islineclear;
                 
                 const statusVal1 = (s.cr3ea_status || "").trim().toLowerCase();
@@ -476,7 +535,7 @@ const ALC_QARequest = {
                 console.log(`ALC_QARequest evaluation for TourId: ${s.cr3ea_prod_rajpura_quality_tourid || s.cr3ea_prod_qualitytourid}: ` + 
                             `isSameLine=${isSameLine} (${s.cr3ea_lineno} vs ${line}), ` +
                             `isClearedVal=${isClearedVal}, ` +
-                            `status=${status}, ` +
+                            `statusVal1=${statusVal1}, statusVal2=${statusVal2}, ` +
                             `isTerminal=${isTerminal}, ` +
                             `isCleared=${isCleared}, ` +
                             `isToday=${isToday} (${tourDate ? moment(tourDate).local().format("YYYY-MM-DD") : "N/A"} vs ${todayStr}) ` +
@@ -562,21 +621,11 @@ const ALC_QARequest = {
             if (remainingSeconds <= 0 || isNaN(requestTime)) {
                 if (this.timerInterval) clearInterval(this.timerInterval);
                 if (timerDisplay) {
-                    timerDisplay.innerHTML = `<span class="text-danger font-weight-bold" style="font-size: 16px;">Escalated to Next Level</span>`;
-                }
-
-                // Immediately hide and disable QA accept controls
-                const qaAcceptPanel = document.getElementById("qa-accept-panel");
-                if (qaAcceptPanel) qaAcceptPanel.style.display = "none";
-
-                const acceptBtn = document.getElementById("btn-accept-request");
-                if (acceptBtn) {
-                    acceptBtn.disabled = true;
-                    acceptBtn.style.display = "none";
+                    timerDisplay.innerHTML = `<span class="text-danger font-weight-bold" style="font-size: 16px;"><i class="fa fa-exclamation-triangle"></i> Delayed (Acceptance Window Expired)</span>`;
                 }
 
                 await this.resolveEscalationContacts(qaName);
-                this.triggerEscalation();
+                await this.triggerEscalation();
             } else {
                 const minutes = Math.floor(remainingSeconds / 60);
                 const seconds = remainingSeconds % 60;
@@ -638,44 +687,18 @@ const ALC_QARequest = {
 
     // Step 5: Escalation handler
     triggerEscalation: async function () {
-        console.warn("QA did not accept request within 5 minutes. Escalating...");
-
-        // Hide QA acceptance controls and disable accept button
-        const qaAcceptPanel = document.getElementById("qa-accept-panel");
-        if (qaAcceptPanel) qaAcceptPanel.style.display = "none";
-
-        const acceptBtn = document.getElementById("btn-accept-request");
-        if (acceptBtn) {
-            acceptBtn.disabled = true;
-            acceptBtn.style.display = "none";
-        }
-
-        const escalationPanel = document.getElementById("escalation-alert-panel");
-        if (escalationPanel) {
-            escalationPanel.style.display = "block";
-            escalationPanel.innerHTML = `
-                <div style="font-size: 14px; margin-bottom: 12px;">
-                    <strong>ESCALATION LOGGED:</strong> QA Executive did not accept the request within the 5-minute limit. This request has been escalated. QA acceptance is locked. The Shift Executive who started the tour can reassign the QA Executive to restart the inspection.
-                </div>
-                <div>
-                    <button type="button" class="bs-btn bs-btn-primary" onclick="ALC_Main.reassignQaExecutive()" style="padding: 8px 18px; font-weight: 600; font-size: 14px; cursor: pointer; border-radius: 4px; display: inline-flex; align-items: center; gap: 6px;">
-                        <i class="fa fa-refresh"></i> Reassign QA Executive &amp; Restart Request
-                    </button>
-                </div>
-            `;
-        }
+        console.warn("QA did not accept request within 5 minutes. Processing escalation/delay...");
 
         const timerDisplay = document.getElementById("escalation-timer");
         if (timerDisplay) {
-            timerDisplay.innerHTML = `<span class="text-danger font-weight-bold" style="font-size: 16px;">Escalated to Next Level (Acceptance Window Expired)</span>`;
+            timerDisplay.innerHTML = `<span class="text-danger font-weight-bold" style="font-size: 16px;"><i class="fa fa-exclamation-triangle"></i> Delayed (Acceptance Window Expired)</span>`;
         }
 
-        // Update local session state and lock editing
+        // Update local session state
         if (ALC_StateMachine.currentSession) {
             ALC_StateMachine.currentSession.cr3ea_status = "Escalated";
             ALC_StateMachine.currentSession.cr3ea_processstatus = "Escalated";
         }
-        ALC_StateMachine.isReadOnly = true;
 
         try {
             if (ALC_StateMachine.currentTourId) {
@@ -696,7 +719,9 @@ const ALC_QARequest = {
                     };
                     let escalationEmails = this.escalationEmailsResolved || [];
                     if (escalationEmails.length === 0 && session.cr3ea_escalation_contacts) {
-                        escalationEmails = session.cr3ea_escalation_contacts.split(",").map(e => e.trim()).filter(Boolean);
+                        escalationEmails = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.parseEscalationContacts)
+                            ? QualityRajpura_Config.parseEscalationContacts(session.cr3ea_escalation_contacts)
+                            : session.cr3ea_escalation_contacts.split("||")[0].split(",").map(e => e.trim()).filter(Boolean);
                     }
                     if (escalationEmails.length === 0) {
                         escalationEmails = await this.resolveEscalationContacts();
@@ -709,42 +734,42 @@ const ALC_QARequest = {
             console.error("Failed to save escalation status in Dataverse:", e);
         }
 
+        // Apply dynamic visibility based on role priorities
+        if (typeof ALC_StateMachine !== "undefined" && typeof ALC_StateMachine.applyVisibilityRules === "function") {
+            ALC_StateMachine.applyVisibilityRules();
+        }
+
         // Custom visual notification state update
         if (typeof window.onEscalationTriggered === "function") {
             window.onEscalationTriggered();
         }
     },
 
-    // Step 4: QA accepts the request
+    // Step 4: QA accepts the request (supports both on-time and post-escalation acceptance with delay logging)
     acceptRequest: async function () {
         if (!ALC_StateMachine.currentTourId) {
             alert("No active session ID found.");
             return;
         }
 
-        // Guard against accepting escalated or expired requests
-        const currentSession = ALC_StateMachine.currentSession;
+        const currentSession = ALC_StateMachine.currentSession || {};
         const currentStatus = (currentSession?.cr3ea_processstatus || currentSession?.cr3ea_status || "").trim().toLowerCase();
 
-        if (currentStatus === "escalated" || this.isRequestExpired()) {
-            this.triggerEscalation();
-            alert("The 5-minute acceptance window has expired. This request has been escalated and cannot be accepted by QA.\n\nPlease contact the Shift Production Executive to reassign.");
-            return;
-        }
+        // Calculate timing and delay metrics
+        const reqTimeStr = this.requestTimeResolved || currentSession.cr3ea_tourstartdate || currentSession.createdon;
+        let totalElapsedMinutes = 0;
+        let delayMinutes = 0;
+        let isPostEscalation = (currentStatus === "escalated") || this.isRequestExpired();
 
-        // Check live Dataverse status before accepting to prevent accepting an already escalated session
-        try {
-            ShowLoader();
-            const liveSession = await ALC_DAL.getSessionById(ALC_StateMachine.currentTourId);
-            const liveStatus = (liveSession?.cr3ea_processstatus || liveSession?.cr3ea_status || "").trim().toLowerCase();
-            if (liveStatus === "escalated" || liveStatus === "cancelled") {
-                HideLoader();
-                this.triggerEscalation();
-                alert("This request has been escalated or cancelled and can no longer be accepted by QA.");
-                return;
+        if (reqTimeStr) {
+            const reqTime = new Date(reqTimeStr).getTime();
+            if (!isNaN(reqTime)) {
+                totalElapsedMinutes = Math.max(0, Math.floor((Date.now() - reqTime) / (60 * 1000)));
+                delayMinutes = Math.max(0, totalElapsedMinutes - 5);
+                if (totalElapsedMinutes >= 5) {
+                    isPostEscalation = true;
+                }
             }
-        } catch (checkErr) {
-            console.warn("Could not check live status before accepting:", checkErr);
         }
 
         let qaEmail = typeof currentUserEmail !== "undefined" ? currentUserEmail : "";
@@ -759,15 +784,40 @@ const ALC_QARequest = {
             qaEmail = this.assignedQaEmailResolved || "";
         }
         if (!qaEmail) {
-            // Fallback if still empty
             qaEmail = "QA Executive";
         }
+
+        const qaDisplayName = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName)
+            ? _spPageContextInfo.userDisplayName
+            : ((typeof EmployeeName !== 'undefined' && EmployeeName) ? EmployeeName : qaEmail);
+
+        // Build structured audit metadata
+        const auditObj = {
+            tourStartTime: reqTimeStr ? new Date(reqTimeStr).toISOString() : null,
+            escalationThresholdTime: reqTimeStr ? new Date(new Date(reqTimeStr).getTime() + 5 * 60 * 1000).toISOString() : null,
+            acceptedTime: new Date().toISOString(),
+            totalElapsedMinutes: totalElapsedMinutes,
+            delayMinutes: delayMinutes,
+            isPostEscalation: isPostEscalation,
+            acceptedByEmail: qaEmail,
+            acceptedByName: qaDisplayName,
+            originalAssignedQA: currentSession.cr3ea_assigned_qa || "",
+            shiftExecutive: currentSession.cr3ea_shiftexecutiveproduction || ""
+        };
+
+        const baseEscContacts = (currentSession.cr3ea_escalation_contacts || "").split("||")[0].trim();
+        const updatedEscContacts = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatEscalationContacts)
+            ? QualityRajpura_Config.formatEscalationContacts(baseEscContacts, auditObj)
+            : (baseEscContacts ? `${baseEscContacts} || AUDIT:${JSON.stringify(auditObj)}` : `AUDIT:${JSON.stringify(auditObj)}`);
+
+        const newProcessStatus = isPostEscalation ? `QA In Progress (Delayed: ${delayMinutes}m)` : "QA In Progress";
 
         const updateData = {
             cr3ea_prod_rajpura_quality_tourid: ALC_StateMachine.currentTourId,
             cr3ea_status: "QA In Progress",
-            cr3ea_processstatus: "QA In Progress",
-            cr3ea_tourby: qaEmail
+            cr3ea_processstatus: newProcessStatus,
+            cr3ea_tourby: qaEmail,
+            cr3ea_escalation_contacts: updatedEscContacts
         };
 
         try {
@@ -776,6 +826,35 @@ const ALC_QARequest = {
             HideLoader();
 
             if (this.timerInterval) clearInterval(this.timerInterval);
+
+            // Update in-memory session and permissions
+            if (ALC_StateMachine.currentSession) {
+                Object.assign(ALC_StateMachine.currentSession, updateData);
+            }
+            ALC_StateMachine.isReadOnly = false;
+            ALC_StateMachine.isQaUser = true;
+
+            // Trigger Power Automate notification if accepting post-escalation / delayed
+            if (isPostEscalation && typeof ALC_Notification !== "undefined" && typeof ALC_Notification.sendPostEscalationAcceptanceNotification === "function") {
+                try {
+                    let escalationEmails = this.escalationEmailsResolved || [];
+                    if (escalationEmails.length === 0 && currentSession.cr3ea_escalation_contacts) {
+                        escalationEmails = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.parseEscalationContacts)
+                            ? QualityRajpura_Config.parseEscalationContacts(currentSession.cr3ea_escalation_contacts)
+                            : currentSession.cr3ea_escalation_contacts.split("||")[0].split(",").map(e => e.trim()).filter(Boolean);
+                    }
+                    if (escalationEmails.length === 0) {
+                        escalationEmails = await this.resolveEscalationContacts();
+                    }
+                    const mergedSession = {
+                        ...currentSession,
+                        ...updateData
+                    };
+                    await ALC_Notification.sendPostEscalationAcceptanceNotification(mergedSession, auditObj, escalationEmails);
+                } catch (notifErr) {
+                    console.error("Failed to send post-escalation acceptance notification:", notifErr);
+                }
+            }
 
             // Advance state
             ALC_StateMachine.transitionTo(ALC_STATES.QA_CHECKLIST);

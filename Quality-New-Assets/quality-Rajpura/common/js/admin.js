@@ -10,7 +10,7 @@ console.log("Rajpura Quality Admin Panel Controller Loaded");
 const Rajpura_Admin = {
     activeTab: "ALC",
     activeSubSection: "users", // "users" or "products" for other checklist forms
-    alcSubTab: "qa-matrix", // "qa-matrix", "areas", "lines", "shifts", "products" for ALC
+    alcSubTab: "qa-matrix", // "qa-matrix", "areas", "lines", "shifts", "products", "questions" for ALC
     pkgSubTab: "users", // "users", "products", "skus" for PackagingOperations
     mbSubTab: "users", // "users", "recipes" for MixingAndBaking
     ccpSubTab: "users", // "users", "products" for CCP_OPRP_Sieves
@@ -19,6 +19,12 @@ const Rajpura_Admin = {
     listSchemas: {},
     isLoading: false,
     searchFilter: "",
+    alcQuestionState: {
+        areaFilter: "ALL",
+        criticalFilter: "ALL",
+        statusFilter: "ALL",
+        searchTerm: ""
+    },
     pkgProductState: {
         currentPage: 1,
         pageSize: 25,
@@ -41,6 +47,79 @@ const Rajpura_Admin = {
         sortAsc: true
     },
     _ccpSearchTimeout: null,
+    mbRecipeState: {
+        currentPage: 1,
+        pageSize: 25,
+        searchTerm: "",
+        categoryFilter: "ALL",
+        statusFilter: "ALL",
+        sortBy: "title",
+        sortAsc: true
+    },
+    _mbSearchTimeout: null,
+
+    // Built-in Catalog of 46 Standard ALC Checklist Questions
+    DEFAULT_ALC_QUESTIONS: [
+        // 1. RM Store Area (Wheat Flour Handling)
+        { sequence: 1, area: "RM Store Area (Wheat Flour Handling)", title: "Floor Condition - To be cleaned", isCritical: false, isActive: true },
+        { sequence: 2, area: "RM Store Area (Wheat Flour Handling)", title: "No scrap at RM storage area", isCritical: false, isActive: true },
+        { sequence: 3, area: "RM Store Area (Wheat Flour Handling)", title: "Sign of Infestation, Crawling marks", isCritical: true, isActive: true },
+
+        // 2. Flour & Sugar Handling
+        { sequence: 4, area: "Flour & Sugar Handling", title: "Maida and Sugar handling area Cleanliness -Floor, wall, ceiling, railing, cuving", isCritical: false, isActive: true },
+        { sequence: 5, area: "Flour & Sugar Handling", title: "Sieve Condition- free from damage and Cleanliness", isCritical: true, isActive: true },
+        { sequence: 6, area: "Flour & Sugar Handling", title: "Magnet Position and cleanliness", isCritical: true, isActive: true },
+        { sequence: 7, area: "Flour & Sugar Handling", title: "Free from pest", isCritical: true, isActive: true },
+        { sequence: 8, area: "Flour & Sugar Handling", title: "No damage and loose thread in cotton bellows", isCritical: false, isActive: true },
+
+        // 3. Chemical Handling Area
+        { sequence: 9, area: "Chemical Handling Area", title: "All utensils are clean and free from damage", isCritical: false, isActive: true },
+        { sequence: 10, area: "Chemical Handling Area", title: "All sieve condition- Free from damage and cleanliness", isCritical: true, isActive: true },
+        { sequence: 11, area: "Chemical Handling Area", title: "All Magnets in place and to be clean", isCritical: true, isActive: true },
+        { sequence: 12, area: "Chemical Handling Area", title: "All ingredient trollies to be identified", isCritical: false, isActive: true },
+        { sequence: 13, area: "Chemical Handling Area", title: "All trollleys to be clean and free from damage", isCritical: false, isActive: true },
+        { sequence: 14, area: "Chemical Handling Area", title: "Check for overall area cleanliness", isCritical: false, isActive: true },
+
+        // 4. Mixing
+        { sequence: 15, area: "Mixing", title: "All gasket to be free from damage", isCritical: false, isActive: true },
+        { sequence: 16, area: "Mixing", title: "Floor condition - to be clean", isCritical: false, isActive: true },
+        { sequence: 17, area: "Mixing", title: "Free from scrap accumulation at mixing", isCritical: false, isActive: true },
+        { sequence: 18, area: "Mixing", title: "No loose nut , bolts , electrical cable,loose tape on floor/ equipment.", isCritical: true, isActive: true },
+        { sequence: 19, area: "Mixing", title: "No damage and loose thread in cotton bellows", isCritical: false, isActive: true },
+        { sequence: 20, area: "Mixing", title: "All utensils are clean and free from damage", isCritical: false, isActive: true },
+        { sequence: 21, area: "Mixing", title: "All catch trays are in place and clean", isCritical: false, isActive: true },
+        { sequence: 22, area: "Mixing", title: "No damage or loose threads in all conveyors(Cotton & PU)", isCritical: true, isActive: true },
+        { sequence: 23, area: "Mixing", title: "All previous running raw material which will not be used in next running variety should be transferred back to rm store.", isCritical: true, isActive: true },
+        { sequence: 24, area: "Mixing", title: "All hoppers and sprinklinlers should be clean and free from extraneous material.", isCritical: true, isActive: true },
+        { sequence: 25, area: "Mixing", title: "Dough trollies in use are properly Cleaned", isCritical: false, isActive: true },
+        { sequence: 26, area: "Mixing", title: "Running variety should be dispalyed on board", isCritical: false, isActive: true },
+        { sequence: 27, area: "Mixing", title: "Mixer should be clean and free from any left over dough", isCritical: true, isActive: true },
+        { sequence: 28, area: "Mixing", title: "Rotary Moulder,Cross Over Conveyor and Feed rollers should be cleaned", isCritical: true, isActive: true },
+
+        // 5. Oven
+        { sequence: 29, area: "Oven", title: "Check for overall area cleaniness", isCritical: false, isActive: true },
+        { sequence: 30, area: "Oven", title: "Remove all broken from Oven end", isCritical: false, isActive: true },
+        { sequence: 31, area: "Oven", title: "All trollies used to be clean and free from damage", isCritical: false, isActive: true },
+
+        // 6. Post Bake & Packing Section
+        { sequence: 32, area: "Post Bake & Packing Section", title: "Check for overall area cleaniness", isCritical: false, isActive: true },
+        { sequence: 33, area: "Post Bake & Packing Section", title: "Return back all previous laminate/Trays/CBB/Tins and get issued running variety with proper checking", isCritical: true, isActive: true },
+        { sequence: 34, area: "Post Bake & Packing Section", title: "All catch trays are in place and clean", isCritical: false, isActive: true },
+        { sequence: 35, area: "Post Bake & Packing Section", title: "No old Biscuits are present in packing area including MD Rejection bin", isCritical: true, isActive: true },
+        { sequence: 36, area: "Post Bake & Packing Section", title: "All crates and trollies are clean and free from damage", isCritical: false, isActive: true },
+        { sequence: 37, area: "Post Bake & Packing Section", title: "No loose nut , bolts , electrical cable,loose tape on floor/ equipment.", isCritical: true, isActive: true },
+        { sequence: 38, area: "Post Bake & Packing Section", title: "No damage or loose threads in all conveyors.", isCritical: true, isActive: true },
+        { sequence: 39, area: "Post Bake & Packing Section", title: "Conveyor rollers should be cleaned", isCritical: false, isActive: true },
+        { sequence: 40, area: "Post Bake & Packing Section", title: "No WIP/Previous variety material to be kept on shopfloor", isCritical: true, isActive: true },
+        { sequence: 41, area: "Post Bake & Packing Section", title: "All Packing machines running/idle and its contact surfaces should be cleaned", isCritical: true, isActive: true },
+        { sequence: 42, area: "Post Bake & Packing Section", title: "Proper arrangement of RC and identification on the same", isCritical: false, isActive: true },
+
+        // 7. Biscuit Grinding
+        { sequence: 43, area: "Biscuit Grinding", title: "Check for overall area cleaniness", isCritical: false, isActive: true },
+        { sequence: 44, area: "Biscuit Grinding", title: "All sieve condition- Free from damage and cleanliness", isCritical: true, isActive: true },
+        { sequence: 45, area: "Biscuit Grinding", title: "All Magnets are in place and to be clean.", isCritical: true, isActive: true },
+        { sequence: 46, area: "Biscuit Grinding", title: "All Trollies used are clean", isCritical: false, isActive: true }
+    ],
 
     // Form configurations mapped to their corresponding SharePoint lists
     FORMS: {
@@ -50,9 +129,10 @@ const Rajpura_Admin = {
             shortName: "ALC",
             listName: "Quality-Rajpura-ALC",
             badgeClass: "badge-primary",
-            description: "Manage ALC Master Data: QA Shift Assignment Matrix, 7 Area Inspectors, 8 Production Lines, 4 Operating Shifts, and Product Catalogue.",
-            roleTypes: ["QA Assignment", "Area Inspector", "Line Master", "Shift Master", "Product Master", "QA User", "Product User"],
+            description: "Manage ALC Master Data: QA Shift Matrix, 7 Area Inspectors, 8 Lines, 4 Shifts, Product Catalogue, and 46 Checklist Questions Master (Critical Gate Configuration).",
+            roleTypes: ["QA Assignment", "Area Inspector", "Line Master", "Shift Master", "Product Master", "Checklist Question", "QA User", "Product User"],
             userFieldNames: ["AssignedUser", "Assigned_x0020_User"],
+            qaShiftFieldNames: ["QAShiftExecutive", "QAShift_x0020_Executive", "QAShiftExec", "QAShift_x0020_Exec"],
             managerFieldNames: ["EscalationManager", "Escalation_x0020_Manager"],
             hasLines: true
         },
@@ -113,7 +193,22 @@ const Rajpura_Admin = {
             userFieldNames: ["AssignedUser", "Assigned_x0020_User"],
             managerFieldNames: ["EscalationManager", "Escalation_x0020_Manager"],
             hasLines: false
+        },
+        TopManagement: {
+            key: "TopManagement",
+            name: "Top Management Escalation Matrix",
+            shortName: "Top Management",
+            listName: "AdminPanel",
+            badgeClass: "badge-danger",
+            description: "Configure Executive Leadership distribution lists for automated Critical Incident (ALC Critical Gate) and Category-A alerts across all quality forms."
         }
+    },
+
+    topManagementState: {
+        itemId: null,
+        alcUsers: [],
+        generalUsers: [],
+        isLoading: false
     },
 
     /**
@@ -446,6 +541,29 @@ const Rajpura_Admin = {
     },
 
     /**
+     * Helper to safely escape HTML special characters
+     */
+    escapeHtml: function (str) {
+        if (str === null || str === undefined) return "";
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    },
+
+    /**
+     * Helper to extract 2-letter uppercase initials from a name
+     */
+    getInitials: function (name) {
+        if (!name) return "U";
+        const parts = String(name).trim().split(/\s+/);
+        if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    },
+
+    /**
      * Base site URL resolver
      */
     getSiteUrl: function () {
@@ -462,21 +580,32 @@ const Rajpura_Admin = {
      * Fetches form digest for SharePoint REST POST / MERGE operations
      */
     getFormDigest: async function () {
+        if (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.formDigestValue) {
+            return _spPageContextInfo.formDigestValue;
+        }
+        const elem = document.getElementById("__REQUESTDIGEST") || document.querySelector("input[name='__REQUESTDIGEST']");
+        if (elem && elem.value && elem.value.length > 10) {
+            return elem.value;
+        }
         try {
-            if (typeof $("#__REQUESTDIGEST").val() === "string" && $("#__REQUESTDIGEST").val().length > 10) {
-                return $("#__REQUESTDIGEST").val();
-            }
             const siteUrl = this.getSiteUrl();
             const res = await fetch(`${siteUrl}/_api/contextinfo`, {
                 method: "POST",
-                headers: { "Accept": "application/json; odata=verbose" }
+                headers: {
+                    "Accept": "application/json; odata=verbose"
+                }
             });
             if (res.ok) {
                 const data = await res.json();
-                return data.d.GetContextWebInformation.FormDigestValue;
+                if (data.d && data.d.GetContextWebInformation && data.d.GetContextWebInformation.FormDigestValue) {
+                    return data.d.GetContextWebInformation.FormDigestValue;
+                }
             }
         } catch (e) {
-            console.warn("Could not fetch form digest, fallback to empty:", e);
+            console.warn("Could not fetch form digest via contextinfo:", e);
+        }
+        if (typeof $("#__REQUESTDIGEST").val() === "string" && $("#__REQUESTDIGEST").val().length > 10) {
+            return $("#__REQUESTDIGEST").val();
         }
         return "";
     },
@@ -563,41 +692,48 @@ const Rajpura_Admin = {
         try {
             const siteUrl = this.getSiteUrl();
             const listUrl = `${siteUrl}/_api/web/lists/getByTitle('${listName}')?$select=ListItemEntityTypeFullName`;
-            const fieldsUrl = `${siteUrl}/_api/web/lists/getByTitle('${listName}')/Fields?$select=InternalName,Title,TypeAsString,AllowMultipleValues`;
+            const fieldsUrl = `${siteUrl}/_api/web/lists/getByTitle('${listName}')/Fields?$select=InternalName,Title,TypeAsString`;
 
             const [listRes, fieldsRes] = await Promise.all([
-                fetch(listUrl, { headers: { "Accept": "application/json; odata=verbose" } }),
-                fetch(fieldsUrl, { headers: { "Accept": "application/json; odata=verbose" } })
+                fetch(listUrl, { headers: { "Accept": "application/json; odata=verbose" } }).catch(() => null),
+                fetch(fieldsUrl, { headers: { "Accept": "application/json; odata=verbose" } }).catch(() => null)
             ]);
 
             let entityTypeName = `SP.Data.${listName.replace(/-/g, '_x002d_').replace(/ /g, '_x0020_')}ListItem`;
-            if (listRes.ok) {
-                const listData = await listRes.json();
-                if (listData.d && listData.d.ListItemEntityTypeFullName) {
-                    entityTypeName = listData.d.ListItemEntityTypeFullName;
-                }
+            if (listRes && listRes.ok) {
+                try {
+                    const listData = await listRes.json();
+                    if (listData.d && listData.d.ListItemEntityTypeFullName) {
+                        entityTypeName = listData.d.ListItemEntityTypeFullName;
+                    }
+                } catch (_) {}
             }
 
-            if (fieldsRes.ok) {
-                const data = await fieldsRes.json();
-                const fields = data.d.results || [];
-                const schema = {
-                    entityTypeName: entityTypeName,
-                    fields: fields,
-                    findField: function (possibleNames, displayNames) {
-                        const pNames = Array.isArray(possibleNames) ? possibleNames : [possibleNames];
-                        let match = fields.find(f => pNames.some(pn => pn.toLowerCase() === f.InternalName.toLowerCase()));
-                        if (match) return match;
-                        if (displayNames) {
-                            const dNames = Array.isArray(displayNames) ? displayNames : [displayNames];
-                            match = fields.find(f => dNames.some(dn => dn.toLowerCase() === f.Title.toLowerCase()));
-                        }
-                        return match;
-                    }
-                };
-                this.listSchemas[listName] = schema;
-                return schema;
+            let fields = [];
+            if (fieldsRes && fieldsRes.ok) {
+                try {
+                    const data = await fieldsRes.json();
+                    fields = data.d.results || [];
+                } catch (_) {}
             }
+
+            const schema = {
+                entityTypeName: entityTypeName,
+                fields: fields,
+                findField: function (possibleNames, displayNames) {
+                    if (!fields || fields.length === 0) return null;
+                    const pNames = (Array.isArray(possibleNames) ? possibleNames : [possibleNames]).filter(Boolean);
+                    let match = fields.find(f => pNames.some(pn => pn.toLowerCase() === (f.InternalName || "").toLowerCase()));
+                    if (match) return match;
+                    if (displayNames) {
+                        const dNames = (Array.isArray(displayNames) ? displayNames : [displayNames]).filter(Boolean);
+                        match = fields.find(f => dNames.some(dn => dn.toLowerCase() === (f.Title || "").toLowerCase()));
+                    }
+                    return match;
+                }
+            };
+            this.listSchemas[listName] = schema;
+            return schema;
         } catch (e) {
             console.warn(`Could not probe schema for list ${listName}:`, e);
         }
@@ -620,6 +756,10 @@ const Rajpura_Admin = {
      * Loads config rows for a single form list
      */
     loadSingleFormConfig: async function (formKey) {
+        if (formKey === "TopManagement") {
+            return await this.loadTopManagementConfig();
+        }
+
         const formDef = this.FORMS[formKey];
         if (!formDef) return;
 
@@ -633,6 +773,7 @@ const Rajpura_Admin = {
             const configTypeField = schema ? schema.findField(["ConfigType", "Config_x0020_Type"], "Config Type") : null;
             const plantField = schema ? schema.findField(["Plant"], "Plant") : null;
             const areaField = schema ? schema.findField(["Area"], "Area") : null;
+            const regionField = schema ? schema.findField(["Region"], "Region") : null;
             const checklistTypeField = schema ? schema.findField(["ChecklistType", "Checklist_x0020_Type"], "Checklist Type") : null;
 
             const userField = schema ? schema.findField(formDef.userFieldNames, ["QA Executive", "QAExecutive", "QA_x0020_Executive", "Assigned User", "Assigned QA"]) : null;
@@ -643,35 +784,65 @@ const Rajpura_Admin = {
             const expandParts = [];
 
             if (configTypeField) selectParts.push(configTypeField.InternalName);
-            else if (formKey === "MixingAndBaking") selectParts.push("ConfigType");
+            else if (!schema) selectParts.push("ConfigType");
 
             if (plantField) selectParts.push(plantField.InternalName);
-            else if (formKey === "FoodSafety" || formKey === "MixingAndBaking") selectParts.push("Plant");
+            else if (!schema) selectParts.push("Plant");
 
             if (areaField) selectParts.push(areaField.InternalName);
+            else if (!schema) selectParts.push("Area");
+
+            if (regionField) selectParts.push(regionField.InternalName);
+            else if (!schema && formKey === "ALC") selectParts.push("Region");
+
             if (checklistTypeField) selectParts.push(checklistTypeField.InternalName);
-            else if (formKey === "FoodSafety" && !selectParts.includes("ChecklistType")) selectParts.push("ChecklistType");
+            else if (!schema && formKey === "FoodSafety" && !selectParts.includes("ChecklistType")) selectParts.push("ChecklistType");
 
             // Include master fields for ALC, PackagingOperations, CCP_OPRP_Sieves, and MixingAndBaking list
+            const lineF = schema ? schema.findField(["LineName", "Line_x0020_Name", "Line"], "Line Name") : null;
+            const shiftCodeF = schema ? schema.findField(["ShiftCode", "Shift_x0020_Code", "Shift"], "Shift Code") : null;
+            const shiftNameF = schema ? schema.findField(["ShiftName", "Shift_x0020_Name"], "Shift Name") : null;
+            const shiftStartF = schema ? schema.findField(["ShiftStart", "Shift_x0020_Start"], "Shift Start") : null;
+            const shiftEndF = schema ? schema.findField(["ShiftEnd", "Shift_x0020_End"], "Shift End") : null;
+            const prodCodeF = schema ? schema.findField(["ProductCode", "Product_x0020_Code", "SKU"], "Product Code") : null;
+            const prodCatF = schema ? schema.findField(["ProductCategory", "Product_x0020_Category"], "Product Category") : null;
+            const isActF = schema ? schema.findField(["IsActive", "Is_x0020_Active", "Active"], "Is Active") : null;
+            const isCritF = schema ? schema.findField(["IsCritical", "Is_x0020_Critical", "Critical"], "Is Critical") : null;
+            const remF = schema ? schema.findField(["Remarks", "Remarks_x0020_Text"], "Remarks") : null;
+            const recipeF = schema ? schema.findField(["RecipeConfig", "Recipe_x0020_Config"], "Recipe Config") : null;
+
             if (formKey === "ALC") {
-                selectParts.push("LineName", "ShiftCode", "ShiftName", "ShiftStart", "ShiftEnd", "ProductCode", "IsActive");
+                if (lineF && !selectParts.includes(lineF.InternalName)) selectParts.push(lineF.InternalName);
+                if (shiftCodeF && !selectParts.includes(shiftCodeF.InternalName)) selectParts.push(shiftCodeF.InternalName);
+                if (prodCodeF && !selectParts.includes(prodCodeF.InternalName)) selectParts.push(prodCodeF.InternalName);
+                if (prodCatF && !selectParts.includes(prodCatF.InternalName)) selectParts.push(prodCatF.InternalName);
+                if (shiftNameF && !selectParts.includes(shiftNameF.InternalName)) selectParts.push(shiftNameF.InternalName);
+                if (shiftStartF && !selectParts.includes(shiftStartF.InternalName)) selectParts.push(shiftStartF.InternalName);
+                if (shiftEndF && !selectParts.includes(shiftEndF.InternalName)) selectParts.push(shiftEndF.InternalName);
+                if (isActF && !selectParts.includes(isActF.InternalName)) selectParts.push(isActF.InternalName);
+                if (isCritF && !selectParts.includes(isCritF.InternalName)) selectParts.push(isCritF.InternalName);
+                if (remF && !selectParts.includes(remF.InternalName)) selectParts.push(remF.InternalName);
             } else if (formKey === "PackagingOperations" || formKey === "CCP_OPRP_Sieves") {
-                selectParts.push("ProductCode", "LineName", "ProductCategory", "IsActive");
+                if (prodCodeF && !selectParts.includes(prodCodeF.InternalName)) selectParts.push(prodCodeF.InternalName);
+                if (lineF && !selectParts.includes(lineF.InternalName)) selectParts.push(lineF.InternalName);
+                if (prodCatF && !selectParts.includes(prodCatF.InternalName)) selectParts.push(prodCatF.InternalName);
+                if (isActF && !selectParts.includes(isActF.InternalName)) selectParts.push(isActF.InternalName);
             } else if (formKey === "MixingAndBaking") {
-                selectParts.push("ProductCategory", "IsActive", "RecipeConfig");
-                if (schema && schema.findField(["Remarks", "Remarks_x0020_Text"], "Remarks")) selectParts.push("Remarks");
-                if (schema && schema.findField(["Description"], "Description")) selectParts.push("Description");
+                if (prodCatF && !selectParts.includes(prodCatF.InternalName)) selectParts.push(prodCatF.InternalName);
+                if (isActF && !selectParts.includes(isActF.InternalName)) selectParts.push(isActF.InternalName);
+                if (recipeF && !selectParts.includes(recipeF.InternalName)) selectParts.push(recipeF.InternalName);
+                if (remF && !selectParts.includes(remF.InternalName)) selectParts.push(remF.InternalName);
             }
 
             // User Field
-            const uInternalName = userField ? userField.InternalName : (formKey === "MixingAndBaking" ? "QA_x0020_Executive" : (formKey === "FoodSafety" ? "QAExecutive" : null));
+            const uInternalName = userField ? userField.InternalName : null;
             if (uInternalName) {
                 selectParts.push(`${uInternalName}/Title`, `${uInternalName}/EMail`, `${uInternalName}/Id`);
                 expandParts.push(uInternalName);
             }
 
             // Production Field
-            const pInternalName = prodField ? prodField.InternalName : (formKey === "MixingAndBaking" ? "Production_x0020_Executive" : (formKey === "FoodSafety" ? "ProductionIncharge" : null));
+            const pInternalName = prodField ? prodField.InternalName : null;
             if (pInternalName) {
                 selectParts.push(`${pInternalName}/Title`, `${pInternalName}/EMail`, `${pInternalName}/Id`);
                 expandParts.push(pInternalName);
@@ -682,6 +853,14 @@ const Rajpura_Admin = {
             if (mInternalName) {
                 selectParts.push(`${mInternalName}/Title`, `${mInternalName}/EMail`, `${mInternalName}/Id`);
                 expandParts.push(mInternalName);
+            }
+
+            // QA Shift Executive Field (ALC)
+            const qaShiftField = schema && formDef.qaShiftFieldNames ? schema.findField(formDef.qaShiftFieldNames, ["QA Shift Executive", "QAShiftExecutive"]) : null;
+            const qsInternalName = qaShiftField ? qaShiftField.InternalName : null;
+            if (qsInternalName) {
+                selectParts.push(`${qsInternalName}/Title`, `${qsInternalName}/EMail`, `${qsInternalName}/Id`);
+                expandParts.push(qsInternalName);
             }
 
             let query = `?$select=${selectParts.join(",")}&$top=5000`;
@@ -700,12 +879,25 @@ const Rajpura_Admin = {
 
             // Fallback for ALC if master fields not present or need basic query
             if ((!response || !response.ok) && formKey === "ALC") {
-                const fbQuery = "?$select=Id,Title,ConfigType,Plant,Area,AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id,EscalationManager/Title,EscalationManager/EMail,EscalationManager/Id&$expand=AssignedUser,EscalationManager&$filter=Plant eq 'Rajpura'&$top=5000";
-                const fbUrl = `${siteUrl}/_api/web/lists/getByTitle('${listName}')/items${fbQuery}`;
-                try {
-                    const fbRes = await fetch(fbUrl, { headers: { "Accept": "application/json; odata=verbose" } });
-                    if (fbRes.ok) response = fbRes;
-                } catch (err) {}
+                const fbQueries = [
+                    "?$select=Id,Title,ConfigType,Plant,Area,LineName,ShiftCode,ProductCode,ProductCategory,AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id,QAShiftExecutive/Title,QAShiftExecutive/EMail,QAShiftExecutive/Id,EscalationManager/Title,EscalationManager/EMail,EscalationManager/Id&$expand=AssignedUser,QAShiftExecutive,EscalationManager&$filter=Plant eq 'Rajpura'&$top=5000",
+                    "?$select=Id,Title,ConfigType,Plant,Area,LineName,ShiftCode,ProductCode,ProductCategory,AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id,EscalationManager/Title,EscalationManager/EMail,EscalationManager/Id&$expand=AssignedUser,EscalationManager&$filter=Plant eq 'Rajpura'&$top=5000",
+                    "?$select=Id,Title,ConfigType,Plant,Area,LineName,ShiftCode,ProductCode,ProductCategory,AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id&$expand=AssignedUser&$filter=Plant eq 'Rajpura'&$top=5000",
+                    "?$select=Id,Title,ConfigType,Plant,Area,LineName,ShiftCode,ProductCode,ProductCategory&$filter=Plant eq 'Rajpura'&$top=5000",
+                    "?$select=Id,Title,ConfigType,Plant,Area,AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id,EscalationManager/Title,EscalationManager/EMail,EscalationManager/Id&$expand=AssignedUser,EscalationManager&$filter=Plant eq 'Rajpura'&$top=5000",
+                    "?$select=Id,Title,ConfigType,Plant,Area&$top=5000",
+                    "?$select=Id,Title&$top=5000"
+                ];
+                for (const q of fbQueries) {
+                    try {
+                        const fbUrl = `${siteUrl}/_api/web/lists/getByTitle('${listName}')/items${q}`;
+                        const fbRes = await fetch(fbUrl, { headers: { "Accept": "application/json; odata=verbose" } });
+                        if (fbRes.ok) {
+                            response = fbRes;
+                            break;
+                        }
+                    } catch (err) {}
+                }
             }
 
             // Fallback for space-encoded field names (QA_x0020_Executive, Production_x0020_Executive)
@@ -762,6 +954,10 @@ const Rajpura_Admin = {
                         item.EscalationManager ||
                         item.Escalation_x0020_Manager;
 
+                    const rawQaShift = (qaShiftField && item[qaShiftField.InternalName]) ||
+                        item.QAShiftExecutive ||
+                        item.QAShift_x0020_Executive;
+
                     const rawChecklistType = (checklistTypeField && item[checklistTypeField.InternalName]) ||
                         item.ChecklistType ||
                         item.Checklist_x0020_Type || "";
@@ -785,6 +981,27 @@ const Rajpura_Admin = {
                         }
                     }
 
+                    // Extract sequence and critical markers if encoded in Title (e.g. "1. [CRITICAL] Floor...")
+                    let extractedSeq = 0;
+                    let extractedCritical = false;
+                    const seqMatch = finalTitle.match(/^(\d+)[\.\:\-\s]+/);
+                    if (seqMatch) {
+                        extractedSeq = parseInt(seqMatch[1], 10);
+                        finalTitle = finalTitle.substring(seqMatch[0].length).trim();
+                    }
+                    if (/\[critical(?:\s*gate)?\]/i.test(finalTitle)) {
+                        extractedCritical = true;
+                        finalTitle = finalTitle.replace(/\[critical(?:\s*gate)?\]\s*/i, "").trim();
+                    }
+
+                    const rawIsCritical = isCritF ? item[isCritF.InternalName] : (item.IsCritical || item.Is_x0020_Critical);
+                    const rawRemarks = remF ? item[remF.InternalName] : (item.Remarks || item.Remarks_x0020_Text);
+                    const rawCat = prodCatF ? item[prodCatF.InternalName] : (item.ProductCategory || "");
+                    const isCriticalBool = extractedCritical || (rawIsCritical === true || rawIsCritical === "Yes" || rawIsCritical === 1 ||
+                        String(rawCat).toLowerCase() === "critical" || String(rawCat).toLowerCase() === "yes" ||
+                        String(rawRemarks).toLowerCase() === "critical");
+                    const rawSeq = shiftCodeF ? item[shiftCodeF.InternalName] : (prodCodeF ? item[prodCodeF.InternalName] : (item.Sequence || extractedSeq || 0));
+
                     return {
                         id: item.Id,
                         title: finalTitle,
@@ -792,16 +1009,19 @@ const Rajpura_Admin = {
                         checklistType: rawChecklistType || finalTitle,
                         area: areaField ? item[areaField.InternalName] : (item.Area || ""),
                         plant: plantField ? item[plantField.InternalName] : (item.Plant || "Rajpura"),
-                        lineName: item.LineName || "",
-                        shiftCode: item.ShiftCode || "",
-                        shiftName: item.ShiftName || "",
-                        shiftStart: item.ShiftStart || "",
-                        shiftEnd: item.ShiftEnd || "",
-                        productCode: item.ProductCode || "",
-                        productCategory: item.ProductCategory || "",
-                        isActive: item.IsActive !== false,
+                        lineName: lineF ? item[lineF.InternalName] : (item.LineName || ""),
+                        shiftCode: shiftCodeF ? item[shiftCodeF.InternalName] : (extractedSeq ? String(extractedSeq) : ""),
+                        shiftName: shiftNameF ? item[shiftNameF.InternalName] : (item.ShiftName || ""),
+                        shiftStart: shiftStartF ? item[shiftStartF.InternalName] : (item.ShiftStart || ""),
+                        shiftEnd: shiftEndF ? item[shiftEndF.InternalName] : (item.ShiftEnd || ""),
+                        productCode: prodCodeF ? item[prodCodeF.InternalName] : (extractedSeq ? String(extractedSeq) : ""),
+                        productCategory: rawCat || (isCriticalBool ? "Critical" : "Standard"),
+                        isCritical: isCriticalBool,
+                        sequence: parseInt(rawSeq, 10) || extractedSeq || 0,
+                        isActive: isActF ? (item[isActF.InternalName] !== false) : (item.IsActive !== false),
                         recipeConfig: parsedRecipe,
                         assignedUsers: this.normalizeUsers(rawUser),
+                        qaShiftExecutives: this.normalizeUsers(rawQaShift),
                         productionIncharges: this.normalizeUsers(rawProd),
                         escalationManagers: this.normalizeUsers(rawMgr),
                         raw: item
@@ -836,11 +1056,33 @@ const Rajpura_Admin = {
      */
     normalizeUsers: function (raw) {
         if (!raw) return [];
-        if (raw.results && Array.isArray(raw.results)) {
-            return raw.results.map(u => ({ id: u.Id, title: u.Title, email: u.EMail || "" }));
+        if (Array.isArray(raw)) {
+            return raw
+                .filter(u => u && (u.Id || u.id || u.Title || u.title || u.EMail || u.email))
+                .map(u => ({
+                    id: u.Id || u.id || u.ID || null,
+                    spUserId: u.Id || u.id || u.ID || null,
+                    title: (u.Title || u.title || "").trim(),
+                    email: (u.EMail || u.Email || u.email || "").trim()
+                }));
         }
-        if (raw.Title || raw.EMail || raw.Id) {
-            return [{ id: raw.Id, title: raw.Title, email: raw.EMail || "" }];
+        if (raw.results && Array.isArray(raw.results)) {
+            return raw.results
+                .filter(u => u && (u.Id || u.id || u.Title || u.title || u.EMail || u.email))
+                .map(u => ({
+                    id: u.Id || u.id || u.ID || null,
+                    spUserId: u.Id || u.id || u.ID || null,
+                    title: (u.Title || u.title || "").trim(),
+                    email: (u.EMail || u.Email || u.email || "").trim()
+                }));
+        }
+        if (raw.Title || raw.EMail || raw.Id || raw.title || raw.email || raw.id) {
+            return [{
+                id: raw.Id || raw.id || raw.ID || null,
+                spUserId: raw.Id || raw.id || raw.ID || null,
+                title: (raw.Title || raw.title || "").trim(),
+                email: (raw.EMail || raw.Email || raw.email || "").trim()
+            }];
         }
         return [];
     },
@@ -868,13 +1110,13 @@ const Rajpura_Admin = {
                 { id: 204, title: "Shift G", configType: "Shift Master", shiftCode: "G", shiftName: "General", shiftStart: "9:30 A.M.", shiftEnd: "6:00 P.M.", plant: "Rajpura", isActive: true, assignedUsers: [], escalationManagers: [], productionIncharges: [] },
 
                 // 3. Area Inspector Assignment (7 Areas)
-                { id: 301, title: "AREA-01", configType: "Area Inspector", area: "RM Store", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 104, title: "Rajesh Kumar", email: "rajesh.kumar1@bectorfoods.com" }, { id: 105, title: "Karan Singh", email: "karan.singh@bectorfoods.com" }], escalationManagers: [], productionIncharges: [] },
-                { id: 302, title: "AREA-02", configType: "Area Inspector", area: "Flour & Sugar Handling", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 105, title: "Karan Singh", email: "karan.singh@bectorfoods.com" }, { id: 106, title: "Asit Kumar", email: "asit.kumar@bectorfoods.com" }], escalationManagers: [], productionIncharges: [] },
-                { id: 303, title: "AREA-03", configType: "Area Inspector", area: "Chemical Handling Area", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 105, title: "Karan Singh", email: "karan.singh@bectorfoods.com" }, { id: 106, title: "Asit Kumar", email: "asit.kumar@bectorfoods.com" }], escalationManagers: [], productionIncharges: [] },
-                { id: 304, title: "AREA-04", configType: "Area Inspector", area: "Mixing", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 105, title: "Karan Singh", email: "karan.singh@bectorfoods.com" }, { id: 107, title: "Jayant Shrivastava", email: "jayant.shrivastava@bectorfoods.com" }], escalationManagers: [], productionIncharges: [] },
-                { id: 305, title: "AREA-05", configType: "Area Inspector", area: "Oven", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 105, title: "Karan Singh", email: "karan.singh@bectorfoods.com" }, { id: 108, title: "Maheshwar Yadav", email: "maheshwar.yadav@bectorfoods.com" }], escalationManagers: [], productionIncharges: [] },
-                { id: 306, title: "AREA-06", configType: "Area Inspector", area: "Post Bake & Packing Section", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 105, title: "Karan Singh", email: "karan.singh@bectorfoods.com" }, { id: 109, title: "Satish Verma", email: "satish.verma@bectorfoods.com" }], escalationManagers: [], productionIncharges: [] },
-                { id: 307, title: "AREA-07", configType: "Area Inspector", area: "Biscuit Grinding", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 105, title: "Karan Singh", email: "karan.singh@bectorfoods.com" }, { id: 109, title: "Satish Verma", email: "satish.verma@bectorfoods.com" }], escalationManagers: [], productionIncharges: [] },
+                { id: 301, title: "AREA-01", configType: "Area Inspector", area: "RM Store", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 104, title: "Rajesh Kumar", email: "" }, { id: 105, title: "Karan Singh", email: "" }], escalationManagers: [], productionIncharges: [] },
+                { id: 302, title: "AREA-02", configType: "Area Inspector", area: "Flour & Sugar Handling", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 105, title: "Karan Singh", email: "" }, { id: 106, title: "Asit Kumar", email: "" }], escalationManagers: [], productionIncharges: [] },
+                { id: 303, title: "AREA-03", configType: "Area Inspector", area: "Chemical Handling Area", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 105, title: "Karan Singh", email: "" }, { id: 106, title: "Asit Kumar", email: "" }], escalationManagers: [], productionIncharges: [] },
+                { id: 304, title: "AREA-04", configType: "Area Inspector", area: "Mixing", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 105, title: "Karan Singh", email: "" }, { id: 107, title: "Jayant Shrivastava", email: "" }], escalationManagers: [], productionIncharges: [] },
+                { id: 305, title: "AREA-05", configType: "Area Inspector", area: "Oven", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 105, title: "Karan Singh", email: "" }, { id: 108, title: "Maheshwar Yadav", email: "" }], escalationManagers: [], productionIncharges: [] },
+                { id: 306, title: "AREA-06", configType: "Area Inspector", area: "Post Bake & Packing Section", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 105, title: "Karan Singh", email: "" }, { id: 109, title: "Satish Verma", email: "" }], escalationManagers: [], productionIncharges: [] },
+                { id: 307, title: "AREA-07", configType: "Area Inspector", area: "Biscuit Grinding", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 105, title: "Karan Singh", email: "" }, { id: 109, title: "Satish Verma", email: "" }], escalationManagers: [], productionIncharges: [] },
 
                 // 4. QA Shift Assignment Matrix
                 {
@@ -885,12 +1127,12 @@ const Rajpura_Admin = {
                     plant: "Rajpura",
                     isActive: true,
                     assignedUsers: [
-                        { id: 101, title: "QA Process Team 1", email: "qaprocess.rajpura@bectorfoods.com" },
-                        { id: 102, title: "QA Process Team 2", email: "qaprocess1.rajpura@bectorfoods.com" }
+                        { id: 101, title: "QA Process Team 1", email: "" },
+                        { id: 102, title: "QA Process Team 2", email: "" }
                     ],
                     escalationManagers: [
-                        { id: 105, title: "Karan Singh", email: "karan.singh@bectorfoods.com" },
-                        { id: 106, title: "Asit Kumar", email: "asit.kumar@bectorfoods.com" }
+                        { id: 105, title: "Karan Singh", email: "" },
+                        { id: 106, title: "Asit Kumar", email: "" }
                     ],
                     productionIncharges: []
                 },
@@ -902,10 +1144,10 @@ const Rajpura_Admin = {
                     plant: "Rajpura",
                     isActive: true,
                     assignedUsers: [
-                        { id: 101, title: "QA Process Team 1", email: "qaprocess.rajpura@bectorfoods.com" }
+                        { id: 101, title: "QA Process Team 1", email: "" }
                     ],
                     escalationManagers: [
-                        { id: 105, title: "Karan Singh", email: "karan.singh@bectorfoods.com" }
+                        { id: 105, title: "Karan Singh", email: "" }
                     ],
                     productionIncharges: []
                 },
@@ -1064,10 +1306,10 @@ const Rajpura_Admin = {
 
             return [
                 // 1. Role Assignments
-                { id: 41, title: "QA User", configType: "QA User", area: "Packaging Lines", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 101, title: "Mishab Muhammed", email: "mishab@bectorfoods.com" }, { id: 108, title: "Gokul K", email: "gokul.k@bectorfoods.com" }, { id: 112, title: "Babifas P", email: "babifas.p@bectorfoods.com" }], productionIncharges: [], escalationManagers: [] },
-                { id: 42, title: "Production Incharge", configType: "Production Incharge", area: "Packaging Area", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 101, title: "Mishab Muhammed", email: "mishab@bectorfoods.com" }], productionIncharges: [], escalationManagers: [] },
-                { id: 43, title: "QA HOD", configType: "QA HOD", area: "Quality Assurance", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 201, title: "Jayant Shrivastava", email: "jayant.shrivastava@bectorfoods.com" }], productionIncharges: [], escalationManagers: [] },
-                { id: 44, title: "Production HOD", configType: "Production HOD", area: "Plant Production", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 202, title: "Maheshwar Yadav", email: "maheshwar.yadav@bectorfoods.com" }], productionIncharges: [], escalationManagers: [] },
+                { id: 41, title: "QA User", configType: "QA User", area: "Packaging Lines", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 101, title: "Mishab Muhammed", email: "" }, { id: 108, title: "Gokul K", email: "" }, { id: 112, title: "Babifas P", email: "" }], productionIncharges: [], escalationManagers: [] },
+                { id: 42, title: "Production Incharge", configType: "Production Incharge", area: "Packaging Area", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 101, title: "Mishab Muhammed", email: "" }], productionIncharges: [], escalationManagers: [] },
+                { id: 43, title: "QA HOD", configType: "QA HOD", area: "Quality Assurance", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 201, title: "Jayant Shrivastava", email: "" }], productionIncharges: [], escalationManagers: [] },
+                { id: 44, title: "Production HOD", configType: "Production HOD", area: "Plant Production", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 202, title: "Maheshwar Yadav", email: "" }], productionIncharges: [], escalationManagers: [] },
 
                 // 2. Product Master (1,105 Products)
                 ...seedProducts,
@@ -1188,6 +1430,7 @@ const Rajpura_Admin = {
             case "lines": return "Production Line Master (8 Lines)";
             case "shifts": return "Shift Master (4 Shifts)";
             case "products": return "Changeover Product Catalogue";
+            case "questions": return "Checklist Questions Master (46 Parameters)";
             default: return "ALC Master Suite";
         }
     },
@@ -1237,11 +1480,18 @@ const Rajpura_Admin = {
         const form = this.FORMS[this.activeTab];
         if (!form) return;
 
+        // Special dedicated view for Top Management Escalation Matrix
+        if (this.activeTab === "TopManagement") {
+            this.renderTopManagementTab();
+            return;
+        }
+
         let rows = this.configs[this.activeTab] || [];
 
-        // Special 5-subtab layout for ALC Master Data Management
+        // Special 6-subtab layout for ALC Master Data Management
         if (this.activeTab === "ALC") {
             const alcSub = this.alcSubTab || "qa-matrix";
+            const qCount = rows.filter(r => r.configType === "Checklist Question").length;
             const subnavHtml = `
                 <div class="admin-subnav-container">
                     <div class="admin-subnav-tabs">
@@ -1265,6 +1515,10 @@ const Rajpura_Admin = {
                             <span class="subnav-icon"></span>
                             <span>Product Catalogue</span>
                         </button>
+                        <button type="button" class="admin-subnav-btn ${alcSub === 'questions' ? 'active' : ''}" onclick="Rajpura_Admin.switchAlcSubTab('questions')">
+                            <span class="subnav-icon"></span>
+                            <span>Checklist Questions (${qCount})</span>
+                        </button>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                         <button type="button" id="admin-btn-seed-alc" class="admin-btn-secondary" style="font-size: 12px; padding: 6px 14px; display: inline-flex; align-items: center; gap: 5px; font-weight: 600; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; border-radius: 8px; cursor: not-allowed !important; opacity: 0.6; pointer-events: none;" disabled title="Seeding is disabled">
@@ -1280,6 +1534,7 @@ const Rajpura_Admin = {
             else if (alcSub === "lines") contentHtml = this.renderAlcLineMaster(rows);
             else if (alcSub === "shifts") contentHtml = this.renderAlcShiftMaster(rows);
             else if (alcSub === "products") contentHtml = this.renderAlcProductCatalogue(rows);
+            else if (alcSub === "questions") contentHtml = this.renderAlcQuestions(rows);
 
             mount.innerHTML = `
                 ${subnavHtml}
@@ -1365,9 +1620,9 @@ const Rajpura_Admin = {
                             <span>Product Recipes Master Catalogue</span>
                         </button>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <button type="button" id="admin-btn-seed-mb" class="admin-btn-secondary" style="font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 8px; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none; display: inline-flex; align-items: center; gap: 5px;" disabled title="Seeding is disabled">
-                            Seed Recipes (9)
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button type="button" id="admin-btn-seed-mb" class="admin-btn-secondary" onclick="Rajpura_Admin.seedMbRecipesMasterData()" style="font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 8px; border: 1px solid #dc2626; color: #dc2626; background: #fff; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" title="Seed Standard Product Recipes (71)">
+                            Seed / Sync Recipes (71)
                         </button>
                     </div>
                 </div>
@@ -1389,6 +1644,12 @@ const Rajpura_Admin = {
                 contentHtml = this.renderCardsGrid(form, userRows);
             } else if (mbSub === "recipes") {
                 contentHtml = this.renderMbRecipeCatalogue(rows);
+                mount.innerHTML = `
+                    ${subnavHtml}
+                    ${contentHtml}
+                `;
+                this.updateMbRecipeTable(rows);
+                return;
             }
 
             mount.innerHTML = `
@@ -1488,8 +1749,9 @@ const Rajpura_Admin = {
                 const lineMatch = (r.lineName || "").toLowerCase().includes(q);
                 const shiftMatch = (r.shiftCode || "").toLowerCase().includes(q) || (r.shiftName || "").toLowerCase().includes(q);
                 const userMatch = (r.assignedUsers || []).some(u => (u.title || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q));
+                const qaShiftMatch = (r.qaShiftExecutives || []).some(qs => (qs.title || "").toLowerCase().includes(q) || (qs.email || "").toLowerCase().includes(q));
                 const mgrMatch = (r.escalationManagers || []).some(m => (m.title || "").toLowerCase().includes(q) || (m.email || "").toLowerCase().includes(q));
-                return titleMatch || lineMatch || shiftMatch || userMatch || mgrMatch;
+                return titleMatch || lineMatch || shiftMatch || userMatch || qaShiftMatch || mgrMatch;
             });
         }
 
@@ -1547,6 +1809,24 @@ const Rajpura_Admin = {
                                                         <button type="button" class="admin-user-chip-remove" onclick="Rajpura_Admin.quickRemoveUser('ALC', ${r.id}, 'assignedUsers', ${u.id})" title="Remove QA user">&times;</button>
                                                     </span>
                                                 `).join("") : `<span class="admin-no-users">No QA Executives assigned</span>`}
+                                            </div>
+                                        </div>
+                                        <div class="admin-card-section has-divider">
+                                            <div class="admin-card-section-header">
+                                                <div class="admin-card-section-title">
+                                                    <span class="role-icon"></span>
+                                                    <span>QA Shift Executives</span>
+                                                    <span class="admin-count-pill">${(r.qaShiftExecutives || []).length}</span>
+                                                </div>
+                                            </div>
+                                            <div class="admin-users-list">
+                                                ${(r.qaShiftExecutives && r.qaShiftExecutives.length > 0) ? r.qaShiftExecutives.map(u => `
+                                                    <span class="admin-user-chip qa-shift" title="${this.escapeHtml(u.email || u.title)}" style="background: #ede9fe; color: #6d28d9; border-color: #ddd6fe;">
+                                                        <span class="admin-user-avatar" style="background: #7c3aed; color: #ffffff;">${this.getInitials(u.title)}</span>
+                                                        <span class="admin-user-name">${this.escapeHtml(u.title)}</span>
+                                                        <button type="button" class="admin-user-chip-remove" onclick="Rajpura_Admin.quickRemoveUser('ALC', ${r.id}, 'qaShiftExecutives', ${u.id})" title="Remove QA shift executive">&times;</button>
+                                                    </span>
+                                                `).join("") : `<span class="admin-no-users">No QA Shift Executives assigned</span>`}
                                             </div>
                                         </div>
                                         <div class="admin-card-section has-divider">
@@ -1894,6 +2174,622 @@ const Rajpura_Admin = {
                 </div>
             </div>
         `;
+    },
+
+    /**
+     * ALC: 46 Checklist Questions Master View & Critical Gate Configuration
+     */
+    renderAlcQuestions: function (rows) {
+        // Strictly only show real items retrieved from SharePoint list
+        const allQuestions = (rows || this.configs.ALC || []).filter(r => {
+            const cfg = (r.configType || r.ConfigType || "").toLowerCase();
+            return cfg === "checklist question" && r.id > 0;
+        });
+
+        const syncedCount = allQuestions.length;
+        const totalQuestions = allQuestions.length;
+        const criticalCount = allQuestions.filter(r => r.isCritical).length;
+        const standardCount = totalQuestions - criticalCount;
+
+        const st = this.alcQuestionState;
+        let filtered = [...allQuestions];
+
+        // 1. Area Filter
+        if (st.areaFilter && st.areaFilter !== "ALL") {
+            filtered = filtered.filter(r => (r.area || "").toLowerCase() === st.areaFilter.toLowerCase());
+        }
+
+        // 2. Critical Gate Filter
+        if (st.criticalFilter && st.criticalFilter !== "ALL") {
+            if (st.criticalFilter === "CRITICAL") {
+                filtered = filtered.filter(r => !!r.isCritical);
+            } else if (st.criticalFilter === "STANDARD") {
+                filtered = filtered.filter(r => !r.isCritical);
+            }
+        }
+
+        // 3. Status Filter
+        if (st.statusFilter && st.statusFilter !== "ALL") {
+            if (st.statusFilter === "ACTIVE") {
+                filtered = filtered.filter(r => r.isActive !== false);
+            } else if (st.statusFilter === "INACTIVE") {
+                filtered = filtered.filter(r => r.isActive === false);
+            }
+        }
+
+        // 4. Search Filter
+        const query = (st.searchTerm || this.searchFilter || "").toLowerCase().trim();
+        if (query) {
+            filtered = filtered.filter(r => 
+                (r.title || "").toLowerCase().includes(query) ||
+                (r.area || "").toLowerCase().includes(query) ||
+                String(r.sequence || "").includes(query) ||
+                (r.isCritical ? "critical gate" : "standard").includes(query)
+            );
+        }
+
+        // Sort by sequence number ascending
+        filtered.sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+
+        // Distinct areas
+        const distinctAreas = [
+            "RM Store Area (Wheat Flour Handling)",
+            "Flour & Sugar Handling",
+            "Chemical Handling Area",
+            "Mixing",
+            "Oven",
+            "Post Bake & Packing Section",
+            "Biscuit Grinding"
+        ];
+        allQuestions.forEach(q => {
+            if (q.area && !distinctAreas.includes(q.area)) distinctAreas.push(q.area);
+        });
+
+        const areaOptionsHtml = distinctAreas.map(a => 
+            `<option value="${this.escapeHtml(a)}" ${st.areaFilter === a ? 'selected' : ''}>${this.escapeHtml(a)}</option>`
+        ).join("");
+
+        return `
+            <div class="admin-panel-card">
+                <div class="admin-panel-header" style="flex-wrap: wrap; gap: 12px;">
+                    <div class="admin-panel-title-area">
+                        <h3 class="admin-panel-title"> ALC Checklist Questions Master (46 Parameters)</h3>
+                        <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">
+                            Define checklist questions and toggle <strong>Critical Gate</strong> rules. Any non-compliant/partial critical question fails the tour.
+                        </p>
+                    </div>
+                    <div class="admin-panel-actions" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <div class="admin-critical-stat-pill">
+                            <span>Total: <strong>${totalQuestions}</strong></span>
+                            <span>&bull;</span>
+                            <span class="critical-count">Critical Gate: <strong>${criticalCount}</strong></span>
+                            <span>&bull;</span>
+                            <span class="standard-count">Standard: <strong>${standardCount}</strong></span>
+                        </div>
+                        <button type="button" id="btn-sync-alc-questions" class="admin-btn-sync-questions" onclick="Rajpura_Admin.syncAlcQuestionsToSharePoint()" title="Sync and insert all 46 checklist questions into SharePoint list Quality-Rajpura-ALC">
+                            <span style="font-size: 14px;">🔄</span>
+                            <span>${syncedCount >= 46 ? 'Re-Sync Questions to List' : 'Sync 46 Questions to SharePoint List'}</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Sync Status Banner -->
+                ${syncedCount === 0 ? `
+                    <div style="margin: 0 20px 14px 20px; padding: 14px 20px; background: #eff6ff; border: 1px solid #bfdbfe; border-left: 4px solid #3b82f6; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
+                        <div>
+                            <div style="font-weight: 700; color: #1e40af; font-size: 13.5px; margin-bottom: 2px;">
+                                No Questions in SharePoint List
+                            </div>
+                            <div style="font-size: 13px; color: #2563eb;">
+                                Checklist questions have not been added to <code>Quality-Rajpura-ALC</code> list yet. Click <strong>Sync 46 Questions to SharePoint List</strong> to populate all 46 parameters.
+                            </div>
+                        </div>
+                        <button type="button" class="admin-btn-sync-questions" style="font-size: 12px; padding: 6px 14px;" onclick="Rajpura_Admin.syncAlcQuestionsToSharePoint()">
+                            Sync 46 Questions Now
+                        </button>
+                    </div>
+                ` : `
+                    <div style="margin: 0 20px 14px 20px; padding: 10px 18px; background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 4px solid #10b981; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+                        <div style="font-size: 13px; color: #065f46;">
+                            ✓ <strong>${syncedCount} Questions Synced from SharePoint:</strong> Maintained live in <code>Quality-Rajpura-ALC</code> list. Criticality toggles update live.
+                        </div>
+                        ${syncedCount < 46 ? `
+                            <button type="button" class="admin-btn-sync-questions" style="font-size: 12px; padding: 5px 14px;" onclick="Rajpura_Admin.syncAlcQuestionsToSharePoint()">
+                                Sync Remaining Questions
+                            </button>
+                        ` : ''}
+                    </div>
+                `}
+
+                <!-- Filters Bar -->
+                <div class="admin-filters-bar" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                    <div style="flex: 1; min-width: 220px;">
+                        <input type="text" class="admin-search-input" style="width: 100%;" placeholder="Search question description, area, seq..." value="${this.escapeHtml(st.searchTerm || this.searchFilter || '')}" oninput="Rajpura_Admin.onAlcQuestionSearchInput(this.value)" />
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <select class="admin-filter-select" id="alc-q-filter-area" onchange="Rajpura_Admin.onAlcQuestionAreaChange(this.value)" style="min-width: 180px;">
+                            <option value="ALL" ${st.areaFilter === 'ALL' ? 'selected' : ''}>All Areas (${distinctAreas.length})</option>
+                            ${areaOptionsHtml}
+                        </select>
+                        <select class="admin-filter-select" id="alc-q-filter-critical" onchange="Rajpura_Admin.onAlcQuestionCriticalChange(this.value)" style="min-width: 150px;">
+                            <option value="ALL" ${st.criticalFilter === 'ALL' ? 'selected' : ''}>All Gate Types</option>
+                            <option value="CRITICAL" ${st.criticalFilter === 'CRITICAL' ? 'selected' : ''}>Critical Gate (${criticalCount})</option>
+                            <option value="STANDARD" ${st.criticalFilter === 'STANDARD' ? 'selected' : ''}>Standard (${standardCount})</option>
+                        </select>
+                        <select class="admin-filter-select" id="alc-q-filter-status" onchange="Rajpura_Admin.onAlcQuestionStatusChange(this.value)" style="min-width: 120px;">
+                            <option value="ALL" ${st.statusFilter === 'ALL' ? 'selected' : ''}>All Statuses</option>
+                            <option value="ACTIVE" ${st.statusFilter === 'ACTIVE' ? 'selected' : ''}>Active</option>
+                            <option value="INACTIVE" ${st.statusFilter === 'INACTIVE' ? 'selected' : ''}>Inactive</option>
+                        </select>
+                        <button type="button" class="admin-btn-reset-filters" onclick="Rajpura_Admin.resetAlcQuestionFilters()" title="Reset all filters">
+                            Reset
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Questions Table -->
+                <div class="admin-table-container">
+                    <table class="admin-product-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 6%; text-align: center;">Seq #</th>
+                                <th style="width: 22%;">Area / Department</th>
+                                <th style="width: 46%;">Checklist Question Description</th>
+                                <th style="width: 14%; text-align: center;">Gate Type</th>
+                                <th style="width: 6%; text-align: center;">Status</th>
+                                <th style="width: 6%; text-align: center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filtered.length > 0 ? filtered.map(r => `
+                                <tr>
+                                    <td style="text-align: center;">
+                                        <span class="admin-alc-seq-badge">${r.sequence || '-'}</span>
+                                    </td>
+                                    <td>
+                                        <span class="admin-alc-area-tag">${this.escapeHtml(r.area || "General")}</span>
+                                    </td>
+                                    <td>
+                                        <div style="font-size: 13.5px; font-weight: 600; color: #1e293b; line-height: 1.4;">
+                                            ${this.escapeHtml(r.title)}
+                                        </div>
+                                    </td>
+                                    <td style="text-align: center;">
+                                        ${r.isCritical ? `
+                                            <button type="button" class="admin-critical-badge critical" onclick="Rajpura_Admin.toggleAlcQuestionCritical(${r.id}, ${r.sequence})" title="Click to toggle to Standard parameter">
+                                                <span>&#9888;</span>
+                                                <span>Critical Gate</span>
+                                            </button>
+                                        ` : `
+                                            <button type="button" class="admin-critical-badge standard" onclick="Rajpura_Admin.toggleAlcQuestionCritical(${r.id}, ${r.sequence})" title="Click to toggle to Critical Gate (tour fails if non-compliant)">
+                                                <span>&#10003;</span>
+                                                <span>Standard</span>
+                                            </button>
+                                        `}
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <span class="admin-status-pill ${r.isActive !== false ? 'active' : 'inactive'}" style="cursor: pointer;" onclick="Rajpura_Admin.toggleAlcQuestionActive(${r.id}, ${r.sequence})" title="Click to toggle active status">
+                                            &bull; ${r.isActive !== false ? 'Active' : 'Inactive'}
+                                        </span>
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <div class="admin-product-actions">
+                                            <button type="button" class="admin-btn-action" onclick="Rajpura_Admin.openEditAlcQuestionModal(${r.id}, ${r.sequence})" title="Edit Question Details">
+                                                Edit
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `).join("") : `
+                                <tr>
+                                    <td colspan="6" style="text-align: center; padding: 48px 20px; color: #64748b;">
+                                        <div style="font-size: 32px; margin-bottom: 10px;">📋</div>
+                                        <div style="font-size: 15px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">
+                                            ${totalQuestions === 0 ? "No Checklist Questions in SharePoint List" : "No checklist questions found matching your filter criteria"}
+                                        </div>
+                                        ${totalQuestions === 0 ? `
+                                            <div style="font-size: 13px; color: #64748b; max-width: 520px; margin: 0 auto 16px auto; line-height: 1.5;">
+                                                Checklist questions have not been added to <code>Quality-Rajpura-ALC</code> list yet. Click the sync button below to add all 46 standard parameters.
+                                            </div>
+                                            <button type="button" class="admin-btn-sync-questions" onclick="Rajpura_Admin.syncAlcQuestionsToSharePoint()">
+                                                <span>🔄</span>
+                                                <span>Sync 46 Questions to SharePoint List</span>
+                                            </button>
+                                        ` : `
+                                            <div style="font-size: 13px; color: #64748b;">Try adjusting your search or filter options.</div>
+                                        `}
+                                    </td>
+                                </tr>
+                            `}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    },
+
+    onAlcQuestionAreaChange: function (val) {
+        this.alcQuestionState.areaFilter = val;
+        this.renderCurrentTab();
+    },
+
+    onAlcQuestionCriticalChange: function (val) {
+        this.alcQuestionState.criticalFilter = val;
+        this.renderCurrentTab();
+    },
+
+    onAlcQuestionStatusChange: function (val) {
+        this.alcQuestionState.statusFilter = val;
+        this.renderCurrentTab();
+    },
+
+    onAlcQuestionSearchInput: function (val) {
+        this.alcQuestionState.searchTerm = val;
+        this.searchFilter = val;
+        this.renderCurrentTab();
+    },
+
+    resetAlcQuestionFilters: function () {
+        this.alcQuestionState = {
+            areaFilter: "ALL",
+            criticalFilter: "ALL",
+            statusFilter: "ALL",
+            searchTerm: ""
+        };
+        this.searchFilter = "";
+        this.renderCurrentTab();
+    },
+
+    /**
+     * Sync and bulk-insert all 46 standard checklist questions into Quality-Rajpura-ALC SharePoint list
+     */
+    syncAlcQuestionsToSharePoint: async function () {
+        const defaultList = this.DEFAULT_ALC_QUESTIONS || [];
+        const total = defaultList.length;
+
+        if (!confirm(`Sync all ${total} standard checklist questions into the Quality-Rajpura-ALC SharePoint list?`)) {
+            return;
+        }
+
+        const btn = document.getElementById("btn-sync-alc-questions");
+        const originalText = btn ? btn.innerHTML : "";
+        if (btn) {
+            btn.innerHTML = `<span style="font-size: 14px;">⏳</span> <span>Syncing (0/${total})...</span>`;
+            btn.disabled = true;
+        }
+
+        try {
+            if (typeof ShowProgressLoader === "function") {
+                ShowProgressLoader(5, `Starting sync of ${total} ALC questions to SharePoint...`);
+            }
+
+            // 1. Force refresh schema & live items from SharePoint list
+            delete this.listSchemas["Quality-Rajpura-ALC"];
+            await this.loadSingleFormConfig("ALC");
+            const currentItems = this.configs.ALC || [];
+            const existingQMap = {};
+            currentItems.forEach(item => {
+                const cfgType = (item.configType || item.ConfigType || "").toLowerCase();
+                if (cfgType === "checklist question" && item.id > 0) {
+                    const seq = parseInt(item.sequence || item.shiftCode || item.productCode || 0, 10);
+                    if (seq > 0) existingQMap[seq] = item;
+                    else if (item.title) existingQMap[item.title.trim().toLowerCase()] = item;
+                }
+            });
+
+            let addedCount = 0;
+            let updatedCount = 0;
+            let failureCount = 0;
+
+            for (let i = 0; i < total; i++) {
+                const q = defaultList[i];
+                const seq = q.sequence;
+                const existing = existingQMap[seq] || existingQMap[q.title.trim().toLowerCase()];
+
+                const isCrit = (existing && existing.productCategory) 
+                    ? (existing.productCategory === "Critical" || existing.isCritical === true) 
+                    : q.isCritical;
+
+                // Always encode sequence number and [CRITICAL] marker into Title so it persists even without extra columns
+                const formattedTitle = `${seq}. ${isCrit ? '[CRITICAL] ' : ''}${q.title}`;
+
+                const payload = {
+                    Title: formattedTitle,
+                    ConfigType: "Checklist Question",
+                    Area: q.area,
+                    ShiftCode: String(seq),
+                    ProductCode: String(seq),
+                    Sequence: seq,
+                    ProductCategory: isCrit ? "Critical" : "Standard",
+                    IsCritical: isCrit,
+                    Remarks: isCrit ? "Critical" : "",
+                    Plant: "Rajpura",
+                    Region: "North",
+                    IsActive: q.isActive !== false
+                };
+
+                const progressPercent = Math.round(10 + ((i + 1) / total) * 85);
+                if (typeof ShowProgressLoader === "function") {
+                    ShowProgressLoader(progressPercent, `Syncing question ${i + 1} of ${total} (${q.area})...`);
+                }
+                if (btn) {
+                    btn.innerHTML = `<span style="font-size: 14px;">⏳</span> <span>Syncing (${i + 1}/${total})...</span>`;
+                }
+
+                let success = false;
+                if (existing && existing.id > 0) {
+                    success = await this.persistItemToSharePoint("ALC", existing.id, payload);
+                    if (success) updatedCount++;
+                    else failureCount++;
+                } else {
+                    success = await this.persistItemToSharePoint("ALC", null, payload);
+                    if (success) addedCount++;
+                    else failureCount++;
+                }
+            }
+
+            if (typeof ShowProgressLoader === "function") {
+                ShowProgressLoader(100, "Reloading ALC configurations...");
+            }
+
+            // Reload ALC configs from SharePoint
+            await this.loadSingleFormConfig("ALC");
+            this.renderCurrentTab();
+            this.updateStatsCounters();
+
+            if (addedCount > 0 || updatedCount > 0) {
+                this.showToast(`Successfully synced ${addedCount + updatedCount} of ${total} questions to SharePoint list`, "success");
+            } else {
+                this.showToast(`Failed to sync questions to SharePoint list. Check console for error details.`, "error");
+            }
+
+        } catch (err) {
+            console.error("Error syncing ALC questions to SharePoint:", err);
+            this.showToast(`Error syncing questions: ${err.message || err}`, "error");
+        } finally {
+            if (typeof HideLoader === "function") HideLoader();
+            if (btn) {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+    },
+
+    toggleAlcQuestionCritical: async function (rowId, sequence) {
+        let rows = this.configs.ALC || [];
+        let row = rows.find(r => r.id === rowId);
+
+        // If not yet in SharePoint, find in defaults
+        if (!row) {
+            const seq = sequence || (rowId < 0 ? Math.abs(rowId) - 1000 : 0);
+            const def = (this.DEFAULT_ALC_QUESTIONS || []).find(d => d.sequence === seq);
+            if (def) {
+                row = {
+                    id: rowId,
+                    title: def.title,
+                    configType: "Checklist Question",
+                    area: def.area,
+                    sequence: def.sequence,
+                    isCritical: def.isCritical,
+                    isActive: true
+                };
+            }
+        }
+
+        if (!row) return;
+
+        const newCritical = !row.isCritical;
+        row.isCritical = newCritical;
+        row.productCategory = newCritical ? "Critical" : "Standard";
+
+        const seqNum = row.sequence || sequence || 1;
+        const cleanTitle = (row.title || "").replace(/^\d+[\.\:\-\s]+/, "").replace(/\[critical(?:\s*gate)?\]\s*/i, "").trim();
+        const formattedTitle = `${seqNum}. ${newCritical ? '[CRITICAL] ' : ''}${cleanTitle}`;
+
+        const payload = {
+            Title: formattedTitle,
+            ConfigType: "Checklist Question",
+            Area: row.area || "",
+            ShiftCode: String(seqNum),
+            ProductCode: String(seqNum),
+            Sequence: seqNum,
+            ProductCategory: newCritical ? "Critical" : "Standard",
+            IsCritical: newCritical,
+            Remarks: newCritical ? "Critical" : "",
+            Plant: "Rajpura",
+            Region: "North",
+            IsActive: row.isActive !== false
+        };
+
+        const targetId = (row.id && row.id > 0) ? row.id : null;
+        const success = await this.persistItemToSharePoint("ALC", targetId, payload);
+        if (success) {
+            this.showToast(`Question #${seqNum} set to ${newCritical ? 'CRITICAL GATE' : 'STANDARD'}`, "success");
+            await this.loadSingleFormConfig("ALC");
+            this.renderCurrentTab();
+        } else {
+            this.showToast(`Failed to update Criticality in SharePoint`, "error");
+        }
+    },
+
+    toggleAlcQuestionActive: async function (rowId, sequence) {
+        let rows = this.configs.ALC || [];
+        let row = rows.find(r => r.id === rowId);
+
+        if (!row) {
+            const seq = sequence || (rowId < 0 ? Math.abs(rowId) - 1000 : 0);
+            const def = (this.DEFAULT_ALC_QUESTIONS || []).find(d => d.sequence === seq);
+            if (def) {
+                row = {
+                    id: rowId,
+                    title: def.title,
+                    configType: "Checklist Question",
+                    area: def.area,
+                    sequence: def.sequence,
+                    isCritical: def.isCritical,
+                    isActive: true
+                };
+            }
+        }
+
+        if (!row) return;
+
+        const newActive = row.isActive === false ? true : false;
+        row.isActive = newActive;
+
+        const payload = {
+            Title: row.title,
+            ConfigType: "Checklist Question",
+            Area: row.area || "",
+            ShiftCode: String(row.sequence || ""),
+            ProductCode: String(row.sequence || ""),
+            Sequence: row.sequence || 0,
+            ProductCategory: row.isCritical ? "Critical" : "Standard",
+            IsCritical: !!row.isCritical,
+            Remarks: row.isCritical ? "Critical" : "",
+            Plant: "Rajpura",
+            IsActive: newActive
+        };
+
+        const targetId = (row.id && row.id > 0) ? row.id : null;
+        const success = await this.persistItemToSharePoint("ALC", targetId, payload);
+        if (success) {
+            this.showToast(`Question #${row.sequence || ''} status set to ${newActive ? 'Active' : 'Inactive'}`, "success");
+            await this.loadSingleFormConfig("ALC");
+            this.renderCurrentTab();
+        }
+    },
+
+    openEditAlcQuestionModal: function (rowId, sequence) {
+        let row = (this.configs.ALC || []).find(r => r.id === rowId);
+        if (!row) {
+            const seq = sequence || (rowId < 0 ? Math.abs(rowId) - 1000 : 0);
+            const def = (this.DEFAULT_ALC_QUESTIONS || []).find(d => d.sequence === seq);
+            if (def) {
+                row = {
+                    id: rowId,
+                    title: def.title,
+                    configType: "Checklist Question",
+                    area: def.area,
+                    sequence: def.sequence,
+                    isCritical: def.isCritical,
+                    isActive: true
+                };
+            }
+        }
+        if (!row) return;
+
+        const distinctAreas = [
+            "RM Store Area (Wheat Flour Handling)",
+            "Flour & Sugar Handling",
+            "Chemical Handling Area",
+            "Mixing",
+            "Oven",
+            "Post Bake & Packing Section",
+            "Biscuit Grinding"
+        ];
+        if (row.area && !distinctAreas.includes(row.area)) distinctAreas.push(row.area);
+
+        const mount = document.getElementById("adminModalMount");
+        if (!mount) return;
+
+        mount.innerHTML = `
+            <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
+                <div class="admin-modal-card" style="max-width: 580px;">
+                    <div class="admin-modal-header">
+                        <h4 class="admin-modal-title">Edit Question #${row.sequence || ''} &bull; ALC Master</h4>
+                        <button type="button" class="admin-modal-close" onclick="Rajpura_Admin.closeModal()">&times;</button>
+                    </div>
+                    <div class="admin-modal-body">
+                        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+                            <div class="admin-form-group">
+                                <label class="admin-form-label">Seq #</label>
+                                <input type="number" id="modal-alc-q-seq" class="admin-form-input" value="${row.sequence || 1}" readonly style="background: #f1f5f9; cursor: not-allowed;" />
+                            </div>
+                            <div class="admin-form-group">
+                                <label class="admin-form-label">Factory Area / Department <span style="color: #dc2626;">*</span></label>
+                                <select id="modal-alc-q-area" class="admin-form-input">
+                                    ${distinctAreas.map(a => `<option value="${this.escapeHtml(a)}" ${row.area === a ? 'selected' : ''}>${this.escapeHtml(a)}</option>`).join("")}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="admin-form-group">
+                            <label class="admin-form-label">Checklist Question / Parameter Description <span style="color: #dc2626;">*</span></label>
+                            <textarea id="modal-alc-q-title" class="admin-form-input" rows="3">${this.escapeHtml(row.title)}</textarea>
+                        </div>
+                        <div class="admin-form-group" style="background: ${row.isCritical ? '#fef2f2' : '#f8fafc'}; border: 1px solid ${row.isCritical ? '#fca5a5' : '#e2e8f0'}; padding: 12px; border-radius: 8px; margin-top: 8px;">
+                            <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; margin: 0;">
+                                <input type="checkbox" id="modal-alc-q-critical" ${row.isCritical ? 'checked' : ''} style="width: 18px; height: 18px; margin-top: 2px; cursor: pointer;" />
+                                <div>
+                                    <div style="font-weight: 700; color: #991b1b; font-size: 13.5px;">Mark as Critical Gate Parameter</div>
+                                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
+                                        If non-compliant or partial during tour inspection, the tour will automatically be evaluated and recorded as Failed regardless of overall score.
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                        <div class="admin-form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
+                            <input type="checkbox" id="modal-alc-q-active" ${row.isActive !== false ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer;" />
+                            <label for="modal-alc-q-active" style="cursor: pointer; font-size: 13.5px; font-weight: 500; margin: 0;">Is Active (Visible in ALC tour checklist)</label>
+                        </div>
+                    </div>
+                    <div class="admin-modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+                        <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
+                        <button type="button" class="admin-btn-primary" id="btn-save-alc-q" onclick="Rajpura_Admin.saveAlcQuestion(${row.id}, ${row.sequence})">
+                            Save Changes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    saveAlcQuestion: async function (rowId, sequence) {
+        const seqVal = document.getElementById("modal-alc-q-seq")?.value;
+        const areaVal = document.getElementById("modal-alc-q-area")?.value;
+        const titleVal = document.getElementById("modal-alc-q-title")?.value.trim();
+        const isCriticalVal = document.getElementById("modal-alc-q-critical")?.checked;
+        const isActiveVal = document.getElementById("modal-alc-q-active")?.checked;
+
+        if (!titleVal) {
+            alert("Please enter a Question Description.");
+            return;
+        }
+
+        const btn = document.getElementById("btn-save-alc-q");
+        if (btn) { btn.innerText = "Saving..."; btn.disabled = true; }
+
+        const sequenceNum = parseInt(seqVal, 10) || sequence || 1;
+        const cleanTitle = (titleVal || "").replace(/^\d+[\.\:\-\s]+/, "").replace(/\[critical(?:\s*gate)?\]\s*/i, "").trim();
+        const formattedTitle = `${sequenceNum}. ${isCriticalVal ? '[CRITICAL] ' : ''}${cleanTitle}`;
+
+        const payload = {
+            Title: formattedTitle,
+            ConfigType: "Checklist Question",
+            Area: areaVal || "General",
+            ShiftCode: String(sequenceNum),
+            ProductCode: String(sequenceNum),
+            Sequence: sequenceNum,
+            ProductCategory: isCriticalVal ? "Critical" : "Standard",
+            IsCritical: isCriticalVal,
+            Remarks: isCriticalVal ? "Critical" : "",
+            Plant: "Rajpura",
+            Region: "North",
+            IsActive: isActiveVal !== false
+        };
+
+        const targetId = (rowId && rowId > 0) ? rowId : null;
+        const success = await this.persistItemToSharePoint("ALC", targetId, payload);
+        if (success) {
+            this.showToast(`Question #${sequenceNum} saved successfully`, "success");
+            this.closeModal();
+            await this.loadSingleFormConfig("ALC");
+            this.renderCurrentTab();
+            this.updateStatsCounters();
+        } else if (btn) {
+            btn.innerText = "Save Changes";
+            btn.disabled = false;
+        }
     },
 
     /**
@@ -3237,6 +4133,17 @@ const Rajpura_Admin = {
                         </div>
 
                         <div class="admin-form-group">
+                            <label class="admin-form-label">QA Shift Executives (Multi-Select)</label>
+                            <div class="admin-user-picker-container" id="modal-picker-qa-shift">
+                                <div class="admin-selected-chips-box" onclick="document.getElementById('picker-input-qa-shift').focus()">
+                                    <div id="selected-chips-qa-shift" style="display: flex; flex-wrap: wrap; gap: 4px;"></div>
+                                    <input type="text" id="picker-input-qa-shift" class="admin-picker-search-input" placeholder="Type employee name or email to assign QA Shift Executive..." oninput="Rajpura_Admin.onPickerSearch('qa-shift', this.value)" autocomplete="off" />
+                                </div>
+                                <div class="admin-picker-dropdown" id="dropdown-qa-shift" style="display: none;"></div>
+                            </div>
+                        </div>
+
+                        <div class="admin-form-group">
                             <label class="admin-form-label">5-Minute Escalation Managers (Multi-User Selection)</label>
                             <div class="admin-user-picker-container" id="modal-picker-mgr">
                                 <div class="admin-selected-chips-box" onclick="document.getElementById('picker-input-mgr').focus()">
@@ -3254,7 +4161,7 @@ const Rajpura_Admin = {
                     </div>
                     <div class="admin-modal-footer">
                         <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
-                        <button type="button" class="admin-btn-primary" id="btn-save-matrix" onclick="Rajpura_Admin.saveAlcQaMatrix()">
+                        <button type="button" class="admin-btn-primary" id="btn-save-matrix" onclick="Rajpura_Admin.saveAlcQaMatrix(null)">
                             Save QA Assignment to SharePoint
                         </button>
                     </div>
@@ -3262,12 +4169,12 @@ const Rajpura_Admin = {
             </div>
         `;
 
-        this.pickerState = { users: [], prod: [], mgr: [] };
+        this.pickerState = { users: [], 'qa-shift': [], prod: [], mgr: [] };
     },
 
     openEditAlcQaMatrixModal: function (rowId) {
-        const row = (this.configs.ALC || []).find(r => r.id === rowId);
-        if (!row) return;
+        const row = rowId ? (this.configs.ALC || []).find(r => r.id === rowId) : null;
+        if (!row && rowId) return;
 
         const mount = document.getElementById("adminModalMount");
         if (!mount) return;
@@ -3275,20 +4182,20 @@ const Rajpura_Admin = {
         const lines = (this.configs.ALC || []).filter(r => r.configType === "Line Master");
         const shifts = (this.configs.ALC || []).filter(r => r.configType === "Shift Master");
 
-        const isDefaultLine = !row.title || row.title === 'Default' || row.title === 'All Lines';
-        const isDefaultShift = !row.shiftCode || row.shiftCode === 'Default' || row.shiftCode === 'All Shifts';
+        const isDefaultLine = !row || !row.title || row.title === 'Default' || row.title === 'All Lines';
+        const isDefaultShift = !row || !row.shiftCode || row.shiftCode === 'Default' || row.shiftCode === 'All Shifts';
 
         const lineOptions = `<option value="Default" ${isDefaultLine ? 'selected' : ''}>Default (All Lines)</option>` +
-            lines.map(l => `<option value="${this.escapeHtml(l.title)}" ${row.title === l.title ? 'selected' : ''}>${this.escapeHtml(l.title)}${l.lineName ? ` - ${this.escapeHtml(l.lineName)}` : ''}</option>`).join("");
+            lines.map(l => `<option value="${this.escapeHtml(l.title)}" ${(row && row.title === l.title) ? 'selected' : ''}>${this.escapeHtml(l.title)}${l.lineName ? ` - ${this.escapeHtml(l.lineName)}` : ''}</option>`).join("");
 
         const shiftOptions = `<option value="Default" ${isDefaultShift ? 'selected' : ''}>Default (All Shifts)</option>` +
-            shifts.map(s => `<option value="${this.escapeHtml(s.shiftCode || s.title)}" ${row.shiftCode === s.shiftCode ? 'selected' : ''}>Shift ${this.escapeHtml(s.shiftCode || s.title)} - ${this.escapeHtml(s.shiftName || '')}</option>`).join("");
+            shifts.map(s => `<option value="${this.escapeHtml(s.shiftCode || s.title)}" ${(row && row.shiftCode === s.shiftCode) ? 'selected' : ''}>Shift ${this.escapeHtml(s.shiftCode || s.title)} - ${this.escapeHtml(s.shiftName || '')}</option>`).join("");
 
         mount.innerHTML = `
             <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
                 <div class="admin-modal-card">
                     <div class="admin-modal-header">
-                        <h4 class="admin-modal-title">Edit QA Shift Assignment &bull; ${this.escapeHtml(row.title)}</h4>
+                        <h4 class="admin-modal-title">Edit QA Shift Assignment &bull; ${this.escapeHtml(row ? row.title : 'New')}</h4>
                         <button type="button" class="admin-modal-close" onclick="Rajpura_Admin.closeModal()">&times;</button>
                     </div>
                     <div class="admin-modal-body">
@@ -3319,6 +4226,17 @@ const Rajpura_Admin = {
                         </div>
 
                         <div class="admin-form-group">
+                            <label class="admin-form-label">QA Shift Executives (Multi-Select)</label>
+                            <div class="admin-user-picker-container" id="modal-picker-qa-shift">
+                                <div class="admin-selected-chips-box" onclick="document.getElementById('picker-input-qa-shift').focus()">
+                                    <div id="selected-chips-qa-shift" style="display: flex; flex-wrap: wrap; gap: 4px;"></div>
+                                    <input type="text" id="picker-input-qa-shift" class="admin-picker-search-input" placeholder="Type employee name or email to assign QA Shift Executive..." oninput="Rajpura_Admin.onPickerSearch('qa-shift', this.value)" autocomplete="off" />
+                                </div>
+                                <div class="admin-picker-dropdown" id="dropdown-qa-shift" style="display: none;"></div>
+                            </div>
+                        </div>
+
+                        <div class="admin-form-group">
                             <label class="admin-form-label">5-Minute Escalation Managers</label>
                             <div class="admin-user-picker-container" id="modal-picker-mgr">
                                 <div class="admin-selected-chips-box" onclick="document.getElementById('picker-input-mgr').focus()">
@@ -3330,13 +4248,13 @@ const Rajpura_Admin = {
                         </div>
 
                         <div class="admin-form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
-                            <input type="checkbox" id="modal-matrix-active" ${row.isActive !== false ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer;" />
+                            <input type="checkbox" id="modal-matrix-active" ${(!row || row.isActive !== false) ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer;" />
                             <label for="modal-matrix-active" style="cursor: pointer; font-size: 13.5px; font-weight: 500; margin: 0;">Is Active</label>
                         </div>
                     </div>
                     <div class="admin-modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
                         <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
-                        <button type="button" class="admin-btn-primary" id="btn-save-matrix" onclick="Rajpura_Admin.saveAlcQaMatrix(${rowId})">
+                        <button type="button" class="admin-btn-primary" id="btn-save-matrix" onclick="Rajpura_Admin.saveAlcQaMatrix(${rowId || 'null'})">
                             Save Changes
                         </button>
                     </div>
@@ -3345,12 +4263,14 @@ const Rajpura_Admin = {
         `;
 
         this.pickerState = {
-            users: [...(row.assignedUsers || [])],
+            users: [...((row && row.assignedUsers) || [])],
+            'qa-shift': [...((row && row.qaShiftExecutives) || [])],
             prod: [],
-            mgr: [...(row.escalationManagers || [])]
+            mgr: [...((row && row.escalationManagers) || [])]
         };
 
         this.renderSelectedChips("users");
+        this.renderSelectedChips("qa-shift");
         this.renderSelectedChips("mgr");
     },
 
@@ -3358,6 +4278,7 @@ const Rajpura_Admin = {
         const line = document.getElementById("modal-matrix-line")?.value;
         const shift = document.getElementById("modal-matrix-shift")?.value;
         const assignedUsers = this.pickerState.users || [];
+        const qaShiftExecutives = this.pickerState['qa-shift'] || this.pickerState.qaShift || [];
         const escalationManagers = this.pickerState.mgr || [];
         const isActive = document.getElementById("modal-matrix-active")?.checked;
 
@@ -3375,6 +4296,7 @@ const Rajpura_Admin = {
             ShiftCode: shift || "Default",
             Plant: "Rajpura",
             AssignedUsers: assignedUsers,
+            QAShiftExecutives: qaShiftExecutives,
             EscalationManagers: escalationManagers,
             IsActive: isActive !== false
         };
@@ -3383,6 +4305,7 @@ const Rajpura_Admin = {
         if (success) {
             this.showToast(rowId ? "QA Shift Assignment updated successfully" : "QA Shift Assignment added successfully", "success");
             this.closeModal();
+            await this.loadSingleFormConfig("ALC");
             this.renderCurrentTab();
             this.updateStatsCounters();
         } else if (btn) {
@@ -3738,120 +4661,450 @@ const Rajpura_Admin = {
     },
 
     /**
-     * Mixing & Baking: Product Recipes Master Catalogue View
+     * Mixing & Baking: Product Recipes Master Catalogue View (High-Performance Paginated + Variety Search & Dynamic Filters)
      */
     renderMbRecipeCatalogue: function (rows) {
-        let recipeRows = rows.filter(r => r.configType === "Product Recipe");
+        const allRecipes = (rows || this.configs.MixingAndBaking || []).filter(r => r.configType === "Product Recipe");
+        const distinctCategories = this.getMbDistinctCategories(allRecipes);
+        const st = this.mbRecipeState;
 
-        if (this.searchFilter.trim() !== "") {
-            const q = this.searchFilter.toLowerCase().trim();
-            recipeRows = recipeRows.filter(r => 
-                (r.title || "").toLowerCase().includes(q) || 
-                (r.productCategory || "").toLowerCase().includes(q) ||
-                JSON.stringify(r.recipeConfig || {}).toLowerCase().includes(q)
-            );
-        }
-
-        const totalCount = (rows.filter(r => r.configType === "Product Recipe")).length;
-        const hasRealSpRows = rows.some(r => r.configType === "Product Recipe" && r.raw && r.raw.Id);
+        const catOptionsHtml = distinctCategories.map(c => 
+            `<option value="${this.escapeHtml(c.value)}" ${st.categoryFilter === c.value ? 'selected' : ''}>${this.escapeHtml(c.label)}</option>`
+        ).join("");
 
         return `
-            <div class="admin-panel-card">
+            <div class="admin-panel-card" id="mb-recipe-catalogue-card">
                 <div class="admin-panel-header">
                     <div class="admin-panel-title-area">
-                        <h3 class="admin-panel-title"> Product Recipes Master Catalogue <span style="font-size: 13px; font-weight: 600; color: #dc2626; background: #fff1f2; padding: 2px 10px; border-radius: 12px; border: 1px solid #fecdd3; margin-left: 8px;">${recipeRows.length} items</span></h3>
+                        <h3 class="admin-panel-title"> Product Recipes Master Catalogue <span class="admin-badge" id="mb-recipe-counter-badge" style="font-size: 13px; font-weight: 600; color: #dc2626; background: #fef2f2; padding: 2px 10px; border-radius: 12px; border: 1px solid #fecaca; margin-left: 8px;">${allRecipes.length} items</span></h3>
                     </div>
                     <div class="admin-panel-actions">
-                        <button type="button" id="admin-btn-seed-mb-inline" class="admin-btn-secondary" style="font-size: 13px; font-weight: 700; padding: 7px 14px; border-radius: 8px; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none; display: inline-flex; align-items: center; gap: 6px;" disabled title="Seeding is disabled">
-                            Seed Recipes (9)
+                        <button type="button" id="admin-btn-seed-mb-inline" class="admin-btn-secondary" onclick="Rajpura_Admin.seedMbRecipesMasterData()" style="font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 8px; border: 1px solid #dc2626; color: #dc2626; background: #fff; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" title="Seed Standard Product Recipes">
+                            Seed / Sync Recipes (71)
                         </button>
-                        <button type="button" class="admin-btn-product-add" onclick="Rajpura_Admin.openAddMbRecipeModal()">
+                        <button type="button" class="admin-btn-product-add" style="background: #dc2626; border-color: #dc2626;" onclick="Rajpura_Admin.openAddMbRecipeModal()">
                             + Add Product Recipe
                         </button>
                     </div>
                 </div>
 
+                <!-- Dynamic Variety Search & Multi-Criteria Filter Bar -->
+                <div class="admin-dynamic-filter-bar">
+                    <div class="admin-filter-group" style="flex: 1; max-width: 380px;">
+                        <div class="admin-filter-item" style="width: 100%; position: relative;">
+                            <input type="text" id="mb-recipe-search-input" class="admin-search-input" style="width: 100%; padding-left: 32px; padding-right: 28px; box-sizing: border-box;" placeholder="Search variety name, SKU, category..." value="${this.escapeHtml(st.searchTerm)}" oninput="Rajpura_Admin.onMbRecipeSearchInput(this.value)" />
+                            <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; font-size: 13px;">🔍</span>
+                            <button type="button" id="mb-recipe-search-clear" onclick="Rajpura_Admin.clearMbRecipeSearch()" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 15px; display: ${st.searchTerm ? 'inline-flex' : 'none'}; align-items: center; justify-content: center; padding: 0;" title="Clear search">&times;</button>
+                        </div>
+                    </div>
+                    <div class="admin-filter-group">
+                        <div class="admin-filter-item">
+                            <span class="admin-filter-label">Category:</span>
+                            <select class="admin-filter-select" id="mb-filter-category" onchange="Rajpura_Admin.onMbCategoryFilterChange(this.value)">
+                                ${catOptionsHtml}
+                            </select>
+                        </div>
+                        <div class="admin-filter-item">
+                            <span class="admin-filter-label">Status:</span>
+                            <select class="admin-filter-select" id="mb-filter-status" onchange="Rajpura_Admin.onMbStatusFilterChange(this.value)" style="min-width: 110px;">
+                                <option value="ALL" ${st.statusFilter === 'ALL' ? 'selected' : ''}>All Statuses</option>
+                                <option value="ACTIVE" ${st.statusFilter === 'ACTIVE' ? 'selected' : ''}>Active Only</option>
+                                <option value="INACTIVE" ${st.statusFilter === 'INACTIVE' ? 'selected' : ''}>Inactive Only</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="admin-filter-group">
+                        <button type="button" class="admin-btn-reset-filters" onclick="Rajpura_Admin.resetMbRecipeFilters()" title="Reset all filters">
+                            Reset Filters
+                        </button>
+                        <div class="admin-filter-item">
+                            <span class="admin-filter-label">Rows per page:</span>
+                            <select class="admin-page-size-select" id="mb-page-size" onchange="Rajpura_Admin.onMbPageSizeChange(this.value)">
+                                <option value="25" ${st.pageSize === 25 ? 'selected' : ''}>25</option>
+                                <option value="50" ${st.pageSize === 50 ? 'selected' : ''}>50</option>
+                                <option value="100" ${st.pageSize === 100 ? 'selected' : ''}>100</option>
+                                <option value="9999" ${st.pageSize === 9999 ? 'selected' : ''}>All</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product Recipes Table -->
                 <div class="admin-table-container">
                     <table class="admin-product-table">
                         <thead>
                             <tr>
-                                <th style="width: 22%;">Product & Category</th>
-                                <th style="width: 26%;">Ingredient & Dough Targets</th>
-                                <th style="width: 24%;">Forming & Physical Dimensions</th>
-                                <th style="width: 14%;">Moisture & Profile</th>
-                                <th style="width: 6%;">Status</th>
-                                <th style="width: 8%; text-align: center;">Actions</th>
+                                <th style="width: 22%;" class="admin-sortable-th ${st.sortBy === 'title' ? (st.sortAsc ? 'sorted-asc' : 'sorted-desc') : ''}" onclick="Rajpura_Admin.onMbSortChange('title')">
+                                    Variety & Category <span class="admin-sort-indicator">${st.sortBy === 'title' ? (st.sortAsc ? '&#9650;' : '&#9660;') : '&#8645;'}</span>
+                                </th>
+                                <th style="width: 13%;">SKU(s)</th>
+                                <th style="width: 13%;">Biscuits & Weight</th>
+                                <th style="width: 18%;">Dimensions & Gauge</th>
+                                <th style="width: 13%;">Baking & Moisture</th>
+                                <th style="width: 11%;">Oil & Seasoning</th>
+                                <th style="width: 5%; text-align: center;" class="admin-sortable-th ${st.sortBy === 'isActive' ? (st.sortAsc ? 'sorted-asc' : 'sorted-desc') : ''}" onclick="Rajpura_Admin.onMbSortChange('isActive')">
+                                    Status <span class="admin-sort-indicator">${st.sortBy === 'isActive' ? (st.sortAsc ? '&#9650;' : '&#9660;') : '&#8645;'}</span>
+                                </th>
+                                <th style="width: 5%; text-align: center;">Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            ${recipeRows.length > 0 ? recipeRows.map(r => {
-                                const s = r.recipeConfig || {};
-                                return `
-                                <tr>
-                                    <td>
-                                        <div class="admin-product-name-cell">
-                                            <div class="product-avatar" style="background: #fef2f2; border-color: #fecaca; color: #dc2626;"></div>
-                                            <div>
-                                                <div class="product-name" style="font-weight: 700; color: #0f172a;">${this.escapeHtml(r.title)}</div>
-                                                <div style="margin-top: 4px;">
-                                                    <span style="font-size: 11px; font-weight: 600; color: #dc2626; background: #fee2e2; padding: 2px 7px; border-radius: 4px;">${this.escapeHtml(r.productCategory || "Cookies")}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div style="font-size: 12px; line-height: 1.6; color: #334155;">
-                                            <div><strong>RPO:</strong> ${s.rpoStandard ? s.rpoStandard + '&deg;C' : '-'} &bull; <strong>Solid Fat:</strong> ${s.solidFatStandard ? s.solidFatStandard + '&deg;C' : '-'} &bull; <strong>Butter:</strong> ${s.butterStandard ? s.butterStandard + '&deg;C' : '-'}</div>
-                                            <div><strong>Creaming:</strong> ${s.creamingTimeStandard || '-'} &bull; <strong>Mixing:</strong> ${s.mixingTimeStandard || '-'}</div>
-                                            <div><strong>Dough Temp:</strong> ${s.doughTempStandard ? s.doughTempStandard + '&deg;C' : '-'} &bull; <strong>Standing:</strong> ${s.doughStandingTimeStandard || '-'}</div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div style="font-size: 12px; line-height: 1.6; color: #334155;">
-                                            <div><strong>Forming:</strong> ${s.formingSampleCount || '-'} / ${s.standardWetWeight || '-'}</div>
-                                            <div><strong>Dimensions:</strong> ${s.biscuitDiameter && s.biscuitDiameter !== 'NA' ? 'Dia: ' + s.biscuitDiameter : (s.biscuitLength ? s.biscuitLength + ' x ' + (s.biscuitWidth || '') : '-')}</div>
-                                            <div><strong>Std Weight:</strong> ${s.biscuitStdWeight || '-'} (${s.standardsSampleCount || '-'})</div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div style="font-size: 12px; line-height: 1.6; color: #334155;">
-                                            <div><strong>Moisture:</strong> <span style="font-weight: 700; color: #15803d;">${s.moistureStandard || '-'}</span></div>
-                                            <div><strong>Colors:</strong> ${s.topColourStandard || 'As per std'}</div>
-                                            <div><strong>Template:</strong> ${s.bakingProfileAsPerTemplate ? 'Yes' : 'No'}</div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <span class="admin-status-pill ${r.isActive !== false ? 'active' : 'inactive'}" style="cursor: pointer;" onclick="Rajpura_Admin.toggleMbRecipeActive(${r.id})" title="Click to toggle status">
-                                            &bull; ${r.isActive !== false ? 'Active' : 'Inactive'}
-                                        </span>
-                                    </td>
-                                    <td style="text-align: center;">
-                                        <div class="admin-product-actions">
-                                            <button type="button" class="admin-btn-action" onclick="Rajpura_Admin.openEditMbRecipeModal(${r.id})" title="Edit Recipe Standards">
-                                                Edit
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                                `;
-                            }).join("") : `
-                                <tr>
-                                    <td colspan="6" style="text-align: center; padding: 36px; color: #64748b;">
-                                        No product recipes found. Click "+ Add Product Recipe" to initialize standard recipes.
-                                    </td>
-                                </tr>
-                            `}
+                        <tbody id="mb-recipe-table-mount">
+                            <!-- Dynamic Paginated Rows Mounted Here -->
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Pagination Footer -->
+                <div id="mb-pagination-mount">
+                    <!-- Pagination Controls Mounted Here -->
                 </div>
             </div>
         `;
     },
 
-    /**
-     * Modal Tab Switcher for MB Recipe Modal
-     */
-    switchMbModalTab: function (tabId) {
+    getMbDistinctCategories: function (recipes) {
+        const counts = {};
+        let total = 0;
+        (recipes || []).forEach(r => {
+            const cat = (r.productCategory && r.productCategory.trim()) ? r.productCategory.trim() : "General";
+            counts[cat] = (counts[cat] || 0) + 1;
+            total++;
+        });
+        const categories = Object.keys(counts).sort((a, b) => a.localeCompare(b));
+        const result = [{ value: "ALL", label: `All Categories (${total})` }];
+        categories.forEach(c => {
+            result.push({ value: c, label: `${c} (${counts[c]})` });
+        });
+        return result;
+    },
+
+    getFilteredMbRecipes: function (allRows) {
+        const recipes = (allRows || this.configs.MixingAndBaking || []).filter(r => r.configType === "Product Recipe");
+        const st = this.mbRecipeState;
+        const search = (st.searchTerm || "").toLowerCase().trim();
+        const cat = st.categoryFilter || "ALL";
+        const status = st.statusFilter || "ALL";
+
+        return recipes.filter(r => {
+            if (cat !== "ALL") {
+                const rCat = (r.productCategory && r.productCategory.trim()) ? r.productCategory.trim() : "General";
+                if (rCat !== cat) return false;
+            }
+            if (status === "ACTIVE" && r.isActive === false) return false;
+            if (status === "INACTIVE" && r.isActive !== false) return false;
+
+            if (search) {
+                const s = r.recipeConfig || r.standards || {};
+                const t = (r.title || s.variety || "").toLowerCase();
+                const k = (r.productCategory || "").toLowerCase();
+                const skuStr = Array.isArray(s.sku || r.sku) ? (s.sku || r.sku).join(" ") : String(s.sku || r.sku || "");
+                const skuRaw = String(s.skuRaw || "").toLowerCase();
+                const gauge = String(s.gauge || "").toLowerCase();
+                const moisture = String(s.moisture || s.moistureStandard || "").toLowerCase();
+                const time = String(s.bakingTime || "").toLowerCase();
+                const dia = String(s.diameter || s.biscuitDiameter || "").toLowerCase();
+                const len = String(s.length || s.biscuitLength || "").toLowerCase();
+                const wid = String(s.width || s.biscuitWidth || "").toLowerCase();
+                const wt = String(s.dryBiscuitWeight || s.biscuitStdWeight || "").toLowerCase();
+
+                if (!t.includes(search) &&
+                    !k.includes(search) &&
+                    !skuStr.toLowerCase().includes(search) &&
+                    !skuRaw.includes(search) &&
+                    !gauge.includes(search) &&
+                    !moisture.includes(search) &&
+                    !time.includes(search) &&
+                    !dia.includes(search) &&
+                    !len.includes(search) &&
+                    !wid.includes(search) &&
+                    !wt.includes(search)) {
+                    return false;
+                }
+            }
+            return true;
+        }).sort((a, b) => {
+            let valA = a[st.sortBy];
+            let valB = b[st.sortBy];
+            if (typeof valA === "boolean") {
+                valA = valA ? 1 : 0;
+                valB = valB ? 1 : 0;
+            } else {
+                valA = (valA || "").toString().toLowerCase();
+                valB = (valB || "").toString().toLowerCase();
+            }
+            if (valA < valB) return st.sortAsc ? -1 : 1;
+            if (valA > valB) return st.sortAsc ? 1 : -1;
+            return 0;
+        });
+    },
+
+    updateMbRecipeTable: function (allRows) {
+        const tableBody = document.getElementById("mb-recipe-table-mount");
+        const paginationMount = document.getElementById("mb-pagination-mount");
+        if (!tableBody || !paginationMount) return;
+
+        const rawRows = allRows || this.configs.MixingAndBaking || [];
+        const totalCatalogCount = rawRows.filter(r => r.configType === "Product Recipe").length;
+        const filtered = this.getFilteredMbRecipes(rawRows);
+        const totalFiltered = filtered.length;
+
+        const st = this.mbRecipeState;
+        const pageSize = parseInt(st.pageSize, 10) || 25;
+        const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+
+        if (st.currentPage > totalPages) st.currentPage = totalPages;
+        if (st.currentPage < 1) st.currentPage = 1;
+        const curPage = st.currentPage;
+
+        const startIdx = (curPage - 1) * pageSize;
+        const endIdx = Math.min(startIdx + pageSize, totalFiltered);
+        const pageSlice = filtered.slice(startIdx, endIdx);
+
+        const badge = document.getElementById("mb-recipe-counter-badge");
+        if (badge) {
+            badge.innerText = `${totalFiltered}${totalFiltered !== totalCatalogCount ? ` / ${totalCatalogCount}` : ''} items`;
+        }
+
+        if (pageSlice.length > 0) {
+            tableBody.innerHTML = pageSlice.map(r => {
+                const s = r.recipeConfig || r.standards || {};
+                const rawSkus = s.sku || r.sku || [];
+                const skus = Array.isArray(rawSkus) ? rawSkus : (typeof rawSkus === "string" ? rawSkus.split(",").map(x => x.trim()).filter(Boolean) : []);
+                
+                const numBiscuits = s.numberOfBiscuits !== undefined && s.numberOfBiscuits !== null && s.numberOfBiscuits !== "NA" ? s.numberOfBiscuits : (s.standardsSampleCount || "-");
+                const dryWeight = s.dryBiscuitWeight || s.biscuitStdWeight || "-";
+                const gauge = s.gauge && s.gauge !== "NA" ? s.gauge : null;
+                const diameter = s.diameter && s.diameter !== "NA" ? s.diameter : (s.biscuitDiameter && s.biscuitDiameter !== "NA" ? s.biscuitDiameter : null);
+                const length = s.length && s.length !== "NA" ? s.length : (s.biscuitLength && s.biscuitLength !== "NA" ? s.biscuitLength : null);
+                const width = s.width && s.width !== "NA" ? s.width : (s.biscuitWidth && s.biscuitWidth !== "NA" ? s.biscuitWidth : null);
+                const bakingTime = s.bakingTime && s.bakingTime !== "NA" ? s.bakingTime : null;
+                const moisture = (s.moisture && s.moisture !== "NA" && s.moisture !== "—") ? s.moisture : (s.moistureStandard && s.moistureStandard !== "NA" ? s.moistureStandard : "-");
+                const beforeOil = s.weightBeforeOil && s.weightBeforeOil !== "NA" ? s.weightBeforeOil : null;
+                const afterOil = s.weightAfterOil && s.weightAfterOil !== "NA" ? s.weightAfterOil : (s.weightAfterOilSpray && s.weightAfterOilSpray !== "NA" ? s.weightAfterOilSpray : null);
+                const seasoning = s.weightWithSeasoning && s.weightWithSeasoning !== "NA" ? s.weightWithSeasoning : null;
+
+                return `
+                <tr>
+                    <td>
+                        <div class="admin-product-name-cell">
+                            <div class="product-avatar" style="background: #fef2f2; border-color: #fecaca; color: #dc2626;"></div>
+                            <div>
+                                <div class="product-name" style="font-weight: 700; color: #0f172a;">${this.escapeHtml(r.title || s.variety || 'Unknown')}</div>
+                                <div style="margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 11px; font-weight: 600; color: #dc2626; background: #fee2e2; padding: 2px 7px; border-radius: 4px;">${this.escapeHtml(r.productCategory || "General")}</span>
+                                    ${s.srNo ? `<span style="font-size: 11px; color: #64748b; font-weight: 600;">#${s.srNo}</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                            ${skus.length > 0 ? skus.map(k => `<span style="font-size: 11px; font-weight: 600; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 1px 6px; border-radius: 4px;">${this.escapeHtml(k)}</span>`).join("") : '<span style="color: #94a3b8; font-size: 12px;">-</span>'}
+                        </div>
+                    </td>
+                    <td>
+                        <div style="font-size: 12px; line-height: 1.5; color: #334155;">
+                            <div><strong>${this.escapeHtml(String(numBiscuits))}</strong> ${typeof numBiscuits === 'number' || (!String(numBiscuits).includes('g') && !String(numBiscuits).includes('bis') && numBiscuits !== '-') ? 'bis' : ''}</div>
+                            <div style="color: #64748b; font-size: 11px; margin-top: 2px;">Dry Wt: <strong style="color: #0f172a;">${this.escapeHtml(String(dryWeight))}</strong></div>
+                        </div>
+                    </td>
+                    <td>
+                        <div style="font-size: 12px; line-height: 1.5; color: #334155;">
+                            ${gauge ? `<div>Gauge: <strong style="color: #0f172a;">${this.escapeHtml(gauge)}</strong></div>` : ''}
+                            ${diameter ? `<div>Dia: <strong>${this.escapeHtml(diameter)}</strong></div>` : ''}
+                            ${(length || width) ? `<div>${length ? 'L: <strong>' + this.escapeHtml(length) + '</strong>' : ''} ${width ? 'W: <strong>' + this.escapeHtml(width) + '</strong>' : ''}</div>` : ''}
+                            ${(!gauge && !diameter && !length && !width) ? '<span style="color: #94a3b8;">-</span>' : ''}
+                        </div>
+                    </td>
+                    <td>
+                        <div style="font-size: 12px; line-height: 1.5; color: #334155;">
+                            ${bakingTime ? `<div>Time: <strong>${this.escapeHtml(bakingTime)}</strong></div>` : ''}
+                            <div>Moisture: <strong style="color: #15803d;">${this.escapeHtml(String(moisture))}</strong></div>
+                        </div>
+                    </td>
+                    <td>
+                        <div style="font-size: 11.5px; line-height: 1.4; color: #334155;">
+                            ${beforeOil ? `<div>Pre-Oil: <strong>${this.escapeHtml(beforeOil)}</strong></div>` : ''}
+                            ${afterOil ? `<div>Post-Oil: <strong>${this.escapeHtml(afterOil)}</strong></div>` : ''}
+                            ${seasoning ? `<div style="color: #b45309;">Season: <strong>${this.escapeHtml(seasoning)}</strong></div>` : ''}
+                            ${(!beforeOil && !afterOil && !seasoning) ? '<span style="color: #94a3b8;">-</span>' : ''}
+                        </div>
+                    </td>
+                    <td style="text-align: center;">
+                        <span class="admin-status-pill ${r.isActive !== false ? 'active' : 'inactive'}" style="cursor: pointer;" onclick="Rajpura_Admin.toggleMbRecipeActive(${r.id})" title="Click to toggle status">
+                            &bull; ${r.isActive !== false ? 'Active' : 'Inactive'}
+                        </span>
+                    </td>
+                    <td style="text-align: center;">
+                        <div class="admin-product-actions">
+                            <button type="button" class="admin-btn-action" onclick="Rajpura_Admin.openEditMbRecipeModal(${r.id})" title="Edit Recipe Standards">
+                                Edit
+                            </button>
+                            <button type="button" class="admin-btn-action" style="color: #dc2626;" onclick="Rajpura_Admin.deleteMbRecipe(${r.id})" title="Delete Recipe">
+                                
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                `;
+            }).join("");
+        } else {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" style="text-align: center; padding: 36px 20px; color: #64748b;">
+                        <div style="font-size: 28px; margin-bottom: 6px;"></div>
+                        <div style="font-size: 15px; font-weight: 600; color: #0f172a; margin-bottom: 4px;">No recipes match current variety filters</div>
+                        <div style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Try adjusting your variety search keyword or category filter.</div>
+                        <button type="button" class="admin-btn-secondary" style="font-size: 12px; font-weight: 600; padding: 5px 12px;" onclick="Rajpura_Admin.resetMbRecipeFilters()">
+                            Reset All Filters
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        if (totalFiltered === 0) {
+            paginationMount.innerHTML = "";
+            return;
+        }
+
+        const showingFrom = totalFiltered > 0 ? startIdx + 1 : 0;
+        const showingTo = endIdx;
+
+        const pageButtons = [];
+        const maxVisibleButtons = 5;
+        let startPage = Math.max(1, curPage - 2);
+        let endPage = Math.min(totalPages, startPage + maxVisibleButtons - 1);
+        if (endPage - startPage < maxVisibleButtons - 1) {
+            startPage = Math.max(1, endPage - maxVisibleButtons + 1);
+        }
+
+        if (startPage > 1) {
+            pageButtons.push(`<button type="button" class="admin-page-btn" onclick="Rajpura_Admin.onMbRecipePageChange(1)">1</button>`);
+            if (startPage > 2) {
+                pageButtons.push(`<span class="admin-page-dots">&hellip;</span>`);
+            }
+        }
+
+        for (let p = startPage; p <= endPage; p++) {
+            pageButtons.push(`
+                <button type="button" class="admin-page-btn ${p === curPage ? 'active' : ''}" onclick="Rajpura_Admin.onMbRecipePageChange(${p})">
+                    ${p}
+                </button>
+            `);
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                pageButtons.push(`<span class="admin-page-dots">&hellip;</span>`);
+            }
+            pageButtons.push(`<button type="button" class="admin-page-btn" onclick="Rajpura_Admin.onMbRecipePageChange(${totalPages})">${totalPages}</button>`);
+        }
+
+        paginationMount.innerHTML = `
+            <div class="admin-pagination-container">
+                <div class="admin-pagination-info">
+                    <span>Showing <strong>${showingFrom}-${showingTo}</strong> of <strong>${totalFiltered}</strong> recipes${totalFiltered !== totalCatalogCount ? ` (filtered from ${totalCatalogCount})` : ''}</span>
+                    <span style="color: #cbd5e1;">&bull;</span>
+                    <span>Page <strong>${curPage}</strong> of <strong>${totalPages}</strong></span>
+                </div>
+                <div class="admin-pagination-controls">
+                    <button type="button" class="admin-page-btn" ${curPage === 1 ? 'disabled' : ''} onclick="Rajpura_Admin.onMbRecipePageChange(1)" title="First Page">
+                        &laquo;
+                    </button>
+                    <button type="button" class="admin-page-btn" ${curPage === 1 ? 'disabled' : ''} onclick="Rajpura_Admin.onMbRecipePageChange(${curPage - 1})" title="Previous Page">
+                        &lsaquo;
+                    </button>
+                    ${pageButtons.join("")}
+                    <button type="button" class="admin-page-btn" ${curPage === totalPages ? 'disabled' : ''} onclick="Rajpura_Admin.onMbRecipePageChange(${curPage + 1})" title="Next Page">
+                        &rsaquo;
+                    </button>
+                    <button type="button" class="admin-page-btn" ${curPage === totalPages ? 'disabled' : ''} onclick="Rajpura_Admin.onMbRecipePageChange(${totalPages})" title="Last Page">
+                        &raquo;
+                    </button>
+                </div>
+            </div>
+        `;
+    },
+
+    onMbRecipeSearchInput: function (val) {
+        this.mbRecipeState.searchTerm = val;
+        this.mbRecipeState.currentPage = 1;
+        const clearBtn = document.getElementById("mb-recipe-search-clear");
+        if (clearBtn) clearBtn.style.display = val ? "inline-flex" : "none";
+        if (this._mbSearchTimeout) clearTimeout(this._mbSearchTimeout);
+        this._mbSearchTimeout = setTimeout(() => {
+            this.updateMbRecipeTable();
+        }, 120);
+    },
+
+    clearMbRecipeSearch: function () {
+        this.mbRecipeState.searchTerm = "";
+        this.mbRecipeState.currentPage = 1;
+        const inp = document.getElementById("mb-recipe-search-input");
+        if (inp) inp.value = "";
+        const clearBtn = document.getElementById("mb-recipe-search-clear");
+        if (clearBtn) clearBtn.style.display = "none";
+        this.updateMbRecipeTable();
+        if (inp) inp.focus();
+    },
+
+    onMbCategoryFilterChange: function (val) {
+        this.mbRecipeState.categoryFilter = val;
+        this.mbRecipeState.currentPage = 1;
+        this.updateMbRecipeTable();
+    },
+
+    onMbStatusFilterChange: function (val) {
+        this.mbRecipeState.statusFilter = val;
+        this.mbRecipeState.currentPage = 1;
+        this.updateMbRecipeTable();
+    },
+
+    onMbPageSizeChange: function (val) {
+        this.mbRecipeState.pageSize = parseInt(val, 10) || 25;
+        this.mbRecipeState.currentPage = 1;
+        this.updateMbRecipeTable();
+    },
+
+    onMbRecipePageChange: function (page) {
+        this.mbRecipeState.currentPage = page;
+        this.updateMbRecipeTable();
+        const card = document.getElementById("mb-recipe-catalogue-card");
+        if (card) {
+            try {
+                card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } catch (e) {}
+        }
+    },
+
+    onMbSortChange: function (field) {
+        if (this.mbRecipeState.sortBy === field) {
+            this.mbRecipeState.sortAsc = !this.mbRecipeState.sortAsc;
+        } else {
+            this.mbRecipeState.sortBy = field;
+            this.mbRecipeState.sortAsc = true;
+        }
+        this.renderCurrentTab();
+    },
+
+    resetMbRecipeFilters: function () {
+        this.mbRecipeState.searchTerm = "";
+        this.mbRecipeState.categoryFilter = "ALL";
+        this.mbRecipeState.statusFilter = "ALL";
+        this.mbRecipeState.currentPage = 1;
+        const searchInput = document.getElementById("mb-recipe-search-input");
+        if (searchInput) searchInput.value = "";
+        const clearBtn = document.getElementById("mb-recipe-search-clear");
+        if (clearBtn) clearBtn.style.display = "none";
+        const catSelect = document.getElementById("mb-filter-category");
+        if (catSelect) catSelect.value = "ALL";
+        const statusSelect = document.getElementById("mb-filter-status");
+        if (statusSelect) statusSelect.value = "ALL";
+        this.updateMbRecipeTable();
+    },
+
+        switchMbModalTab: function (tabId) {
         document.querySelectorAll(".admin-modal-tab-btn").forEach(b => b.classList.remove("active"));
         const activeBtn = document.querySelector(`.admin-modal-tab-btn[onclick*="${tabId}"]`);
         if (activeBtn) activeBtn.classList.add("active");
@@ -3883,7 +5136,9 @@ const Rajpura_Admin = {
         if (!mount) return;
 
         const isEdit = !!rowId;
-        const s = (row && row.recipeConfig) || {};
+        const s = (row && (row.recipeConfig || row.standards)) || {};
+        const rawSkus = s.sku || (row && row.sku) || [];
+        const skusStr = Array.isArray(rawSkus) ? rawSkus.join(", ") : String(rawSkus || "");
 
         mount.innerHTML = `
             <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
@@ -3892,70 +5147,74 @@ const Rajpura_Admin = {
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <span style="font-size: 24px;"></span>
                             <div>
-                                <h4 class="admin-modal-title">${isEdit ? `Edit Product Recipe &bull; ${this.escapeHtml(row.title)}` : "+ Add New Product Recipe &bull; Mixing & Baking"}</h4>
-                                <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Mixing & Baking Quality Target Standards</div>
+                                <h4 class="admin-modal-title">${isEdit ? `Edit Product Recipe &bull; ${this.escapeHtml(row.title || s.variety || '')}` : "+ Add New Product Recipe &bull; Mixing & Baking"}</h4>
+                                <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Mixing & Baking Quality Target Standards Master</div>
                             </div>
                         </div>
                         <button type="button" class="admin-modal-close" onclick="Rajpura_Admin.closeModal()">&times;</button>
                     </div>
 
                     <div class="admin-modal-body" style="padding: 20px 24px; max-height: 76vh; overflow-y: auto;">
-                        <!-- PINNED TOP CARD: PRODUCT IDENTIFICATION & STATUS (Always Visible) -->
+                        <!-- PINNED TOP CARD: PRODUCT IDENTIFICATION & SKUs -->
                         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 18px; margin-bottom: 18px;">
                             <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
-                                <span></span> <span>Product Master Profile</span>
+                                <span></span> <span>Product Master Profile & Pack SKUs</span>
                             </div>
-                            <div class="admin-modal-grid-3" style="align-items: flex-end;">
+                            <div class="admin-modal-grid-4" style="align-items: flex-end;">
                                 <div class="admin-form-group">
-                                    <label class="admin-form-label">Product Name <span style="color: #dc2626;">*</span></label>
-                                    <input type="text" id="modal-mb-title" class="admin-form-input" style="font-weight: 600;" value="${this.escapeHtml(row.title || '')}" placeholder="e.g. Chelsea Vanilla, Marie Classic" />
+                                    <label class="admin-form-label">Product Name / Variety <span style="color: #dc2626;">*</span></label>
+                                    <input type="text" id="modal-mb-title" class="admin-form-input" style="font-weight: 600;" value="${this.escapeHtml(row ? (row.title || s.variety || '') : '')}" placeholder="e.g. Party Cracker, Bledor Club, Marie classic" />
                                 </div>
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Product Category</label>
                                     <select id="modal-mb-category" class="admin-form-input">
-                                        <option value="Cookies" ${row.productCategory === 'Cookies' ? 'selected' : ''}>Cookies</option>
-                                        <option value="Cream" ${row.productCategory === 'Cream' ? 'selected' : ''}>Cream</option>
-                                        <option value="Crackers" ${row.productCategory === 'Crackers' ? 'selected' : ''}>Crackers</option>
-                                        <option value="Health Biscuits" ${row.productCategory === 'Health Biscuits' ? 'selected' : ''}>Health Biscuits</option>
-                                        <option value="Glucose" ${row.productCategory === 'Glucose' ? 'selected' : ''}>Glucose</option>
-                                        <option value="Digestive" ${row.productCategory === 'Digestive' ? 'selected' : ''}>Digestive</option>
-                                        <option value="Wafers" ${row.productCategory === 'Wafers' ? 'selected' : ''}>Wafers</option>
-                                        <option value="General" ${(!row.productCategory || row.productCategory === 'General') ? 'selected' : ''}>General</option>
+                                        <option value="Crackers" ${row && row.productCategory === 'Crackers' ? 'selected' : ''}>Crackers</option>
+                                        <option value="Cookies" ${row && row.productCategory === 'Cookies' ? 'selected' : ''}>Cookies</option>
+                                        <option value="Cream" ${row && row.productCategory === 'Cream' ? 'selected' : ''}>Cream</option>
+                                        <option value="Health Biscuits" ${row && row.productCategory === 'Health Biscuits' ? 'selected' : ''}>Health Biscuits</option>
+                                        <option value="Glucose" ${row && row.productCategory === 'Glucose' ? 'selected' : ''}>Glucose</option>
+                                        <option value="Digestive" ${row && row.productCategory === 'Digestive' ? 'selected' : ''}>Digestive</option>
+                                        <option value="Wafers" ${row && row.productCategory === 'Wafers' ? 'selected' : ''}>Wafers</option>
+                                        <option value="General" ${(!row || !row.productCategory || row.productCategory === 'General') ? 'selected' : ''}>General</option>
                                     </select>
                                 </div>
-                                <div class="admin-form-group" style="padding-bottom: 8px;">
-                                    <label style="cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13.5px; color: #15803d; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 7px 12px; border-radius: 6px;">
-                                        <input type="checkbox" id="modal-mb-active" ${row.isActive !== false ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer;" />
-                                        <span>Product Enabled / Active</span>
+                                <div class="admin-form-group">
+                                    <label class="admin-form-label">Pack SKUs (comma-separated)</label>
+                                    <input type="text" id="modal-mb-sku" class="admin-form-input" value="${this.escapeHtml(skusStr)}" placeholder="e.g. 32g, 35g, 60g, 70g, 140g, 400g" />
+                                </div>
+                                <div class="admin-form-group" style="padding-bottom: 6px;">
+                                    <label style="cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; color: #15803d; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 7px 10px; border-radius: 6px;">
+                                        <input type="checkbox" id="modal-mb-active" ${!row || row.isActive !== false ? 'checked' : ''} style="width: 17px; height: 17px; cursor: pointer;" />
+                                        <span>Product Enabled</span>
                                     </label>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- 4 SUBPARTS NAVIGATION TABS (Matching Mixing & Baking Process Checklist) -->
+                        <!-- 4 SUBPARTS NAVIGATION TABS -->
                         <div class="admin-modal-tabs-nav">
                             <button type="button" class="admin-modal-tab-btn active" onclick="Rajpura_Admin.switchMbModalTab('mb-modal-tab-ing')">
                                 <span class="tab-step-label">1. Ingredient Temps</span>
                                 <span class="tab-step-sub">8 Parameters (RPO, Fats, Sugar)</span>
                             </button>
                             <button type="button" class="admin-modal-tab-btn" onclick="Rajpura_Admin.switchMbModalTab('mb-modal-tab-mat')">
-                                <span class="tab-step-label"> 2. Materials & Sponge</span>
+                                <span class="tab-step-label">2. Materials & Sponge</span>
                                 <span class="tab-step-sub">14 Parameters (Chips, Nuts, Ferm)</span>
                             </button>
                             <button type="button" class="admin-modal-tab-btn" onclick="Rajpura_Admin.switchMbModalTab('mb-modal-tab-mix')">
-                                <span class="tab-step-label"> 3. Mixing & Dough</span>
+                                <span class="tab-step-label">3. Mixing & Dough</span>
                                 <span class="tab-step-sub">8 Parameters (Timings, Wet Wt)</span>
                             </button>
                             <button type="button" class="admin-modal-tab-btn" onclick="Rajpura_Admin.switchMbModalTab('mb-modal-tab-bake')">
-                                <span class="tab-step-label"> 4. Baking & Quality</span>
-                                <span class="tab-step-sub">9 Parameters (Dimensions, Moisture)</span>
+                                <span class="tab-step-label">4. Baking, Dimensions & Quality</span>
+                                <span class="tab-step-sub">Gauge, Dia, Weights, Moisture</span>
                             </button>
                         </div>
 
-                        <!-- SUBPART 1: INGREDIENT STANDARD TEMPERATURES (&deg;C) -->
+                        <!-- SUBPART 1: INGREDIENT STANDARD TEMPERATURES (deg C) -->
                         <div id="mb-modal-tab-ing" class="admin-mb-modal-pane" style="display: block;">
                             <div class="admin-modal-section-title">Subpart 1 &bull; Ingredient Standard Temperatures (&deg;C)</div>
-                            <div style="font-size: 12px; color: #64748b; margin-bottom: 12px;">Standard target temperatures and particle sizes. When "NA" is set for a product, the form will automatically prefill "NA" for operators.</div>
+                            <div style="font-size: 12px; color: #64748b; margin-bottom: 12px;">Standard target temperatures and particle sizes. When "NA" is set, the operator form automatically prefills "NA".</div>
                             
                             <div class="admin-modal-grid-4">
                                 <div class="admin-form-group">
@@ -3966,37 +5225,37 @@ const Rajpura_Admin = {
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Solid Fat Standard (&deg;C)</label>
                                     <input type="text" id="modal-mb-solidfatstandard" class="admin-form-input" value="${this.escapeHtml(s.solidFatStandard || 'NA')}" placeholder="e.g. 15 or NA" />
-                                    <input type="text" id="modal-mb-solidfatobserved" class="admin-form-input" style="margin-top: 4px; font-size: 11px; padding: 4px 8px; color: #64748b;" value="${this.escapeHtml(s.solidFatObserved || '')}" placeholder="Observed NA default" />
+                                    <input type="text" id="modal-mb-solidfatobserved" class="admin-form-input" style="margin-top: 4px; font-size: 11px; padding: 4px 8px; color: #64748b;" value="${this.escapeHtml(s.solidFatObserved || '')}" placeholder="Observed default (e.g. NA)" />
                                 </div>
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Butter Standard (&deg;C)</label>
                                     <input type="text" id="modal-mb-butterstandard" class="admin-form-input" value="${this.escapeHtml(s.butterStandard || 'NA')}" placeholder="e.g. 5 or NA" />
-                                    <input type="text" id="modal-mb-butterobserved" class="admin-form-input" style="margin-top: 4px; font-size: 11px; padding: 4px 8px; color: #64748b;" value="${this.escapeHtml(s.butterObserved || '')}" placeholder="Observed NA default" />
+                                    <input type="text" id="modal-mb-butterobserved" class="admin-form-input" style="margin-top: 4px; font-size: 11px; padding: 4px 8px; color: #64748b;" value="${this.escapeHtml(s.butterObserved || '')}" placeholder="Observed default (e.g. NA)" />
                                 </div>
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Black Jack Standard (&deg;C)</label>
-                                    <input type="text" id="modal-mb-blackjackstandard" class="admin-form-input" value="${this.escapeHtml(s.blackJackStandard || '35')}" placeholder="e.g. 35 or NA" />
-                                    <input type="text" id="modal-mb-blackjackobserved" class="admin-form-input" style="margin-top: 4px; font-size: 11px; padding: 4px 8px; color: #64748b;" value="${this.escapeHtml(s.blackJackObserved || '')}" placeholder="Observed NA default" />
+                                    <input type="text" id="modal-mb-blackjackstandard" class="admin-form-input" value="${this.escapeHtml(s.blackJackStandard || 'NA')}" placeholder="e.g. 35 or NA" />
+                                    <input type="text" id="modal-mb-blackjackobserved" class="admin-form-input" style="margin-top: 4px; font-size: 11px; padding: 4px 8px; color: #64748b;" value="${this.escapeHtml(s.blackJackObserved || '')}" placeholder="Observed default (e.g. NA)" />
                                 </div>
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Sponge Temp Std (&deg;C)</label>
                                     <input type="text" id="modal-mb-spongetempstandard" class="admin-form-input" value="${this.escapeHtml(s.spongeTempStandard || 'NA')}" placeholder="e.g. 28-30 or NA" />
-                                    <input type="text" id="modal-mb-spongetempobserved" class="admin-form-input" style="margin-top: 4px; font-size: 11px; padding: 4px 8px; color: #64748b;" value="${this.escapeHtml(s.spongeTempObserved || '')}" placeholder="Observed NA default" />
+                                    <input type="text" id="modal-mb-spongetempobserved" class="admin-form-input" style="margin-top: 4px; font-size: 11px; padding: 4px 8px; color: #64748b;" value="${this.escapeHtml(s.spongeTempObserved || '')}" placeholder="Observed default (e.g. NA)" />
                                 </div>
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Slurry Standard (&deg;C)</label>
                                     <input type="text" id="modal-mb-slurrystandard" class="admin-form-input" value="${this.escapeHtml(s.slurryStandard || 'NA')}" placeholder="e.g. 30 or NA" />
-                                    <input type="text" id="modal-mb-slurryobserved" class="admin-form-input" style="margin-top: 4px; font-size: 11px; padding: 4px 8px; color: #64748b;" value="${this.escapeHtml(s.slurryObserved || '')}" placeholder="Observed NA default" />
+                                    <input type="text" id="modal-mb-slurryobserved" class="admin-form-input" style="margin-top: 4px; font-size: 11px; padding: 4px 8px; color: #64748b;" value="${this.escapeHtml(s.slurryObserved || '')}" placeholder="Observed default (e.g. NA)" />
                                 </div>
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Ground Sugar Temp Std (&deg;C)</label>
                                     <input type="text" id="modal-mb-groundsugartempstandard" class="admin-form-input" value="${this.escapeHtml(s.groundSugarTempStandard || 'NA')}" placeholder="e.g. 25 or NA" />
-                                    <input type="text" id="modal-mb-groundsugartempobserved" class="admin-form-input" style="margin-top: 4px; font-size: 11px; padding: 4px 8px; color: #64748b;" value="${this.escapeHtml(s.groundSugarTempObserved || '')}" placeholder="Observed NA default" />
+                                    <input type="text" id="modal-mb-groundsugartempobserved" class="admin-form-input" style="margin-top: 4px; font-size: 11px; padding: 4px 8px; color: #64748b;" value="${this.escapeHtml(s.groundSugarTempObserved || '')}" placeholder="Observed default (e.g. NA)" />
                                 </div>
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Ground Sugar Particle Size</label>
                                     <input type="text" id="modal-mb-groundsugarparticlesizestandard" class="admin-form-input" value="${this.escapeHtml(s.groundSugarParticleSizeStandard || 'NA')}" placeholder="e.g. 100 mesh or NA" />
-                                    <input type="text" id="modal-mb-groundsugarparticlesizeobserved" class="admin-form-input" style="margin-top: 4px; font-size: 11px; padding: 4px 8px; color: #64748b;" value="${this.escapeHtml(s.groundSugarParticleSizeObserved || '')}" placeholder="Observed NA default" />
+                                    <input type="text" id="modal-mb-groundsugarparticlesizeobserved" class="admin-form-input" style="margin-top: 4px; font-size: 11px; padding: 4px 8px; color: #64748b;" value="${this.escapeHtml(s.groundSugarParticleSizeObserved || '')}" placeholder="Observed default (e.g. NA)" />
                                 </div>
                             </div>
 
@@ -4010,7 +5269,7 @@ const Rajpura_Admin = {
 
                         <!-- SUBPART 2: RAW MATERIALS, SYRUPS & SPONGE -->
                         <div id="mb-modal-tab-mat" class="admin-mb-modal-pane" style="display: none;">
-                            <div class="admin-modal-section-title"> Subpart 2.1 &bull; Choco Chips Specifications</div>
+                            <div class="admin-modal-section-title">Subpart 2.1 &bull; Choco Chips Specifications</div>
                             <div class="admin-modal-grid-4">
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Supplier Name</label>
@@ -4030,7 +5289,7 @@ const Rajpura_Admin = {
                                 </div>
                             </div>
 
-                            <div class="admin-modal-section-title"> Subpart 2.2 &bull; Cashew & Flour Specifications</div>
+                            <div class="admin-modal-section-title">Subpart 2.2 &bull; Cashew & Flour Specifications</div>
                             <div class="admin-modal-grid-4">
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Cashew Supplier</label>
@@ -4050,7 +5309,7 @@ const Rajpura_Admin = {
                                 </div>
                             </div>
 
-                            <div class="admin-modal-section-title"> Subpart 2.3 &bull; Syrups & Liquid Sugars</div>
+                            <div class="admin-modal-section-title">Subpart 2.3 &bull; Syrups & Liquid Sugars</div>
                             <div class="admin-modal-grid-2">
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Invert Syrup Temp (&deg;C)</label>
@@ -4058,11 +5317,11 @@ const Rajpura_Admin = {
                                 </div>
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Black Jack (2nd Stage) Temp (&deg;C)</label>
-                                    <input type="text" id="modal-mb-blackjack2temp" class="admin-form-input" value="${this.escapeHtml(s.blackJack2Temp || '35')}" placeholder="e.g. 35 or NA" />
+                                    <input type="text" id="modal-mb-blackjack2temp" class="admin-form-input" value="${this.escapeHtml(s.blackJack2Temp || 'NA')}" placeholder="e.g. 35 or NA" />
                                 </div>
                             </div>
 
-                            <div class="admin-modal-section-title"> Subpart 2.4 &bull; Mixing Sponge & Fermentation Targets</div>
+                            <div class="admin-modal-section-title">Subpart 2.4 &bull; Mixing Sponge & Fermentation Targets</div>
                             <div class="admin-modal-grid-4">
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Sponge Product Name</label>
@@ -4110,7 +5369,7 @@ const Rajpura_Admin = {
 
                         <!-- SUBPART 3: DOUGH MIXING & FORMING -->
                         <div id="mb-modal-tab-mix" class="admin-mb-modal-pane" style="display: none;">
-                            <div class="admin-modal-section-title"> Subpart 3.1 &bull; Dough Mixing Targets</div>
+                            <div class="admin-modal-section-title">Subpart 3.1 &bull; Dough Mixing Targets</div>
                             <div class="admin-modal-grid-4">
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Creaming Time Std</label>
@@ -4129,7 +5388,7 @@ const Rajpura_Admin = {
                                 </div>
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Dough Standing Time</label>
-                                    <input type="text" id="modal-mb-doughstandingtimestandard" class="admin-form-input" value="${this.escapeHtml(s.doughStandingTimeStandard || '15 Min')}" placeholder="e.g. 15 Min" />
+                                    <input type="text" id="modal-mb-doughstandingtimestandard" class="admin-form-input" value="${this.escapeHtml(s.doughStandingTimeStandard || '10 Min')}" placeholder="e.g. 10 Min" />
                                     <input type="hidden" id="modal-mb-doughstandingtimeobserved" value="${this.escapeHtml(s.doughStandingTimeObserved || '')}" />
                                 </div>
                             </div>
@@ -4155,51 +5414,73 @@ const Rajpura_Admin = {
                                     Back: 2. Materials & Sponge
                                 </button>
                                 <button type="button" class="admin-btn-secondary" style="font-weight: 700; color: #dc2626; border-color: #f87171;" onclick="Rajpura_Admin.switchMbModalTab('mb-modal-tab-bake')">
-                                    Next: 4. Baking & Quality
+                                    Next: 4. Baking, Dimensions & Quality
                                 </button>
                             </div>
                         </div>
 
-                        <!-- SUBPART 4: BAKING & BISCUIT STANDARDS -->
+                        <!-- SUBPART 4: BAKING, DIMENSIONS & QUALITY -->
                         <div id="mb-modal-tab-bake" class="admin-mb-modal-pane" style="display: none;">
-                            <div class="admin-modal-section-title"> Subpart 4.1 &bull; Baking Profile Master</div>
-                            <div class="admin-form-group" style="margin-bottom: 14px;">
-                                <label style="cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13.5px; background: #fff5f5; border: 1px solid #fed7aa; padding: 10px 14px; border-radius: 8px;">
-                                    <input type="checkbox" id="modal-mb-bakingprofileaspertemplate" ${s.bakingProfileAsPerTemplate !== false ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer;" />
-                                    <span>Baking Profile As Per Template (Standard Recipe Baking Zone Temperatures Master)</span>
-                                </label>
-                            </div>
-
-                            <div class="admin-modal-section-title"> Subpart 4.2 &bull; Biscuit Physical Dimensions</div>
-                            <div class="admin-modal-grid-3">
+                            <div class="admin-modal-section-title">Subpart 4.1 &bull; Baking Profile & Timings</div>
+                            <div class="admin-modal-grid-2" style="align-items: center; margin-bottom: 14px;">
                                 <div class="admin-form-group">
-                                    <label class="admin-form-label">Length (mm)</label>
-                                    <input type="text" id="modal-mb-biscuitlength" class="admin-form-input" value="${this.escapeHtml(s.biscuitLength || 'NA')}" placeholder="e.g. 55mm or NA" />
+                                    <label style="cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; background: #fff5f5; border: 1px solid #fed7aa; padding: 10px 14px; border-radius: 8px;">
+                                        <input type="checkbox" id="modal-mb-bakingprofileaspertemplate" ${s.bakingProfileAsPerTemplate !== false ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer;" />
+                                        <span>Baking Profile As Per Template</span>
+                                    </label>
                                 </div>
                                 <div class="admin-form-group">
-                                    <label class="admin-form-label">Width (mm)</label>
-                                    <input type="text" id="modal-mb-biscuitwidth" class="admin-form-input" value="${this.escapeHtml(s.biscuitWidth || 'NA')}" placeholder="e.g. 25mm or NA" />
-                                </div>
-                                <div class="admin-form-group">
-                                    <label class="admin-form-label">Diameter (mm)</label>
-                                    <input type="text" id="modal-mb-biscuitdiameter" class="admin-form-input" value="${this.escapeHtml(s.biscuitDiameter || '42mm')}" placeholder="e.g. 42mm or NA" />
-                                </div>
-                                <div class="admin-form-group">
-                                    <label class="admin-form-label">Number of Biscuits (Sample Count)</label>
-                                    <input type="text" id="modal-mb-standardssamplecount" class="admin-form-input" value="${this.escapeHtml(s.standardsSampleCount || '10 bis')}" placeholder="e.g. 10 bis, 7 bis, 14 bis" />
-                                </div>
-                                <div class="admin-form-group">
-                                    <label class="admin-form-label">Standard Baked Weight</label>
-                                    <input type="text" id="modal-mb-biscuitstdweight" class="admin-form-input" value="${this.escapeHtml(s.biscuitStdWeight || '27g')}" placeholder="e.g. 27g, 33g, 49g" />
-                                </div>
-                                <div class="admin-form-group">
-                                    <label class="admin-form-label">Weight After Oil Spray</label>
-                                    <input type="text" id="modal-mb-weightafteroilspray" class="admin-form-input" value="${this.escapeHtml(s.weightAfterOilSpray || 'NA')}" placeholder="e.g. NA or wt" />
+                                    <label class="admin-form-label">Baking Time</label>
+                                    <input type="text" id="modal-mb-bakingtime" class="admin-form-input" style="font-weight: 600;" value="${this.escapeHtml(s.bakingTime || '')}" placeholder="e.g. 4'45\", 4\", 5'50\", 6'30\"" />
                                 </div>
                             </div>
 
-                            <div class="admin-modal-section-title"> Subpart 4.3 &bull; Quality & Moisture %</div>
+                            <div class="admin-modal-section-title">Subpart 4.2 &bull; Biscuit Physical Dimensions, Count & Weight</div>
                             <div class="admin-modal-grid-3">
+                                <div class="admin-form-group">
+                                    <label class="admin-form-label">Number of Biscuits (Count) <span style="color: #dc2626;">*</span></label>
+                                    <input type="text" id="modal-mb-numberofbiscuits" class="admin-form-input" style="font-weight: 600;" value="${this.escapeHtml(s.numberOfBiscuits !== undefined && s.numberOfBiscuits !== null ? String(s.numberOfBiscuits) : (s.standardsSampleCount || ''))}" placeholder="e.g. 11, 10, 15, 3" />
+                                </div>
+                                <div class="admin-form-group">
+                                    <label class="admin-form-label">Dry Biscuit Weight <span style="color: #dc2626;">*</span></label>
+                                    <input type="text" id="modal-mb-drybiscuitweight" class="admin-form-input" style="font-weight: 600;" value="${this.escapeHtml(s.dryBiscuitWeight || s.biscuitStdWeight || '')}" placeholder="e.g. 32g, 25g, 78g" />
+                                </div>
+                                <div class="admin-form-group">
+                                    <label class="admin-form-label">Gauge Specification</label>
+                                    <input type="text" id="modal-mb-gauge" class="admin-form-input" value="${this.escapeHtml(s.gauge || '')}" placeholder="e.g. 69±1mm, 13±1mm, 40±1mm" />
+                                </div>
+                                <div class="admin-form-group">
+                                    <label class="admin-form-label">Diameter Specification</label>
+                                    <input type="text" id="modal-mb-biscuitdiameter" class="admin-form-input" value="${this.escapeHtml(s.diameter || s.biscuitDiameter || '')}" placeholder="e.g. 44±1mm, 48±1mm, 58±1mm" />
+                                </div>
+                                <div class="admin-form-group">
+                                    <label class="admin-form-label">Length Specification</label>
+                                    <input type="text" id="modal-mb-biscuitlength" class="admin-form-input" value="${this.escapeHtml(s.length || s.biscuitLength || '')}" placeholder="e.g. 95±1mm, 42±1mm, 60+1mm" />
+                                </div>
+                                <div class="admin-form-group">
+                                    <label class="admin-form-label">Width Specification</label>
+                                    <input type="text" id="modal-mb-biscuitwidth" class="admin-form-input" value="${this.escapeHtml(s.width || s.biscuitWidth || '')}" placeholder="e.g. 60±1mm, 42±1mm, 60+1mm" />
+                                </div>
+                            </div>
+
+                            <div class="admin-modal-section-title">Subpart 4.3 &bull; Oil, Seasoning & Quality Moisture Standards</div>
+                            <div class="admin-modal-grid-3">
+                                <div class="admin-form-group">
+                                    <label class="admin-form-label">Weight Before Oil</label>
+                                    <input type="text" id="modal-mb-weightbeforeoil" class="admin-form-input" value="${this.escapeHtml(s.weightBeforeOil || '')}" placeholder="e.g. 29.72g, 23g, 71.8g" />
+                                </div>
+                                <div class="admin-form-group">
+                                    <label class="admin-form-label">Weight After Oil</label>
+                                    <input type="text" id="modal-mb-weightafteroil" class="admin-form-input" value="${this.escapeHtml(s.weightAfterOil || s.weightAfterOilSpray || '')}" placeholder="e.g. 32g, 25g, 73g" />
+                                </div>
+                                <div class="admin-form-group">
+                                    <label class="admin-form-label">Weight With Seasoning</label>
+                                    <input type="text" id="modal-mb-weightwithseasoning" class="admin-form-input" value="${this.escapeHtml(s.weightWithSeasoning || '')}" placeholder="e.g. 25g or NA" />
+                                </div>
+                                <div class="admin-form-group">
+                                    <label class="admin-form-label">Moisture Standard % <span style="color: #dc2626;">*</span></label>
+                                    <input type="text" id="modal-mb-moisturestandard" class="admin-form-input" style="font-weight: 700; color: #15803d;" value="${this.escapeHtml(s.moisture || s.moistureStandard || '')}" placeholder="e.g. 2.25%, 2.00%, 1.75%" />
+                                </div>
                                 <div class="admin-form-group">
                                     <label class="admin-form-label">Top Colour Standard</label>
                                     <input type="text" id="modal-mb-topcolourstandard" class="admin-form-input" value="${this.escapeHtml(s.topColourStandard || 'As per std')}" placeholder="As per std" />
@@ -4210,10 +5491,6 @@ const Rajpura_Admin = {
                                     <input type="text" id="modal-mb-bottomcolourstandard" class="admin-form-input" value="${this.escapeHtml(s.bottomColourStandard || 'As per std')}" placeholder="As per std" />
                                     <input type="hidden" id="modal-mb-bottomcolourobserved" value="${this.escapeHtml(s.bottomColourObserved || 'As per std')}" />
                                 </div>
-                                <div class="admin-form-group">
-                                    <label class="admin-form-label">Moisture Standard % <span style="color: #dc2626;">*</span></label>
-                                    <input type="text" id="modal-mb-moisturestandard" class="admin-form-input" style="font-weight: 700; color: #15803d;" value="${this.escapeHtml(s.moistureStandard || '1.75%')}" placeholder="e.g. 1.75%, 2.00%" />
-                                </div>
                             </div>
 
                             <div class="admin-subpart-nav-footer">
@@ -4221,7 +5498,7 @@ const Rajpura_Admin = {
                                     Back: 3. Mixing & Dough
                                 </button>
                                 <button type="button" class="admin-btn-primary" style="background: #dc2626; border-color: #dc2626; font-weight: 700;" onclick="Rajpura_Admin.saveMbRecipe(${rowId || 'null'})">
-                                    Save Complete Recipe (All 4 Subparts)
+                                    Save Complete Recipe (All Parameters)
                                 </button>
                             </div>
                         </div>
@@ -4244,7 +5521,7 @@ const Rajpura_Admin = {
         const isActive = document.getElementById("modal-mb-active")?.checked !== false;
 
         if (!title) {
-            alert("Please enter a Product Name");
+            alert("Please enter a Product Name / Variety");
             return;
         }
 
@@ -4258,16 +5535,63 @@ const Rajpura_Admin = {
             return el ? el.checked : false;
         };
 
+        const rawSku = val("modal-mb-sku");
+        const skuArray = rawSku ? rawSku.split(",").map(x => x.trim()).filter(Boolean) : [];
+
+        const numBiscuitsRaw = val("modal-mb-numberofbiscuits");
+        const parsedNumBiscuits = /^d+$/.test(numBiscuitsRaw) ? parseInt(numBiscuitsRaw, 10) : (numBiscuitsRaw || "NA");
+
+        const dryWt = val("modal-mb-drybiscuitweight") || "NA";
+        const gaugeVal = val("modal-mb-gauge") || "NA";
+        const diaVal = val("modal-mb-biscuitdiameter") || "NA";
+        const lenVal = val("modal-mb-biscuitlength") || "NA";
+        const widVal = val("modal-mb-biscuitwidth") || "NA";
+        const moistureVal = val("modal-mb-moisturestandard") || "NA";
+        const bakeTime = val("modal-mb-bakingtime") || "NA";
+        const preOil = val("modal-mb-weightbeforeoil") || "NA";
+        const postOil = val("modal-mb-weightafteroil") || "NA";
+        const seasonVal = val("modal-mb-weightwithseasoning") || "NA";
+
+        const existingRow = rowId ? (this.configs.MixingAndBaking || []).find(r => r.id === rowId) : null;
+        const existingStandards = (existingRow && (existingRow.recipeConfig || existingRow.standards)) || {};
+
         const standards = {
-            // 1. Ingredient Standard Temperatures (&deg;C)
-            rpoStandard: val("modal-mb-rpostandard") || "NA",
-            solidFatStandard: val("modal-mb-solidfatstandard") || "NA",
-            butterStandard: val("modal-mb-butterstandard") || "NA",
-            blackJackStandard: val("modal-mb-blackjackstandard") || "NA",
-            spongeTempStandard: val("modal-mb-spongetempstandard") || "NA",
-            slurryStandard: val("modal-mb-slurrystandard") || "NA",
-            groundSugarTempStandard: val("modal-mb-groundsugartempstandard") || "NA",
-            groundSugarParticleSizeStandard: val("modal-mb-groundsugarparticlesizestandard") || "NA",
+            // Core dataset fields
+            srNo: existingStandards.srNo || (existingRow ? existingRow.srNo : null) || rowId || 1,
+            variety: title,
+            sku: skuArray,
+            numberOfBiscuits: parsedNumBiscuits,
+            dryBiscuitWeight: dryWt,
+            gauge: gaugeVal,
+            diameter: diaVal,
+            length: lenVal,
+            width: widVal,
+            moisture: moistureVal,
+            bakingTime: bakeTime,
+            weightBeforeOil: preOil,
+            weightAfterOil: postOil,
+            weightWithSeasoning: seasonVal,
+
+            // Legacy parameter field aliases for backward compatibility with checklist:
+            formingSampleCount: String(parsedNumBiscuits),
+            standardsSampleCount: String(parsedNumBiscuits),
+            biscuitStdWeight: dryWt,
+            biscuitDiameter: diaVal,
+            biscuitLength: lenVal,
+            biscuitWidth: widVal,
+            moistureStandard: moistureVal,
+            weightAfterOilSpray: postOil,
+            bakingProfileAsPerTemplate: isChk("modal-mb-bakingprofileaspertemplate"),
+
+            // 1. Ingredient Standard Temperatures (deg C)
+            rpoStandard: val("modal-mb-rpostandard") || existingStandards.rpoStandard || "45",
+            solidFatStandard: val("modal-mb-solidfatstandard") || existingStandards.solidFatStandard || "NA",
+            butterStandard: val("modal-mb-butterstandard") || existingStandards.butterStandard || "NA",
+            blackJackStandard: val("modal-mb-blackjackstandard") || existingStandards.blackJackStandard || "NA",
+            spongeTempStandard: val("modal-mb-spongetempstandard") || existingStandards.spongeTempStandard || "NA",
+            slurryStandard: val("modal-mb-slurrystandard") || existingStandards.slurryStandard || "NA",
+            groundSugarTempStandard: val("modal-mb-groundsugartempstandard") || existingStandards.groundSugarTempStandard || "NA",
+            groundSugarParticleSizeStandard: val("modal-mb-groundsugarparticlesizestandard") || existingStandards.groundSugarParticleSizeStandard || "NA",
 
             // 2. Observed fields auto-set
             rpoObserved: val("modal-mb-rpoobserved") || "",
@@ -4280,64 +5604,51 @@ const Rajpura_Admin = {
             groundSugarParticleSizeObserved: val("modal-mb-groundsugarparticlesizeobserved") || "",
 
             // 3. Raw Material Suppliers
-            chocoChipsSupplier: val("modal-mb-chocochipssupplier") || "NA",
-            chocoChipsTemp: val("modal-mb-chocochipstemp") || "NA",
-            chocoChipsCountPerKg: val("modal-mb-chocochipscountperkg") || "NA",
-            chocoChipsCompoundOrPure: val("modal-mb-chocochipscompoundorpure") || "NA",
+            chocoChipsSupplier: val("modal-mb-chocochipssupplier") || existingStandards.chocoChipsSupplier || "NA",
+            chocoChipsTemp: val("modal-mb-chocochipstemp") || existingStandards.chocoChipsTemp || "NA",
+            chocoChipsCountPerKg: val("modal-mb-chocochipscountperkg") || existingStandards.chocoChipsCountPerKg || "NA",
+            chocoChipsCompoundOrPure: val("modal-mb-chocochipscompoundorpure") || existingStandards.chocoChipsCompoundOrPure || "NA",
 
-            cashewSupplier: val("modal-mb-cashewsupplier") || "NA",
-            cashewTemp: val("modal-mb-cashewtemp") || "NA",
-            cashewCountPerKg: val("modal-mb-cashewcountperkg") || "NA",
-            cashewCompoundOrPure: val("modal-mb-cashewcompoundorpure") || "NA",
+            cashewSupplier: val("modal-mb-cashewsupplier") || existingStandards.cashewSupplier || "NA",
+            cashewTemp: val("modal-mb-cashewtemp") || existingStandards.cashewTemp || "NA",
+            cashewCountPerKg: val("modal-mb-cashewcountperkg") || existingStandards.cashewCountPerKg || "NA",
+            cashewCompoundOrPure: val("modal-mb-cashewcompoundorpure") || existingStandards.cashewCompoundOrPure || "NA",
 
-            flourSupplier: val("modal-mb-floursupplier") || "NA",
+            flourSupplier: val("modal-mb-floursupplier") || existingStandards.flourSupplier || "NA",
 
             // 4. Syrups & Liquid Sugars
-            invertSyrupTemp: val("modal-mb-invertsyruptemp") || "NA",
-            blackJack2Temp: val("modal-mb-blackjack2temp") || "NA",
+            invertSyrupTemp: val("modal-mb-invertsyruptemp") || existingStandards.invertSyrupTemp || "35",
+            blackJack2Temp: val("modal-mb-blackjack2temp") || existingStandards.blackJack2Temp || "NA",
 
             // 5. Sponge & Fermentation
-            spongeProductName: val("modal-mb-spongeproductname") || "NA",
-            spongeWaterQuantity: val("modal-mb-spongewaterquantity") || "NA",
-            spongeYeastQuantity: val("modal-mb-spongeyeastquantity") || "NA",
-            spongeWaterTemp: val("modal-mb-spongewatertemp") || "NA",
-            fermentationStartTemp: val("modal-mb-fermentationstarttemp") || "NA",
-            fermentationRoomTemp: val("modal-mb-fermentationroomtemp") || "NA",
-            finalTempAfterFermentation: val("modal-mb-finaltempafterfermentation") || "NA",
-            finalPhAfterFermentation: val("modal-mb-finalphafterfermentation") || "NA",
+            spongeProductName: val("modal-mb-spongeproductname") || existingStandards.spongeProductName || "NA",
+            spongeWaterQuantity: val("modal-mb-spongewaterquantity") || existingStandards.spongeWaterQuantity || "NA",
+            spongeYeastQuantity: val("modal-mb-spongeyeastquantity") || existingStandards.spongeYeastQuantity || "NA",
+            spongeWaterTemp: val("modal-mb-spongewatertemp") || existingStandards.spongeWaterTemp || "NA",
+            fermentationStartTemp: val("modal-mb-fermentationstarttemp") || existingStandards.fermentationStartTemp || "NA",
+            fermentationRoomTemp: val("modal-mb-fermentationroomtemp") || existingStandards.fermentationRoomTemp || "NA",
+            finalTempAfterFermentation: val("modal-mb-finaltempafterfermentation") || existingStandards.finalTempAfterFermentation || "NA",
+            finalPhAfterFermentation: val("modal-mb-finalphafterfermentation") || existingStandards.finalPhAfterFermentation || "NA",
 
             // 6. Dough Mixing Standards
-            creamingTimeStandard: val("modal-mb-creamingtimestandard") || "NA",
+            creamingTimeStandard: val("modal-mb-creamingtimestandard") || existingStandards.creamingTimeStandard || "10 min",
             creamingTimeObserved: val("modal-mb-creamingtimeobserved") || "",
-            mixingTimeStandard: val("modal-mb-mixingtimestandard") || "NA",
+            mixingTimeStandard: val("modal-mb-mixingtimestandard") || existingStandards.mixingTimeStandard || "5 Min",
             mixingTimeObserved: val("modal-mb-mixingtimeobserved") || "",
-            doughTempStandard: val("modal-mb-doughtempstandard") || "NA",
+            doughTempStandard: val("modal-mb-doughtempstandard") || existingStandards.doughTempStandard || "32-35",
             doughTempObserved: val("modal-mb-doughtempobserved") || "",
-            doughStandingTimeStandard: val("modal-mb-doughstandingtimestandard") || "NA",
+            doughStandingTimeStandard: val("modal-mb-doughstandingtimestandard") || existingStandards.doughStandingTimeStandard || "10 Min",
             doughStandingTimeObserved: val("modal-mb-doughstandingtimeobserved") || "",
 
             // 7. Forming & Moulding
-            moulderRpmStrokes: val("modal-mb-moulderrpmstrokes") || "NA",
-            formingSampleCount: val("modal-mb-formingsamplecount") || "NA",
-            standardWetWeight: val("modal-mb-standardwetweight") || "NA",
+            moulderRpmStrokes: val("modal-mb-moulderrpmstrokes") || existingStandards.moulderRpmStrokes || "NA",
+            standardWetWeight: val("modal-mb-standardwetweight") || existingStandards.standardWetWeight || "NA",
 
-            // 8. Baking Profile
-            bakingProfileAsPerTemplate: isChk("modal-mb-bakingprofileaspertemplate"),
-
-            // 9. Biscuit Physical Dimensions
-            biscuitLength: val("modal-mb-biscuitlength") || "NA",
-            biscuitWidth: val("modal-mb-biscuitwidth") || "NA",
-            biscuitDiameter: val("modal-mb-biscuitdiameter") || "NA",
-            standardsSampleCount: val("modal-mb-standardssamplecount") || "NA",
-            biscuitStdWeight: val("modal-mb-biscuitstdweight") || "NA",
-
-            // 10. Quality & Moisture
+            // 8. Colors
             topColourStandard: val("modal-mb-topcolourstandard") || "As per std",
             topColourObserved: val("modal-mb-topcolourobserved") || "As per std",
             bottomColourStandard: val("modal-mb-bottomcolourstandard") || "As per std",
-            bottomColourObserved: val("modal-mb-bottomcolourobserved") || "As per std",
-            moistureStandard: val("modal-mb-moisturestandard") || "NA",
-            weightAfterOilSpray: val("modal-mb-weightafteroilspray") || "NA"
+            bottomColourObserved: val("modal-mb-bottomcolourobserved") || "As per std"
         };
 
         const btn = document.getElementById("btn-save-mb-recipe");
@@ -4390,230 +5701,217 @@ const Rajpura_Admin = {
         this.updateStatsCounters();
     },
 
-    /**
-     * Complete Master Seed Dataset for standard 9 Mrs. Bectors Products (Mixing & Baking)
-     */
-    getStandardMbSeedRecipes: function () {
-        return [
-            {
-                id: 901,
-                title: "Chelsea Vanilla",
-                configType: "Product Recipe",
-                productCategory: "Cookies",
-                plant: "Rajpura",
-                isActive: true,
-                standards: {
-                    rpoStandard: "45", solidFatStandard: "15", butterStandard: "NA", blackJackStandard: "35", spongeTempStandard: "NA", slurryStandard: "NA", groundSugarTempStandard: "NA", groundSugarParticleSizeStandard: "NA",
-                    butterObserved: "NA", spongeTempObserved: "NA", slurryObserved: "NA",
-                    chocoChipsSupplier: "NA", chocoChipsTemp: "NA", chocoChipsCountPerKg: "NA", chocoChipsCompoundOrPure: "NA",
-                    cashewSupplier: "NA", cashewTemp: "NA", cashewCountPerKg: "NA", cashewCompoundOrPure: "NA", flourSupplier: "NA",
-                    invertSyrupTemp: "35", blackJack2Temp: "35",
-                    spongeProductName: "NA", spongeWaterQuantity: "NA", spongeYeastQuantity: "NA", spongeWaterTemp: "NA", fermentationStartTemp: "NA", fermentationRoomTemp: "NA", finalTempAfterFermentation: "NA", finalPhAfterFermentation: "NA",
-                    creamingTimeStandard: "10 min", mixingTimeStandard: "5 Min", doughTempStandard: "32-35", doughStandingTimeStandard: "15 Min",
-                    moulderRpmStrokes: "NA", formingSampleCount: "10 bis", standardWetWeight: "31g",
-                    bakingProfileAsPerTemplate: true,
-                    biscuitLength: "NA", biscuitWidth: "NA", biscuitDiameter: "42mm", standardsSampleCount: "10 bis", biscuitStdWeight: "27g",
-                    topColourStandard: "As per std", topColourObserved: "As per std", bottomColourStandard: "As per std", bottomColourObserved: "As per std",
-                    moistureStandard: "1.75%", weightAfterOilSpray: "NA"
-                }
-            },
-            {
-                id: 902,
-                title: "Butter Cookies",
-                configType: "Product Recipe",
-                productCategory: "Cookies",
-                plant: "Rajpura",
-                isActive: true,
-                standards: {
-                    rpoStandard: "45", solidFatStandard: "NA", butterStandard: "5", blackJackStandard: "NA", spongeTempStandard: "NA", slurryStandard: "NA", groundSugarTempStandard: "NA", groundSugarParticleSizeStandard: "NA",
-                    solidFatObserved: "NA", blackJackObserved: "NA", spongeTempObserved: "NA", slurryObserved: "NA",
-                    chocoChipsSupplier: "NA", chocoChipsTemp: "NA", chocoChipsCountPerKg: "NA", chocoChipsCompoundOrPure: "NA",
-                    cashewSupplier: "NA", cashewTemp: "NA", cashewCountPerKg: "NA", cashewCompoundOrPure: "NA", flourSupplier: "NA",
-                    invertSyrupTemp: "35", blackJack2Temp: "NA",
-                    spongeProductName: "NA", spongeWaterQuantity: "NA", spongeYeastQuantity: "NA", spongeWaterTemp: "NA", fermentationStartTemp: "NA", fermentationRoomTemp: "NA", finalTempAfterFermentation: "NA", finalPhAfterFermentation: "NA",
-                    creamingTimeStandard: "10 min", mixingTimeStandard: "5 Min", doughTempStandard: "32-35", doughStandingTimeStandard: "10 Min",
-                    moulderRpmStrokes: "NA", formingSampleCount: "7 bis", standardWetWeight: "38g",
-                    bakingProfileAsPerTemplate: true,
-                    biscuitLength: "NA", biscuitWidth: "NA", biscuitDiameter: "44mm", standardsSampleCount: "7 bis", biscuitStdWeight: "33g",
-                    topColourStandard: "As per std", topColourObserved: "As per std", bottomColourStandard: "As per std", bottomColourObserved: "As per std",
-                    moistureStandard: "2.00%", weightAfterOilSpray: "NA"
-                }
-            },
-            {
-                id: 903,
-                title: "Cremica Bourbon",
-                configType: "Product Recipe",
-                productCategory: "Cream",
-                plant: "Rajpura",
-                isActive: true,
-                standards: {
-                    rpoStandard: "45", solidFatStandard: "NA", butterStandard: "NA", blackJackStandard: "35", spongeTempStandard: "NA", slurryStandard: "NA", groundSugarTempStandard: "NA", groundSugarParticleSizeStandard: "NA",
-                    solidFatObserved: "NA", butterObserved: "NA", spongeTempObserved: "NA", slurryObserved: "NA", groundSugarTempObserved: "NA",
-                    chocoChipsSupplier: "NA", chocoChipsTemp: "NA", chocoChipsCountPerKg: "NA", chocoChipsCompoundOrPure: "NA",
-                    cashewSupplier: "NA", cashewTemp: "NA", cashewCountPerKg: "NA", cashewCompoundOrPure: "NA", flourSupplier: "NA",
-                    invertSyrupTemp: "35", blackJack2Temp: "35",
-                    spongeProductName: "NA", spongeWaterQuantity: "NA", spongeYeastQuantity: "NA", spongeWaterTemp: "NA", fermentationStartTemp: "NA", fermentationRoomTemp: "NA", finalTempAfterFermentation: "NA", finalPhAfterFermentation: "NA",
-                    creamingTimeStandard: "10 min", mixingTimeStandard: "6-7 Min", doughTempStandard: "32-35", doughStandingTimeStandard: "10 Min",
-                    moulderRpmStrokes: "NA", formingSampleCount: "14", standardWetWeight: "58g",
-                    bakingProfileAsPerTemplate: true,
-                    biscuitLength: "55mm", biscuitWidth: "25mm", biscuitDiameter: "NA", standardsSampleCount: "14", biscuitStdWeight: "49g",
-                    topColourStandard: "As per std", topColourObserved: "As per std", bottomColourStandard: "As per std", bottomColourObserved: "As per std",
-                    moistureStandard: "1.5%", weightAfterOilSpray: "NA"
-                }
-            },
-            {
-                id: 904,
-                title: "Bourbon",
-                configType: "Product Recipe",
-                productCategory: "Cream",
-                plant: "Rajpura",
-                isActive: true,
-                standards: {
-                    rpoStandard: "45", solidFatStandard: "NA", butterStandard: "NA", blackJackStandard: "35", spongeTempStandard: "NA", slurryStandard: "NA", groundSugarTempStandard: "NA", groundSugarParticleSizeStandard: "NA",
-                    solidFatObserved: "NA", butterObserved: "NA", spongeTempObserved: "NA", slurryObserved: "NA", groundSugarTempObserved: "NA",
-                    chocoChipsSupplier: "NA", chocoChipsTemp: "NA", chocoChipsCountPerKg: "NA", chocoChipsCompoundOrPure: "NA",
-                    cashewSupplier: "NA", cashewTemp: "NA", cashewCountPerKg: "NA", cashewCompoundOrPure: "NA", flourSupplier: "NA",
-                    invertSyrupTemp: "35", blackJack2Temp: "35",
-                    spongeProductName: "NA", spongeWaterQuantity: "NA", spongeYeastQuantity: "NA", spongeWaterTemp: "NA", fermentationStartTemp: "NA", fermentationRoomTemp: "NA", finalTempAfterFermentation: "NA", finalPhAfterFermentation: "NA",
-                    creamingTimeStandard: "10 min", mixingTimeStandard: "6-7 Min", doughTempStandard: "32-35", doughStandingTimeStandard: "10 Min",
-                    moulderRpmStrokes: "NA", formingSampleCount: "14", standardWetWeight: "58g",
-                    bakingProfileAsPerTemplate: true,
-                    biscuitLength: "55mm", biscuitWidth: "25mm", biscuitDiameter: "NA", standardsSampleCount: "14", biscuitStdWeight: "49g",
-                    topColourStandard: "As per std", topColourObserved: "As per std", bottomColourStandard: "As per std", bottomColourObserved: "As per std",
-                    moistureStandard: "1.5%", weightAfterOilSpray: "NA"
-                }
-            },
-            {
-                id: 905,
-                title: "Marie Classic",
-                configType: "Product Recipe",
-                productCategory: "Health Biscuits",
-                plant: "Rajpura",
-                isActive: true,
-                standards: {
-                    rpoStandard: "45", solidFatStandard: "NA", butterStandard: "NA", blackJackStandard: "NA", spongeTempStandard: "NA", slurryStandard: "NA", groundSugarTempStandard: "NA", groundSugarParticleSizeStandard: "NA",
-                    solidFatObserved: "NA", butterObserved: "NA", blackJackObserved: "NA", spongeTempObserved: "NA", slurryObserved: "NA",
-                    chocoChipsSupplier: "NA", chocoChipsTemp: "NA", chocoChipsCountPerKg: "NA", chocoChipsCompoundOrPure: "NA",
-                    cashewSupplier: "NA", cashewTemp: "NA", cashewCountPerKg: "NA", cashewCompoundOrPure: "NA", flourSupplier: "NA",
-                    invertSyrupTemp: "35", blackJack2Temp: "NA",
-                    spongeProductName: "NA", spongeWaterQuantity: "NA", spongeYeastQuantity: "NA", spongeWaterTemp: "NA", fermentationStartTemp: "NA", fermentationRoomTemp: "NA", finalTempAfterFermentation: "NA", finalPhAfterFermentation: "NA",
-                    creamingTimeStandard: "10 min", mixingTimeStandard: "6 Min", doughTempStandard: "35-38", doughStandingTimeStandard: "15 Min",
-                    moulderRpmStrokes: "NA", formingSampleCount: "10 bis", standardWetWeight: "32g",
-                    bakingProfileAsPerTemplate: true,
-                    biscuitLength: "NA", biscuitWidth: "NA", biscuitDiameter: "62mm", standardsSampleCount: "10 bis", biscuitStdWeight: "26g",
-                    topColourStandard: "As per std", topColourObserved: "As per std", bottomColourStandard: "As per std", bottomColourObserved: "As per std",
-                    moistureStandard: "2.5%", weightAfterOilSpray: "NA"
-                }
-            },
-            {
-                id: 906,
-                title: "Goldmarie",
-                configType: "Product Recipe",
-                productCategory: "Health Biscuits",
-                plant: "Rajpura",
-                isActive: true,
-                standards: {
-                    rpoStandard: "45", solidFatStandard: "NA", butterStandard: "NA", blackJackStandard: "NA", spongeTempStandard: "NA", slurryStandard: "NA", groundSugarTempStandard: "NA", groundSugarParticleSizeStandard: "NA",
-                    solidFatObserved: "NA", butterObserved: "NA", blackJackObserved: "NA", spongeTempObserved: "NA", slurryObserved: "NA",
-                    chocoChipsSupplier: "NA", chocoChipsTemp: "NA", chocoChipsCountPerKg: "NA", chocoChipsCompoundOrPure: "NA",
-                    cashewSupplier: "NA", cashewTemp: "NA", cashewCountPerKg: "NA", cashewCompoundOrPure: "NA", flourSupplier: "NA",
-                    invertSyrupTemp: "35", blackJack2Temp: "NA",
-                    spongeProductName: "NA", spongeWaterQuantity: "NA", spongeYeastQuantity: "NA", spongeWaterTemp: "NA", fermentationStartTemp: "NA", fermentationRoomTemp: "NA", finalTempAfterFermentation: "NA", finalPhAfterFermentation: "NA",
-                    creamingTimeStandard: "10 min", mixingTimeStandard: "6 Min", doughTempStandard: "35-38", doughStandingTimeStandard: "15 Min",
-                    moulderRpmStrokes: "NA", formingSampleCount: "10 bis", standardWetWeight: "32g",
-                    bakingProfileAsPerTemplate: true,
-                    biscuitLength: "NA", biscuitWidth: "NA", biscuitDiameter: "62mm", standardsSampleCount: "10 bis", biscuitStdWeight: "26g",
-                    topColourStandard: "As per std", topColourObserved: "As per std", bottomColourStandard: "As per std", bottomColourObserved: "As per std",
-                    moistureStandard: "2.5%", weightAfterOilSpray: "NA"
-                }
-            },
-            {
-                id: 907,
-                title: "Digestive Biscuits",
-                configType: "Product Recipe",
-                productCategory: "Health Biscuits",
-                plant: "Rajpura",
-                isActive: true,
-                standards: {
-                    rpoStandard: "45", solidFatStandard: "NA", butterStandard: "NA", blackJackStandard: "NA", spongeTempStandard: "NA", slurryStandard: "NA", groundSugarTempStandard: "NA", groundSugarParticleSizeStandard: "NA",
-                    solidFatObserved: "NA", butterObserved: "NA", blackJackObserved: "NA", spongeTempObserved: "NA", slurryObserved: "NA",
-                    chocoChipsSupplier: "NA", chocoChipsTemp: "NA", chocoChipsCountPerKg: "NA", chocoChipsCompoundOrPure: "NA",
-                    cashewSupplier: "NA", cashewTemp: "NA", cashewCountPerKg: "NA", cashewCompoundOrPure: "NA", flourSupplier: "NA",
-                    invertSyrupTemp: "35", blackJack2Temp: "NA",
-                    spongeProductName: "NA", spongeWaterQuantity: "NA", spongeYeastQuantity: "NA", spongeWaterTemp: "NA", fermentationStartTemp: "NA", fermentationRoomTemp: "NA", finalTempAfterFermentation: "NA", finalPhAfterFermentation: "NA",
-                    creamingTimeStandard: "10 min", mixingTimeStandard: "5 Min", doughTempStandard: "32-35", doughStandingTimeStandard: "10 Min",
-                    moulderRpmStrokes: "NA", formingSampleCount: "8 bis", standardWetWeight: "44g",
-                    bakingProfileAsPerTemplate: true,
-                    biscuitLength: "NA", biscuitWidth: "NA", biscuitDiameter: "65mm", standardsSampleCount: "8 bis", biscuitStdWeight: "37g",
-                    topColourStandard: "As per std", topColourObserved: "As per std", bottomColourStandard: "As per std", bottomColourObserved: "As per std",
-                    moistureStandard: "2.2%", weightAfterOilSpray: "NA"
-                }
-            },
-            {
-                id: 908,
-                title: "Classic Crackers",
-                configType: "Product Recipe",
-                productCategory: "Crackers",
-                plant: "Rajpura",
-                isActive: true,
-                standards: {
-                    rpoStandard: "45", solidFatStandard: "NA", butterStandard: "NA", blackJackStandard: "NA", spongeTempStandard: "28", slurryStandard: "NA", groundSugarTempStandard: "NA", groundSugarParticleSizeStandard: "NA",
-                    solidFatObserved: "NA", butterObserved: "NA", blackJackObserved: "NA", slurryObserved: "NA",
-                    chocoChipsSupplier: "NA", chocoChipsTemp: "NA", chocoChipsCountPerKg: "NA", chocoChipsCompoundOrPure: "NA",
-                    cashewSupplier: "NA", cashewTemp: "NA", cashewCountPerKg: "NA", cashewCompoundOrPure: "NA", flourSupplier: "NA",
-                    invertSyrupTemp: "35", blackJack2Temp: "NA",
-                    spongeProductName: "Sponge Crackers", spongeWaterQuantity: "25L", spongeYeastQuantity: "1.5kg", spongeWaterTemp: "28", fermentationStartTemp: "28", fermentationRoomTemp: "30", finalTempAfterFermentation: "30", finalPhAfterFermentation: "5.5",
-                    creamingTimeStandard: "8 min", mixingTimeStandard: "8 Min", doughTempStandard: "30-33", doughStandingTimeStandard: "30 Min",
-                    moulderRpmStrokes: "NA", formingSampleCount: "12 bis", standardWetWeight: "36g",
-                    bakingProfileAsPerTemplate: true,
-                    biscuitLength: "50mm", biscuitWidth: "50mm", biscuitDiameter: "NA", standardsSampleCount: "12 bis", biscuitStdWeight: "30g",
-                    topColourStandard: "As per std", topColourObserved: "As per std", bottomColourStandard: "As per std", bottomColourObserved: "As per std",
-                    moistureStandard: "2.0%", weightAfterOilSpray: "32g"
-                }
-            },
-            {
-                id: 909,
-                title: "Choco Chips Biscuits",
-                configType: "Product Recipe",
-                productCategory: "Cookies",
-                plant: "Rajpura",
-                isActive: true,
-                standards: {
-                    rpoStandard: "45", solidFatStandard: "NA", butterStandard: "5", blackJackStandard: "NA", spongeTempStandard: "NA", slurryStandard: "NA", groundSugarTempStandard: "NA", groundSugarParticleSizeStandard: "NA",
-                    solidFatObserved: "NA", blackJackObserved: "NA", spongeTempObserved: "NA", slurryObserved: "NA",
-                    chocoChipsSupplier: "Amul / Barry Callebaut", chocoChipsTemp: "18-22", chocoChipsCountPerKg: "10000", chocoChipsCompoundOrPure: "Compound",
-                    cashewSupplier: "NA", cashewTemp: "NA", cashewCountPerKg: "NA", cashewCompoundOrPure: "NA", flourSupplier: "NA",
-                    invertSyrupTemp: "35", blackJack2Temp: "NA",
-                    spongeProductName: "NA", spongeWaterQuantity: "NA", spongeYeastQuantity: "NA", spongeWaterTemp: "NA", fermentationStartTemp: "NA", fermentationRoomTemp: "NA", finalTempAfterFermentation: "NA", finalPhAfterFermentation: "NA",
-                    creamingTimeStandard: "10 min", mixingTimeStandard: "5 Min", doughTempStandard: "30-33", doughStandingTimeStandard: "10 Min",
-                    moulderRpmStrokes: "NA", formingSampleCount: "6 bis", standardWetWeight: "42g",
-                    bakingProfileAsPerTemplate: true,
-                    biscuitLength: "NA", biscuitWidth: "NA", biscuitDiameter: "48mm", standardsSampleCount: "6 bis", biscuitStdWeight: "36g",
-                    topColourStandard: "As per std", topColourObserved: "As per std", bottomColourStandard: "As per std", bottomColourObserved: "As per std",
-                    moistureStandard: "2.0%", weightAfterOilSpray: "NA"
-                }
-            }
-        ];
-    },
+    deleteMbRecipe: async function (rowId) {
+        const row = (this.configs.MixingAndBaking || []).find(r => r.id === rowId);
+        if (!row) return;
 
-    seedMbRecipesMasterData: async function () {
-        console.warn("Seeding functionality is disabled in the admin panel.");
-        this.showToast("Seeding master data is currently disabled.", "warning");
-        return;
+        if (!confirm(`Are you sure you want to delete product recipe '${row.title}'?`)) {
+            return;
+        }
 
         const siteUrl = this.getSiteUrl();
         const listName = "Quality-Rajpura-MixingBaking";
 
-        const seedRecipes = (typeof MB_RECIPES_SEED_DATA !== "undefined" && Array.isArray(MB_RECIPES_SEED_DATA) && MB_RECIPES_SEED_DATA.length > 0)
+        if (siteUrl && rowId && typeof rowId === "number" && rowId < 900) {
+            try {
+                const digest = await this.getFormDigest();
+                const deleteUrl = `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items(${rowId})`;
+                await fetch(deleteUrl, {
+                    method: "POST",
+                    headers: {
+                        "Accept": "application/json;odata=verbose",
+                        "Content-Type": "application/json;odata=verbose",
+                        "X-RequestDigest": digest,
+                        "X-HTTP-Method": "DELETE",
+                        "If-Match": "*"
+                    }
+                });
+            } catch (e) {
+                console.warn("SharePoint delete error:", e);
+            }
+        }
+
+        this.configs.MixingAndBaking = (this.configs.MixingAndBaking || []).filter(r => r.id !== rowId);
+        if (typeof MixingBaking_DAL !== "undefined" && MixingBaking_DAL.recipesCache) {
+            MixingBaking_DAL.recipesCache = null;
+        }
+
+        this.showToast(`Product Recipe '${row.title}' deleted successfully`, "info");
+        this.renderCurrentTab();
+        this.updateStatsCounters();
+    },
+
+    deleteAllMbRecipes: async function () {
+        const currentRecipes = (this.configs.MixingAndBaking || []).filter(r => r.configType === "Product Recipe");
+        
+        if (!confirm(`Are you sure you want to DELETE ALL (${currentRecipes.length}) Product Recipes from Mixing & Baking in SharePoint? This action cannot be undone.`)) {
+            return;
+        }
+
+        const btn1 = document.getElementById("admin-btn-delete-all-mb");
+        const btn2 = document.getElementById("admin-btn-delete-all-mb-top");
+        const updateBtns = (txt, dis) => {
+            [btn1, btn2].forEach(b => {
+                if (b) {
+                    b.disabled = !!dis;
+                    b.innerHTML = txt;
+                }
+            });
+        };
+
+        updateBtns(`Deleting all recipes...`, true);
+
+        const siteUrl = this.getSiteUrl();
+        const listName = "Quality-Rajpura-MixingBaking";
+        let deletedCount = 0;
+
+        try {
+            if (siteUrl) {
+                const digest = await this.getFormDigest();
+                let existingItems = [];
+                try {
+                    let existingRes = await fetch(`${siteUrl}/_api/web/lists/getbytitle('${listName}')/items?$select=Id,Title,ConfigType&$top=5000`, {
+                        headers: { "Accept": "application/json;odata=verbose" }
+                    });
+                    if (!existingRes.ok) {
+                        existingRes = await fetch(`${siteUrl}/_api/web/lists/getbytitle('${listName}')/items?$select=Id,Title&$top=5000`, {
+                            headers: { "Accept": "application/json;odata=verbose" }
+                        });
+                    }
+                    if (existingRes.ok) {
+                        const existingData = await existingRes.json();
+                        existingItems = (existingData.d && existingData.d.results) || [];
+                    }
+                } catch (e) {
+                    console.warn("Could not fetch items from SharePoint for deletion:", e);
+                }
+
+                const recipeItemsToDelete = existingItems.filter(ex => {
+                    const ct = (ex.ConfigType || "").trim().toLowerCase();
+                    return ct === "product recipe" || ct === "productrecipe" || ct === "recipe" || (ex.Id && ex.Id > 1);
+                });
+
+                if (recipeItemsToDelete.length > 0) {
+                    let delIdx = 0;
+                    for (const oldItem of recipeItemsToDelete) {
+                        delIdx++;
+                        if (delIdx % 5 === 0 || delIdx === recipeItemsToDelete.length) {
+                            updateBtns(`Deleting (${delIdx} / ${recipeItemsToDelete.length})...`, true);
+                        }
+                        const deleteUrl = `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items(${oldItem.Id})`;
+                        try {
+                            const delRes = await fetch(deleteUrl, {
+                                method: "POST",
+                                headers: {
+                                    "Accept": "application/json;odata=verbose",
+                                    "Content-Type": "application/json;odata=verbose",
+                                    "X-RequestDigest": digest,
+                                    "X-HTTP-Method": "DELETE",
+                                    "If-Match": "*"
+                                }
+                            });
+                            if (delRes.ok) {
+                                deletedCount++;
+                            }
+                        } catch (delErr) {
+                            console.warn("Error deleting recipe item ID " + oldItem.Id, delErr);
+                        }
+                    }
+                }
+            }
+
+            // Clean in-memory configs
+            this.configs.MixingAndBaking = (this.configs.MixingAndBaking || []).filter(r => r.configType !== "Product Recipe");
+            if (typeof MixingBaking_DAL !== "undefined" && MixingBaking_DAL.recipesCache) {
+                MixingBaking_DAL.recipesCache = null;
+            }
+
+            if (deletedCount > 0) {
+                this.showToast(`Successfully deleted ${deletedCount} product recipes from SharePoint list.`, "success");
+            } else {
+                this.showToast(`All product recipes deleted.`, "info");
+            }
+
+            await this.loadSingleFormConfig("MixingAndBaking");
+            this.renderCurrentTab();
+            this.updateStatsCounters();
+        } catch (err) {
+            console.error("Error deleting all recipes:", err);
+            this.showToast("Error deleting recipes: " + (err.message || err), "error");
+        } finally {
+            updateBtns(`Delete All Recipes`, false);
+        }
+    },
+
+    /**
+     * Complete Master Seed Dataset for standard 71 Mrs. Bectors Products (Mixing & Baking)
+     */
+    getStandardMbSeedRecipes: function () {
+        if (typeof MB_RECIPES_SEED_DATA !== "undefined" && Array.isArray(MB_RECIPES_SEED_DATA) && MB_RECIPES_SEED_DATA.length > 0) {
+            return MB_RECIPES_SEED_DATA;
+        }
+        if (typeof window !== "undefined" && window.MB_RECIPES_SEED_DATA && Array.isArray(window.MB_RECIPES_SEED_DATA) && window.MB_RECIPES_SEED_DATA.length > 0) {
+            return window.MB_RECIPES_SEED_DATA;
+        }
+        return [];
+    },
+
+    seedMbRecipesMasterData: async function () {
+        const btn1 = document.getElementById("admin-btn-seed-mb");
+        const btn2 = document.getElementById("admin-btn-seed-mb-inline");
+        const updateBtns = (txt, dis) => {
+            [btn1, btn2].forEach(b => {
+                if (b) {
+                    b.disabled = !!dis;
+                    b.innerHTML = txt;
+                }
+            });
+        };
+
+        const siteUrl = this.getSiteUrl();
+        const listName = "Quality-Rajpura-MixingBaking";
+
+        let seedRecipes = (typeof MB_RECIPES_SEED_DATA !== "undefined" && Array.isArray(MB_RECIPES_SEED_DATA) && MB_RECIPES_SEED_DATA.length > 0)
             ? MB_RECIPES_SEED_DATA
             : ((typeof window.MB_RECIPES_SEED_DATA !== "undefined" && Array.isArray(window.MB_RECIPES_SEED_DATA) && window.MB_RECIPES_SEED_DATA.length > 0)
                 ? window.MB_RECIPES_SEED_DATA
                 : this.getStandardMbSeedRecipes());
 
+        if (seedRecipes.length === 0) {
+            updateBtns(`Loading seed dataset...`, true);
+            try {
+                await new Promise((resolve, reject) => {
+                    const s = document.createElement("script");
+                    const seedUrl = (siteUrl ? siteUrl : "/sites/Mrs_Bectors_PTMS") + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/mb-recipes-seed.js?v=" + Date.now();
+                    s.src = seedUrl;
+                    s.onload = resolve;
+                    s.onerror = reject;
+                    document.head.appendChild(s);
+                });
+            } catch (e) {
+                console.warn("Dynamic load of mb-recipes-seed.js failed:", e);
+            }
+            seedRecipes = (typeof MB_RECIPES_SEED_DATA !== "undefined" && Array.isArray(MB_RECIPES_SEED_DATA) && MB_RECIPES_SEED_DATA.length > 0)
+                ? MB_RECIPES_SEED_DATA
+                : ((typeof window !== "undefined" && window.MB_RECIPES_SEED_DATA && Array.isArray(window.MB_RECIPES_SEED_DATA)) ? window.MB_RECIPES_SEED_DATA : []);
+        }
+
+        if (seedRecipes.length === 0) {
+            this.showToast("Could not load master seed recipe dataset.", "warning");
+            updateBtns(`Seed / Sync Recipes`, false);
+            return;
+        }
+
+        if (!confirm(`This will DELETE all existing mixing & baking recipes in SharePoint and reinsert ${seedRecipes.length} new product recipes. Proceed?`)) {
+            return;
+        }
+
+        updateBtns(`Deleting existing recipes...`, true);
+
         try {
             const digest = await this.getFormDigest();
             let insertedCount = 0;
-            let skippedCount = 0;
+            let deletedCount = 0;
 
             let entityTypeName = `SP.Data.Quality_x002d_Rajpura_x002d_MixingBakingListItem`;
             try {
@@ -4628,35 +5926,70 @@ const Rajpura_Admin = {
                 }
             } catch (e) {}
 
-            const getUrl = `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items?$select=Id,Title,ConfigType&$top=500`;
+            // Step 1: Query all existing items in Quality-Rajpura-MixingBaking to delete old recipes
             let existingItems = [];
             try {
-                const existingRes = await fetch(getUrl, {
+                let existingRes = await fetch(`${siteUrl}/_api/web/lists/getbytitle('${listName}')/items?$select=Id,Title,ConfigType&$top=5000`, {
                     headers: { "Accept": "application/json;odata=verbose" }
                 });
+                if (!existingRes.ok) {
+                    existingRes = await fetch(`${siteUrl}/_api/web/lists/getbytitle('${listName}')/items?$select=Id,Title&$top=5000`, {
+                        headers: { "Accept": "application/json;odata=verbose" }
+                    });
+                }
                 if (existingRes.ok) {
                     const existingData = await existingRes.json();
                     existingItems = (existingData.d && existingData.d.results) || [];
                 }
             } catch (fetchErr) {
-                console.warn("Could not query existing items from list, will attempt insertion:", fetchErr);
+                console.warn("Could not query existing items from list, proceeding with direct seed:", fetchErr);
             }
 
-            for (const item of seedRecipes) {
-                const alreadyExists = existingItems.some(ex => 
-                    (ex.Title || "").trim().toLowerCase() === (item.title || "").trim().toLowerCase() &&
-                    (ex.ConfigType || ex.Config_x0020_Type || "").trim().toLowerCase() === "product recipe"
-                );
+            const recipeItemsToDelete = existingItems.filter(ex => {
+                const ct = (ex.ConfigType || "").trim().toLowerCase();
+                return ct === "product recipe" || ct === "productrecipe" || ct === "recipe" || (ex.Id && ex.Id > 1);
+            });
 
-                if (alreadyExists) {
-                    skippedCount++;
-                    continue;
+            // Delete all existing product recipes from SharePoint
+            if (recipeItemsToDelete.length > 0) {
+                let delIdx = 0;
+                for (const oldItem of recipeItemsToDelete) {
+                    delIdx++;
+                    if (delIdx % 5 === 0 || delIdx === recipeItemsToDelete.length) {
+                        updateBtns(`Deleting old recipes (${delIdx} / ${recipeItemsToDelete.length})...`, true);
+                    }
+                    const deleteUrl = `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items(${oldItem.Id})`;
+                    try {
+                        const delRes = await fetch(deleteUrl, {
+                            method: "POST",
+                            headers: {
+                                "Accept": "application/json;odata=verbose",
+                                "Content-Type": "application/json;odata=verbose",
+                                "X-RequestDigest": digest,
+                                "X-HTTP-Method": "DELETE",
+                                "If-Match": "*"
+                            }
+                        });
+                        if (delRes.ok) {
+                            deletedCount++;
+                        }
+                    } catch (delErr) {
+                        console.warn("Error deleting old recipe item ID " + oldItem.Id, delErr);
+                    }
+                }
+            }
+
+            // Step 2: Insert all new seed recipes fresh into SharePoint
+            let insIdx = 0;
+            for (const item of seedRecipes) {
+                insIdx++;
+                if (insIdx % 5 === 0 || insIdx === seedRecipes.length) {
+                    updateBtns(`Inserting Recipes (${insIdx} / ${seedRecipes.length})...`, true);
                 }
 
-                const postUrl = `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items`;
                 const payload = {
                     __metadata: { type: entityTypeName },
-                    Title: item.title,
+                    Title: item.title || item.variety,
                     ConfigType: "Product Recipe",
                     ProductCategory: item.productCategory || "General",
                     Plant: "Rajpura",
@@ -4664,6 +5997,7 @@ const Rajpura_Admin = {
                     RecipeConfig: JSON.stringify(item.standards || {})
                 };
 
+                const postUrl = `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items`;
                 try {
                     const res = await fetch(postUrl, {
                         method: "POST",
@@ -4685,10 +6019,33 @@ const Rajpura_Admin = {
                 }
             }
 
-            if (insertedCount > 0 || skippedCount > 0) {
-                this.showToast(`Product Recipes: ${insertedCount} inserted to SharePoint list, ${skippedCount} already existed.`, "success");
+            // Clear local caches and reload
+            if (typeof MixingBaking_DAL !== "undefined" && MixingBaking_DAL.recipesCache) {
+                MixingBaking_DAL.recipesCache = null;
+            }
+
+            // Update in-memory config cache
+            if (this.configs && this.configs.MixingAndBaking) {
+                const nonRecipes = (this.configs.MixingAndBaking || []).filter(r => r.configType !== "Product Recipe");
+                const newMemoryRecipes = seedRecipes.map((r, idx) => ({
+                    id: r.id || (901 + idx),
+                    title: r.title,
+                    configType: "Product Recipe",
+                    productCategory: r.productCategory || "General",
+                    plant: "Rajpura",
+                    isActive: r.isActive !== false,
+                    recipeConfig: r.standards || {},
+                    assignedUsers: [],
+                    productionIncharges: [],
+                    escalationManagers: []
+                }));
+                this.configs.MixingAndBaking = [...nonRecipes, ...newMemoryRecipes];
+            }
+
+            if (insertedCount > 0) {
+                this.showToast(`Product Recipes: Deleted ${deletedCount} old items, inserted ${insertedCount} new recipes into SharePoint.`, "success");
             } else {
-                this.showToast("Local preview fallback: 9 master recipes initialized in memory.", "info");
+                this.showToast(`Reset ${seedRecipes.length} product recipes in local preview memory.`, "info");
             }
 
             await this.loadSingleFormConfig("MixingAndBaking");
@@ -4696,21 +6053,15 @@ const Rajpura_Admin = {
             this.updateStatsCounters();
         } catch (err) {
             console.error("Error seeding MB recipes:", err);
-            this.showToast("Local preview: 9 recipes loaded into memory (" + (err.message || err) + ")", "warning");
+            this.showToast("Local preview: " + seedRecipes.length + " recipes loaded into memory (" + (err.message || err) + ")", "warning");
             await this.loadSingleFormConfig("MixingAndBaking");
             this.renderCurrentTab();
         } finally {
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = `Seed 9 Master Recipes to SharePoint`;
-            }
+            updateBtns(`Seed / Sync Recipes (${seedRecipes.length})`, false);
         }
     },
-
     /**
-     * Seeds initial 1,105 Product Master records into SharePoint list: Quality-Rajpura-PackagingOperations.
-     */
-    seedPkgProductMasterData: async function () {
+     * seedPkgProductMasterData: async function () {
         console.warn("Seeding functionality is disabled in the admin panel.");
         this.showToast("Seeding master data is currently disabled.", "warning");
         return;
@@ -6681,6 +8032,7 @@ const Rajpura_Admin = {
             ChecklistType: row.checklistType,
             ...(isAlc && row.area ? { Area: row.area } : {}),
             AssignedUsers: fieldKey === "assignedUsers" ? remainingUsers : row.assignedUsers,
+            QAShiftExecutives: fieldKey === "qaShiftExecutives" ? remainingUsers : row.qaShiftExecutives,
             ProductionIncharges: fieldKey === "productionIncharges" ? remainingUsers : row.productionIncharges,
             EscalationManagers: (isPkgOps || isProd) ? [] : (fieldKey === "escalationManagers" ? remainingUsers : row.escalationManagers)
         };
@@ -6736,22 +8088,34 @@ const Rajpura_Admin = {
             const schema = await this.probeListSchema(listName);
             const digest = await this.getFormDigest();
 
-            // Resolve user IDs
+            // Resolve user IDs only if explicit lists are provided
             const userIds = [];
-            for (const u of (payload.AssignedUsers || [])) {
-                const spId = await this.resolveSpUserId(u);
-                if (spId) userIds.push(spId);
+            if (payload.AssignedUsers && Array.isArray(payload.AssignedUsers)) {
+                for (const u of payload.AssignedUsers) {
+                    const spId = await this.resolveSpUserId(u);
+                    if (spId) userIds.push(spId);
+                }
+            }
+
+            const qaShiftIds = [];
+            if (payload.QAShiftExecutives && Array.isArray(payload.QAShiftExecutives)) {
+                for (const u of payload.QAShiftExecutives) {
+                    const spId = await this.resolveSpUserId(u);
+                    if (spId) qaShiftIds.push(spId);
+                }
             }
 
             const prodIds = [];
-            for (const u of (payload.ProductionIncharges || [])) {
-                const spId = await this.resolveSpUserId(u);
-                if (spId) prodIds.push(spId);
+            if (payload.ProductionIncharges && Array.isArray(payload.ProductionIncharges)) {
+                for (const u of payload.ProductionIncharges) {
+                    const spId = await this.resolveSpUserId(u);
+                    if (spId) prodIds.push(spId);
+                }
             }
 
             const mgrIds = [];
-            if (formDef.managerFieldNames) {
-                for (const u of (payload.EscalationManagers || [])) {
+            if (payload.EscalationManagers && Array.isArray(payload.EscalationManagers) && formDef.managerFieldNames) {
+                for (const u of payload.EscalationManagers) {
                     const spId = await this.resolveSpUserId(u);
                     if (spId) mgrIds.push(spId);
                 }
@@ -6760,81 +8124,99 @@ const Rajpura_Admin = {
             // Map internal field names
             const configTypeField = schema ? schema.findField(["ConfigType", "Config_x0020_Type"], "Config Type") : null;
             const plantField = schema ? schema.findField(["Plant"], "Plant") : null;
+            const regionField = schema ? schema.findField(["Region"], "Region") : null;
             const checklistTypeField = schema ? schema.findField(["ChecklistType", "Checklist_x0020_Type"], "Checklist Type") : null;
-            const areaField = schema ? schema.findField(["Area"], "Area") : (formKey === "ALC" ? { InternalName: "Area" } : null);
-            const lineField = schema ? schema.findField(["LineName", "Line_x0020_Name"], "Line Name") : (["ALC", "CCP_OPRP_Sieves", "PackagingOperations"].includes(formKey) ? { InternalName: "LineName" } : null);
-            const shiftCodeField = schema ? schema.findField(["ShiftCode", "Shift_x0020_Code"], "Shift Code") : (formKey === "ALC" ? { InternalName: "ShiftCode" } : null);
-            const shiftNameField = schema ? schema.findField(["ShiftName", "Shift_x0020_Name"], "Shift Name") : (formKey === "ALC" ? { InternalName: "ShiftName" } : null);
-            const shiftStartField = schema ? schema.findField(["ShiftStart", "Shift_x0020_Start"], "Shift Start") : (formKey === "ALC" ? { InternalName: "ShiftStart" } : null);
-            const shiftEndField = schema ? schema.findField(["ShiftEnd", "Shift_x0020_End"], "Shift End") : (formKey === "ALC" ? { InternalName: "ShiftEnd" } : null);
-            const prodCodeField = schema ? schema.findField(["ProductCode", "Product_x0020_Code"], "Product Code") : (formKey !== "FoodSafety" ? { InternalName: "ProductCode" } : null);
-            const prodCatField = schema ? schema.findField(["ProductCategory", "Product_x0020_Category"], "Product Category") : (["ALC", "CCP_OPRP_Sieves", "PackagingOperations"].includes(formKey) ? { InternalName: "ProductCategory" } : null);
-            const recipeField = schema ? schema.findField(["RecipeConfig", "Recipe_x0020_Config"], "Recipe Config") : (formKey === "MixingAndBaking" ? { InternalName: "RecipeConfig" } : null);
-            const isActiveField = schema ? schema.findField(["IsActive", "Is_x0020_Active"], "Is Active") : (formKey !== "FoodSafety" ? { InternalName: "IsActive" } : null);
+            const areaField = schema ? schema.findField(["Area"], "Area") : null;
+            const lineField = schema ? schema.findField(["LineName", "Line_x0020_Name", "Line"], "Line Name") : null;
+            const shiftCodeField = schema ? schema.findField(["ShiftCode", "Shift_x0020_Code", "Shift"], "Shift Code") : null;
+            const shiftNameField = schema ? schema.findField(["ShiftName", "Shift_x0020_Name"], "Shift Name") : null;
+            const shiftStartField = schema ? schema.findField(["ShiftStart", "Shift_x0020_Start"], "Shift Start") : null;
+            const shiftEndField = schema ? schema.findField(["ShiftEnd", "Shift_x0020_End"], "Shift End") : null;
+            const prodCodeField = schema ? schema.findField(["ProductCode", "Product_x0020_Code", "SKU"], "Product Code") : null;
+            const prodCatField = schema ? schema.findField(["ProductCategory", "Product_x0020_Category"], "Product Category") : null;
+            const isCriticalField = schema ? schema.findField(["IsCritical", "Is_x0020_Critical", "Critical"], "Is Critical") : null;
+            const remarksField = schema ? schema.findField(["Remarks", "Remarks_x0020_Text"], "Remarks") : null;
+            const recipeField = schema ? schema.findField(["RecipeConfig", "Recipe_x0020_Config"], "Recipe Config") : null;
+            const isActiveField = schema ? schema.findField(["IsActive", "Is_x0020_Active", "Active"], "Is Active") : null;
 
             const userField = schema ? schema.findField(formDef.userFieldNames, ["QA Executive", "QAExecutive", "Assigned User", "Assigned QA"]) : null;
+            const qaShiftField = schema && formDef.qaShiftFieldNames ? schema.findField(formDef.qaShiftFieldNames, ["QA Shift Executive", "QAShiftExecutive"]) : null;
             const prodField = schema && formDef.prodFieldNames ? schema.findField(formDef.prodFieldNames, ["Production Incharge", "Production Executive", "Production Shift"]) : null;
             const managerField = schema && formDef.managerFieldNames ? schema.findField(formDef.managerFieldNames, ["Escalation Manager"]) : null;
 
-            const entityType = (schema && schema.entityTypeName) 
-                || `SP.Data.${listName.replace(/-/g, '_x002d_').replace(/ /g, '_x0020_')}ListItem`;
+            let entityType = (schema && schema.entityTypeName);
+            if (!entityType) {
+                entityType = `SP.Data.${listName.replace(/-/g, '_x002d_').replace(/ /g, '_x0020_')}ListItem`;
+            }
 
             const spPayload = {
                 __metadata: { type: entityType }
             };
-            if (payload.Title) {
+            if (payload.Title !== undefined) {
                 spPayload.Title = payload.Title;
             }
 
             if (configTypeField && payload.ConfigType) spPayload[configTypeField.InternalName] = payload.ConfigType;
+            else if (!schema && payload.ConfigType) spPayload["ConfigType"] = payload.ConfigType;
+
             if (checklistTypeField && payload.ChecklistType) spPayload[checklistTypeField.InternalName] = payload.ChecklistType;
-            else if (formKey === "FoodSafety" && payload.ChecklistType) spPayload["ChecklistType"] = payload.ChecklistType;
+            else if (!schema && formKey === "FoodSafety" && payload.ChecklistType) spPayload["ChecklistType"] = payload.ChecklistType;
 
-            if (plantField) spPayload[plantField.InternalName] = "Rajpura";
-            else if (formKey === "FoodSafety") spPayload["Plant"] = "Rajpura";
+            if (plantField) spPayload[plantField.InternalName] = payload.Plant || "Rajpura";
+            else if (!schema) spPayload["Plant"] = "Rajpura";
 
-            // User Field
-            if (userField) {
-                const isMulti = userField.TypeAsString === "UserMulti" || userField.AllowMultipleValues;
+            if (regionField) spPayload[regionField.InternalName] = payload.Region || "North";
+            else if (!schema && formKey === "ALC") spPayload["Region"] = "North";
+
+            if (areaField && payload.Area) spPayload[areaField.InternalName] = payload.Area;
+            else if (!schema && payload.Area) spPayload["Area"] = payload.Area;
+
+            // User Field - only if explicitly provided in payload and userField exists
+            if (payload.AssignedUsers !== undefined && userField) {
+                const isMulti = userField.TypeAsString === "UserMulti";
                 const idProp = `${userField.InternalName}Id`;
                 spPayload[idProp] = isMulti ? { results: userIds } : (userIds.length > 0 ? userIds[0] : null);
-            } else if (formKey === "MixingAndBaking") {
-                spPayload["QA_x0020_ExecutiveId"] = { results: userIds };
-            } else if (formKey === "FoodSafety") {
-                spPayload["QAExecutiveId"] = { results: userIds };
             }
 
-            // Production Field
-            if (prodField) {
-                const isMulti = prodField.TypeAsString === "UserMulti" || prodField.AllowMultipleValues;
+                        // QA Shift Executive Field - only if explicitly provided in payload
+            if (payload.QAShiftExecutives !== undefined) {
+                const fn = qaShiftField ? qaShiftField.InternalName : "QAShiftExecutive";
+                const isMulti = !qaShiftField || qaShiftField.TypeAsString === "UserMulti";
+                const idProp = `${fn}Id`;
+                spPayload[idProp] = isMulti ? { results: qaShiftIds } : (qaShiftIds.length > 0 ? qaShiftIds[0] : null);
+            }
+
+            // Production Field - only if explicitly provided in payload and prodField exists
+            if (payload.ProductionIncharges !== undefined && prodField) {
+                const isMulti = prodField.TypeAsString === "UserMulti";
                 const idProp = `${prodField.InternalName}Id`;
                 spPayload[idProp] = isMulti ? { results: prodIds } : (prodIds.length > 0 ? prodIds[0] : null);
-            } else if (formKey === "MixingAndBaking") {
-                spPayload["Production_x0020_ExecutiveId"] = { results: prodIds };
-            } else if (formKey === "FoodSafety") {
-                spPayload["ProductionInchargeId"] = { results: prodIds };
             }
 
-            // Manager Field
-            if (managerField) {
-                const isMulti = managerField.TypeAsString === "UserMulti" || managerField.AllowMultipleValues;
+            // Manager Field - only if explicitly provided in payload and managerField exists
+            if (payload.EscalationManagers !== undefined && managerField) {
+                const isMulti = managerField.TypeAsString === "UserMulti";
                 const idProp = `${managerField.InternalName}Id`;
                 spPayload[idProp] = isMulti ? { results: mgrIds } : (mgrIds.length > 0 ? mgrIds[0] : null);
             }
 
-            // Master & Product Recipe Data Fields (strictly guarded by schema / list support)
+            // Master & Product Data Fields (strictly guarded by schema)
             if (lineField && payload.LineName !== undefined && payload.LineName !== null) spPayload[lineField.InternalName] = payload.LineName;
             if (shiftCodeField && payload.ShiftCode !== undefined && payload.ShiftCode !== null) spPayload[shiftCodeField.InternalName] = payload.ShiftCode;
+            if (prodCodeField && payload.ProductCode !== undefined && payload.ProductCode !== null) spPayload[prodCodeField.InternalName] = payload.ProductCode;
+            if (prodCatField && payload.ProductCategory !== undefined && payload.ProductCategory !== null) spPayload[prodCatField.InternalName] = payload.ProductCategory;
+
             if (shiftNameField && payload.ShiftName !== undefined && payload.ShiftName !== null) spPayload[shiftNameField.InternalName] = payload.ShiftName;
             if (shiftStartField && payload.ShiftStart !== undefined && payload.ShiftStart !== null) spPayload[shiftStartField.InternalName] = payload.ShiftStart;
             if (shiftEndField && payload.ShiftEnd !== undefined && payload.ShiftEnd !== null) spPayload[shiftEndField.InternalName] = payload.ShiftEnd;
-            if (prodCodeField && payload.ProductCode !== undefined && payload.ProductCode !== null) spPayload[prodCodeField.InternalName] = payload.ProductCode;
-            if (prodCatField && payload.ProductCategory !== undefined && payload.ProductCategory !== null) spPayload[prodCatField.InternalName] = payload.ProductCategory;
+
+            if (isCriticalField && payload.IsCritical !== undefined && payload.IsCritical !== null) spPayload[isCriticalField.InternalName] = !!payload.IsCritical;
+            if (remarksField && payload.Remarks !== undefined && payload.Remarks !== null) spPayload[remarksField.InternalName] = payload.Remarks;
+
             if (recipeField && payload.RecipeConfig !== undefined && payload.RecipeConfig !== null) {
                 spPayload[recipeField.InternalName] = typeof payload.RecipeConfig === "string" ? payload.RecipeConfig : JSON.stringify(payload.RecipeConfig);
             }
             if (isActiveField && payload.IsActive !== undefined && payload.IsActive !== null) spPayload[isActiveField.InternalName] = !!payload.IsActive;
-            if (areaField && payload.Area !== undefined && payload.Area !== null && payload.Area !== "") spPayload[areaField.InternalName] = payload.Area;
 
             const headers = {
                 "Accept": "application/json; odata=verbose",
@@ -6851,57 +8233,93 @@ const Rajpura_Admin = {
                 headers["If-Match"] = "*";
             }
 
+            console.log(`[Admin] Persisting item to ${listName} (${method}):`, spPayload);
+
             let response = await fetch(endpoint, {
                 method: method,
                 headers: headers,
                 body: JSON.stringify(spPayload)
             });
 
-            // Retry for MixingAndBaking if space-encoded internal names are used in SharePoint
-            if (!response.ok && formKey === "MixingAndBaking" && !userField) {
-                const retryPayload = { ...spPayload };
-                delete retryPayload.QAExecutiveId;
-                delete retryPayload.ProductionExecutiveId;
-                retryPayload["QA_x0020_ExecutiveId"] = { results: userIds };
-                retryPayload["Production_x0020_ExecutiveId"] = { results: prodIds };
-                try {
-                    const retryRes = await fetch(endpoint, {
-                        method: method,
-                        headers: headers,
-                        body: JSON.stringify(retryPayload)
-                    });
-                    if (retryRes.ok) response = retryRes;
-                } catch (err) {}
-            }
-
-            // Retry for FoodSafety if space-encoded internal names are used in SharePoint
-            if (!response.ok && formKey === "FoodSafety" && !userField) {
-                const retryPayload = { ...spPayload };
-                delete retryPayload.QAExecutiveId;
-                delete retryPayload.ProductionInchargeId;
-                retryPayload["QA_x0020_ExecutiveId"] = { results: userIds };
-                retryPayload["Production_x0020_InchargeId"] = { results: prodIds };
-                try {
-                    const retryRes = await fetch(endpoint, {
-                        method: method,
-                        headers: headers,
-                        body: JSON.stringify(retryPayload)
-                    });
-                    if (retryRes.ok) response = retryRes;
-                } catch (err) {}
-            }
-
             if (!response.ok) {
-                throw new Error(`SharePoint returned ${response.status} ${response.statusText}`);
+                let errDetail = "";
+                try {
+                    const errObj = await response.json();
+                    errDetail = errObj?.error?.message?.value || JSON.stringify(errObj);
+                } catch (_) {
+                    errDetail = await response.text();
+                }
+                console.error(`[Admin] SharePoint returned ${response.status} saving to ${listName}:`, errDetail, spPayload);
+                throw new Error(`SharePoint returned ${response.status}: ${errDetail || response.statusText}`);
             }
 
-            this.syncConfigRowInMemory(formKey, itemId, payload);
+            console.log(`[Admin] Successfully persisted item to ${listName}:`, itemId || "NEW");
             return true;
         } catch (e) {
-            console.warn("SharePoint save error (simulating local update for preview):", e);
-            // Simulate local optimistic save so UI updates gracefully during preview
-            this.syncConfigRowInMemory(formKey, itemId, payload);
-            return true;
+            console.error("SharePoint save error:", e);
+            return false;
+        }
+    },
+
+    /**
+     * Synchronizes updated or newly added row into in-memory configs array
+     */
+    syncConfigRowInMemory: function (formKey, itemId, payload) {
+        if (!this.configs[formKey]) this.configs[formKey] = [];
+        const isCriticalBool = (payload.IsCritical === true || payload.IsCritical === "Yes" || payload.IsCritical === 1 ||
+            String(payload.ProductCategory).toLowerCase() === "critical" || String(payload.ProductCategory).toLowerCase() === "yes" ||
+            String(payload.Remarks).toLowerCase() === "critical");
+
+        if (itemId) {
+            const idx = this.configs[formKey].findIndex(r => r.id === itemId);
+            if (idx !== -1) {
+                const existing = this.configs[formKey][idx];
+                this.configs[formKey][idx] = {
+                    ...existing,
+                    title: payload.Title !== undefined ? payload.Title : existing.title,
+                    configType: payload.ConfigType !== undefined ? payload.ConfigType : existing.configType,
+                    checklistType: payload.ChecklistType !== undefined ? payload.ChecklistType : existing.checklistType,
+                    area: payload.Area !== undefined ? payload.Area : existing.area,
+                    lineName: payload.LineName !== undefined ? payload.LineName : existing.lineName,
+                    shiftCode: payload.ShiftCode !== undefined ? payload.ShiftCode : existing.shiftCode,
+                    shiftName: payload.ShiftName !== undefined ? payload.ShiftName : existing.shiftName,
+                    shiftStart: payload.ShiftStart !== undefined ? payload.ShiftStart : existing.shiftStart,
+                    shiftEnd: payload.ShiftEnd !== undefined ? payload.ShiftEnd : existing.shiftEnd,
+                    productCode: payload.ProductCode !== undefined ? payload.ProductCode : existing.productCode,
+                    productCategory: payload.ProductCategory !== undefined ? payload.ProductCategory : (payload.IsCritical !== undefined ? (payload.IsCritical ? "Critical" : "Standard") : existing.productCategory),
+                    isCritical: payload.IsCritical !== undefined ? !!payload.IsCritical : (existing.isCritical !== undefined ? existing.isCritical : isCriticalBool),
+                    sequence: payload.Sequence !== undefined ? payload.Sequence : (existing.sequence || parseInt(payload.ShiftCode || payload.ProductCode, 10) || 0),
+                    isActive: payload.IsActive !== undefined ? !!payload.IsActive : existing.isActive,
+                    recipeConfig: payload.RecipeConfig !== undefined ? payload.RecipeConfig : existing.recipeConfig,
+                    assignedUsers: payload.AssignedUsers !== undefined ? payload.AssignedUsers : existing.assignedUsers,
+                    productionIncharges: payload.ProductionIncharges !== undefined ? payload.ProductionIncharges : existing.productionIncharges,
+                    escalationManagers: payload.EscalationManagers !== undefined ? payload.EscalationManagers : existing.escalationManagers
+                };
+            }
+        } else {
+            const newId = Date.now();
+            this.configs[formKey].push({
+                id: newId,
+                title: payload.Title || "",
+                configType: payload.ConfigType || "",
+                checklistType: payload.ChecklistType || payload.Title || "",
+                area: payload.Area || "",
+                plant: payload.Plant || "Rajpura",
+                lineName: payload.LineName || "",
+                shiftCode: payload.ShiftCode || "",
+                shiftName: payload.ShiftName || "",
+                shiftStart: payload.ShiftStart || "",
+                shiftEnd: payload.ShiftEnd || "",
+                productCode: payload.ProductCode || "",
+                productCategory: payload.ProductCategory || (payload.IsCritical ? "Critical" : "Standard"),
+                isCritical: payload.IsCritical !== undefined ? !!payload.IsCritical : isCriticalBool,
+                sequence: payload.Sequence !== undefined ? payload.Sequence : (parseInt(payload.ShiftCode || payload.ProductCode, 10) || (this.configs[formKey].filter(r => r.configType === "Checklist Question").length + 1)),
+                isActive: payload.IsActive !== false,
+                recipeConfig: payload.RecipeConfig || {},
+                assignedUsers: payload.AssignedUsers || [],
+                productionIncharges: payload.ProductionIncharges || [],
+                escalationManagers: payload.EscalationManagers || []
+            });
         }
     },
 
@@ -6979,14 +8397,368 @@ const Rajpura_Admin = {
     /**
      * Helper: sanitizes string for HTML display
      */
-    escapeHtml: function (str) {
-        if (!str) return "";
-        return String(str)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
+    /**
+     * Updates badge count numbers on navigation tabs
+     */
+    updateStatsCounters: function () {
+        Object.keys(this.FORMS).forEach(key => {
+            const badge = document.getElementById(`badge-count-${key}`);
+            if (!badge) return;
+            if (key === "TopManagement") {
+                const total = (this.topManagementState.alcUsers?.length || 0) + (this.topManagementState.generalUsers?.length || 0);
+                badge.innerText = total;
+            } else {
+                const count = (this.configs[key] || []).length;
+                badge.innerText = count;
+            }
+        });
+    },
+
+    /**
+     * Loads Top Management configuration from SharePoint 'AdminPanel' list
+     */
+    loadTopManagementConfig: async function () {
+        this.topManagementState.isLoading = true;
+        const siteUrl = this.getSiteUrl();
+        const listNames = ["AdminPanel", "Admin Panel", "Admin_Panel", "Admin_x0020_Panel"];
+        
+        let loaded = false;
+        for (const listName of listNames) {
+            if (loaded) break;
+            const queries = [
+                "?$select=Id,Title,Admins/Id,Admins/Title,Admins/EMail,TopManagementALC/Id,TopManagementALC/Title,TopManagementALC/EMail,TopManagementGeneral/Id,TopManagementGeneral/Title,TopManagementGeneral/EMail&$expand=Admins,TopManagementALC,TopManagementGeneral&$top=5",
+                "?$select=Id,Title,TopManagementALC/Id,TopManagementALC/Title,TopManagementALC/EMail,TopManagementGeneral/Id,TopManagementGeneral/Title,TopManagementGeneral/EMail&$expand=TopManagementALC,TopManagementGeneral&$top=5",
+                "?$select=Id,Title,TopManagement_x0020_ALC/Id,TopManagement_x0020_ALC/Title,TopManagement_x0020_ALC/EMail,TopManagement_x0020_General/Id,TopManagement_x0020_General/Title,TopManagement_x0020_General/EMail&$expand=TopManagement_x0020_ALC,TopManagement_x0020_General&$top=5",
+                "?$top=5"
+            ];
+
+            for (const q of queries) {
+                try {
+                    const url = `${siteUrl}/_api/web/lists/getByTitle('${listName}')/items${q}`;
+                    const res = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
+                    if (res.ok) {
+                        const data = await res.json();
+                        const items = (data.d && data.d.results) ? data.d.results : (data.value || []);
+                        if (items.length > 0) {
+                            const item = items[0];
+                            this.topManagementState.itemId = item.Id;
+
+                            const rawAlc = item.TopManagementALC || item.TopManagement_x0020_ALC || item.TopManagementAlc;
+                            this.topManagementState.alcUsers = this.normalizeUsers(rawAlc);
+
+                            const rawGen = item.TopManagementGeneral || item.TopManagement_x0020_General || item.TopManagementgeneral || item.TopManagementTemplates || item.TopManagementOther;
+                            this.topManagementState.generalUsers = this.normalizeUsers(rawGen);
+
+                            console.log("Loaded Top Management Config from AdminPanel list:", this.topManagementState);
+                            loaded = true;
+                            break;
+                        }
+                    }
+                } catch (err) {
+                    console.warn(`Error querying list '${listName}' for TopManagement with query '${q}':`, err);
+                }
+            }
+        }
+
+        // Mock fallback if offline or local
+        const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+        if (isLocal && !loaded && this.topManagementState.alcUsers.length === 0 && this.topManagementState.generalUsers.length === 0) {
+            this.topManagementState.alcUsers = [
+                { id: 101, title: "Mishab Muhammed", email: "mishab@bectors.com" }
+            ];
+            this.topManagementState.generalUsers = [
+                { id: 108, title: "Gokul K", email: "gokul.k@bectors.com" }
+            ];
+        }
+
+        this.topManagementState.isLoading = false;
+        this.updateStatsCounters();
+        return this.topManagementState;
+    },
+
+    /**
+     * Saves Top Management configuration to SharePoint 'AdminPanel' list
+     */
+    saveTopManagementConfig: async function (btnSave) {
+        const siteUrl = this.getSiteUrl();
+        const listName = "AdminPanel";
+        const itemId = this.topManagementState.itemId || 1;
+
+        try {
+            const digest = await this.getFormDigest();
+            const alcUserIds = [];
+            for (const u of (this.topManagementState.alcUsers || [])) {
+                const spId = await this.resolveSpUserId(u);
+                if (spId) alcUserIds.push(spId);
+            }
+
+            const genUserIds = [];
+            for (const u of (this.topManagementState.generalUsers || [])) {
+                const spId = await this.resolveSpUserId(u);
+                if (spId) genUserIds.push(spId);
+            }
+
+            const payload = {
+                "__metadata": { "type": "SP.Data.AdminPanelListItem" },
+                "TopManagementALCId": { "results": alcUserIds },
+                "TopManagementGeneralId": { "results": genUserIds }
+            };
+
+            const url = `${siteUrl}/_api/web/lists/getByTitle('${listName}')/items(${itemId})`;
+            const res = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Accept": "application/json; odata=verbose",
+                    "Content-Type": "application/json; odata=verbose",
+                    "X-RequestDigest": digest,
+                    "X-HTTP-Method": "MERGE",
+                    "If-Match": "*"
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok || res.status === 204) {
+                this.showToast("Top Management escalation matrix updated successfully!", "success");
+                this.updateStatsCounters();
+                return true;
+            } else {
+                const errText = await res.text();
+                console.error("Failed saving TopManagement:", res.status, errText);
+                this.showToast("SharePoint Error: " + res.statusText, "error");
+                if (btnSave) {
+                    btnSave.innerText = "Save Changes";
+                    btnSave.disabled = false;
+                }
+                return false;
+            }
+        } catch (e) {
+            console.error("Error in saveTopManagementConfig:", e);
+            this.showToast("Error saving Top Management: " + e.message, "error");
+            if (btnSave) {
+                btnSave.innerText = "Save Changes";
+                btnSave.disabled = false;
+            }
+            return false;
+        }
+    },
+
+    /**
+     * Renders Top Management Configuration View with standard clean cards & people picker
+     */
+    renderTopManagementTab: function () {
+        const mount = document.getElementById("adminTabContentMount");
+        if (!mount) return;
+
+        const alcUsers = this.topManagementState.alcUsers || [];
+        const genUsers = this.topManagementState.generalUsers || [];
+
+        mount.innerHTML = `
+            <div class="admin-panel-card">
+                <div class="admin-panel-header">
+                    <div class="admin-panel-title-area">
+                        <h3 class="admin-panel-title">Top Management Escalation Matrix</h3>
+                        <p style="font-size: 13px; color: #64748b; margin: 4px 0 0 0;">
+                            Configure executive distribution lists for automated incident email notifications on critical failures.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="admin-cards-grid-container">
+                    <div class="admin-cards-grid">
+                        <!-- Card 1: ALC Critical Gate Escalation Team -->
+                        <div class="admin-role-card">
+                            <div class="admin-card-header">
+                                <div class="admin-card-header-left">
+                                    <div class="admin-card-title-row">
+                                        <h4 class="admin-card-title">ALC Critical Gate Escalation Team</h4>
+                                        <span class="admin-card-tag config" style="font-size: 11.5px;">ALC Checklist</span>
+                                    </div>
+                                </div>
+                                <div class="admin-card-header-right">
+                                    <button type="button" class="admin-btn-manage-users" onclick="Rajpura_Admin.openTopManagementModal('alc')">
+                                        + Add Member
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="admin-card-body">
+                                <div class="admin-card-section">
+                                    <div class="admin-card-section-header">
+                                        <div class="admin-card-section-title">
+                                            <span class="role-icon"></span>
+                                            <span>Designated Leadership Members</span>
+                                            <span class="admin-count-pill">${alcUsers.length}</span>
+                                        </div>
+                                    </div>
+                                    <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">
+                                        <i class="fa fa-envelope-o" style="color: #2563eb;"></i> Dispatched on any ALC Critical Gate failure during tour inspection.
+                                    </div>
+                                    <div class="admin-users-list">
+                                        ${alcUsers.length > 0 ? alcUsers.map(u => `
+                                            <span class="admin-user-chip qa" title="${this.escapeHtml(u.email || u.title)}">
+                                                <span class="admin-user-avatar">${this.getInitials(u.title)}</span>
+                                                <span class="admin-user-name">${this.escapeHtml(u.title)}</span>
+                                                <button type="button" class="admin-user-chip-remove" onclick="Rajpura_Admin.quickRemoveTopManagementUser('alc', ${u.id})" title="Remove member">&times;</button>
+                                            </span>
+                                        `).join("") : `<span class="admin-no-users">No ALC leadership members assigned</span>`}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card 2: Quality Templates (Category A) Escalation Team -->
+                        <div class="admin-role-card">
+                            <div class="admin-card-header">
+                                <div class="admin-card-header-left">
+                                    <div class="admin-card-title-row">
+                                        <h4 class="admin-card-title">Quality Templates (Category A) Escalation Team</h4>
+                                        <span class="admin-card-tag area" style="font-size: 11.5px; background: #fff1f2; color: #e11d48; border-color: #fecdd3;">4 Quality Forms</span>
+                                    </div>
+                                </div>
+                                <div class="admin-card-header-right">
+                                    <button type="button" class="admin-btn-manage-users" onclick="Rajpura_Admin.openTopManagementModal('general')">
+                                        + Add Member
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="admin-card-body">
+                                <div class="admin-card-section">
+                                    <div class="admin-card-section-header">
+                                        <div class="admin-card-section-title">
+                                            <span class="role-icon"></span>
+                                            <span>Designated Leadership Members</span>
+                                            <span class="admin-count-pill">${genUsers.length}</span>
+                                        </div>
+                                    </div>
+                                    <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">
+                                        <i class="fa fa-envelope-o" style="color: #e11d48;"></i> Dispatched on Category A (Critical) defects in Mixing, Baking, Packaging, CCP/OPRP/Sieves, or Food Safety.
+                                    </div>
+                                    <div class="admin-users-list">
+                                        ${genUsers.length > 0 ? genUsers.map(u => `
+                                            <span class="admin-user-chip prod" style="background: #fff1f2; color: #9f1239; border-color: #fecdd3;" title="${this.escapeHtml(u.email || u.title)}">
+                                                <span class="admin-user-avatar" style="background: #e11d48; color: #ffffff;">${this.getInitials(u.title)}</span>
+                                                <span class="admin-user-name">${this.escapeHtml(u.title)}</span>
+                                                <button type="button" class="admin-user-chip-remove" onclick="Rajpura_Admin.quickRemoveTopManagementUser('general', ${u.id})" title="Remove member">&times;</button>
+                                            </span>
+                                        `).join("") : `<span class="admin-no-users">No Quality Templates leadership members assigned</span>`}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    /**
+     * Opens standard people picker modal for Top Management section
+     */
+    openTopManagementModal: function (section) {
+        const mount = document.getElementById("adminModalMount");
+        if (!mount) return;
+
+        const isAlc = section === "alc";
+        const currentUsers = isAlc ? (this.topManagementState.alcUsers || []) : (this.topManagementState.generalUsers || []);
+
+        this.pickerState = {
+            topmgmt: [...currentUsers]
+        };
+
+        const modalTitle = isAlc 
+            ? "Assign ALC Critical Gate Escalation Members"
+            : "Assign Quality Templates (Category A) Escalation Members";
+
+        mount.innerHTML = `
+            <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
+                <div class="admin-modal-card">
+                    <div class="admin-modal-header">
+                        <h4 class="admin-modal-title">${this.escapeHtml(modalTitle)}</h4>
+                        <button type="button" class="admin-modal-close" onclick="Rajpura_Admin.closeModal()">&times;</button>
+                    </div>
+                    <div class="admin-modal-body">
+                        <div class="admin-form-group">
+                            <label class="admin-form-label" style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>Assigned Leadership Members</span>
+                                <span style="font-size: 11.5px; color: #1e40af; font-weight: 600;">Editable &bull; Multi-User</span>
+                            </label>
+                            <div class="admin-user-picker-container" id="modal-picker-topmgmt">
+                                <div class="admin-selected-chips-box" onclick="document.getElementById('picker-input-topmgmt').focus()">
+                                    <div id="selected-chips-topmgmt" style="display: flex; flex-wrap: wrap; gap: 4px;"></div>
+                                    <input type="text" id="picker-input-topmgmt" class="admin-picker-search-input" placeholder="Search employee name or email to add..." oninput="Rajpura_Admin.onPickerSearch('topmgmt', this.value)" autocomplete="off" />
+                                </div>
+                                <div class="admin-picker-dropdown" id="dropdown-topmgmt" style="display: none;"></div>
+                            </div>
+                            <div style="font-size: 11.5px; color: #64748b; margin-top: 4px;">
+                                Search from master EmployeeList to add executive members. Click &times; on chip to remove.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="admin-modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
+                        <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
+                        <button type="button" class="admin-btn-primary" id="btn-save-topmgmt-modal" onclick="Rajpura_Admin.submitTopManagementModal('${section}')">
+                            Save Changes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        this.renderSelectedChips("topmgmt");
+        setTimeout(() => {
+            const input = document.getElementById("picker-input-topmgmt");
+            if (input) input.focus();
+        }, 100);
+    },
+
+    /**
+     * Submits updated Top Management members from modal and persists to SharePoint
+     */
+    submitTopManagementModal: async function (section) {
+        const isAlc = section === "alc";
+        const selectedUsers = this.pickerState.topmgmt || [];
+
+        const btnSave = document.getElementById("btn-save-topmgmt-modal");
+        if (btnSave) {
+            btnSave.innerText = "Saving to SharePoint...";
+            btnSave.disabled = true;
+        }
+
+        if (isAlc) {
+            this.topManagementState.alcUsers = selectedUsers;
+        } else {
+            this.topManagementState.generalUsers = selectedUsers;
+        }
+
+        const success = await this.saveTopManagementConfig(btnSave);
+        if (success) {
+            this.closeModal();
+            this.renderTopManagementTab();
+            this.updateStatsCounters();
+        }
+    },
+
+    /**
+     * Quick-remove a member directly from role card and update SharePoint
+     */
+    quickRemoveTopManagementUser: async function (section, userId) {
+        const isAlc = section === "alc";
+        const currentList = isAlc ? (this.topManagementState.alcUsers || []) : (this.topManagementState.generalUsers || []);
+        const userToRemove = currentList.find(u => u.id === userId);
+
+        if (!confirm(`Remove ${userToRemove ? userToRemove.title : 'this member'} from Top Management escalation?`)) {
+            return;
+        }
+
+        const remaining = currentList.filter(u => u.id !== userId);
+        if (isAlc) {
+            this.topManagementState.alcUsers = remaining;
+        } else {
+            this.topManagementState.generalUsers = remaining;
+        }
+
+        await this.saveTopManagementConfig();
+        this.renderTopManagementTab();
+        this.updateStatsCounters();
     }
 };
 

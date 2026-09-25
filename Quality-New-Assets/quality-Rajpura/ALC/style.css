@@ -100,6 +100,30 @@
     border-color: #fecaca !important;
 }
 
+/* Critical Gate Question Badge */
+.alc-critical-badge {
+    background-color: #fee2e2 !important;
+    color: #b91c1c !important;
+    border: 1px solid #fca5a5 !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    padding: 2px 7px !important;
+    border-radius: 4px !important;
+    margin-left: 8px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    vertical-align: middle !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
+    letter-spacing: 0.3px !important;
+}
+
+.alc-critical-badge i {
+    font-size: 10px !important;
+    color: #dc2626 !important;
+}
+
 #rajpura-alc-main-container .badge-success {
     background-color: #dcfce7 !important;
     color: #166534 !important;
@@ -204,6 +228,118 @@
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
 }
 
+
+/* Select2 Multiple Dropdown (QA Shift Executive & others) */
+#rajpura-alc-main-container .select2-container .select2-selection--multiple,
+#rajpura-alc-main-container .select2-container--default .select2-selection--multiple,
+.select2-parent .select2-container--default .select2-selection--multiple {
+    min-height: 44px !important;
+    height: auto !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    background-color: #ffffff !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%2364748b'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 12px center !important;
+    background-size: 12px 10px !important;
+    padding: 4px 36px 4px 10px !important;
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+    cursor: pointer !important;
+    box-sizing: border-box !important;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out !important;
+}
+
+#rajpura-alc-main-container .select2-container--default.select2-container--focus .select2-selection--multiple,
+#rajpura-alc-main-container .select2-container--open .select2-selection--multiple,
+.select2-parent .select2-container--default.select2-container--focus .select2-selection--multiple,
+.select2-parent .select2-container--open .select2-selection--multiple {
+    border-color: #3b82f6 !important;
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+}
+
+#rajpura-alc-main-container .select2-container--default .select2-selection--multiple .select2-selection__rendered,
+.select2-parent .select2-container--default .select2-selection--multiple .select2-selection__rendered {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 4px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    list-style: none !important;
+}
+
+#rajpura-alc-main-container .select2-container--default .select2-selection--multiple .select2-search--inline,
+.select2-parent .select2-container--default .select2-selection--multiple .select2-search--inline {
+    flex: 1 1 140px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+}
+
+#rajpura-alc-main-container .select2-container--default .select2-selection--multiple .select2-search--inline .select2-search__field,
+.select2-parent .select2-container--default .select2-selection--multiple .select2-search--inline .select2-search__field,
+.select2-parent input.select2-search__field {
+    margin: 0 !important;
+    padding: 0 6px !important;
+    height: 32px !important;
+    line-height: 32px !important;
+    font-size: 14px !important;
+    color: #1e293b !important;
+    border: none !important;
+    outline: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    min-width: 100px !important;
+    font-family: inherit !important;
+}
+
+#rajpura-alc-main-container .select2-container--default .select2-selection--multiple .select2-selection__choice,
+.select2-parent .select2-container--default .select2-selection--multiple .select2-selection__choice {
+    background-color: #ede9fe !important;
+    border: 1px solid #ddd6fe !important;
+    color: #6d28d9 !important;
+    border-radius: 4px !important;
+    padding: 2px 8px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    margin: 2px 2px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    box-sizing: border-box !important;
+}
+
+#rajpura-alc-main-container .select2-container--default .select2-selection--multiple .select2-selection__choice__remove,
+.select2-parent .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+    color: #7c3aed !important;
+    margin-right: 2px !important;
+    cursor: pointer !important;
+    font-weight: bold !important;
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+}
+
+#rajpura-alc-main-container .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover,
+.select2-parent .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+    color: #5b21b6 !important;
+}
+
+#rajpura-alc-main-container .select2-container--disabled .select2-selection--multiple,
+.select2-parent .select2-container--disabled .select2-selection--multiple {
+    background-color: #f1f5f9 !important;
+    color: #64748b !important;
+    cursor: not-allowed !important;
+    border-color: #cbd5e1 !important;
+}
+
 /* Alert banner styling overrides */
 #rajpura-alc-main-container .alert {
     padding: 15px !important;
@@ -274,3 +410,154 @@
 .Loader {
     z-index: 100000 !important;
 }
+
+/* ALC Checklist, Re-verification & Corrective Actions Scroll Containers */
+.alc-checklist-scroll-container,
+.alc-reverify-scroll-container,
+.alc-corrective-scroll-container {
+    max-height: calc(100vh - 190px);
+    min-height: 540px;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding-right: 6px;
+    padding-top: 2px;
+    padding-bottom: 8px;
+    scroll-behavior: smooth;
+    position: relative;
+    border-radius: 8px;
+}
+
+/* Custom sleek scrollbars for ALC scroll containers */
+.alc-checklist-scroll-container::-webkit-scrollbar,
+.alc-reverify-scroll-container::-webkit-scrollbar,
+.alc-corrective-scroll-container::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.alc-checklist-scroll-container::-webkit-scrollbar-track,
+.alc-reverify-scroll-container::-webkit-scrollbar-track,
+.alc-corrective-scroll-container::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+.alc-checklist-scroll-container::-webkit-scrollbar-thumb,
+.alc-reverify-scroll-container::-webkit-scrollbar-thumb,
+.alc-corrective-scroll-container::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.alc-checklist-scroll-container::-webkit-scrollbar-thumb:hover,
+.alc-reverify-scroll-container::-webkit-scrollbar-thumb:hover,
+.alc-corrective-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Top Progress Tracker Banners */
+#rajpura-alc-main-container #checklist-tracker-banner,
+#rajpura-alc-main-container #reverify-tracker-banner {
+    position: relative !important;
+    z-index: 10 !important;
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    margin-bottom: 15px !important;
+    border-radius: 8px !important;
+}
+
+/* Action Button Footer Bar */
+.alc-scroll-action-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+    padding: 12px 0 4px 0;
+    margin-top: 8px;
+    border-top: 1px solid #e2e8f0;
+    background-color: #ffffff;
+}
+
+@media (max-width: 768px) {
+    .alc-checklist-scroll-container,
+    .alc-reverify-scroll-container,
+    .alc-corrective-scroll-container {
+        max-height: calc(100vh - 130px);
+        min-height: 420px;
+    }
+}
+
+/* Multi-file Upload Chips & Previews */
+.alc-file-chips-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.alc-file-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: 500;
+    max-width: 100%;
+    word-break: break-all;
+    gap: 6px;
+}
+
+.alc-file-chip .chip-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.alc-file-chip .chip-remove-btn {
+    background: transparent;
+    border: none;
+    color: #dc2626;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+    font-weight: bold;
+}
+
+.alc-file-chip .chip-remove-btn:hover {
+    color: #991b1b;
+}
+
+.alc-saved-file-links-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.alc-saved-file-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: none !important;
+    background-color: #eff6ff;
+    color: #1d4ed8 !important;
+    border: 1px solid #bfdbfe;
+    transition: all 0.2s ease;
+}
+
+.alc-saved-file-link:hover {
+    background-color: #dbeafe;
+    color: #1e40af !important;
+}

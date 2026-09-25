@@ -431,26 +431,23 @@ const ALC_Dashboard = {
         const qaNameRaw = t.cr3ea_tourby || "QA Team";
         const qaName = (typeof qaNameRaw === "string" && qaNameRaw.includes("@")) ? ALC_Dashboard.resolveQaNameFromEmail(qaNameRaw) : qaNameRaw;
 
-        switch (status) {
-            case "Escalated":
-                return `Shift Executive (${prodName})`;
-            case "Pending QA":
-                return `QA Incharge (${qaName})`;
-            case "QA In Progress":
-                return `QA Executive (${qaName})`;
-            case "Failed - Pending Production":
-            case "Success - Pending Production":
-                // Resolve area-wise pending production assignees
-                const assignees = ALC_Dashboard.getAreaAssigneesForFailedCheckpoints(t);
-                if (assignees && assignees.length > 0) {
-                    return `Production Exec (${assignees.join(", ")})`;
-                }
-                return `Production Exec (${prodName})`;
-            case "Pending Re-Verification":
-            case "Success - Pending Re-Verification":
-                return `QA Executive (${qaName})`;
-            default:
-                return "Production Team";
+        if (status === "Escalated") {
+            return `Shift Executive (${prodName})`;
+        } else if (status === "Pending QA") {
+            return `QA Incharge (${qaName})`;
+        } else if (status.startsWith("QA In Progress") || status === "In Progress" || status === "InProgress-paused") {
+            return `QA Executive (${qaName})`;
+        } else if (status.includes("Pending Production") || status === "Pending Production") {
+            // Resolve area-wise pending production assignees
+            const assignees = ALC_Dashboard.getAreaAssigneesForFailedCheckpoints(t);
+            if (assignees && assignees.length > 0) {
+                return `Production Exec (${assignees.join(", ")})`;
+            }
+            return `Production Exec (${prodName})`;
+        } else if (status.includes("Pending Re-Verification") || status === "Pending Re-Verification") {
+            return `QA Executive (${qaName})`;
+        } else {
+            return "Production Team";
         }
     },
 
@@ -553,28 +550,31 @@ const ALC_Dashboard = {
 
                 let status = t.cr3ea_processstatus || t.cr3ea_status || "Pending QA";
                 
+                const isLineClearVal = t.cr3ea_islineclear;
+                const isLineClearExplicitNo = (isLineClearVal === false || isLineClearVal === "false" || isLineClearVal === 0 || isLineClearVal === "0" || isLineClearVal === "No");
+                const isChecklistResultFail = (t.cr3ea_checklist_result === "Fail" || t.cr3ea_checklist_result === "Expired");
+                const isExplicitlyFailedStatus = (String(t.cr3ea_processstatus || "").startsWith("Failed") || String(t.cr3ea_status || "").startsWith("Failed"));
+                const isEvaluationDone = (scoreNum !== null || isChecklistResultFail || isExplicitlyFailedStatus || status.includes("Pending Production") || status.includes("Pending Re-Verification"));
+                const isTourFailed = isEvaluationDone && (isLineClearExplicitNo || isChecklistResultFail || isExplicitlyFailedStatus || (scoreNum !== null && scoreNum < 80));
+
                 // Dynamically resolve Success/Failed prefix based on score for pending states
-                if (scoreNum !== null) {
-                    const isSuccess = (scoreNum >= 80);
-                    if (status.includes("Pending Production")) {
-                        status = isSuccess ? "Success - Pending Production" : "Failed - Pending Production";
-                    } else if (status.includes("Pending Re-Verification") || status === "Pending Re-Verification") {
-                        status = isSuccess ? "Success - Pending Re-Verification" : "Failed - Pending Re-Verification";
-                    }
-                } else {
-                    // Fallback formatting if no score has been computed/uploaded yet
-                    if (status === "Pending Re-Verification") {
-                        status = "Failed - Pending Re-Verification";
-                    }
+                if (status.includes("Pending Production") || status === "Pending Production") {
+                    const isSuccess = (scoreNum !== null && scoreNum >= 80 && !isTourFailed);
+                    status = isSuccess ? "Success - Pending Production" : "Failed - Pending Production";
+                } else if (status.includes("Pending Re-Verification") || status === "Pending Re-Verification") {
+                    const isSuccess = (scoreNum !== null && scoreNum >= 80 && !isTourFailed);
+                    status = isSuccess ? "Success - Pending Re-Verification" : "Failed - Pending Re-Verification";
                 }
 
                 let badgeClass = "badge-warning";
-                if (status === "Failed - Pending Production" || status === "Failed - Pending Re-Verification") {
+                if (status === "Failed - Pending Production" || status === "Failed - Pending Re-Verification" || (isTourFailed && !["Pending QA", "QA In Progress", "In Progress", "InProgress-paused", "Escalated", "Draft"].some(s => status.startsWith(s)))) {
                     badgeClass = "badge-error";
                 } else if (status === "Success - Pending Production" || status === "Success - Pending Re-Verification") {
                     badgeClass = "badge-success";
-                } else if (status === "QA In Progress") {
+                } else if (status === "QA In Progress" || status.startsWith("QA In Progress") || status === "In Progress") {
                     badgeClass = "badge-primary";
+                } else if (status === "Escalated") {
+                    badgeClass = "badge-danger";
                 }
 
                 // If score is not resolved, format text status in score column
@@ -583,11 +583,18 @@ const ALC_Dashboard = {
                         scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Request Pending</span>`;
                     } else if (status === "Pending QA") {
                         scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Awaiting QA Accept</span>`;
-                    } else if (status === "QA In Progress") {
+                    } else if (status === "Escalated") {
+                        scoreDisplay = `<span class="text-danger font-weight-bold" style="font-size: 12px;">DELAYED</span>`;
+                    } else if (status === "QA In Progress" || status.startsWith("QA In Progress")) {
                         scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Evaluation Pending</span>`;
                     } else {
                         scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">N/A</span>`;
                     }
+                }
+
+                let displayStatus = status;
+                if (displayStatus === "Escalated") {
+                    displayStatus = "Delayed";
                 }
 
                 tr.innerHTML = `
@@ -597,7 +604,7 @@ const ALC_Dashboard = {
                     <td>${shift}</td>
                     <td style="text-align: left;">${execs}</td>
                     <td>${scoreDisplay}</td>
-                    <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
+                    <td><span class="badge badge-fill ${badgeClass}">${displayStatus}</span></td>
                     <td style="font-weight: 500; color: #1e293b;">${pendingWith}</td>
                 `;
                 tbody.appendChild(tr);

@@ -3,7 +3,101 @@ console.log("ALC Corrective Action script loaded");
 
 const ALC_CorrectiveAction = {
     failedCheckpoints: [],
-    uploadedFiles: {}, // Maps checkpoint index/id to uploaded file details
+    uploadedFiles: {}, // Maps checkpoint index to Array of File objects: [File1, File2, ...]
+
+    // Helper to escape HTML safely
+    escapeHtml: function (str) {
+        if (!str) return "";
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    },
+
+    // Handle file input selection (supporting multiple files)
+    onFileSelected: async function (input, index) {
+        if (!input.files || input.files.length === 0) return;
+
+        if (!this.uploadedFiles[index]) {
+            this.uploadedFiles[index] = [];
+        }
+
+        const selectedFiles = Array.from(input.files);
+        let invalidCount = 0;
+
+        for (const file of selectedFiles) {
+            const isImage = file.type.startsWith("image/") || /\.(jpe?g|png|gif|webp|bmp|heic)$/i.test(file.name);
+            if (!isImage) {
+                invalidCount++;
+                continue;
+            }
+            // Avoid duplicate additions in the same checkpoint
+            const alreadyAdded = this.uploadedFiles[index].some(f => f.name === file.name && f.size === file.size);
+            if (!alreadyAdded) {
+                this.uploadedFiles[index].push(file);
+            }
+        }
+
+        if (invalidCount > 0) {
+            alert(`${invalidCount} non-image file(s) were ignored. Only image files (JPG, PNG, WebP, etc.) are allowed.`);
+        }
+
+        // Reset input value so user can click to add more files or re-select
+        input.value = "";
+
+        this.renderFileStatus(index);
+    },
+
+    // Remove single file from selected list before submitting
+    removeFile: function (index, fileIdx) {
+        if (this.uploadedFiles[index] && this.uploadedFiles[index][fileIdx]) {
+            this.uploadedFiles[index].splice(fileIdx, 1);
+            if (this.uploadedFiles[index].length === 0) {
+                delete this.uploadedFiles[index];
+            }
+        }
+        this.renderFileStatus(index);
+    },
+
+    // Render chips and count for selected files
+    renderFileStatus: function (index) {
+        const fileStatus = document.getElementById(`prod-file-status-${index}`);
+        if (!fileStatus) return;
+
+        const files = this.uploadedFiles[index] || [];
+        if (files.length === 0) {
+            const row = fileStatus.closest("tr");
+            const existingProof = row ? row.getAttribute("data-existing-proof") : null;
+            if (existingProof) {
+                const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
+                const prodFiles = existingProof.split(",").map(f => f.trim()).filter(Boolean);
+                if (prodFiles.length > 0) {
+                    fileStatus.innerHTML = `<div class="alc-saved-file-links-container">` +
+                        prodFiles.map((f, fIdx) => {
+                            const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${f}`;
+                            return `<a href="${fileUrl}" target="_blank" class="alc-saved-file-link" title="${f}"><i class="fa fa-paperclip"></i> Proof ${prodFiles.length > 1 ? (fIdx + 1) : ''}</a>`;
+                        }).join("") + `</div>`;
+                    return;
+                }
+            }
+            fileStatus.innerHTML = '<span class="text-muted">No image uploaded</span>';
+            return;
+        }
+
+        let chipsHtml = `<div class="alc-file-chips-container">`;
+        chipsHtml += `<div style="font-size: 11px; font-weight: 600; color: #15803d; display: flex; align-items: center; gap: 4px;"><i class="fa fa-check-circle"></i> ${files.length} photo(s) selected:</div>`;
+        files.forEach((file, fIdx) => {
+            chipsHtml += `
+                <div class="alc-file-chip">
+                    <span class="chip-name" title="${this.escapeHtml(file.name)}"><i class="fa fa-image"></i> ${this.escapeHtml(file.name)}</span>
+                    <button type="button" class="chip-remove-btn" onclick="ALC_CorrectiveAction.removeFile(${index}, ${fIdx})" title="Remove photo">&times;</button>
+                </div>`;
+        });
+        chipsHtml += `</div>`;
+        fileStatus.innerHTML = chipsHtml;
+    },
 
     // Load and render failed/objected items
     loadFailedItems: async function () {
@@ -11,6 +105,7 @@ const ALC_CorrectiveAction = {
 
         try {
             ShowLoader();
+            this.uploadedFiles = {}; // Reset cache
             // Fetch all checkpoints saved in Dataverse
             const checkpoints = await ALC_DAL.getCheckpoints(ALC_StateMachine.currentTourId);
 
@@ -105,10 +200,32 @@ const ALC_CorrectiveAction = {
             const readonlyAttr = canEditRow ? "" : "readonly";
 
             // Format file status label if prefilled remarks show a file upload
-            let fileLabel = "No image uploaded";
+            let existingProdProofHtml = "";
+            let existingProdFileNames = "";
             if (prodRemark && prodRemark.includes("| File: ")) {
                 const parts = prodRemark.split("| File: ");
-                if (parts[1]) fileLabel = `Uploaded: ${parts[1]}`;
+                if (parts[1]) {
+                    existingProdFileNames = parts[1].trim();
+                    const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
+                    let prodFiles = existingProdFileNames.split(",").map(f => f.trim()).filter(Boolean);
+                    if (prefilledRemark && prefilledRemark.includes("File:")) {
+                        const qaFilePart = prefilledRemark.split(/file:/i)[1] || "";
+                        const qaFiles = qaFilePart.split(",").map(f => f.trim()).filter(Boolean);
+                        if (qaFiles.length > 0) {
+                            const filtered = prodFiles.filter(f => !qaFiles.includes(f));
+                            if (filtered.length > 0) {
+                                prodFiles = filtered;
+                            }
+                        }
+                    }
+                    if (prodFiles.length > 0) {
+                        existingProdProofHtml = `<div class="alc-saved-file-links-container">` +
+                            prodFiles.map((f, fIdx) => {
+                                const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${f}`;
+                                return `<a href="${fileUrl}" target="_blank" class="alc-saved-file-link" title="${f}"><i class="fa fa-paperclip"></i> Proof ${prodFiles.length > 1 ? (fIdx + 1) : ''}</a>`;
+                            }).join("") + `</div>`;
+                    }
+                }
             }
 
             // Separate QA remarks and Production corrective action remarks
@@ -149,17 +266,23 @@ const ALC_CorrectiveAction = {
 
                 if (fileName) {
                     const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-                    const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${fileName}`;
-                    fileBadge = `<a href="${fileUrl}" target="_blank" class="btn btn-xs btn-info" style="margin-left: 10px; padding: 2px 6px; font-size: 11px; text-decoration: none; color: #ffffff; background-color: #0284c7; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;"><i class="fa fa-paperclip"></i> View Image</a>`;
+                    const qaFiles = fileName.split(",").map(f => f.trim()).filter(Boolean);
+                    fileBadge = qaFiles.map((f, i) => {
+                        const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${f}`;
+                        return `<a href="${fileUrl}" target="_blank" class="btn btn-xs btn-info" style="margin-left: 6px; padding: 2px 6px; font-size: 11px; text-decoration: none; color: #ffffff; background-color: #0284c7; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;" title="${f}"><i class="fa fa-paperclip"></i> Photo ${qaFiles.length > 1 ? (i + 1) : ''}</a>`;
+                    }).join("");
                 }
 
-                qaRemarkHtml = `<div style="margin-top: 6px; padding: 6px 10px; background: #fff5f5; border-left: 3px solid #ef4444; font-size: 12px; color: #991b1b; border-radius: 4px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                qaRemarkHtml = `<div style="margin-top: 6px; padding: 6px 10px; background: #fff5f5; border-left: 3px solid #ef4444; font-size: 12px; color: #991b1b; border-radius: 4px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
                     <span><strong>QA Defect Observation:</strong> ${cleanQaRemark}</span>
-                    ${fileBadge}
+                    <div style="display: inline-flex; flex-wrap: wrap; gap: 4px;">${fileBadge}</div>
                 </div>`;
             }
 
             const row = document.createElement("tr");
+            if (existingProdFileNames) {
+                row.setAttribute("data-existing-proof", existingProdFileNames);
+            }
             row.innerHTML = `
                 <td>${renderedCount}</td>
                 <td style="text-align: left;">
@@ -173,8 +296,10 @@ const ALC_CorrectiveAction = {
                 </td>
                 <td>
                     <div class="custom-file-upload">
-                        <input type="file" class="form-control-file file-upload-input" data-index="${index}" onchange="ALC_CorrectiveAction.onFileSelected(this, ${index})" ${disabledAttr}>
-                        <small id="prod-file-status-${index}" class="form-text text-muted">${fileLabel}</small>
+                        <input type="file" class="form-control-file file-upload-input" data-index="${index}" accept="image/*" multiple onchange="ALC_CorrectiveAction.onFileSelected(this, ${index})" ${disabledAttr}>
+                        <div id="prod-file-status-${index}" class="form-text text-muted" style="margin-top: 4px; font-size: 11px;">
+                            ${existingProdProofHtml || '<span class="text-muted">No image uploaded</span>'}
+                        </div>
                     </div>
                 </td>
             `;
@@ -193,27 +318,6 @@ const ALC_CorrectiveAction = {
         }
 
         // Submit button visibility is managed by StateMachine based on role permissions and read-only state.
-    },
-
-    // Handle file input selection
-    onFileSelected: async function (input, index) {
-        const file = input.files[0];
-        if (!file) return;
-
-        const fileStatus = document.getElementById(`prod-file-status-${index}`);
-        if (fileStatus) fileStatus.innerText = `Reading file: ${file.name}...`;
-
-        // Check if image format
-        if (!file.type.startsWith("image/")) {
-            alert("Only image files are allowed.");
-            input.value = "";
-            if (fileStatus) fileStatus.innerText = "No image uploaded";
-            return;
-        }
-
-        // Cache the file object to be uploaded on submission
-        this.uploadedFiles[index] = file;
-        if (fileStatus) fileStatus.innerHTML = `<span class="text-success">&#10003; ${file.name} ready</span>`;
     },
 
     // Production submits corrective actions & uploads files
@@ -276,7 +380,11 @@ const ALC_CorrectiveAction = {
                 // If they don't have area access, or if the checkpoint has already been resolved previously, skip saving it.
                 // Note: Production role can always edit and save everything.
                 const prefilledRemark = cp.cr3ea_defectremarks || "";
-                const isAlreadyResolved = prefilledRemark.startsWith("Action: ");
+                let prodRemark = cp.cr3ea_productionremarks || "";
+                if (!prodRemark && prefilledRemark.startsWith("Action:")) {
+                    prodRemark = prefilledRemark;
+                }
+                const isAlreadyResolved = !!prodRemark;
                 const canEditRow = hasAreaAccess && !isAlreadyResolved;
 
                 if (!canEditRow) {
@@ -303,10 +411,10 @@ const ALC_CorrectiveAction = {
                         cp.cr3ea_defectcategory.includes("00") ||
                         cp.cr3ea_defectcategory.includes("01"));
 
-                const file = this.uploadedFiles[i];
-                const hasExistingFile = prefilledRemark.includes("| File:");
+                const files = this.uploadedFiles[i] || [];
+                const hasExistingFile = !!(prodRemark && prodRemark.includes("| File:"));
 
-                if (isNonCompliant && !file && !hasExistingFile) {
+                if (isNonCompliant && files.length === 0 && !hasExistingFile) {
                     alert(`Uploading a proof image is mandatory for Non-Compliant checkpoint #${i + 1} (${cp.cr3ea_area}).`);
                     HideLoader();
                     const btn = document.getElementById("btn-submit-corrective-actions");
@@ -315,31 +423,57 @@ const ALC_CorrectiveAction = {
                     return;
                 }
 
-                let uploadedUrl = "";
-                let fileName = "";
-                if (file) {
-                    console.log(`Uploading proof file for row #${i + 1}: ${file.name}`);
-                    uploadedUrl = await ALC_DAL.uploadCorrectiveActionFile(
-                        file,
-                        ALC_StateMachine.currentTourId,
-                        cp.cr3ea_area,
-                        cp.cr3ea_rajpura_alcsid || `CP-${i}`,
-                        actionTaken
+                let uploadedFileNames = [];
+                if (files.length > 0) {
+                    console.log(`Uploading ${files.length} proof file(s) for row #${i + 1}`);
+                    const uploadPromises = files.map(file =>
+                        ALC_DAL.uploadCorrectiveActionFile(
+                            file,
+                            ALC_StateMachine.currentTourId,
+                            cp.cr3ea_area,
+                            cp.cr3ea_rajpura_alcsid || `CP-${i}`,
+                            actionTaken
+                        ).then(uploadedUrl => {
+                            if (uploadedUrl) {
+                                return uploadedUrl.substring(uploadedUrl.lastIndexOf("/") + 1);
+                            }
+                            return file.name;
+                        })
                     );
-                    // Parse the final unique filename (containing the timestamp) from the uploaded server relative URL
-                    if (uploadedUrl) {
-                        fileName = uploadedUrl.substring(uploadedUrl.lastIndexOf("/") + 1);
-                    } else {
-                        fileName = file.name;
-                    }
-                    console.log(`Proof uploaded successfully: ${uploadedUrl} (Unique Name: ${fileName})`);
+                    uploadedFileNames = await Promise.all(uploadPromises);
+                    console.log(`Proof file(s) uploaded successfully:`, uploadedFileNames);
                 }
 
-                // Construct defect remarks. If proof file was uploaded, reference the file name only
-                // to stay within the 100 character Dataverse limit.
+                // Combine existing PRODUCTION file names only (do NOT include QA defect photos)
+                let existingFileNames = "";
+                if (hasExistingFile && prodRemark && prodRemark.includes("| File:")) {
+                    existingFileNames = prodRemark.split("| File:")[1].trim();
+                    if (existingFileNames.includes("|")) {
+                        existingFileNames = existingFileNames.split("|")[0].trim();
+                    }
+                    // Filter out any QA defect files if they were previously merged into prodRemark
+                    if (prefilledRemark && prefilledRemark.includes("File:")) {
+                        const qaFilePart = prefilledRemark.split(/file:/i)[1] || "";
+                        const qaFiles = qaFilePart.split(",").map(f => f.trim()).filter(Boolean);
+                        if (qaFiles.length > 0) {
+                            const pFiles = existingFileNames.split(",").map(f => f.trim()).filter(Boolean);
+                            const filtered = pFiles.filter(f => !qaFiles.includes(f));
+                            existingFileNames = filtered.join(", ");
+                        }
+                    }
+                }
+
+                const allFilesList = [
+                    ...existingFileNames.split(",").map(f => f.trim()).filter(Boolean),
+                    ...uploadedFileNames.filter(Boolean)
+                ];
+                const uniqueFiles = Array.from(new Set(allFilesList));
+                const finalFileString = uniqueFiles.join(", ");
+
+                // Construct defect remarks. If proof file was uploaded, reference the file names
                 let remarksVal = `Action: ${actionTaken}`;
-                if (fileName) {
-                    remarksVal += ` | File: ${fileName}`;
+                if (finalFileString) {
+                    remarksVal += ` | File: ${finalFileString}`;
                 }
 
                 // Truncate to 1000 chars (matching the new Dataverse column limit)
@@ -425,15 +559,15 @@ const ALC_CorrectiveAction = {
 
             if (isExpired) {
                 alert("Corrective actions submitted successfully! Since this session is from a previous day, it remains Closed as Expired.");
-                ALC_StateMachine.isReadOnly = true;
-                ALC_StateMachine.transitionTo(ALC_STATES.SUMMARY);
-                await ALC_Summary.init(ALC_StateMachine.currentTourId);
             } else {
                 alert(alertMsg);
-                ALC_StateMachine.isReadOnly = true;
-                ALC_StateMachine.transitionTo(ALC_STATES.SUMMARY);
-                await ALC_Summary.init(ALC_StateMachine.currentTourId);
             }
+
+            // Redirect to dashboard
+            const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
+            window.location.href = homeUrl;
 
         } catch (error) {
             HideLoader();

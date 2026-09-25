@@ -107,14 +107,14 @@ const MixingBaking_DAL = {
                 {
                     Id: 1,
                     Title: "QA User",
-                    AssignedUser: { results: [{ Title: "QA User", EMail: "qa@example.com" }] },
-                    EscalationManager: { results: [{ Title: "QA Manager", EMail: "qamanager@example.com" }] }
+                    AssignedUser: { results: [{ Title: "QA User", EMail: "" }] },
+                    EscalationManager: { results: [{ Title: "QA Manager", EMail: "" }] }
                 },
                 {
                     Id: 2,
                     Title: "Product User",
-                    AssignedUser: { results: [{ Title: "Prod User", EMail: "prod@example.com" }] },
-                    EscalationManager: { results: [{ Title: "Prod Manager", EMail: "prodmanager@example.com" }] }
+                    AssignedUser: { results: [{ Title: "Prod User", EMail: "" }] },
+                    EscalationManager: { results: [{ Title: "Prod Manager", EMail: "" }] }
                 }
             ];
         }
@@ -135,14 +135,14 @@ const MixingBaking_DAL = {
             console.warn("No SharePoint context. Returning mock users configuration.");
             return {
                 qaUsers: [
-                    { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 },
-                    { Title: "Gokul K", EMail: "gokul.k@bectorfoods.com", Id: 108 },
-                    { Title: "Aiswarya N V", EMail: "aiswarya.nv@bectorfoods.com", Id: 109 }
+                    { Title: "Mishab Muhammed", EMail: "", Id: 101 },
+                    { Title: "Gokul K", EMail: "", Id: 108 },
+                    { Title: "Aiswarya N V", EMail: "", Id: 109 }
                 ],
                 prodUsers: [
-                    { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 },
-                    { Title: "Ajith K", EMail: "ajith.k@bectorfoods.com", Id: 110 },
-                    { Title: "Aiswarya N V", EMail: "aiswarya.nv@bectorfoods.com", Id: 109 }
+                    { Title: "Mishab Muhammed", EMail: "", Id: 101 },
+                    { Title: "Ajith K", EMail: "", Id: 110 },
+                    { Title: "Aiswarya N V", EMail: "", Id: 109 }
                 ]
             };
         }
@@ -255,14 +255,14 @@ const MixingBaking_DAL = {
             if (qaUsers.length === 0 && prodUsers.length === 0) {
                 return {
                     qaUsers: [
-                        { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 },
-                        { Title: "Gokul K", EMail: "gokul.k@bectorfoods.com", Id: 108 },
-                        { Title: "Aiswarya N V", EMail: "aiswarya.nv@bectorfoods.com", Id: 109 }
+                        { Title: "Mishab Muhammed", EMail: "", Id: 101 },
+                        { Title: "Gokul K", EMail: "", Id: 108 },
+                        { Title: "Aiswarya N V", EMail: "", Id: 109 }
                     ],
                     prodUsers: [
-                        { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 },
-                        { Title: "Ajith K", EMail: "ajith.k@bectorfoods.com", Id: 110 },
-                        { Title: "Aiswarya N V", EMail: "aiswarya.nv@bectorfoods.com", Id: 109 }
+                        { Title: "Mishab Muhammed", EMail: "", Id: 101 },
+                        { Title: "Ajith K", EMail: "", Id: 110 },
+                        { Title: "Aiswarya N V", EMail: "", Id: 109 }
                     ]
                 };
             }
@@ -272,14 +272,14 @@ const MixingBaking_DAL = {
             console.warn("Failed to fetch Mixing & Baking users configuration from SharePoint. Using mock list:", e);
             return {
                 qaUsers: [
-                    { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 },
-                    { Title: "Gokul K", EMail: "gokul.k@bectorfoods.com", Id: 108 },
-                    { Title: "Aiswarya N V", EMail: "aiswarya.nv@bectorfoods.com", Id: 109 }
+                    { Title: "Mishab Muhammed", EMail: "", Id: 101 },
+                    { Title: "Gokul K", EMail: "", Id: 108 },
+                    { Title: "Aiswarya N V", EMail: "", Id: 109 }
                 ],
                 prodUsers: [
-                    { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 },
-                    { Title: "Ajith K", EMail: "ajith.k@bectorfoods.com", Id: 110 },
-                    { Title: "Aiswarya N V", EMail: "aiswarya.nv@bectorfoods.com", Id: 109 }
+                    { Title: "Mishab Muhammed", EMail: "", Id: 101 },
+                    { Title: "Ajith K", EMail: "", Id: 110 },
+                    { Title: "Aiswarya N V", EMail: "", Id: 109 }
                 ]
             };
         }
@@ -425,6 +425,14 @@ const MixingBaking_DAL = {
             delete payload.cr3ea_prod_rajpura_mixingandbakingid;
             delete payload.cr3ea_rajpura_mixingandbakingid;
         }
+
+        // Defensive sanitize: Remove non-existent Dataverse entity attributes if present
+        delete payload.cr3ea_gauge;
+        delete payload.cr3ea_weightbeforeoil;
+        delete payload.cr3ea_weightwithseasoning;
+        delete payload.cr3ea_doughconsistency;
+        delete payload.cr3ea_doughconsistencystandard;
+        delete payload.cr3ea_doughconsistencyobserved;
 
         const response = await this.fetchWithToken(url, {
             method: method,

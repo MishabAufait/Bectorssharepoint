@@ -433,9 +433,51 @@ const CCP_OPRP_Main = {
         const lineGroup = document.getElementById("setup-line-group");
         const productGroup = document.getElementById("setup-product-group");
 
+        const updateLineDropdown = () => {
+            const typeVal = typeSelect ? typeSelect.value : "";
+            const lineLabel = document.getElementById("setup-line-label") || (lineGroup ? lineGroup.querySelector(".form-label") : null);
+
+            if (typeVal === "Sieves and Magnets") {
+                if (lineLabel) lineLabel.textContent = "Line / Section";
+                if (lineSelect) {
+                    lineSelect.innerHTML = `
+                        <option value="Line 5,6,7">Line 5,6,7</option>
+                        <option value="Line 1,2,3,4,8">Line 1,2,3,4,8</option>
+                    `;
+                }
+                if (freqGroup) freqGroup.style.display = "block";
+                if (lineGroup) lineGroup.style.display = "block";
+                if (productGroup) productGroup.style.display = "none";
+            } else {
+                if (lineLabel) lineLabel.textContent = "Line No";
+                if (lineSelect) {
+                    lineSelect.innerHTML = `
+                        <option value="Line-1">Line 1</option>
+                        <option value="Line-2">Line 2</option>
+                        <option value="Line-3">Line 3</option>
+                        <option value="Line-4">Line 4</option>
+                        <option value="Line-5">Line 5</option>
+                        <option value="Line-6">Line 6</option>
+                        <option value="Line-7">Line 7</option>
+                        <option value="Line-8">Line 8</option>
+                        <option value="FFS">FFS</option>
+                    `;
+                }
+                if (freqGroup) freqGroup.style.display = "none";
+                if (lineGroup) lineGroup.style.display = "block";
+                if (productGroup) productGroup.style.display = "block";
+            }
+
+            $('#setup-line').prop('disabled', false).select2({
+                minimumResultsForSearch: -1,
+                dropdownAutoWidth: false,
+                width: '100%'
+            });
+        };
+
         const updatePersonnel = () => {
             const typeVal = typeSelect.value;
-            const lineVal = lineSelect.value;
+            const lineVal = lineSelect ? lineSelect.value : "";
             const qaSelect = document.getElementById("setup-qa");
             const prodSelect = document.getElementById("setup-prod");
 
@@ -564,15 +606,7 @@ const CCP_OPRP_Main = {
 
         // Register select2 change events
         $('#setup-type').off('change.setupType').on('change.setupType', () => {
-            if (typeSelect.value === "Sieves and Magnets") {
-                freqGroup.style.display = "block";
-                lineGroup.style.display = "none";
-                productGroup.style.display = "none";
-            } else {
-                freqGroup.style.display = "none";
-                lineGroup.style.display = "block";
-                productGroup.style.display = "block";
-            }
+            updateLineDropdown();
             updatePersonnel();
             updateProductDropdown();
         });
@@ -582,7 +616,8 @@ const CCP_OPRP_Main = {
             updateProductDropdown();
         });
 
-        // Trigger personnel and product dropdown load initially
+        // Trigger line, personnel and product dropdown load initially
+        updateLineDropdown();
         updatePersonnel();
         updateProductDropdown();
     },
@@ -618,14 +653,14 @@ const CCP_OPRP_Main = {
         const yyyy = now.getFullYear();
         const dateStr = `${dd}${mm}${yyyy}`;
         const titlePrefix = typeVal === "CCP & OPRP" ? "CCP" : "Sieves";
-        const lineStr = typeVal === "CCP & OPRP" ? lineVal : "All";
+        const lineStr = lineVal || (typeVal === "CCP & OPRP" ? "Line" : "All");
 
         const payload = {
             cr3ea_ccp_oprp_sieves_parametertype: typeVal,
             cr3ea_ccp_oprp_sieves_frequency: typeVal === "Sieves and Magnets" ? freqVal : null,
             cr3ea_runningvariety: typeVal === "CCP & OPRP" ? productVal : null,
             cr3ea_plantid: siteVal === "Rajpura" ? QualityRajpura_Config.PLANT_ID : siteVal,
-            cr3ea_lineno: typeVal === "CCP & OPRP" ? lineVal : null,
+            cr3ea_lineno: lineVal,
             cr3ea_assigned_qa: qaVal,
             cr3ea_qaexecutive: qaVal,
             cr3ea_shiftexecutiveproduction: prodVal,
@@ -811,19 +846,7 @@ const CCP_OPRP_Main = {
                     CCP_OPRP_Checklist.renderCycleSection(cData.cycleNum, true, cData);
                 });
                 
-                const lastCycle = cyclesList[cyclesList.length - 1];
-                const lastStatus = CCP_OPRP_Checklist.getCycleStatus(lastCycle);
-                const isLastCycleFinished = lastStatus !== "Checklist Filling" && 
-                                            lastStatus !== "Checklist Filling - Paused" && 
-                                            lastStatus !== "Metadata Setup" && 
-                                            lastStatus !== "Upcoming";
-
-                this.state.cycleCounter = Math.max(...cyclesList.map(c => c.cycleNum)) + 1;
-
-                // Render next cycle slot ONLY for QA Executive and only if preceding cycles are finished and parent tour is open
-                if (!isProdOnly && !isTourCompleted && isLastCycleFinished && this.state.canEditChecklist) {
-                    CCP_OPRP_Checklist.renderCycleSection(this.state.cycleCounter, false);
-                }
+                // Single cycle per tour: Render existing cycle. Do NOT render a second cycle slot.
             } else {
                 this.state.cycleCounter = 1;
                 if (isTourCompleted && (this.state.tourData?.cr3ea_status === "Closed - Expired" || String(this.state.tourData?.cr3ea_status).includes("Expired"))) {

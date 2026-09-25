@@ -65,12 +65,17 @@ const ALC_Summary = {
         // 1. Basic Metadata
         const dateStr = this.session.cr3ea_tourstartdate ? moment(this.session.cr3ea_tourstartdate).format("DD-MM-YYYY hh:mm A") : "N/A";
         document.getElementById("sum-exec-prod").innerText = this.session.cr3ea_shiftexecutiveproduction || "N/A";
+        const sumQaShiftEl = document.getElementById("sum-exec-qa-shift");
+        if (sumQaShiftEl) sumQaShiftEl.innerText = this.session.cr3ea_executivename || this.session.cr3ea_shiftexecutivequality || "—";
         document.getElementById("sum-exec-qa").innerText = this.session.cr3ea_tourby || this.session.cr3ea_observedby || "N/A";
         document.getElementById("sum-date-time").innerText = dateStr;
         document.getElementById("sum-line-shift").innerText = `${this.session.cr3ea_lineno || "N/A"} / ${this.session.cr3ea_shift || "N/A"}`;
 
         document.getElementById("sum-prev-variety").innerText = this.session.cr3ea_previousrunningvariety || "N/A";
         document.getElementById("sum-run-variety").innerText = this.session.cr3ea_runningvariety || "N/A";
+
+        // Render Escalation & Delay Timing Audit
+        this.renderEscalationAudit();
 
         // 2. Resolve Area Incharge names dynamically from configs
         const tourAreas = [...new Set(this.checkpoints.map(cp => cp.cr3ea_area).filter(Boolean))];
@@ -126,12 +131,17 @@ const ALC_Summary = {
         }
         document.getElementById("sum-tours-count").innerText = toursCountToday;
 
-        // 4. Calculate Scores
+        // 4. Calculate Scores & Critical Gate Evaluation
         let totalMaxPoints = this.checkpoints.length * 2;
         let totalObtainedPoints = 0;
+        let hasCriticalFailure = false;
+        const failedCriticalQuestions = [];
 
         // Mapped area scoring objects
         const areaStats = {};
+
+        // Question config lookup for criticality
+        const questionConfigs = (this.configs || []).filter(c => c.ConfigType === "Checklist Question");
 
         this.checkpoints.forEach(cp => {
             const area = cp.cr3ea_area || "General";
@@ -150,6 +160,43 @@ const ALC_Summary = {
                 numericScore = 1;
             }
 
+            // Check if this checkpoint is a critical item
+            let isCritical = false;
+            const criteriaText = (cp.cr3ea_criteria || "").toLowerCase().trim();
+            const matchedCfg = questionConfigs.find(q => {
+                const qTitle = (q.Title || "").toLowerCase().trim();
+                const qRemarks = (q.Remarks || "").toLowerCase().trim();
+                return (qTitle && (criteriaText.includes(qTitle) || qTitle.includes(criteriaText))) ||
+                       (qRemarks && (criteriaText.includes(qRemarks) || qRemarks.includes(criteriaText)));
+            });
+
+            if (matchedCfg) {
+                isCritical = !!(matchedCfg.isCritical ||
+                    matchedCfg.IsCritical === true ||
+                    matchedCfg.ProductCategory === "Critical" ||
+                    matchedCfg.Remarks === "Critical");
+            } else if (typeof ALC_CHECKLIST_SEED_DATA !== 'undefined' && Array.isArray(ALC_CHECKLIST_SEED_DATA)) {
+                const seedItem = ALC_CHECKLIST_SEED_DATA.find(s => {
+                    const sText = (s.description || s.title || "").toLowerCase().trim();
+                    return sText && (criteriaText.includes(sText) || sText.includes(criteriaText));
+                });
+                if (seedItem) {
+                    isCritical = !!seedItem.isCritical;
+                }
+            }
+
+            // Store critical flag for rendering
+            cp._isCritical = isCritical;
+
+            if (isCritical && (numericScore === 0 || numericScore === 1)) {
+                hasCriticalFailure = true;
+                failedCriticalQuestions.push({
+                    criteria: cp.cr3ea_criteria || "Critical Item",
+                    area: area,
+                    scoreText: scoreText || (numericScore === 0 ? "Non-Compliant (0)" : "Partial (1)")
+                });
+            }
+
             totalObtainedPoints += numericScore;
             areaStats[area].obtained += numericScore;
         });
@@ -158,7 +205,7 @@ const ALC_Summary = {
         const overallPercent = overallPercentRaw.toFixed(2);
         const scoreCircle = document.getElementById("sum-score-circle");
         const scoreCard = scoreCircle ? scoreCircle.parentElement : null;
-        const isPassingScore = (parseFloat(overallPercent) >= 80);
+        const isPassingScore = (parseFloat(overallPercent) >= 80) && !hasCriticalFailure;
 
         const status = this.session.cr3ea_processstatus || this.session.cr3ea_status || "";
         const isExpired = status === "Closed - Expired" || status.includes("Expired");
@@ -199,6 +246,10 @@ const ALC_Summary = {
         if (scoreDesc) {
             if (isExpired && hasNoScore) {
                 scoreDesc.innerText = "Expired while in QA process / In Progress";
+                scoreDesc.style.color = "#b91c1c";
+            } else if (hasCriticalFailure) {
+                const critCount = failedCriticalQuestions.length;
+                scoreDesc.innerHTML = `<strong style="color: #b91c1c;">Failed - Critical Gate Violation:</strong> ${critCount} Critical checkpoint${critCount > 1 ? 's' : ''} failed (Score: ${overallPercent}%). Tour cannot pass clearance.`;
                 scoreDesc.style.color = "#b91c1c";
             } else if (status === "Closed - Expired") {
                 scoreDesc.innerText = `${isPassingScore ? "Success" : "Failed"} - Expired with ${overallPercent}% compliance score.`;
@@ -365,8 +416,23 @@ const ALC_Summary = {
 
                         if (fileName) {
                             const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-                            const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${fileName}`;
-                            actionsTakenHtml = `${textPart} <br> <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #1a73e8; font-weight: bold; font-size: 11px;">View Proof</a>`;
+                            let prodFiles = fileName.split(",").map(f => f.trim()).filter(Boolean);
+                            const qaRemarkText = cp.cr3ea_defectremarks || "";
+                            if (qaRemarkText && qaRemarkText.includes("File:")) {
+                                const qaFilePart = qaRemarkText.split(/file:/i)[1] || "";
+                                const qaFiles = qaFilePart.split(",").map(f => f.trim()).filter(Boolean);
+                                if (qaFiles.length > 0) {
+                                    const filteredProd = prodFiles.filter(f => !qaFiles.includes(f));
+                                    if (filteredProd.length > 0) {
+                                        prodFiles = filteredProd;
+                                    }
+                                }
+                            }
+                            const fileLinks = prodFiles.map((f, fIdx) => {
+                                const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${f}`;
+                                return `<a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #1a73e8; font-weight: bold; font-size: 11px; margin-right: 6px;" title="${f}">View Proof${prodFiles.length > 1 ? ' (' + (fIdx + 1) + ')' : ''}</a>`;
+                            }).join("");
+                            actionsTakenHtml = `${textPart} <br> ${fileLinks}`;
                         } else {
                             actionsTakenHtml = textPart;
                         }
@@ -400,8 +466,11 @@ const ALC_Summary = {
 
                     if (qaFileName) {
                         const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-                        const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${qaFileName}`;
-                        qaFileBadge = ` <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #1a73e8; font-weight: bold; font-size: 11px; margin-left: 5px;">View QA Proof</a>`;
+                        const qaFiles = qaFileName.split(",").map(f => f.trim()).filter(Boolean);
+                        qaFileBadge = qaFiles.map((f, fIdx) => {
+                            const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${f}`;
+                            return ` <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #1a73e8; font-weight: bold; font-size: 11px; margin-left: 5px;" title="${f}">View QA Proof${qaFiles.length > 1 ? ' (' + (fIdx + 1) + ')' : ''}</a>`;
+                        }).join("");
                     }
 
                     let reverifyDisplayText = "";
@@ -427,8 +496,11 @@ const ALC_Summary = {
                             let badgeHtml = "";
                             if (reverifyFileName) {
                                 const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-                                const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${reverifyFileName}`;
-                                badgeHtml = ` <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #1a73e8; font-weight: bold; font-size: 11px; margin-left: 5px;">View Re-verify Proof</a>`;
+                                const revFiles = reverifyFileName.split(",").map(f => f.trim()).filter(Boolean);
+                                badgeHtml = revFiles.map((f, fIdx) => {
+                                    const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${f}`;
+                                    return ` <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #1a73e8; font-weight: bold; font-size: 11px; margin-left: 5px;" title="${f}">View Re-verify Proof${revFiles.length > 1 ? ' (' + (fIdx + 1) + ')' : ''}</a>`;
+                                }).join("");
                             }
 
                             return `<small class="text-success" style="font-weight: bold; display: block; margin-top: 4px;">Re-verified: ${cleanReverify}${badgeHtml}</small>`;
@@ -450,9 +522,13 @@ const ALC_Summary = {
                         qaRemarksHtml = `<span>${qaDisplayText}</span>`;
                     }
 
+                    const critBadge = cp._isCritical
+                        ? `<span style="background-color: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-right: 6px; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block;">Critical Gate</span>`
+                        : '';
+
                     tr.innerHTML = `
                         <td style="padding: 10px;">${idx + 1}</td>
-                        <td style="padding: 10px; text-align: left; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${cp.cr3ea_criteria}</td>
+                        <td style="padding: 10px; text-align: left; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${critBadge}${cp.cr3ea_criteria}</td>
                         <td style="padding: 10px;">${initialBadge}</td>
                         <td style="padding: 10px; text-align: left; font-size: 12px; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${actionsTakenHtml}</td>
                         <td style="padding: 10px; text-align: left; font-size: 12px; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${qaRemarksHtml}</td>
@@ -465,6 +541,77 @@ const ALC_Summary = {
                 blocksContainer.appendChild(card);
             });
         }
+    },
+
+    // Renders the Escalation and Acceptance Timing Audit details
+    renderEscalationAudit: function () {
+        const auditContainerId = "sum-escalation-audit-panel";
+        let auditEl = document.getElementById(auditContainerId);
+        
+        const session = this.session || {};
+        const audit = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.parseEscalationAudit)
+            ? QualityRajpura_Config.parseEscalationAudit(session)
+            : null;
+
+        const procStatus = (session.cr3ea_processstatus || "").trim();
+        const isDelayed = (audit && audit.isPostEscalation) || procStatus.includes("Delayed") || procStatus.includes("Escalated");
+
+        // If no audit info and tour was never delayed, hide panel if it exists
+        if (!audit && !isDelayed) {
+            if (auditEl) auditEl.style.display = "none";
+            return;
+        }
+
+        if (!auditEl) {
+            auditEl = document.createElement("div");
+            auditEl.id = auditContainerId;
+            auditEl.className = "bs-card mb-4";
+            auditEl.style.cssText = "padding: 18px 20px; border-radius: 8px; border: 1px solid #fed7aa; background: #fffaf5; margin-bottom: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);";
+            
+            const topCard = document.querySelector("#section-tour-summary .bs-card");
+            if (topCard && topCard.parentNode) {
+                topCard.parentNode.insertBefore(auditEl, topCard.nextSibling);
+            }
+        }
+
+        const delayMins = audit ? audit.delayMinutes : (procStatus.match(/Delayed:\s*(\d+)m/i) ? procStatus.match(/Delayed:\s*(\d+)m/i)[1] : "N/A");
+        const reqTimeFormatted = audit && audit.tourStartTime ? moment(audit.tourStartTime).format("DD-MM-YYYY hh:mm A") : (session.cr3ea_tourstartdate ? moment(session.cr3ea_tourstartdate).format("DD-MM-YYYY hh:mm A") : "N/A");
+        const acceptedTimeFormatted = audit && audit.acceptedTime ? moment(audit.acceptedTime).format("DD-MM-YYYY hh:mm A") : "N/A";
+        const acceptedBy = (audit && (audit.acceptedByName || audit.acceptedByEmail)) ? (audit.acceptedByName || audit.acceptedByEmail) : (session.cr3ea_tourby || "QA Executive");
+
+        auditEl.style.display = "block";
+        auditEl.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; border-bottom: 1px solid #ffedd5; padding-bottom: 10px;">
+                <h5 style="margin: 0; font-weight: 700; color: #9a3412; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa fa-history" style="color: #ea580c;"></i> Acceptance &amp; Escalation Timing Audit
+                </h5>
+                <span class="badge" style="background-color: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; font-weight: 700; padding: 4px 10px; font-size: 12px; border-radius: 9999px;">
+                    <i class="fa fa-clock-o"></i> ${delayMins !== "N/A" ? `${delayMins} Min Acceptance Delay` : 'Post-Escalation Accepted'}
+                </span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; font-size: 13px;">
+                <div style="background: #ffffff; border: 1px solid #fed7aa; padding: 10px 14px; border-radius: 6px;">
+                    <span style="font-size: 10px; text-transform: uppercase; color: #7c2d12; font-weight: 700; display: block;">Request Raised At</span>
+                    <strong style="color: #1e293b; font-size: 13px;">${reqTimeFormatted}</strong>
+                </div>
+                <div style="background: #ffffff; border: 1px solid #fed7aa; padding: 10px 14px; border-radius: 6px;">
+                    <span style="font-size: 10px; text-transform: uppercase; color: #7c2d12; font-weight: 700; display: block;">Escalation Threshold (5m)</span>
+                    <strong style="color: #dc2626; font-size: 13px;">Expired (Escalated)</strong>
+                </div>
+                <div style="background: #ffffff; border: 1px solid #fed7aa; padding: 10px 14px; border-radius: 6px;">
+                    <span style="font-size: 10px; text-transform: uppercase; color: #7c2d12; font-weight: 700; display: block;">QA Accepted At</span>
+                    <strong style="color: #166534; font-size: 13px;">${acceptedTimeFormatted}</strong>
+                </div>
+                <div style="background: #ffffff; border: 1px solid #fed7aa; padding: 10px 14px; border-radius: 6px;">
+                    <span style="font-size: 10px; text-transform: uppercase; color: #7c2d12; font-weight: 700; display: block;">Delay Duration</span>
+                    <strong style="color: #c2410c; font-size: 13px;">${delayMins !== "N/A" ? `${delayMins} Minutes` : 'Delayed'}</strong>
+                </div>
+                <div style="background: #ffffff; border: 1px solid #fed7aa; padding: 10px 14px; border-radius: 6px;">
+                    <span style="font-size: 10px; text-transform: uppercase; color: #7c2d12; font-weight: 700; display: block;">Accepted By (QA)</span>
+                    <strong style="color: #1e293b; font-size: 13px;">${acceptedBy}</strong>
+                </div>
+            </div>
+        `;
     },
 
     // Checks last 5 tours on this line for recurring failures in checkpoints

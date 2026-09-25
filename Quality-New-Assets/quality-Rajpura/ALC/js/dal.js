@@ -75,10 +75,14 @@ const ALC_DAL = {
             const shiftStartField = findField(["ShiftStart", "Shift_x0020_Start"], "Shift Start");
             const shiftEndField = findField(["ShiftEnd", "Shift_x0020_End"], "Shift End");
             const productCodeField = findField(["ProductCode", "Product_x0020_Code", "SKU"], "Product Code");
+            const productCategoryField = findField(["ProductCategory", "Product_x0020_Category"], "Product Category");
+            const isCriticalField = findField(["IsCritical", "Is_x0020_Critical", "Critical"], "Is Critical");
+            const remarksField = findField(["Remarks", "Remarks_x0020_Text"], "Remarks");
             const isActiveField = findField(["IsActive", "Is_x0020_Active", "Active"], "Is Active");
 
             const assignedUserField = findField(["AssignedUser", "Assigned_x0020_User", "AssignedQA", "Assigned_x0020_QA", "QAExecutive", "QA_x0020_Executive"], "Assigned User");
             const escalationManagerField = findField(["EscalationManager", "Escalation_x0020_Manager", "ProductionIncharge", "Production_x0020_Incharge"], "Escalation Manager");
+            const qaShiftField = findField(["QAShiftExecutive", "QAShift_x0020_Executive", "QAShiftExec", "QAShift_x0020_Exec"], "QA Shift Executive");
 
             const selectParts = ["Id", "Title"];
             const expandParts = [];
@@ -93,6 +97,9 @@ const ALC_DAL = {
             if (shiftStartField) selectParts.push(shiftStartField.InternalName);
             if (shiftEndField) selectParts.push(shiftEndField.InternalName);
             if (productCodeField) selectParts.push(productCodeField.InternalName);
+            if (productCategoryField) selectParts.push(productCategoryField.InternalName);
+            if (isCriticalField) selectParts.push(isCriticalField.InternalName);
+            if (remarksField) selectParts.push(remarksField.InternalName);
             if (isActiveField) selectParts.push(isActiveField.InternalName);
 
             if (assignedUserField) {
@@ -102,6 +109,11 @@ const ALC_DAL = {
             }
             if (escalationManagerField) {
                 const name = escalationManagerField.InternalName;
+                selectParts.push(`${name}/Title`, `${name}/EMail`, `${name}/Id`);
+                expandParts.push(name);
+            }
+            if (qaShiftField) {
+                const name = qaShiftField.InternalName;
                 selectParts.push(`${name}/Title`, `${name}/EMail`, `${name}/Id`);
                 expandParts.push(name);
             }
@@ -128,6 +140,7 @@ const ALC_DAL = {
             const mapped = results.map(item => {
                 const rawUser = assignedUserField ? item[assignedUserField.InternalName] : (item.AssignedUser || item.Assigned_x0020_User);
                 const rawManager = escalationManagerField ? item[escalationManagerField.InternalName] : (item.EscalationManager || item.Escalation_x0020_Manager);
+                const rawQaShift = qaShiftField ? item[qaShiftField.InternalName] : (item.QAShiftExecutive || item.QAShift_x0020_Executive);
 
                 let assignedUserNormalized = { results: [] };
                 if (rawUser) {
@@ -147,22 +160,57 @@ const ALC_DAL = {
                     }
                 }
 
+                let qaShiftNormalized = { results: [] };
+                if (rawQaShift) {
+                    if (rawQaShift.results && Array.isArray(rawQaShift.results)) {
+                        qaShiftNormalized = rawQaShift;
+                    } else if (rawQaShift.Title || rawQaShift.EMail) {
+                        qaShiftNormalized = { results: [rawQaShift] };
+                    }
+                }
+
+                let finalTitle = (item.Title && item.Title.trim() !== "" && item.Title.trim() !== "N/A") ? item.Title.trim() : "";
+                let extractedSeq = 0;
+                let extractedCrit = false;
+                const seqMatch = finalTitle.match(/^(\d+)[\.\:\-\s]+/);
+                if (seqMatch) {
+                    extractedSeq = parseInt(seqMatch[1], 10);
+                    finalTitle = finalTitle.substring(seqMatch[0].length).trim();
+                }
+                if (/\[critical(?:\s*gate)?\]/i.test(finalTitle)) {
+                    extractedCrit = true;
+                    finalTitle = finalTitle.replace(/\[critical(?:\s*gate)?\]\s*/i, "").trim();
+                }
+
+                const rawIsCritical = isCriticalField ? item[isCriticalField.InternalName] : item.IsCritical;
+                const rawCat = productCategoryField ? item[productCategoryField.InternalName] : item.ProductCategory;
+                const rawRemarks = remarksField ? item[remarksField.InternalName] : item.Remarks;
+                const rawSeq = shiftCodeField ? item[shiftCodeField.InternalName] : (productCodeField ? item[productCodeField.InternalName] : (item.Sequence || extractedSeq || 0));
+
+                const isCriticalBool = extractedCrit || (rawIsCritical === true || rawIsCritical === "Yes" || rawIsCritical === 1 ||
+                    String(rawCat).toLowerCase() === "critical" || String(rawCat).toLowerCase() === "yes" ||
+                    String(rawRemarks).toLowerCase() === "critical");
+
                 return {
                     Id: item.Id,
-                    Title: item.Title || "",
+                    Title: finalTitle,
                     ConfigType: configTypeField ? item[configTypeField.InternalName] : (item.ConfigType || item.Config_x0020_Type || ""),
                     Region: regionField ? item[regionField.InternalName] : (item.Region || ""),
                     Plant: plantField ? item[plantField.InternalName] : (item.Plant || "Rajpura"),
                     Area: areaField ? item[areaField.InternalName] : (item.Area || ""),
                     LineName: lineNameField ? item[lineNameField.InternalName] : (item.LineName || item.Line_x0020_Name || ""),
-                    ShiftCode: shiftCodeField ? item[shiftCodeField.InternalName] : (item.ShiftCode || item.Shift_x0020_Code || ""),
+                    ShiftCode: shiftCodeField ? item[shiftCodeField.InternalName] : (extractedSeq ? String(extractedSeq) : (item.ShiftCode || "")),
                     ShiftName: shiftNameField ? item[shiftNameField.InternalName] : (item.ShiftName || item.Shift_x0020_Name || ""),
                     ShiftStart: shiftStartField ? item[shiftStartField.InternalName] : (item.ShiftStart || item.Shift_x0020_Start || ""),
                     ShiftEnd: shiftEndField ? item[shiftEndField.InternalName] : (item.ShiftEnd || item.Shift_x0020_End || ""),
-                    ProductCode: productCodeField ? item[productCodeField.InternalName] : (item.ProductCode || item.Product_x0020_Code || ""),
+                    ProductCode: productCodeField ? item[productCodeField.InternalName] : (extractedSeq ? String(extractedSeq) : (item.ProductCode || "")),
+                    ProductCategory: rawCat || (isCriticalBool ? "Critical" : "Standard"),
+                    IsCritical: isCriticalBool,
+                    Sequence: parseInt(rawSeq, 10) || extractedSeq || 0,
                     IsActive: isActiveField ? (item[isActiveField.InternalName] !== false) : (item.IsActive !== false),
                     AssignedUser: assignedUserNormalized,
-                    EscalationManager: escalationManagerNormalized
+                    EscalationManager: escalationManagerNormalized,
+                    QAShiftExecutive: qaShiftNormalized
                 };
             });
 
@@ -179,6 +227,22 @@ const ALC_DAL = {
      * Master seed fallback dataset for ALC when running locally or during initial onboarding
      */
     getMasterSeedDefaults: function () {
+        const seedQuestions = (typeof ALC_CHECKLIST_SEED_DATA !== "undefined" && Array.isArray(ALC_CHECKLIST_SEED_DATA))
+            ? ALC_CHECKLIST_SEED_DATA.map(q => ({
+                Id: 1000 + q.sequence,
+                Title: q.title,
+                ConfigType: "Checklist Question",
+                Area: q.area,
+                ShiftCode: String(q.sequence),
+                ProductCode: String(q.sequence),
+                Sequence: q.sequence,
+                ProductCategory: q.isCritical ? "Critical" : "Standard",
+                IsCritical: !!q.isCritical,
+                Plant: "Rajpura",
+                IsActive: q.isActive !== false
+            }))
+            : [];
+
         return [
             // 1. Line Master (8 Lines)
             { Id: 101, Title: "Line No. 1", ConfigType: "Line Master", LineName: "HAAS", Plant: "Rajpura", IsActive: true },
@@ -197,13 +261,13 @@ const ALC_DAL = {
             { Id: 204, Title: "Shift G", ConfigType: "Shift Master", ShiftCode: "G", ShiftName: "General", ShiftStart: "9:30 A.M.", ShiftEnd: "6:00 P.M.", Plant: "Rajpura", IsActive: true },
 
             // 3. Area Inspector Assignment (7 Areas)
-            { Id: 301, Title: "AREA-01", ConfigType: "Area Inspector", Area: "RM Store", Plant: "Rajpura", AssignedUser: { results: [{ Title: "Mishab Muhammed", EMail: "mishab.muhammed@bectorfoods.com" }, { Title: "Rajesh Kumar", EMail: "rajesh.kumar1@bectorfoods.com" }, { Title: "Karan Singh", EMail: "karan.singh@bectorfoods.com" }] } },
-            { Id: 302, Title: "AREA-02", ConfigType: "Area Inspector", Area: "Flour & Sugar Handling", Plant: "Rajpura", AssignedUser: { results: [{ Title: "Gokul K", EMail: "gokul.k@bectorfoods.com" }, { Title: "Karan Singh", EMail: "karan.singh@bectorfoods.com" }, { Title: "Asit Kumar", EMail: "asit.kumar@bectorfoods.com" }] } },
-            { Id: 303, Title: "AREA-03", ConfigType: "Area Inspector", Area: "Chemical Handling Area", Plant: "Rajpura", AssignedUser: { results: [{ Title: "Babifas P", EMail: "babifas.p@bectorfoods.com" }, { Title: "Karan Singh", EMail: "karan.singh@bectorfoods.com" }, { Title: "Asit Kumar", EMail: "asit.kumar@bectorfoods.com" }] } },
-            { Id: 304, Title: "AREA-04", ConfigType: "Area Inspector", Area: "Mixing", Plant: "Rajpura", AssignedUser: { results: [{ Title: "Mishab Muhammed", EMail: "mishab.muhammed@bectorfoods.com" }, { Title: "Jayant Shrivastava", EMail: "jayant.shrivastava@bectorfoods.com" }] } },
-            { Id: 305, Title: "AREA-05", ConfigType: "Area Inspector", Area: "Oven", Plant: "Rajpura", AssignedUser: { results: [{ Title: "Gokul K", EMail: "gokul.k@bectorfoods.com" }, { Title: "Maheshwar Yadav", EMail: "maheshwar.yadav@bectorfoods.com" }] } },
-            { Id: 306, Title: "AREA-06", ConfigType: "Area Inspector", Area: "Post Bake & Packing Section", Plant: "Rajpura", AssignedUser: { results: [{ Title: "Babifas P", EMail: "babifas.p@bectorfoods.com" }, { Title: "Satish Verma", EMail: "satish.verma@bectorfoods.com" }] } },
-            { Id: 307, Title: "AREA-07", ConfigType: "Area Inspector", Area: "Biscuit Grinding", Plant: "Rajpura", AssignedUser: { results: [{ Title: "Mishab Muhammed", EMail: "mishab.muhammed@bectorfoods.com" }, { Title: "Satish Verma", EMail: "satish.verma@bectorfoods.com" }] } },
+            { Id: 301, Title: "AREA-01", ConfigType: "Area Inspector", Area: "RM Store", Plant: "Rajpura", AssignedUser: { results: [{ Title: "Mishab Muhammed", EMail: "" }, { Title: "Rajesh Kumar", EMail: "" }, { Title: "Karan Singh", EMail: "" }] } },
+            { Id: 302, Title: "AREA-02", ConfigType: "Area Inspector", Area: "Flour & Sugar Handling", Plant: "Rajpura", AssignedUser: { results: [{ Title: "Gokul K", EMail: "" }, { Title: "Karan Singh", EMail: "" }, { Title: "Asit Kumar", EMail: "" }] } },
+            { Id: 303, Title: "AREA-03", ConfigType: "Area Inspector", Area: "Chemical Handling Area", Plant: "Rajpura", AssignedUser: { results: [{ Title: "Babifas P", EMail: "" }, { Title: "Karan Singh", EMail: "" }, { Title: "Asit Kumar", EMail: "" }] } },
+            { Id: 304, Title: "AREA-04", ConfigType: "Area Inspector", Area: "Mixing", Plant: "Rajpura", AssignedUser: { results: [{ Title: "Mishab Muhammed", EMail: "" }, { Title: "Jayant Shrivastava", EMail: "" }] } },
+            { Id: 305, Title: "AREA-05", ConfigType: "Area Inspector", Area: "Oven", Plant: "Rajpura", AssignedUser: { results: [{ Title: "Gokul K", EMail: "" }, { Title: "Maheshwar Yadav", EMail: "" }] } },
+            { Id: 306, Title: "AREA-06", ConfigType: "Area Inspector", Area: "Post Bake & Packing Section", Plant: "Rajpura", AssignedUser: { results: [{ Title: "Babifas P", EMail: "" }, { Title: "Satish Verma", EMail: "" }] } },
+            { Id: 307, Title: "AREA-07", ConfigType: "Area Inspector", Area: "Biscuit Grinding", Plant: "Rajpura", AssignedUser: { results: [{ Title: "Mishab Muhammed", EMail: "" }, { Title: "Satish Verma", EMail: "" }] } },
 
             // 4. QA Shift Assignment Matrix
             {
@@ -214,24 +278,24 @@ const ALC_DAL = {
                 Plant: "Rajpura",
                 AssignedUser: {
                     results: [
-                        { Title: "Mishab Muhammed", EMail: "mishab.muhammed@bectorfoods.com" },
-                        { Title: "Gokul K", EMail: "gokul.k@bectorfoods.com" },
-                        { Title: "Babifas P", EMail: "babifas.p@bectorfoods.com" },
-                        { Title: "QA Process Team 1", EMail: "qaprocess.rajpura@bectorfoods.com" },
-                        { Title: "QA Process Team 2", EMail: "qaprocess1.rajpura@bectorfoods.com" }
+                        { Title: "Mishab Muhammed", EMail: "" },
+                        { Title: "Gokul K", EMail: "" },
+                        { Title: "Babifas P", EMail: "" },
+                        { Title: "QA Process Team 1", EMail: "" },
+                        { Title: "QA Process Team 2", EMail: "" }
                     ]
                 },
                 EscalationManager: {
                     results: [
-                        { Title: "Karan Singh", EMail: "karan.singh@bectorfoods.com" },
-                        { Title: "Asit Kumar", EMail: "asit.kumar@bectorfoods.com" },
-                        { Title: "Jayant Shrivastava", EMail: "jayant.shrivastava@bectorfoods.com" },
-                        { Title: "Maheshwar Yadav", EMail: "maheshwar.yadav@bectorfoods.com" },
-                        { Title: "Satish Verma", EMail: "satish.verma@bectorfoods.com" },
-                        { Title: "Sandeep Singh", EMail: "sandeep.singh@bectorfoods.com" },
-                        { Title: "Ankur Singh", EMail: "ankur.singh@bectorfoods.com" },
-                        { Title: "Rakesh Matharu", EMail: "rakesh.matharu@bectorfoods.com" },
-                        { Title: "Karan Mehta", EMail: "karan.mehta@bectorfoods.com" }
+                        { Title: "Karan Singh", EMail: "" },
+                        { Title: "Asit Kumar", EMail: "" },
+                        { Title: "Jayant Shrivastava", EMail: "" },
+                        { Title: "Maheshwar Yadav", EMail: "" },
+                        { Title: "Satish Verma", EMail: "" },
+                        { Title: "Sandeep Singh", EMail: "" },
+                        { Title: "Ankur Singh", EMail: "" },
+                        { Title: "Rakesh Matharu", EMail: "" },
+                        { Title: "Karan Mehta", EMail: "" }
                     ]
                 }
             },
@@ -244,17 +308,17 @@ const ALC_DAL = {
                 Plant: "Rajpura",
                 AssignedUser: {
                     results: [
-                        { Title: "Mishab Muhammed", EMail: "mishab.muhammed@bectorfoods.com" },
-                        { Title: "Gokul K", EMail: "gokul.k@bectorfoods.com" },
-                        { Title: "Babifas P", EMail: "babifas.p@bectorfoods.com" },
-                        { Title: "QA Process Team 1", EMail: "qaprocess.rajpura@bectorfoods.com" },
-                        { Title: "QA Process Team 2", EMail: "qaprocess1.rajpura@bectorfoods.com" }
+                        { Title: "Mishab Muhammed", EMail: "" },
+                        { Title: "Gokul K", EMail: "" },
+                        { Title: "Babifas P", EMail: "" },
+                        { Title: "QA Process Team 1", EMail: "" },
+                        { Title: "QA Process Team 2", EMail: "" }
                     ]
                 },
                 EscalationManager: {
                     results: [
-                        { Title: "Karan Singh", EMail: "karan.singh@bectorfoods.com" },
-                        { Title: "Asit Kumar", EMail: "asit.kumar@bectorfoods.com" }
+                        { Title: "Karan Singh", EMail: "" },
+                        { Title: "Asit Kumar", EMail: "" }
                     ]
                 }
             },
@@ -262,7 +326,10 @@ const ALC_DAL = {
             // 5. Product Master
             { Id: 501, Title: "Cremica Bourbon", ConfigType: "Product Master", ProductCode: "PRD-001", Plant: "Rajpura", IsActive: true },
             { Id: 502, Title: "Marie Delight", ConfigType: "Product Master", ProductCode: "PRD-002", Plant: "Rajpura", IsActive: true },
-            { Id: 503, Title: "Digestive Crackers", ConfigType: "Product Master", ProductCode: "PRD-003", Plant: "Rajpura", IsActive: true }
+            { Id: 503, Title: "Digestive Crackers", ConfigType: "Product Master", ProductCode: "PRD-003", Plant: "Rajpura", IsActive: true },
+
+            // 6. Checklist Questions (46 Questions)
+            ...seedQuestions
         ];
     },
 

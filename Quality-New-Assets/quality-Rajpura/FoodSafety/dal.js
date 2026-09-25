@@ -159,13 +159,13 @@ const FoodSafety_DAL = {
                 Plant: "Rajpura",
                 ChecklistType: "PPE",
                 QAExecutives: [
-                    { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 },
-                    { Title: "Gokul K", EMail: "gokul.k@bectorfoods.com", Id: 108 },
-                    { Title: "Babifas P", EMail: "babifas.p@bectorfoods.com", Id: 112 }
+                    { Title: "Mishab Muhammed", EMail: "", Id: 101 },
+                    { Title: "Gokul K", EMail: "", Id: 108 },
+                    { Title: "Babifas P", EMail: "", Id: 112 }
                 ],
                 ProductionIncharges: [
-                    { Title: "Shaan Arshaqu", EMail: "shaan.arshaqu@bectorfoods.com", Id: 111 },
-                    { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 }
+                    { Title: "Shaan Arshaqu", EMail: "", Id: 111 },
+                    { Title: "Mishab Muhammed", EMail: "", Id: 101 }
                 ]
             },
             {
@@ -174,12 +174,12 @@ const FoodSafety_DAL = {
                 Plant: "Rajpura",
                 ChecklistType: "GMP",
                 QAExecutives: [
-                    { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 },
-                    { Title: "Gokul K", EMail: "gokul.k@bectorfoods.com", Id: 108 }
+                    { Title: "Mishab Muhammed", EMail: "", Id: 101 },
+                    { Title: "Gokul K", EMail: "", Id: 108 }
                 ],
                 ProductionIncharges: [
-                    { Title: "Shaan Arshaqu", EMail: "shaan.arshaqu@bectorfoods.com", Id: 111 },
-                    { Title: "Ajith K", EMail: "ajith.k@bectorfoods.com", Id: 110 }
+                    { Title: "Shaan Arshaqu", EMail: "", Id: 111 },
+                    { Title: "Ajith K", EMail: "", Id: 110 }
                 ]
             },
             {
@@ -188,10 +188,10 @@ const FoodSafety_DAL = {
                 Plant: "Rajpura",
                 ChecklistType: "PCI",
                 QAExecutives: [
-                    { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 }
+                    { Title: "Mishab Muhammed", EMail: "", Id: 101 }
                 ],
                 ProductionIncharges: [
-                    { Title: "Mishab Muhammed", EMail: "mishab@bectorfoods.com", Id: 101 }
+                    { Title: "Mishab Muhammed", EMail: "", Id: 101 }
                 ]
             }
         ];

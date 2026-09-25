@@ -15,16 +15,24 @@ $(document).ready(function () {
         document.head.appendChild(link);
     }
 
-    // Dynamically inject common/js/admin.js if not yet loaded
+    // Dynamically inject common/js/admin.js & alc-checklist-seed.js if not yet loaded
     const adminScriptId = "rajpura-quality-admin-js";
     if (!document.getElementById(adminScriptId) && typeof window.Rajpura_Admin === 'undefined') {
-        const script = document.createElement("script");
-        script.id = adminScriptId;
         const webUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webServerRelativeUrl)
             ? _spPageContextInfo.webServerRelativeUrl.replace(/\/+$/, '')
             : (window.location.href.toLowerCase().indexOf("ptms_uat") !== -1 ? "/sites/PTMS_UAT" :
               (window.location.href.toLowerCase().indexOf("ptms_prd") !== -1 ? "/sites/PTMS_PRD" : "/sites/Mrs_Bectors_PTMS"));
-        script.src = `${webUrl}/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/admin.js?v=2.0`;
+
+        if (!document.getElementById("rajpura-quality-alc-seed-js") && typeof window.ALC_CHECKLIST_SEED_DATA === 'undefined') {
+            const seedScript = document.createElement("script");
+            seedScript.id = "rajpura-quality-alc-seed-js";
+            seedScript.src = `${webUrl}/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/alc-checklist-seed.js?v=2.6`;
+            document.body.appendChild(seedScript);
+        }
+
+        const script = document.createElement("script");
+        script.id = adminScriptId;
+        script.src = `${webUrl}/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/admin.js?v=8.2`;
         document.body.appendChild(script);
     }
     ALC_Dashboard.init();
@@ -60,6 +68,10 @@ const ALC_Dashboard = {
         return valid.includes(val) ? val : "ALC";
     })(),
     allToursRaw: [],
+    selectedLine: "All",
+    selectedDatePreset: "All",
+    fromDate: "",
+    toDate: "",
 
     resolveCategoryFromUrl: function () {
         try {
@@ -383,6 +395,10 @@ const ALC_Dashboard = {
                 $(categoryDropdown).val(ALC_Dashboard.selectedCategory).trigger("change");
             }
 
+            // Ensure filter panel is present and events are bound
+            ALC_Dashboard.ensureFilterPanel();
+            ALC_Dashboard.bindFilterEvents();
+
             // 5. Load all tours and split them
             await ALC_Dashboard.loadAllTours();
 
@@ -591,7 +607,10 @@ const ALC_Dashboard = {
 
             ALC_Dashboard.allToursRaw = list;
 
-            // Trigger category filtering and rendering
+            // Populate line dropdown dynamically from tour records
+            ALC_Dashboard.populateLineDropdown();
+
+            // Trigger category and interactive filtering and rendering
             await ALC_Dashboard.applyCategoryFilter();
 
         } catch (error) {
@@ -616,8 +635,8 @@ const ALC_Dashboard = {
         const isMB = this.selectedCategory === "MixingAndBaking";
         const isPkgOps = this.selectedCategory === "PackagingOperations";
         
-        // Filter raw list
-        const filteredList = this.allToursRaw.filter(t => {
+        // 1. Filter raw list by Category
+        const categoryFiltered = this.allToursRaw.filter(t => {
             const titleVal = String(t.cr3ea_title || "");
             let cleanTitle = titleVal.split("||")[0].trim();
             
@@ -652,6 +671,25 @@ const ALC_Dashboard = {
                 return !isFSItem && !isCCPItem && !isMBItem && !isPkgOpsItem;
             }
         });
+
+        // 2. Filter by Line & Date
+        const filteredList = categoryFiltered.filter(t => {
+            const matchesLine = this.matchesLine(t, this.selectedLine);
+            const matchesDate = this.matchesDate(t, this.selectedDatePreset, this.fromDate, this.toDate);
+            return matchesLine && matchesDate;
+        });
+
+        // 3. Update active filter count badge
+        const badge = document.getElementById("dashboardFilterCountBadge");
+        if (badge) {
+            const isFiltered = (this.selectedLine && this.selectedLine !== "All") || 
+                               (this.selectedDatePreset && this.selectedDatePreset !== "All");
+            if (isFiltered) {
+                badge.innerText = `Showing ${filteredList.length} of ${categoryFiltered.length} tours`;
+            } else {
+                badge.innerText = `Showing all ${filteredList.length} tours`;
+            }
+        }
 
         // Update headers & labels
         this.updateKpiLabels();
@@ -949,31 +987,27 @@ const ALC_Dashboard = {
             }
         }
 
-        switch (status) {
-            case "Escalated":
-                return `Shift Executive (${prodName})`;
-            case "Pending QA":
-                return `QA Incharge (${qaName})`;
-            case "QA In Progress":
-                return `QA Executive (${qaName})`;
-            case "Failed - Pending Production":
-            case "Success - Pending Production":
-                // Resolve area-wise pending production assignees
-                const assignees = ALC_Dashboard.getAreaAssigneesForFailedCheckpoints(t);
-                if (assignees && assignees.length > 0) {
-                    return `Production Exec (${assignees.join(", ")})`;
-                }
-                return `Production Exec (${prodName})`;
-            case "Pending Re-Verification":
-            case "Success - Pending Re-Verification":
-            case "Failed - Pending Re-Verification":
-                const pendingProds = ALC_Dashboard.getAreaAssigneesForFailedCheckpoints(t);
-                if (pendingProds && pendingProds.length > 0) {
-                    return `QA Executive (${qaName}) & Production Exec (${pendingProds.join(", ")})`;
-                }
-                return `QA Executive (${qaName})`;
-            default:
-                return "Production Team";
+        if (status === "Escalated") {
+            return `Shift Executive (${prodName})`;
+        } else if (status === "Pending QA") {
+            return `QA Incharge (${qaName})`;
+        } else if (status.startsWith("QA In Progress") || status === "In Progress" || status === "InProgress-paused") {
+            return `QA Executive (${qaName})`;
+        } else if (status.includes("Pending Production") || status === "Pending Production") {
+            // Resolve area-wise pending production assignees
+            const assignees = ALC_Dashboard.getAreaAssigneesForFailedCheckpoints(t);
+            if (assignees && assignees.length > 0) {
+                return `Production Exec (${assignees.join(", ")})`;
+            }
+            return `Production Exec (${prodName})`;
+        } else if (status.includes("Pending Re-Verification") || status === "Pending Re-Verification") {
+            const pendingProds = ALC_Dashboard.getAreaAssigneesForFailedCheckpoints(t);
+            if (pendingProds && pendingProds.length > 0) {
+                return `QA Executive (${qaName}) & Production Exec (${pendingProds.join(", ")})`;
+            }
+            return `QA Executive (${qaName})`;
+        } else {
+            return "Production Team";
         }
     },
 
@@ -1107,7 +1141,7 @@ const ALC_Dashboard = {
                     `;
                     
                     let isMyTask = false;
-                    const isQaStatus = (status === "Pending QA" || status === "QA In Progress" || status === "In Progress" || status === "InProgress-paused" || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
+                    const isQaStatus = (status === "Pending QA" || status === "QA In Progress" || status.startsWith("QA In Progress") || status === "In Progress" || status === "InProgress-paused" || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
                     if (isQaStatus) {
                         const qaEmail = (t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
                         const qaResolvedName = qaEmail.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaEmail).toLowerCase().trim() : qaEmail;
@@ -1407,17 +1441,19 @@ const ALC_Dashboard = {
                         }
                     }
 
-                    if (scoreNum !== null) {
-                        const isSuccess = (scoreNum >= 80);
-                        if (status.includes("Pending Production")) {
-                            status = isSuccess ? "Success - Pending Production" : "Failed - Pending Production";
-                        } else if (status.includes("Pending Re-Verification") || status === "Pending Re-Verification") {
-                            status = isSuccess ? "Success - Pending Re-Verification" : "Failed - Pending Re-Verification";
-                        }
-                    } else {
-                        if (status === "Pending Re-Verification") {
-                            status = "Failed - Pending Re-Verification";
-                        }
+                    const isLineClearVal = t.cr3ea_islineclear;
+                    const isLineClearExplicitNo = (isLineClearVal === false || isLineClearVal === "false" || isLineClearVal === 0 || isLineClearVal === "0" || isLineClearVal === "No");
+                    const isChecklistResultFail = (t.cr3ea_checklist_result === "Fail" || t.cr3ea_checklist_result === "Expired");
+                    const isExplicitlyFailedStatus = (String(t.cr3ea_processstatus || "").startsWith("Failed") || String(t.cr3ea_status || "").startsWith("Failed"));
+                    const isEvaluationDone = (scoreNum !== null || isChecklistResultFail || isExplicitlyFailedStatus || status.includes("Pending Production") || status.includes("Pending Re-Verification"));
+                    const isTourFailed = isEvaluationDone && (isLineClearExplicitNo || isChecklistResultFail || isExplicitlyFailedStatus || (scoreNum !== null && scoreNum < 80));
+
+                    if (status.includes("Pending Production") || status === "Pending Production") {
+                        const isSuccess = (scoreNum !== null && scoreNum >= 80 && !isTourFailed);
+                        status = isSuccess ? "Success - Pending Production" : "Failed - Pending Production";
+                    } else if (status.includes("Pending Re-Verification") || status === "Pending Re-Verification") {
+                        const isSuccess = (scoreNum !== null && scoreNum >= 80 && !isTourFailed);
+                        status = isSuccess ? "Success - Pending Re-Verification" : "Failed - Pending Re-Verification";
                     }
 
                     let badgeClass = "badge-warning";
@@ -1431,7 +1467,7 @@ const ALC_Dashboard = {
                         (currentUserName && qaResolvedName && (currentUserName === qaResolvedName || currentUserName.includes(qaResolvedName) || qaResolvedName.includes(currentUserName)))
                     );
 
-                    const isQaStatus = (status === "Pending QA" || status === "QA In Progress" || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification" || status === "In Progress" || status === "InProgress-paused");
+                    const isQaStatus = (status === "Pending QA" || status === "QA In Progress" || status.startsWith("QA In Progress") || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification" || status === "In Progress" || status === "InProgress-paused");
                     if (isQaStatus && isAssignedQA) {
                         isMyTask = true;
                     }
@@ -1476,8 +1512,8 @@ const ALC_Dashboard = {
                         badgeClass = "badge-error";
                     } else if (status === "Success - Pending Production" || status === "Success - Pending Re-Verification") {
                         badgeClass = "badge-success";
-                    } else if (status === "QA In Progress") {
-                        badgeClass = "badge-warning";
+                    } else if (status === "QA In Progress" || status.startsWith("QA In Progress") || status === "In Progress") {
+                        badgeClass = "badge-primary";
                     }
 
                     if (scoreNum === null) {
@@ -1486,8 +1522,8 @@ const ALC_Dashboard = {
                         } else if (status === "Pending QA") {
                             scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Awaiting QA Accept</span>`;
                         } else if (status === "Escalated") {
-                            scoreDisplay = `<span class="text-danger font-weight-bold" style="font-size: 12px;">ESCALATED</span>`;
-                        } else if (status === "QA In Progress") {
+                            scoreDisplay = `<span class="text-danger font-weight-bold" style="font-size: 12px;">DELAYED</span>`;
+                        } else if (status === "QA In Progress" || status.startsWith("QA In Progress")) {
                             scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Evaluation Pending</span>`;
                         } else {
                             scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">N/A</span>`;
@@ -1515,6 +1551,8 @@ const ALC_Dashboard = {
                         displayStatus = displayStatus.replace("Pending Production", "Pending Observation");
                     } else if (displayStatus === "QA In Progress") {
                         displayStatus = "QA In Progress (Paused)";
+                    } else if (displayStatus === "Escalated") {
+                        displayStatus = "Delayed";
                     }
 
                     tr.innerHTML = `
@@ -1531,7 +1569,7 @@ const ALC_Dashboard = {
 
                     const isPkgReverify = (status.includes("Pending Re-Verification") || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
                     const isPkgCancelled = String(status).toLowerCase().includes("cancel") || String(t.cr3ea_processstatus || "").toLowerCase().includes("cancel");
-                    const isPkgInProgress = (status === "QA In Progress" || status === "In Progress" || status === "InProgress-paused" || status === "Pending QA");
+                    const isPkgInProgress = (status === "QA In Progress" || status.startsWith("QA In Progress") || status === "In Progress" || status === "InProgress-paused" || status === "Pending QA");
                     const isPkgProdPending = (status.includes("Pending Production") || status.includes("Pending Observation") || status === "Failed - Pending Production" || status === "Success - Pending Production" || status === "Production Action Needed");
                     let isClickable = true;
                     if (isPkgCancelled) {
@@ -1624,24 +1662,58 @@ const ALC_Dashboard = {
                         }
                     }
 
-                    if (scoreNum !== null) {
-                        const isSuccess = (scoreNum >= 80);
-                        if (status.includes("Pending Production")) {
-                            status = isSuccess ? "Success - Pending Production" : "Failed - Pending Production";
-                        } else if (status.includes("Pending Re-Verification") || status === "Pending Re-Verification") {
-                            status = isSuccess ? "Success - Pending Re-Verification" : "Failed - Pending Re-Verification";
-                        }
-                    } else {
-                        if (status === "Pending Re-Verification") {
-                            status = "Failed - Pending Re-Verification";
-                        }
+                    // Check if critical gate failure occurred in checkpoints or session
+                    let hasCriticalFailure = false;
+                    if (t.checkpoints && Array.isArray(t.checkpoints) && t.checkpoints.length > 0) {
+                        const questionConfigs = (ALC_Dashboard.configs || []).filter(c => c.ConfigType === "Checklist Question");
+                        t.checkpoints.forEach(cp => {
+                            const scoreText = cp.cr3ea_defectcategory || "";
+                            const isFailedScore = (scoreText.includes("(0)") || scoreText === "00" || scoreText.includes("Non-Compliant") || scoreText.includes("(1)") || scoreText === "01" || scoreText.includes("Partial"));
+                            if (isFailedScore) {
+                                let isCritical = false;
+                                const criteriaText = (cp.cr3ea_criteria || "").toLowerCase().trim();
+                                const matchedCfg = questionConfigs.find(q => {
+                                    const qTitle = (q.Title || "").toLowerCase().trim();
+                                    const qRemarks = (q.Remarks || "").toLowerCase().trim();
+                                    return (qTitle && (criteriaText.includes(qTitle) || qTitle.includes(criteriaText))) ||
+                                           (qRemarks && (criteriaText.includes(qRemarks) || qRemarks.includes(criteriaText)));
+                                });
+                                if (matchedCfg) {
+                                    isCritical = !!(matchedCfg.isCritical || matchedCfg.IsCritical === true || matchedCfg.ProductCategory === "Critical" || matchedCfg.Remarks === "Critical");
+                                } else if (typeof ALC_CHECKLIST_SEED_DATA !== 'undefined' && Array.isArray(ALC_CHECKLIST_SEED_DATA)) {
+                                    const seedItem = ALC_CHECKLIST_SEED_DATA.find(s => {
+                                        const sText = (s.description || s.title || "").toLowerCase().trim();
+                                        return sText && (criteriaText.includes(sText) || sText.includes(criteriaText));
+                                    });
+                                    if (seedItem) isCritical = !!seedItem.isCritical;
+                                }
+                                if (isCritical) {
+                                    hasCriticalFailure = true;
+                                }
+                            }
+                        });
+                    }
+
+                    const isLineClearVal = t.cr3ea_islineclear;
+                    const isLineClearExplicitNo = (isLineClearVal === false || isLineClearVal === "false" || isLineClearVal === 0 || isLineClearVal === "0" || isLineClearVal === "No");
+                    const isChecklistResultFail = (t.cr3ea_checklist_result === "Fail" || t.cr3ea_checklist_result === "Expired");
+                    const isExplicitlyFailedStatus = (String(t.cr3ea_processstatus || "").startsWith("Failed") || String(t.cr3ea_status || "").startsWith("Failed"));
+                    const isEvaluationDone = (scoreNum !== null || isChecklistResultFail || isExplicitlyFailedStatus || status.includes("Pending Production") || status.includes("Pending Re-Verification"));
+                    const isTourFailed = hasCriticalFailure || (isEvaluationDone && (isLineClearExplicitNo || isChecklistResultFail || isExplicitlyFailedStatus || (scoreNum !== null && scoreNum < 80)));
+
+                    if (status.includes("Pending Production") || status === "Pending Production") {
+                        const isSuccess = (scoreNum !== null && scoreNum >= 80 && !isTourFailed);
+                        status = isSuccess ? "Success - Pending Production" : "Failed - Pending Production";
+                    } else if (status.includes("Pending Re-Verification") || status === "Pending Re-Verification") {
+                        const isSuccess = (scoreNum !== null && scoreNum >= 80 && !isTourFailed);
+                        status = isSuccess ? "Success - Pending Re-Verification" : "Failed - Pending Re-Verification";
                     }
 
                     let badgeClass = "badge-warning";
 
                     let isMyTask = false;
 
-                    const isQaStatus = (status === "Pending QA" || status === "QA In Progress" || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
+                    const isQaStatus = (status === "Pending QA" || status === "QA In Progress" || status.startsWith("QA In Progress") || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
                     if (isQaStatus) {
                         const qaEmail = (t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
                         const qaResolvedName = qaEmail.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaEmail).toLowerCase().trim() : qaEmail;
@@ -1652,8 +1724,8 @@ const ALC_Dashboard = {
                         }
                     }
 
-                    const escalationContactsStr = t.cr3ea_escalation_contacts || "";
-                    const escalationEmails = escalationContactsStr.toLowerCase().split(",").map(e => e.trim());
+                    const escalationContactsStr = (t.cr3ea_escalation_contacts || "").split("||")[0].trim();
+                    const escalationEmails = escalationContactsStr.toLowerCase().split(",").map(e => e.trim()).filter(e => e.includes("@"));
 
                     const qaEmailVal = (t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
                     if (qaEmailVal && ALC_Dashboard.qaList) {
@@ -1721,14 +1793,18 @@ const ALC_Dashboard = {
 
                     if (isEscalatedForMe && !isMyTask) {
                         tr.classList.add("escalated-task-row");
-                        tr.title = "CRITICAL: This tour has escalated! Click to view details.";
+                        tr.title = "This tour acceptance is delayed. Click to view details.";
                     }
 
-                    if (status === "Failed - Pending Production" || status === "Failed - Pending Re-Verification" || status === "Escalated") {
+                    if (status === "Failed - Pending Production" || status === "Failed - Pending Re-Verification" || (isTourFailed && !["Pending QA", "QA In Progress", "In Progress", "InProgress-paused", "Escalated", "Draft"].some(s => status.startsWith(s)))) {
                         badgeClass = "badge-error";
                     } else if (status === "Success - Pending Production" || status === "Success - Pending Re-Verification") {
                         badgeClass = "badge-success";
-                    } else if (status === "QA In Progress") {
+                    } else if (status === "QA In Progress" || status.startsWith("QA In Progress") || status === "In Progress") {
+                        badgeClass = "badge-primary";
+                    } else if (status === "Escalated") {
+                        badgeClass = "badge-danger";
+                    } else {
                         badgeClass = "badge-warning";
                     }
 
@@ -1738,8 +1814,8 @@ const ALC_Dashboard = {
                         } else if (status === "Pending QA") {
                             scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Awaiting QA Accept</span>`;
                         } else if (status === "Escalated") {
-                            scoreDisplay = `<span class="text-danger font-weight-bold" style="font-size: 12px;">ESCALATED</span>`;
-                        } else if (status === "QA In Progress") {
+                            scoreDisplay = `<span class="text-danger font-weight-bold" style="font-size: 12px;">DELAYED</span>`;
+                        } else if (status === "QA In Progress" || status.startsWith("QA In Progress")) {
                             scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Evaluation Pending</span>`;
                         } else {
                             scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">N/A</span>`;
@@ -1749,16 +1825,17 @@ const ALC_Dashboard = {
                     let clearBadgeHtml = "-";
                     const isAlcTour = (form.toLowerCase().includes("line") || form.toLowerCase().includes("alc") || form.toLowerCase().includes("clearance"));
                     if (isAlcTour) {
-                        const isClearedVal = t.cr3ea_islineclear;
-                        const isCleared = isClearedVal === true ||
-                            isClearedVal === "true" ||
-                            isClearedVal === 1 ||
-                            isClearedVal === "1" ||
-                            isClearedVal === "Yes" ||
+                        const isCleared = !isTourFailed && (
+                            isLineClearVal === true ||
+                            isLineClearVal === "true" ||
+                            isLineClearVal === 1 ||
+                            isLineClearVal === "1" ||
+                            isLineClearVal === "Yes" ||
                             status === "Completed" ||
                             status === "Closed" ||
                             status === "Closed - Expired" ||
-                            status === "Success";
+                            status === "Success"
+                        );
 
                         clearBadgeHtml = isCleared
                             ? '<span class="badge badge-success" style="background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Yes</span>'
@@ -1770,6 +1847,8 @@ const ALC_Dashboard = {
                         displayStatus = displayStatus.replace("Pending Production", "Pending Observation");
                     } else if (displayStatus === "QA In Progress") {
                         displayStatus = "QA In Progress (Paused)";
+                    } else if (displayStatus === "Escalated") {
+                        displayStatus = "Delayed";
                     }
 
                     tr.innerHTML = `
@@ -1788,7 +1867,7 @@ const ALC_Dashboard = {
                     let isClickable = true;
                     if (isAlcCancelled) {
                         isClickable = false;
-                    } else if (status === "QA In Progress" && !isMyTask) {
+                    } else if ((status === "QA In Progress" || status.startsWith("QA In Progress")) && !isMyTask) {
                         isClickable = false;
                     } else if (isReverifyStatus && (isUserProdExec || isAlcAssigneeMatch) && !isMyTask) {
                         isClickable = false;
@@ -1799,7 +1878,7 @@ const ALC_Dashboard = {
                         if (status === "Escalated" && isUserProdExec) {
                             tr.title = "Action Required: QA acceptance timed out. Click to reassign QA Executive.";
                         } else if (isEscalatedForMe) {
-                            tr.title = "CRITICAL: This tour has escalated! Click to view details.";
+                            tr.title = "This tour acceptance is delayed. Click to view details.";
                         } else {
                             tr.title = "Click to open tour clearance form";
                         }
@@ -2433,7 +2512,7 @@ const ALC_Dashboard = {
     // Dynamically calculate score from fetched checkpoints (identical to Summary page logic)
     calculateScoreDynamically: function (t) {
         const status = t.cr3ea_processstatus || t.cr3ea_status || "";
-        if (status === "QA In Progress" || status === "Pending QA" || status === "In Progress" || status === "Escalated") {
+        if (status.startsWith("QA In Progress") || status === "Pending QA" || status === "In Progress" || status === "Escalated") {
             return null;
         }
 
@@ -2462,5 +2541,231 @@ const ALC_Dashboard = {
         if (totalMaxPoints === 0) return null;
         const percentRaw = (totalObtainedPoints / totalMaxPoints) * 100;
         return percentRaw.toFixed(2);
+    },
+
+    // Populate line dropdown dynamically from tour records
+    populateLineDropdown: function () {
+        const lineSelect = document.getElementById("dashboardLineSelect");
+        if (!lineSelect) return;
+
+        const currentVal = this.selectedLine || "All";
+        const standardLines = [
+            "Line No. 1", "Line No. 2", "Line No. 3", "Line No. 4",
+            "Line No. 5", "Line No. 6", "Line No. 7", "Line No. 8"
+        ];
+
+        const linesInTours = new Set();
+        (this.allToursRaw || []).forEach(t => {
+            const rawLine = t.cr3ea_lineno;
+            if (rawLine && typeof rawLine === "string" && rawLine.trim()) {
+                linesInTours.add(rawLine.trim());
+            }
+        });
+
+        const allUniqueLines = Array.from(new Set([...standardLines, ...Array.from(linesInTours)]));
+        allUniqueLines.sort((a, b) => {
+            const numA = parseInt(a.replace(/\D/g, ""), 10);
+            const numB = parseInt(b.replace(/\D/g, ""), 10);
+            if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+            return a.localeCompare(b);
+        });
+
+        let optionsHtml = `<option value="All">All Lines</option>`;
+        allUniqueLines.forEach(l => {
+            optionsHtml += `<option value="${l}">${l}</option>`;
+        });
+        lineSelect.innerHTML = optionsHtml;
+        lineSelect.value = currentVal;
+    },
+
+    // Match tour record against selected line
+    matchesLine: function (t, selectedLine) {
+        if (!selectedLine || selectedLine === "All") return true;
+        const tourLine = String(t.cr3ea_lineno || "").trim();
+        if (!tourLine) return false;
+
+        if (tourLine.toLowerCase() === selectedLine.toLowerCase()) return true;
+
+        const selDigits = selectedLine.replace(/\D/g, "");
+        const tourDigits = tourLine.replace(/\D/g, "");
+        if (selDigits && tourDigits && selDigits === tourDigits) return true;
+
+        if (tourLine.toLowerCase().includes(selectedLine.toLowerCase()) || 
+            selectedLine.toLowerCase().includes(tourLine.toLowerCase())) {
+            return true;
+        }
+
+        return false;
+    },
+
+    // Match tour record against selected date preset or custom range
+    matchesDate: function (t, preset, fromDate, toDate) {
+        if (!preset || preset === "All") return true;
+
+        const rawDate = t.cr3ea_tourstartdate || t.createdon;
+        if (!rawDate) return false;
+
+        const m = ALC_Dashboard.parseDateMoment(rawDate);
+        if (!m || !m.isValid()) return false;
+
+        const tourDateStr = m.clone().local().format("YYYY-MM-DD");
+        const todayStr = moment().format("YYYY-MM-DD");
+        const yesterdayStr = moment().subtract(1, "days").format("YYYY-MM-DD");
+        const last7DaysStr = moment().subtract(7, "days").format("YYYY-MM-DD");
+        const last30DaysStr = moment().subtract(30, "days").format("YYYY-MM-DD");
+
+        if (preset === "Today") {
+            return tourDateStr === todayStr;
+        } else if (preset === "Yesterday") {
+            return tourDateStr === yesterdayStr;
+        } else if (preset === "Last7Days") {
+            return tourDateStr >= last7DaysStr && tourDateStr <= todayStr;
+        } else if (preset === "Last30Days") {
+            return tourDateStr >= last30DaysStr && tourDateStr <= todayStr;
+        } else if (preset === "Custom") {
+            if (fromDate && toDate) {
+                return tourDateStr >= fromDate && tourDateStr <= toDate;
+            } else if (fromDate) {
+                return tourDateStr >= fromDate;
+            } else if (toDate) {
+                return tourDateStr <= toDate;
+            }
+            return true;
+        }
+
+        return true;
+    },
+
+    // Bind event listeners for line and date filters
+    bindFilterEvents: function () {
+        const lineSelect = document.getElementById("dashboardLineSelect");
+        if (lineSelect) {
+            $(lineSelect).off("change.linefilter").on("change.linefilter", () => {
+                ALC_Dashboard.selectedLine = lineSelect.value;
+                ALC_Dashboard.applyCategoryFilter();
+            });
+        }
+
+        const datePreset = document.getElementById("dashboardDatePreset");
+        const customDateRange = document.getElementById("dashboardCustomDateRange");
+        if (datePreset) {
+            $(datePreset).off("change.datepreset").on("change.datepreset", () => {
+                ALC_Dashboard.selectedDatePreset = datePreset.value;
+                if (datePreset.value === "Custom") {
+                    if (customDateRange) customDateRange.style.display = "flex";
+                } else {
+                    if (customDateRange) customDateRange.style.display = "none";
+                    ALC_Dashboard.fromDate = "";
+                    ALC_Dashboard.toDate = "";
+                    const fromInput = document.getElementById("dashboardFromDate");
+                    const toInput = document.getElementById("dashboardToDate");
+                    if (fromInput) fromInput.value = "";
+                    if (toInput) toInput.value = "";
+                }
+                ALC_Dashboard.applyCategoryFilter();
+            });
+        }
+
+        const fromDateInput = document.getElementById("dashboardFromDate");
+        if (fromDateInput) {
+            $(fromDateInput).off("change.fromdate").on("change.fromdate", () => {
+                ALC_Dashboard.fromDate = fromDateInput.value;
+                ALC_Dashboard.applyCategoryFilter();
+            });
+        }
+
+        const toDateInput = document.getElementById("dashboardToDate");
+        if (toDateInput) {
+            $(toDateInput).off("change.todate").on("change.todate", () => {
+                ALC_Dashboard.toDate = toDateInput.value;
+                ALC_Dashboard.applyCategoryFilter();
+            });
+        }
+    },
+
+    // Reset all interactive filters back to default
+    resetFilters: function () {
+        this.selectedLine = "All";
+        this.selectedDatePreset = "All";
+        this.fromDate = "";
+        this.toDate = "";
+
+        const lineSelect = document.getElementById("dashboardLineSelect");
+        if (lineSelect) lineSelect.value = "All";
+
+        const datePreset = document.getElementById("dashboardDatePreset");
+        if (datePreset) datePreset.value = "All";
+
+        const customDateRange = document.getElementById("dashboardCustomDateRange");
+        if (customDateRange) customDateRange.style.display = "none";
+
+        const fromDateInput = document.getElementById("dashboardFromDate");
+        if (fromDateInput) fromDateInput.value = "";
+
+        const toDateInput = document.getElementById("dashboardToDate");
+        if (toDateInput) toDateInput.value = "";
+
+        this.applyCategoryFilter();
+    },
+
+    // Defensive fallback: ensure filter panel exists even if cached HTML lacks it
+    ensureFilterPanel: function () {
+        let panel = document.getElementById("dashboardFilterPanel");
+        if (!panel) {
+            const dashboardEl = document.getElementById("rajpuraQualityDashboard");
+            if (!dashboardEl) return;
+
+            const targetSection = dashboardEl.querySelector(".mb-4");
+            const panelHtml = `
+                <div id="dashboardFilterPanel" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 22px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);">
+                    <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 15px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label for="dashboardLineSelect" style="font-size: 13px; font-weight: 600; color: #475569; margin: 0; white-space: nowrap;">🏭 Line:</label>
+                            <select id="dashboardLineSelect" style="height: 36px; padding: 6px 12px; font-size: 13px; font-weight: 500; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #1e293b; cursor: pointer; min-width: 140px;">
+                                <option value="All">All Lines</option>
+                                <option value="Line No. 1">Line No. 1</option>
+                                <option value="Line No. 2">Line No. 2</option>
+                                <option value="Line No. 3">Line No. 3</option>
+                                <option value="Line No. 4">Line No. 4</option>
+                                <option value="Line No. 5">Line No. 5</option>
+                                <option value="Line No. 6">Line No. 6</option>
+                                <option value="Line No. 7">Line No. 7</option>
+                                <option value="Line No. 8">Line No. 8</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label for="dashboardDatePreset" style="font-size: 13px; font-weight: 600; color: #475569; margin: 0; white-space: nowrap;">📅 Date:</label>
+                            <select id="dashboardDatePreset" style="height: 36px; padding: 6px 12px; font-size: 13px; font-weight: 500; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #1e293b; cursor: pointer; min-width: 130px;">
+                                <option value="All">All Dates</option>
+                                <option value="Today">Today</option>
+                                <option value="Yesterday">Yesterday</option>
+                                <option value="Last7Days">Last 7 Days</option>
+                                <option value="Last30Days">Last 30 Days</option>
+                                <option value="Custom">Custom Range</option>
+                            </select>
+                        </div>
+                        <div id="dashboardCustomDateRange" style="display: none; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <span style="font-size: 12px; color: #64748b; font-weight: 500;">From:</span>
+                                <input type="date" id="dashboardFromDate" style="height: 36px; padding: 4px 8px; font-size: 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #1e293b; cursor: pointer;" />
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <span style="font-size: 12px; color: #64748b; font-weight: 500;">To:</span>
+                                <input type="date" id="dashboardToDate" style="height: 36px; padding: 4px 8px; font-size: 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #1e293b; cursor: pointer;" />
+                            </div>
+                        </div>
+                        <button type="button" id="btn-reset-filters" onclick="ALC_Dashboard.resetFilters()" style="display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; font-size: 13px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #475569; cursor: pointer; transition: all 0.15s ease;" title="Reset all filters">
+                            ↺ Reset
+                        </button>
+                    </div>
+                    <div id="dashboardFilterCountBadge" style="font-size: 12px; font-weight: 600; color: #0369a1; background: #e0f2fe; padding: 5px 12px; border-radius: 12px; border: 1px solid #bae6fd; white-space: nowrap;">
+                        Showing all tours
+                    </div>
+                </div>
+            `;
+            if (targetSection) {
+                $(panelHtml).insertBefore(targetSection);
+            }
+        }
     }
 };

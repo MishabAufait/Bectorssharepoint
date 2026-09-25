@@ -73,8 +73,35 @@ const MixingBaking_Checklist = {
 
             const activeRecipes = recipesList.filter(r => r.isActive !== false);
             activeRecipes.forEach(r => {
-                const isSelected = (state.product && (state.product.toLowerCase().trim() === r.title.toLowerCase().trim())) ? 'selected' : '';
-                productSelect.append(`<option value="${r.title}" ${isSelected}>${r.title}</option>`);
+                const skuStr = (r.skuRaw || (Array.isArray(r.sku) ? r.sku.join(", ") : "") || "").trim();
+                const title = (r.title || r.variety || "").trim();
+                const hasSkuInTitle = skuStr && title.toLowerCase().includes(skuStr.toLowerCase());
+                
+                // If multiple items share same base title, append SKU for clear identification
+                const sameTitleCount = activeRecipes.filter(other => (other.title || other.variety || "").trim().toLowerCase() === title.toLowerCase()).length;
+                const displayTitle = (skuStr && skuStr !== "-" && skuStr.toUpperCase() !== "NA" && !hasSkuInTitle && sameTitleCount > 1)
+                    ? `${title} (${skuStr})`
+                    : title;
+
+                const isSelected = (state.product && (
+                    state.product.toLowerCase().trim() === title.toLowerCase().trim() ||
+                    state.product.toLowerCase().trim() === displayTitle.toLowerCase().trim()
+                )) ? 'selected' : '';
+
+                productSelect.append(`<option value="${displayTitle}" data-srno="${r.srNo || ''}" ${isSelected}>${displayTitle}</option>`);
+            });
+
+            // Bind change / select2:select to auto-populate open cycle immediately upon product selection
+            productSelect.off("change.mbAutoPop select2:select.mbAutoPop").on("change.mbAutoPop select2:select.mbAutoPop", function () {
+                const chosen = $(this).val();
+                if (chosen) {
+                    MixingBaking_Main.state.product = chosen;
+                    const activePanels = document.querySelectorAll(".tour-cycle-panel:not(.completed-cycle)");
+                    activePanels.forEach(p => {
+                        const num = p.id.replace("cycle-", "");
+                        MixingBaking_Checklist.populateStandardValues(num, chosen);
+                    });
+                }
             });
         }
 
@@ -303,12 +330,6 @@ const MixingBaking_Checklist = {
 
             // Load Cycles History (creates Cycle 1 in checklist fill mode)
             await MixingBaking_Main.loadCyclesHistory();
-
-            // Show complete tour button if QA
-            const compContainer = document.getElementById("complete-tour-btn-container");
-            if (compContainer && MixingBaking_Main.state.canEditChecklist) {
-                compContainer.style.display = "flex";
-            }
         } catch (err) {
             console.error("Failed to start session from info form:", err);
             const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
@@ -473,7 +494,7 @@ const MixingBaking_Checklist = {
         const readOnlyBannerHtml = (!isCompleted && !canEdit)
             ? `<div class="alert alert-warning" style="background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; border-radius: 6px; padding: 12px 16px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; font-size: 13px;">
                 <span style="font-weight: bold; font-size: 14px; background: #f59e0b; color: #ffffff; width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;">!</span>
-                <span><strong>Read-Only Mode:</strong> You are viewing this checklist in read-only mode. Only the assigned QA Executive (${assignedQAName || "N/A"}) can edit or submit cycle data.</span>
+                <span><strong>Read-Only Mode:</strong> You are viewing this checklist in read-only mode. Only the assigned QA Executive (${assignedQAName || "N/A"}) can edit or complete the quality tour.</span>
             </div>`
             : '';
 
@@ -514,27 +535,27 @@ const MixingBaking_Checklist = {
                         <div class="mb-tabs-content">
                             <!-- TAB 1: INGREDIENT QUALITY -->
                             <div class="mb-tab-pane active" id="ing-q-${cycleNum}">
-                                <h4 class="mb-section-title">Ingredient Temperature Checks</h4>
+                                <h4 class="mb-section-title">Ingredient Temperature Checks (&deg;C)</h4>
                                 <div class="table-responsive">
                                     <table class="table mb-standards-table">
                                         <thead>
                                             <tr>
                                                 <th>Ingredient</th>
-                                                <th>Standard</th>
-                                                <th>Observed</th>
+                                                <th>Standard (&deg;C)</th>
+                                                <th>Observed (&deg;C)</th>
                                                 <th>Remarks</th>
                                                 <th>Action Taken</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            ${this.renderIngRow(cycleNum, "RPO", "cr3ea_rpo")}
-                                            ${this.renderIngRow(cycleNum, "Solid Fat", "cr3ea_solidfat")}
-                                            ${this.renderIngRow(cycleNum, "Butter", "cr3ea_butter")}
-                                            ${this.renderIngRow(cycleNum, "Blackjack (Initial)", "cr3ea_blackjack")}
-                                            ${this.renderIngRow(cycleNum, "Sponge", "cr3ea_spongetemp")}
-                                            ${this.renderIngRow(cycleNum, "Slurry", "cr3ea_slurry")}
-                                            ${this.renderIngRow(cycleNum, "Ground Sugar Temp", "cr3ea_groundsugartemp")}
-                                            ${this.renderIngRow(cycleNum, "Ground Sugar Particle", "cr3ea_groundsugarparticlesize")}
+                                            ${this.renderIngRow(cycleNum, "RPO (&deg;C)", "cr3ea_rpo", true)}
+                                            ${this.renderIngRow(cycleNum, "Solid Fat (&deg;C)", "cr3ea_solidfat")}
+                                            ${this.renderIngRow(cycleNum, "Butter (&deg;C)", "cr3ea_butter")}
+                                            ${this.renderIngRow(cycleNum, "Blackjack (Initial) (&deg;C)", "cr3ea_blackjack")}
+                                            ${this.renderIngRow(cycleNum, "Sponge (&deg;C)", "cr3ea_spongetemp")}
+                                            ${this.renderIngRow(cycleNum, "Slurry (&deg;C)", "cr3ea_slurry")}
+                                            ${this.renderIngRow(cycleNum, "Ground Sugar Temp (&deg;C)", "cr3ea_groundsugartemp")}
+                                            ${this.renderIngRow(cycleNum, "Ground Sugar Particle Size (Mesh)", "cr3ea_groundsugarparticlesize")}
                                         </tbody>
                                     </table>
                                 </div>
@@ -557,17 +578,17 @@ const MixingBaking_Checklist = {
                                 <div class="supplier-section-grid">
                                     <div class="supplier-card">
                                         <h5>Choco Chips</h5>
-                                        <div class="form-group"><label>Supplier</label><input type="text" class="form-control" id="cr3ea_chocochipssupplier-${cycleNum}" /></div>
-                                        <div class="form-group"><label>Temperature</label><input type="text" class="form-control" id="cr3ea_chocochipstemp-${cycleNum}" /></div>
-                                        <div class="form-group"><label>Count/kg</label><input type="text" class="form-control" id="cr3ea_chocochipscountperkg-${cycleNum}" /></div>
+                                        <div class="form-group"><label>Supplier <span style="color: #ef4444; font-weight: bold;">*</span></label><input type="text" class="form-control" id="cr3ea_chocochipssupplier-${cycleNum}" /></div>
+                                        <div class="form-group"><label>Temperature (&deg;C) <span style="color: #ef4444; font-weight: bold;">*</span></label><input type="text" class="form-control" id="cr3ea_chocochipstemp-${cycleNum}" /></div>
+                                        <div class="form-group"><label>Count (Count/kg)</label><input type="text" class="form-control" id="cr3ea_chocochipscountperkg-${cycleNum}" /></div>
                                         <div class="form-group"><label>Mfg Date</label><input type="date" class="form-control" id="cr3ea_chocochipsmfgdate-${cycleNum}" /></div>
                                         <div class="form-group"><label>Compound/Pure</label><input type="text" class="form-control" id="cr3ea_chocochipscompoundorpure-${cycleNum}" /></div>
                                     </div>
                                     <div class="supplier-card">
                                         <h5>Cashew</h5>
-                                        <div class="form-group"><label>Supplier</label><input type="text" class="form-control" id="cr3ea_cashewsupplier-${cycleNum}" /></div>
-                                        <div class="form-group"><label>Temperature</label><input type="text" class="form-control" id="cr3ea_cashewtemp-${cycleNum}" /></div>
-                                        <div class="form-group"><label>Count/kg</label><input type="text" class="form-control" id="cr3ea_cashewcountperkg-${cycleNum}" /></div>
+                                        <div class="form-group"><label>Supplier <span style="color: #ef4444; font-weight: bold;">*</span></label><input type="text" class="form-control" id="cr3ea_cashewsupplier-${cycleNum}" /></div>
+                                        <div class="form-group"><label>Temperature (&deg;C) <span style="color: #ef4444; font-weight: bold;">*</span></label><input type="text" class="form-control" id="cr3ea_cashewtemp-${cycleNum}" /></div>
+                                        <div class="form-group"><label>Count (Count/kg)</label><input type="text" class="form-control" id="cr3ea_cashewcountperkg-${cycleNum}" /></div>
                                         <div class="form-group"><label>Mfg Date</label><input type="date" class="form-control" id="cr3ea_cashewmfgdate-${cycleNum}" /></div>
                                         <div class="form-group"><label>Compound/Pure</label><input type="text" class="form-control" id="cr3ea_cashewcompoundorpure-${cycleNum}" /></div>
                                     </div>
@@ -575,7 +596,7 @@ const MixingBaking_Checklist = {
 
                                 <div class="form-grid-three" style="margin-top:20px;">
                                     <div class="form-group">
-                                        <label>Flour Supplier</label>
+                                        <label>Flour Supplier <span style="color: #ef4444; font-weight: bold;">*</span></label>
                                         <input type="text" class="form-control" id="cr3ea_floursupplier-${cycleNum}" placeholder="Enter Supplier" />
                                     </div>
                                 </div>
@@ -586,14 +607,14 @@ const MixingBaking_Checklist = {
                                         <thead>
                                             <tr>
                                                 <th>Parameter</th>
-                                                <th>Temperature</th>
+                                                <th>Temperature (&deg;C)</th>
                                                 <th>pH</th>
-                                                <th>Brix</th>
+                                                <th>Brix (&deg;Bx)</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <tr>
-                                                <td><strong>Invert Syrup</strong></td>
+                                                <td><strong>Invert Syrup <span style="color: #ef4444; font-weight: bold;">*</span></strong></td>
                                                 <td><input type="text" class="form-control" id="cr3ea_invertsyruptemp-${cycleNum}" /></td>
                                                 <td><input type="text" class="form-control" id="cr3ea_invertsyrupph-${cycleNum}" /></td>
                                                 <td><input type="text" class="form-control" id="cr3ea_invertsyrupbrix-${cycleNum}" /></td>
@@ -614,11 +635,11 @@ const MixingBaking_Checklist = {
                                 <h4 class="mb-section-title">Mixing - Sponge Process</h4>
                                 <div class="form-grid">
                                     <div class="form-group">
-                                        <label>Product Name</label>
+                                        <label>Product Name <span style="color: #ef4444; font-weight: bold;">*</span></label>
                                         <input type="text" class="form-control" id="cr3ea_spongeproductname-${cycleNum}" placeholder="Sponge Product" />
                                     </div>
                                     <div class="form-group">
-                                        <label>Water Quantity (kg/L)</label>
+                                        <label>Water Quantity (kg/L) <span style="color: #ef4444; font-weight: bold;">*</span></label>
                                         <input type="text" class="form-control" id="cr3ea_spongewaterquantity-${cycleNum}" />
                                     </div>
                                     <div class="form-group">
@@ -626,7 +647,7 @@ const MixingBaking_Checklist = {
                                         <input type="text" class="form-control" id="cr3ea_spongeyeastquantity-${cycleNum}" />
                                     </div>
                                     <div class="form-group">
-                                        <label>Water Temp</label>
+                                        <label>Water Temp (&deg;C)</label>
                                         <input type="text" class="form-control" id="cr3ea_spongewatertemp-${cycleNum}" />
                                     </div>
                                     <div class="form-group">
@@ -634,15 +655,15 @@ const MixingBaking_Checklist = {
                                         <input type="text" class="form-control" id="cr3ea_spongemixingtime-${cycleNum}" />
                                     </div>
                                     <div class="form-group">
-                                        <label>Fermentation Start Temp</label>
+                                        <label>Fermentation Start Temp (&deg;C)</label>
                                         <input type="text" class="form-control" id="cr3ea_fermentationstarttemp-${cycleNum}" />
                                     </div>
                                     <div class="form-group">
-                                        <label>Room Temp</label>
+                                        <label>Room Temp (&deg;C)</label>
                                         <input type="text" class="form-control" id="cr3ea_fermentationroomtemp-${cycleNum}" />
                                     </div>
                                     <div class="form-group">
-                                        <label>Final Temp After Fermentation</label>
+                                        <label>Final Temp After Fermentation (&deg;C)</label>
                                         <input type="text" class="form-control" id="cr3ea_finaltempafterfermentation-${cycleNum}" />
                                     </div>
                                     <div class="form-group">
@@ -662,10 +683,10 @@ const MixingBaking_Checklist = {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            ${this.renderMixingDoughRow(cycleNum, "Creaming Time (min)", "cr3ea_creamingtime")}
+                                            ${this.renderMixingDoughRow(cycleNum, "Creaming Time (min)", "cr3ea_creamingtime", true)}
                                             ${this.renderMixingDoughRow(cycleNum, "Mixing Time (min)", "cr3ea_mixingtime")}
-                                            ${this.renderMixingDoughRow(cycleNum, "Dough Temp", "cr3ea_doughtemp")}
-                                            ${this.renderMixingDoughRow(cycleNum, "Jacket Temp", "cr3ea_jackettemp")}
+                                            ${this.renderMixingDoughRow(cycleNum, "Dough Temp (&deg;C)", "cr3ea_doughtemp")}
+                                            ${this.renderMixingDoughRow(cycleNum, "Jacket Temp (&deg;C)", "cr3ea_jackettemp")}
                                             <tr>
                                                 <td><strong>Dough Consistency</strong></td>
                                                 <td colspan="2"><input type="text" class="form-control" id="cr3ea_doughconsistency-${cycleNum}" placeholder="Consistency details..." /></td>
@@ -686,27 +707,27 @@ const MixingBaking_Checklist = {
                                 <h4 class="mb-section-title" style="margin-top:20px;">Forming & Moulding</h4>
                                 <div class="form-grid">
                                     <div class="form-group">
-                                        <label>Moulding RPM / Strokes</label>
+                                        <label>Moulding RPM / Strokes (RPM) <span style="color: #ef4444; font-weight: bold;">*</span></label>
                                         <input type="text" class="form-control" id="cr3ea_moulderrpmstrokes-${cycleNum}" />
                                     </div>
                                     <div class="form-group">
-                                        <label>Sample Count</label>
+                                        <label>Sample Count (bis) <span style="color: #ef4444; font-weight: bold;">*</span></label>
                                         <input type="text" class="form-control" id="cr3ea_formingsamplecount-${cycleNum}" />
                                     </div>
                                     <div class="form-group">
-                                        <label>Standard Wet Weight</label>
+                                        <label>Standard Wet Weight (g)</label>
                                         <input type="text" class="form-control" id="cr3ea_standardwetweight-${cycleNum}" />
                                     </div>
                                     <div class="form-group">
-                                        <label>Observed Wet Weight</label>
+                                        <label>Observed Wet Weight (g)</label>
                                         <input type="text" class="form-control" id="cr3ea_observedwetweight-${cycleNum}" />
                                     </div>
                                     <div class="form-group">
-                                        <label>Weight Before Sugar Sprinkling</label>
+                                        <label>Weight Before Sugar Sprinkling (g)</label>
                                         <input type="text" class="form-control" id="cr3ea_weightbeforesugarsprinkling-${cycleNum}" />
                                     </div>
                                     <div class="form-group">
-                                        <label>Weight After Sugar Sprinkling</label>
+                                        <label>Weight After Sugar Sprinkling (g)</label>
                                         <input type="text" class="form-control" id="cr3ea_weightaftersugarsprinkling-${cycleNum}" />
                                     </div>
                                 </div>
@@ -717,11 +738,11 @@ const MixingBaking_Checklist = {
                                 <h4 class="mb-section-title">Baking Time & Profile</h4>
                                 <div class="form-grid-three">
                                     <div class="form-group">
-                                        <label>Baking Time (min)</label>
+                                        <label>Baking Time (min) <span style="color: #ef4444; font-weight: bold;">*</span></label>
                                         <input type="text" class="form-control" id="cr3ea_bakingtime-${cycleNum}" />
                                     </div>
                                     <div class="form-group">
-                                        <label>Baking Profile Taste</label>
+                                        <label>Baking Profile Taste <span style="color: #ef4444; font-weight: bold;">*</span></label>
                                         <input type="text" class="form-control" id="cr3ea_bakingprofiletaste-${cycleNum}" />
                                     </div>
                                     <div class="form-group checkbox-align">
@@ -730,23 +751,19 @@ const MixingBaking_Checklist = {
                                 </div>
 
                                 <h4 class="mb-section-title" style="margin-top:20px;">Top Baking Temperatures (&deg;C)</h4>
-                                <div class="zone-grid">
-                                    ${this.renderZoneInputs(cycleNum, "top")}
-                                </div>
+                                ${this.renderZoneInputs(cycleNum, "top")}
 
                                 <h4 class="mb-section-title" style="margin-top:20px;">Bottom Baking Temperatures (&deg;C)</h4>
-                                <div class="zone-grid">
-                                    ${this.renderZoneInputs(cycleNum, "bottom")}
-                                </div>
+                                ${this.renderZoneInputs(cycleNum, "bottom")}
 
                                 <h4 class="mb-section-title" style="margin-top:20px;">QC Physical Standards</h4>
                                 <div class="form-grid">
                                     <div class="form-group">
-                                        <label>Biscuit Length (mm)</label>
+                                        <label>Biscuit Length (mm) <span style="color: #ef4444; font-weight: bold;">*</span></label>
                                         <input type="text" class="form-control" id="cr3ea_biscuitlength-${cycleNum}" />
                                     </div>
                                     <div class="form-group">
-                                        <label>Biscuit Width (mm)</label>
+                                        <label>Biscuit Width (mm) <span style="color: #ef4444; font-weight: bold;">*</span></label>
                                         <input type="text" class="form-control" id="cr3ea_biscuitwidth-${cycleNum}" />
                                     </div>
                                     <div class="form-group">
@@ -754,7 +771,11 @@ const MixingBaking_Checklist = {
                                         <input type="text" class="form-control" id="cr3ea_biscuitdiameter-${cycleNum}" />
                                     </div>
                                     <div class="form-group">
-                                        <label>Standards Sample Count</label>
+                                        <label>Gauge (mm)</label>
+                                        <input type="text" class="form-control" id="cr3ea_gauge-${cycleNum}" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Standards Sample Count (bis)</label>
                                         <input type="text" class="form-control" id="cr3ea_standardssamplecount-${cycleNum}" />
                                     </div>
                                     <div class="form-group">
@@ -764,6 +785,18 @@ const MixingBaking_Checklist = {
                                     <div class="form-group">
                                         <label>Biscuit Observed Weight (g)</label>
                                         <input type="text" class="form-control" id="cr3ea_biscuitobservedweight-${cycleNum}" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Weight Before Oil (g)</label>
+                                        <input type="text" class="form-control" id="cr3ea_weightbeforeoil-${cycleNum}" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Weight After Oil Spray (g)</label>
+                                        <input type="text" class="form-control" id="cr3ea_weightafteroilspray-${cycleNum}" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Weight With Seasoning (g)</label>
+                                        <input type="text" class="form-control" id="cr3ea_weightwithseasoning-${cycleNum}" />
                                     </div>
                                 </div>
 
@@ -779,7 +812,7 @@ const MixingBaking_Checklist = {
                                         </thead>
                                         <tbody>
                                             <tr>
-                                                <td><strong>Top Colour</strong></td>
+                                                <td><strong>Top Colour <span style="color: #ef4444; font-weight: bold;">*</span></strong></td>
                                                 <td><input type="text" class="form-control" id="cr3ea_topcolourstandard-${cycleNum}" /></td>
                                                 <td><input type="text" class="form-control" id="cr3ea_topcolourobserved-${cycleNum}" /></td>
                                             </tr>
@@ -789,7 +822,7 @@ const MixingBaking_Checklist = {
                                                 <td><input type="text" class="form-control" id="cr3ea_bottomcolourobserved-${cycleNum}" /></td>
                                             </tr>
                                             <tr>
-                                                <td><strong>Moisture %</strong></td>
+                                                <td><strong>Moisture (%)</strong></td>
                                                 <td><input type="text" class="form-control" id="cr3ea_moisturestandard-${cycleNum}" /></td>
                                                 <td><input type="text" class="form-control" id="cr3ea_moistureobserved-${cycleNum}" /></td>
                                             </tr>
@@ -801,7 +834,10 @@ const MixingBaking_Checklist = {
                     </div>
 
                     <div class="form-footer" style="margin-top: 25px; border-top: 1px solid #e2e8f0; padding-top: 15px; display: ${canEdit ? 'flex' : 'none'}; justify-content: flex-end; gap: 15px;">
-                        <button type="button" class="bs-btn bs-btn-primary" style="padding: 10px 24px; font-weight: 700; font-size: 14px; border-radius: 8px;" onclick="MixingBaking_Checklist.saveCycle(${cycleNum})">Submit Cycle Data</button>
+                        <button type="button" class="bs-btn bs-btn-outline-secondary" style="padding: 10px 24px; font-weight: 600; font-size: 14px; border-radius: 8px;" onclick="window.location.reload()">Cancel</button>
+                        <button type="button" id="complete-tour-form-btn-${cycleNum}" class="bs-btn bs-btn-success" style="padding: 12px 32px; font-weight: 700; font-size: 14px; border-radius: 8px; background-color: #10b981; color: #ffffff; border: none; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);" onclick="MixingBaking_Checklist.completeCycleAndTour(${cycleNum})">
+                            <i class="fa fa-check-circle me-1"></i> Complete Tour
+                        </button>
                     </div>
                 </div>
 
@@ -829,10 +865,11 @@ const MixingBaking_Checklist = {
         }
     },
 
-    renderIngRow: function (cycleNum, label, baseName) {
+    renderIngRow: function (cycleNum, label, baseName, isRequired = false) {
+        const reqStar = isRequired ? '<span style="color: #ef4444; font-weight: bold; margin-left: 2px;">*</span>' : '';
         return `
             <tr>
-                <td><strong>${label}</strong></td>
+                <td><strong>${label}${reqStar}</strong></td>
                 <td><input type="text" class="form-control" id="${baseName}standard-${cycleNum}" placeholder="Std" /></td>
                 <td><input type="text" class="form-control" id="${baseName}observed-${cycleNum}" placeholder="Obs" /></td>
                 <td><input type="text" class="form-control" id="${baseName}remarks-${cycleNum}" placeholder="Remarks" /></td>
@@ -849,10 +886,11 @@ const MixingBaking_Checklist = {
         `;
     },
 
-    renderMixingDoughRow: function (cycleNum, label, baseName) {
+    renderMixingDoughRow: function (cycleNum, label, baseName, isRequired = false) {
+        const reqStar = isRequired ? '<span style="color: #ef4444; font-weight: bold; margin-left: 2px;">*</span>' : '';
         return `
             <tr>
-                <td><strong>${label}</strong></td>
+                <td><strong>${label}${reqStar}</strong></td>
                 <td><input type="text" class="form-control" id="${baseName}standard-${cycleNum}" /></td>
                 <td><input type="text" class="form-control" id="${baseName}observed-${cycleNum}" /></td>
             </tr>
@@ -860,21 +898,23 @@ const MixingBaking_Checklist = {
     },
 
     renderZoneInputs: function (cycleNum, level) {
-        let html = '';
+        let html = '<div class="zone-strip-container">';
         for (let i = 1; i <= 7; i++) {
+            const reqStar = (i <= 2) ? '<span style="color: #ef4444; font-weight: bold; margin-left: 2px;">*</span>' : '';
             html += `
-                <div class="zone-input-group">
-                    <label>Zone ${i}</label>
-                    <input type="text" class="form-control" id="cr3ea_${level}bakingtempzone${i}-${cycleNum}" />
+                <div class="zone-box-item">
+                    <label class="zone-box-label">Zone ${i}${reqStar}</label>
+                    <input type="text" class="form-control zone-box-input" id="cr3ea_${level}bakingtempzone${i}-${cycleNum}" placeholder="°C" />
                 </div>
             `;
         }
         html += `
-            <div class="zone-input-group">
-                <label>Product Temp</label>
-                <input type="text" class="form-control" id="cr3ea_${level}producttempafterbaking-${cycleNum}" />
+            <div class="zone-box-item zone-product-temp">
+                <label class="zone-box-label">Prod Temp</label>
+                <input type="text" class="form-control zone-box-input" id="cr3ea_${level}producttempafterbaking-${cycleNum}" placeholder="°C" />
             </div>
         `;
+        html += '</div>';
         return html;
     },
 
@@ -906,7 +946,7 @@ const MixingBaking_Checklist = {
     // Checks whether a given tab pane has at least one field filled
     isSectionFilled: function (cycleNum, paneId) {
         const pane = document.getElementById(paneId);
-        if (!pane) return false;
+        if (!pane || typeof pane.querySelectorAll !== "function") return false;
 
         const elements = pane.querySelectorAll("input, textarea, select");
         for (const el of elements) {
@@ -955,12 +995,12 @@ const MixingBaking_Checklist = {
         ];
 
         const panel = document.getElementById(`cycle-${cycleNum}`);
-        if (!panel) return;
+        if (!panel || typeof panel.querySelector !== "function") return;
 
         sections.forEach(paneId => {
             const isFilled = this.isSectionFilled(cycleNum, paneId);
             const btn = panel.querySelector(`.mb-tab-btn[onclick*="${paneId}"]`);
-            if (btn) {
+            if (btn && btn.classList) {
                 if (isFilled) {
                     btn.classList.add("section-filled");
                 } else {
@@ -983,130 +1023,209 @@ const MixingBaking_Checklist = {
         formEl.addEventListener("change", handler);
     },
 
-    // Step 3 Click - Submit Cycle
-    saveCycle: async function (cycleNum) {
+    // Validates that the first 2 fields in each section of each component tab are filled
+    validateMandatoryFields: function (cycleNum) {
+        const mandatoryFields = [
+            // TAB 1: 1. Ingredient Quality
+            // Section: Ingredient Temperature Checks
+            { id: `cr3ea_rpostandard-${cycleNum}`, label: "RPO Standard", section: "Ingredient Temperature Checks", tabId: `ing-q-${cycleNum}`, tabName: "1. Ingredient Quality" },
+            { id: `cr3ea_rpoobserved-${cycleNum}`, label: "RPO Observed", section: "Ingredient Temperature Checks", tabId: `ing-q-${cycleNum}`, tabName: "1. Ingredient Quality" },
+
+            // TAB 2: 2. Material Quality
+            // Section: Supplier & Custom Ingredients (Choco Chips)
+            { id: `cr3ea_chocochipssupplier-${cycleNum}`, label: "Choco Chips Supplier", section: "Supplier & Custom Ingredients (Choco Chips)", tabId: `mat-q-${cycleNum}`, tabName: "2. Material Quality" },
+            { id: `cr3ea_chocochipstemp-${cycleNum}`, label: "Choco Chips Temperature", section: "Supplier & Custom Ingredients (Choco Chips)", tabId: `mat-q-${cycleNum}`, tabName: "2. Material Quality" },
+            // Section: Supplier & Custom Ingredients (Cashew)
+            { id: `cr3ea_cashewsupplier-${cycleNum}`, label: "Cashew Supplier", section: "Supplier & Custom Ingredients (Cashew)", tabId: `mat-q-${cycleNum}`, tabName: "2. Material Quality" },
+            { id: `cr3ea_cashewtemp-${cycleNum}`, label: "Cashew Temperature", section: "Supplier & Custom Ingredients (Cashew)", tabId: `mat-q-${cycleNum}`, tabName: "2. Material Quality" },
+            // Section: Flour Supplier
+            { id: `cr3ea_floursupplier-${cycleNum}`, label: "Flour Supplier", section: "Supplier & Custom Ingredients", tabId: `mat-q-${cycleNum}`, tabName: "2. Material Quality" },
+            // Section: Syrup & Blackjack Checks
+            { id: `cr3ea_invertsyruptemp-${cycleNum}`, label: "Invert Syrup Temperature", section: "Syrup & Blackjack Checks", tabId: `mat-q-${cycleNum}`, tabName: "2. Material Quality" },
+            { id: `cr3ea_invertsyrupph-${cycleNum}`, label: "Invert Syrup pH", section: "Syrup & Blackjack Checks", tabId: `mat-q-${cycleNum}`, tabName: "2. Material Quality" },
+
+            // TAB 3: 3. Mixing & Forming
+            // Section: Mixing - Sponge Process
+            { id: `cr3ea_spongeproductname-${cycleNum}`, label: "Sponge Product Name", section: "Mixing - Sponge Process", tabId: `mix-f-${cycleNum}`, tabName: "3. Mixing & Forming" },
+            { id: `cr3ea_spongewaterquantity-${cycleNum}`, label: "Water Quantity (kg/L)", section: "Mixing - Sponge Process", tabId: `mix-f-${cycleNum}`, tabName: "3. Mixing & Forming" },
+            // Section: Mixing - Dough Process
+            { id: `cr3ea_creamingtimestandard-${cycleNum}`, label: "Creaming Time Standard", section: "Mixing - Dough Process", tabId: `mix-f-${cycleNum}`, tabName: "3. Mixing & Forming" },
+            { id: `cr3ea_creamingtimeobserved-${cycleNum}`, label: "Creaming Time Observed", section: "Mixing - Dough Process", tabId: `mix-f-${cycleNum}`, tabName: "3. Mixing & Forming" },
+            // Section: Forming & Moulding
+            { id: `cr3ea_moulderrpmstrokes-${cycleNum}`, label: "Moulding RPM / Strokes", section: "Forming & Moulding", tabId: `mix-f-${cycleNum}`, tabName: "3. Mixing & Forming" },
+            { id: `cr3ea_formingsamplecount-${cycleNum}`, label: "Sample Count", section: "Forming & Moulding", tabId: `mix-f-${cycleNum}`, tabName: "3. Mixing & Forming" },
+
+            // TAB 4: 4. Baking & Standards
+            // Section: Baking Time & Profile
+            { id: `cr3ea_bakingtime-${cycleNum}`, label: "Baking Time (min)", section: "Baking Time & Profile", tabId: `bake-s-${cycleNum}`, tabName: "4. Baking & Standards" },
+            { id: `cr3ea_bakingprofiletaste-${cycleNum}`, label: "Baking Profile Taste", section: "Baking Time & Profile", tabId: `bake-s-${cycleNum}`, tabName: "4. Baking & Standards" },
+            // Section: Top Baking Temperatures (°C)
+            { id: `cr3ea_topbakingtempzone1-${cycleNum}`, label: "Top Zone 1 Temp", section: "Top Baking Temperatures", tabId: `bake-s-${cycleNum}`, tabName: "4. Baking & Standards" },
+            { id: `cr3ea_topbakingtempzone2-${cycleNum}`, label: "Top Zone 2 Temp", section: "Top Baking Temperatures", tabId: `bake-s-${cycleNum}`, tabName: "4. Baking & Standards" },
+            // Section: Bottom Baking Temperatures (°C)
+            { id: `cr3ea_bottombakingtempzone1-${cycleNum}`, label: "Bottom Zone 1 Temp", section: "Bottom Baking Temperatures", tabId: `bake-s-${cycleNum}`, tabName: "4. Baking & Standards" },
+            { id: `cr3ea_bottombakingtempzone2-${cycleNum}`, label: "Bottom Zone 2 Temp", section: "Bottom Baking Temperatures", tabId: `bake-s-${cycleNum}`, tabName: "4. Baking & Standards" },
+            // Section: QC Physical Standards
+            { id: `cr3ea_biscuitlength-${cycleNum}`, label: "Biscuit Length (mm)", section: "QC Physical Standards", tabId: `bake-s-${cycleNum}`, tabName: "4. Baking & Standards" },
+            { id: `cr3ea_biscuitwidth-${cycleNum}`, label: "Biscuit Width (mm)", section: "QC Physical Standards", tabId: `bake-s-${cycleNum}`, tabName: "4. Baking & Standards" },
+            // Section: Quality & Moisture Parameters
+            { id: `cr3ea_topcolourstandard-${cycleNum}`, label: "Top Colour Standard", section: "Quality & Moisture Parameters", tabId: `bake-s-${cycleNum}`, tabName: "4. Baking & Standards" },
+            { id: `cr3ea_topcolourobserved-${cycleNum}`, label: "Top Colour Observed", section: "Quality & Moisture Parameters", tabId: `bake-s-${cycleNum}`, tabName: "4. Baking & Standards" }
+        ];
+
+        for (const item of mandatoryFields) {
+            const el = document.getElementById(item.id);
+            if (el) {
+                const val = (el.value || "").trim();
+                if (!val) {
+                    return item; // first missing field
+                }
+            }
+        }
+        return null;
+    },
+
+    // Complete Cycle and Tour
+    completeCycleAndTour: async function (cycleNum) {
         if (!MixingBaking_Main.state.canEditChecklist) {
-            alert("Access Denied: Only the assigned QA Executive can submit cycle data.");
+            alert("Access Denied: Only the assigned QA Executive can complete this tour.");
             return;
         }
 
+        // 0. Validation: Require that mandatory fields in each section are filled
+        MixingBaking_Validator.clearAll(cycleNum);
+
+        const missingMandatory = this.validateMandatoryFields(cycleNum);
+        if (missingMandatory) {
+            const panel = document.getElementById(`cycle-${cycleNum}`);
+            const targetBtn = panel?.querySelector(`.mb-tab-btn[onclick*="${missingMandatory.tabId}"]`);
+            if (targetBtn) {
+                this.switchTab(targetBtn, cycleNum, missingMandatory.tabId);
+            }
+            const el = document.getElementById(missingMandatory.id);
+            if (el) {
+                MixingBaking_Validator.highlight(el, true);
+                el.focus();
+            }
+            alert(`Please fill in the mandatory field:\n\n• ${missingMandatory.label} in "${missingMandatory.section}"\n(Tab: ${missingMandatory.tabName})\n\nIf this parameter is not applicable for this product, enter 'NA'.`);
+            return;
+        }
+
+        const missingSections = this.validateFourSections(cycleNum);
+        if (missingSections && missingSections.length > 0) {
+            const missingList = missingSections.map(s => `- ${s.name}`).join("\n");
+            alert(`Please fill in at least one field in each of the four sections before completing the tour:\n\n${missingList}`);
+
+            // Automatically switch to the first missing section tab
+            const firstMissing = missingSections[0];
+            const panel = document.getElementById(`cycle-${cycleNum}`);
+            const targetBtn = panel?.querySelector(`.mb-tab-btn[onclick*="${firstMissing.id}"]`);
+            if (targetBtn) {
+                this.switchTab(targetBtn, cycleNum, firstMissing.id);
+            }
+            const firstInput = document.getElementById(firstMissing.id)?.querySelector("input:not([type='radio']):not([type='hidden']), textarea, select");
+            if (firstInput) {
+                MixingBaking_Validator.highlight(firstInput, true);
+                firstInput.focus();
+            }
+            return;
+        }
+
+        const numericFields = [];
+        
+        // 1. Ingredients
+        const ingredientsList = ["rpo", "solidfat", "butter", "blackjack", "spongetemp", "slurry", "groundsugartemp", "groundsugarparticlesize"];
+        ingredientsList.forEach(ing => {
+            numericFields.push({ id: `cr3ea_${ing}standard-${cycleNum}`, name: `${ing} Standard` });
+            numericFields.push({ id: `cr3ea_${ing}observed-${cycleNum}`, name: `${ing} Observed` });
+        });
+
+        // 2. Custom Ingredients (Choco chips / Cashew)
+        const customIngsList = ["chocochips", "cashew"];
+        customIngsList.forEach(c => {
+            numericFields.push({ id: `cr3ea_${c}temp-${cycleNum}`, name: `${c} Temperature` });
+            numericFields.push({ id: `cr3ea_${c}countperkg-${cycleNum}`, name: `${c} Count/kg` });
+        });
+
+        // 3. Syrups
+        const syrupsList = ["invertsyrup", "blackjack2"];
+        syrupsList.forEach(s => {
+            numericFields.push({ id: `cr3ea_${s}temp-${cycleNum}`, name: `${s} Temperature` });
+            numericFields.push({ id: `cr3ea_${s}ph-${cycleNum}`, name: `${s} pH` });
+            numericFields.push({ id: `cr3ea_${s}brix-${cycleNum}`, name: `${s} Brix` });
+        });
+
+        // 4. Mixing Sponge
+        const spongeList = ["spongewaterquantity", "spongeyeastquantity", "spongewatertemp", "spongemixingtime", "fermentationstarttemp", "fermentationroomtemp", "finaltempafterfermentation", "finalphafterfermentation"];
+        spongeList.forEach(s => {
+            numericFields.push({ id: `cr3ea_${s}-${cycleNum}`, name: `Sponge ${s}` });
+        });
+
+        // 5. Mixing Dough (excluding text field doughconsistency)
+        const doughList = ["creamingtime", "mixingtime", "doughtemp", "jackettemp", "doughstandingtime"];
+        doughList.forEach(d => {
+            numericFields.push({ id: `cr3ea_${d}standard-${cycleNum}`, name: `Dough ${d} Standard` });
+            numericFields.push({ id: `cr3ea_${d}observed-${cycleNum}`, name: `Dough ${d} Observed` });
+        });
+
+        // 6. Forming
+        const formingList = ["moulderrpmstrokes", "formingsamplecount", "standardwetweight", "observedwetweight", "weightbeforesugarsprinkling", "weightaftersugarsprinkling"];
+        formingList.forEach(f => {
+            numericFields.push({ id: `cr3ea_${f}-${cycleNum}`, name: `Forming ${f}` });
+        });
+
+        // 7. Baking Zone Temperatures & Product Temps
+        numericFields.push({ id: `cr3ea_bakingtime-${cycleNum}`, name: "Baking Time" });
+        for (let i = 1; i <= 7; i++) {
+            numericFields.push({ id: `cr3ea_topbakingtempzone${i}-${cycleNum}`, name: `Top Baking Zone ${i}` });
+            numericFields.push({ id: `cr3ea_bottombakingtempzone${i}-${cycleNum}`, name: `Bottom Baking Zone ${i}` });
+        }
+        numericFields.push({ id: `cr3ea_topproducttempafterbaking-${cycleNum}`, name: "Top Product Temp After Baking" });
+        numericFields.push({ id: `cr3ea_bottomproducttempafterbaking-${cycleNum}`, name: "Bottom Product Temp After Baking" });
+
+        // 8. QC Physical Standards & Quality/Moisture (excluding qualitative colour parameters)
+        const qcsList = ["biscuitlength", "biscuitwidth", "biscuitdiameter", "gauge", "standardssamplecount", "biscuitstdweight", "biscuitobservedweight", "weightbeforeoil", "weightafteroilspray", "weightwithseasoning"];
+        qcsList.forEach(q => {
+            numericFields.push({ id: `cr3ea_${q}-${cycleNum}`, name: `QC Standard: ${q}` });
+        });
+
+        const qcPairsList = ["moisture"];
+        qcPairsList.forEach(q => {
+            numericFields.push({ id: `cr3ea_${q}standard-${cycleNum}`, name: `${q} Standard` });
+            numericFields.push({ id: `cr3ea_${q}observed-${cycleNum}`, name: `${q} Observed` });
+        });
+
+        // Run numeric validation loop
+        for (let f of numericFields) {
+            const el = document.getElementById(f.id);
+            if (!el) continue;
+            const val = el.value.trim();
+            if (val !== "") {
+                const isNa = val.toUpperCase() === "NA" || val.toUpperCase() === "N/A" || val === "-";
+                const isRangeOrUnit = /^[\d\.\s\-\±\'\"\:\%\(\)\/\,]+(min|mins|minutes|g|gm|gms|mm|cm|%|bis|biscuits|strokes|rpm|celsius|deg\s*c|°c)?$/i.test(val) || /as per/i.test(val) || /std/i.test(val) || /pure/i.test(val) || /compound/i.test(val) || /horizontal/i.test(val) || /vertical/i.test(val);
+                const isNum = (!isNaN(parseFloat(val)) && isFinite(val)) || isRangeOrUnit;
+                if (!isNa && !isNum) {
+                    const parentPane = el.closest(".mb-tab-pane");
+                    if (parentPane) {
+                        const panel = document.getElementById(`cycle-${cycleNum}`);
+                        const targetBtn = panel?.querySelector(`.mb-tab-btn[onclick*="${parentPane.id}"]`);
+                        if (targetBtn) {
+                            MixingBaking_Checklist.switchTab(targetBtn, cycleNum, parentPane.id);
+                        }
+                    }
+                    MixingBaking_Validator.highlight(el, true);
+                    alert(`Please enter a valid numeric value or 'NA' for: ${f.name}`);
+                    el.focus();
+                    return;
+                }
+            }
+        }
+
+        const confirmComplete = confirm("Are you sure you want to complete this Quality Tour? This will save all cycle observations and lock the tour.");
+        if (!confirmComplete) return;
+
         if (typeof ShowLoader === "function") ShowLoader();
         try {
-            MixingBaking_Validator.clearAll(cycleNum);
-
-            // 0. Validation: Require that each of the four sections has at least one field filled
-            const missingSections = this.validateFourSections(cycleNum);
-            if (missingSections && missingSections.length > 0) {
-                if (typeof HideLoader === "function") HideLoader();
-                const missingList = missingSections.map(s => `- ${s.name}`).join("\n");
-                alert(`Please fill in at least one field in each of the four sections before submitting:\n\n${missingList}`);
-
-                // Automatically switch to the first missing section tab
-                const firstMissing = missingSections[0];
-                const panel = document.getElementById(`cycle-${cycleNum}`);
-                const targetBtn = panel?.querySelector(`.mb-tab-btn[onclick*="${firstMissing.id}"]`);
-                if (targetBtn) {
-                    this.switchTab(targetBtn, cycleNum, firstMissing.id);
-                }
-                const firstInput = document.getElementById(firstMissing.id)?.querySelector("input:not([type='radio']):not([type='hidden']), textarea, select");
-                if (firstInput) {
-                    MixingBaking_Validator.highlight(firstInput, true);
-                    firstInput.focus();
-                }
-                return;
-            }
-
-            const numericFields = [];
-            
-            // 1. Ingredients
-            const ingredientsList = ["rpo", "solidfat", "butter", "blackjack", "spongetemp", "slurry", "groundsugartemp", "groundsugarparticlesize"];
-            ingredientsList.forEach(ing => {
-                numericFields.push({ id: `cr3ea_${ing}standard-${cycleNum}`, name: `${ing} Standard` });
-                numericFields.push({ id: `cr3ea_${ing}observed-${cycleNum}`, name: `${ing} Observed` });
-            });
-
-            // 2. Custom Ingredients (Choco chips / Cashew)
-            const customIngsList = ["chocochips", "cashew"];
-            customIngsList.forEach(c => {
-                numericFields.push({ id: `cr3ea_${c}temp-${cycleNum}`, name: `${c} Temperature` });
-                numericFields.push({ id: `cr3ea_${c}countperkg-${cycleNum}`, name: `${c} Count/kg` });
-            });
-
-            // 3. Syrups
-            const syrupsList = ["invertsyrup", "blackjack2"];
-            syrupsList.forEach(s => {
-                numericFields.push({ id: `cr3ea_${s}temp-${cycleNum}`, name: `${s} Temperature` });
-                numericFields.push({ id: `cr3ea_${s}ph-${cycleNum}`, name: `${s} pH` });
-                numericFields.push({ id: `cr3ea_${s}brix-${cycleNum}`, name: `${s} Brix` });
-            });
-
-            // 4. Mixing Sponge
-            const spongeList = ["spongewaterquantity", "spongeyeastquantity", "spongewatertemp", "spongemixingtime", "fermentationstarttemp", "fermentationroomtemp", "finaltempafterfermentation", "finalphafterfermentation"];
-            spongeList.forEach(s => {
-                numericFields.push({ id: `cr3ea_${s}-${cycleNum}`, name: `Sponge ${s}` });
-            });
-
-            // 5. Mixing Dough (excluding text field doughconsistency)
-            const doughList = ["creamingtime", "mixingtime", "doughtemp", "jackettemp", "doughstandingtime"];
-            doughList.forEach(d => {
-                numericFields.push({ id: `cr3ea_${d}standard-${cycleNum}`, name: `Dough ${d} Standard` });
-                numericFields.push({ id: `cr3ea_${d}observed-${cycleNum}`, name: `Dough ${d} Observed` });
-            });
-
-            // 6. Forming
-            const formingList = ["moulderrpmstrokes", "formingsamplecount", "standardwetweight", "observedwetweight", "weightbeforesugarsprinkling", "weightaftersugarsprinkling"];
-            formingList.forEach(f => {
-                numericFields.push({ id: `cr3ea_${f}-${cycleNum}`, name: `Forming ${f}` });
-            });
-
-            // 7. Baking Zone Temperatures & Product Temps
-            numericFields.push({ id: `cr3ea_bakingtime-${cycleNum}`, name: "Baking Time" });
-            for (let i = 1; i <= 7; i++) {
-                numericFields.push({ id: `cr3ea_topbakingtempzone${i}-${cycleNum}`, name: `Top Baking Zone ${i}` });
-                numericFields.push({ id: `cr3ea_bottombakingtempzone${i}-${cycleNum}`, name: `Bottom Baking Zone ${i}` });
-            }
-            numericFields.push({ id: `cr3ea_topproducttempafterbaking-${cycleNum}`, name: "Top Product Temp After Baking" });
-            numericFields.push({ id: `cr3ea_bottomproducttempafterbaking-${cycleNum}`, name: "Bottom Product Temp After Baking" });
-
-            // 8. QC Physical Standards & Quality/Moisture (excluding qualitative colour parameters)
-            const qcsList = ["biscuitlength", "biscuitwidth", "biscuitdiameter", "standardssamplecount", "biscuitstdweight", "biscuitobservedweight", "weightafteroilspray"];
-            qcsList.forEach(q => {
-                numericFields.push({ id: `cr3ea_${q}-${cycleNum}`, name: `QC Standard: ${q}` });
-            });
-
-            const qcPairsList = ["moisture"];
-            qcPairsList.forEach(q => {
-                numericFields.push({ id: `cr3ea_${q}standard-${cycleNum}`, name: `${q} Standard` });
-                numericFields.push({ id: `cr3ea_${q}observed-${cycleNum}`, name: `${q} Observed` });
-            });
-
-            // Run numeric validation loop
-            for (let f of numericFields) {
-                const el = document.getElementById(f.id);
-                if (!el) continue;
-                const val = el.value.trim();
-                if (val !== "") {
-                    const isNa = val.toUpperCase() === "NA" || val.toUpperCase() === "N/A";
-                    const isRangeOrUnit = /^[\d\.\s\-]+(min|g|mm|%|bis)?$/i.test(val) || val.toLowerCase() === "as per std" || val.toLowerCase() === "std";
-                    const isNum = (!isNaN(parseFloat(val)) && isFinite(val)) || isRangeOrUnit;
-                    if (!isNa && !isNum) {
-                        const parentPane = el.closest(".mb-tab-pane");
-                        if (parentPane) {
-                            const panel = document.getElementById(`cycle-${cycleNum}`);
-                            const targetBtn = panel?.querySelector(`.mb-tab-btn[onclick*="${parentPane.id}"]`);
-                            if (targetBtn) {
-                                MixingBaking_Checklist.switchTab(targetBtn, cycleNum, parentPane.id);
-                            }
-                        }
-                        MixingBaking_Validator.highlight(el, true);
-                        if (typeof HideLoader === "function") HideLoader();
-                        alert(`Please enter a valid numeric value or 'NA' for: ${f.name}`);
-                        el.focus();
-                        return;
-                    }
-                }
-            }
-
             // 1. Gather form values
             const lineStr = (MixingBaking_Main.state.line || "Line 1").replace(/\s+/g, "");
             const formattedLine = lineStr.toLowerCase().startsWith("line") ? lineStr : `Line${lineStr}`;
@@ -1169,7 +1288,7 @@ const MixingBaking_Checklist = {
             });
 
             // Mixing Dough
-            const dough = ["creamingtime", "mixingtime", "doughtemp", "jackettemp", "doughconsistency", "doughstandingtime"];
+            const dough = ["creamingtime", "mixingtime", "doughtemp", "jackettemp", "doughstandingtime"];
             dough.forEach(d => {
                 record[`cr3ea_${d}standard`] = document.getElementById(`cr3ea_${d}standard-${cycleNum}`)?.value || "";
                 record[`cr3ea_${d}observed`] = document.getElementById(`cr3ea_${d}observed-${cycleNum}`)?.value || "";
@@ -1222,18 +1341,36 @@ const MixingBaking_Checklist = {
                 console.log("File attached successfully:", sharepointUrl);
             }
 
-            alert(`Cycle ${cycleNum} submitted successfully!`);
-            window.location.reload();
+            // 4. Mark parent tour as Completed
+            if (MixingBaking_Main.state.varTourID) {
+                const parentPayload = {
+                    cr3ea_status: "Completed",
+                    cr3ea_processstatus: "Completed"
+                };
+                await MixingBaking_DAL.updateParentTour(MixingBaking_Main.state.varTourID, parentPayload);
+            }
+
+            alert("Quality Tour completed and locked successfully!");
+            
+            // Redirect back to Home Dashboard
+            const homeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                : "/sites/Mrs_Bectors_PTMS/Pages/Home.aspx";
+            window.location.href = homeUrl;
 
         } catch (err) {
-            console.error("Failed to save cycle data:", err);
+            console.error("Failed to complete tour and save cycle data:", err);
             const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
-                ? QualityRajpura_Config.formatDataverseError(err, "save cycle data")
-                : ("Failed to save cycle data: " + err.message);
+                ? QualityRajpura_Config.formatDataverseError(err, "complete tour")
+                : ("Failed to complete tour: " + err.message);
             alert(msg);
         } finally {
             HideLoader();
         }
+    },
+
+    saveCycle: function (cycleNum) {
+        return this.completeCycleAndTour(cycleNum);
     },
 
     // Render read-only cycle summary block
@@ -1241,69 +1378,113 @@ const MixingBaking_Checklist = {
         const completedDiv = document.getElementById(`completed-step-${cycleNum}`);
         if (!completedDiv) return;
 
-        const val = (v) => v && String(v).trim() ? v : '-';
+        const val = (v) => {
+            if (v === undefined || v === null) return '<span class="mb-val-empty">-</span>';
+            let s = String(v).trim();
+            if (!s || s === '-') return '<span class="mb-val-empty">-</span>';
+            if (s.toUpperCase() === 'NA') return '<span class="mb-val-na">NA</span>';
+            // Clean trailing unit words from older raw records so units don't duplicate with label
+            s = s.replace(/\s*(?:min|mins|minutes|°c|c|kg\/l|kg|g|gm|gms|mm|%|bis|pcs|mesh|strokes|rpm)\b/gi, '').trim();
+            if (!s || s === '-') return '<span class="mb-val-empty">-</span>';
+            return s;
+        };
+
+        const metricVal = (v, unit = '') => {
+            if (v === undefined || v === null) return '<span class="mb-val-empty">-</span>';
+            let s = String(v).trim();
+            if (!s || s === '-') return '<span class="mb-val-empty">-</span>';
+            if (s.toUpperCase() === 'NA') return '<span class="mb-val-na">NA</span>';
+            // Clean unit from raw value before appending stylized unit tag
+            s = s.replace(/\s*(?:min|mins|minutes|°c|c|kg\/l|kg|g|gm|gms|mm|%|bis|pcs|mesh|strokes|rpm)\b/gi, '').trim();
+            if (!s || s === '-') return '<span class="mb-val-empty">-</span>';
+            return `<strong>${s}</strong>${unit ? `<span class="mb-stat-unit" style="margin-left:2px;">${unit}</span>` : ''}`;
+        };
 
         completedDiv.innerHTML = `
-            <div class="mb-completed-wrapper" style="background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); border-radius: 12px; padding: 24px; margin-top: 15px;">
-                <div class="mb-completed-header" style="border-bottom: 1px solid #f1f5f9; padding-bottom: 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
-                    <h5 style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;">Cycle ${cycleNum} Saved Details Summary</h5>
-                    <span class="badge" style="background-color: #dcfce7; color: #16a34a; padding: 6px 12px; border-radius: 50px; font-weight: 600; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
-                        <span style="width: 6px; height: 6px; background: #16a34a; border-radius: 50%;"></span>
-                        Submitted
+            <div class="mb-summary-wrapper">
+                <div class="mb-summary-header">
+                    <div class="mb-summary-header-left">
+                        <div class="mb-summary-icon-badge">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M9 11l3 3L22 4"></path>
+                                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h5 class="mb-summary-title">Cycle ${cycleNum} Saved Details Summary</h5>
+                            <p class="mb-summary-subtitle">Quality Parameters Recorded & Verified</p>
+                        </div>
+                    </div>
+                    <span class="mb-summary-status-badge">
+                        <span class="mb-summary-status-dot"></span>
+                        Submitted & Locked
                     </span>
                 </div>
 
                 <!-- TAB NAVIGATION FOR COMPLETED CYCLE (Modern segmented control) -->
-                <div class="mb-tabs-nav" style="display: flex; gap: 4px; padding: 4px; background: #f1f5f9; border-radius: 8px; margin-bottom: 20px; width: 100%; box-sizing: border-box;">
-                    <button type="button" class="mb-tab-btn active comp-tab-btn-${cycleNum}" style="flex: 1; border: none; background: #ffffff; color: #1e293b; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);" onclick="MixingBaking_Checklist.switchCompletedTab(this, ${cycleNum}, 'comp-ing-q-${cycleNum}')">1. Ingredient Quality</button>
-                    <button type="button" class="mb-tab-btn comp-tab-btn-${cycleNum}" style="flex: 1; border: none; background: transparent; color: #475569; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; text-align: center;" onclick="MixingBaking_Checklist.switchCompletedTab(this, ${cycleNum}, 'comp-mat-q-${cycleNum}')">2. Material Quality</button>
-                    <button type="button" class="mb-tab-btn comp-tab-btn-${cycleNum}" style="flex: 1; border: none; background: transparent; color: #475569; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; text-align: center;" onclick="MixingBaking_Checklist.switchCompletedTab(this, ${cycleNum}, 'comp-mix-f-${cycleNum}')">3. Mixing & Forming</button>
-                    <button type="button" class="mb-tab-btn comp-tab-btn-${cycleNum}" style="flex: 1; border: none; background: transparent; color: #475569; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; text-align: center;" onclick="MixingBaking_Checklist.switchCompletedTab(this, ${cycleNum}, 'comp-bake-s-${cycleNum}')">4. Baking & Standards</button>
+                <div class="mb-summary-tabs-nav">
+                    <button type="button" class="mb-summary-tab-btn active comp-tab-btn-${cycleNum}" onclick="MixingBaking_Checklist.switchCompletedTab(this, ${cycleNum}, 'comp-ing-q-${cycleNum}')">
+                        <span class="mb-tab-num">1</span> Ingredient Quality
+                    </button>
+                    <button type="button" class="mb-summary-tab-btn comp-tab-btn-${cycleNum}" onclick="MixingBaking_Checklist.switchCompletedTab(this, ${cycleNum}, 'comp-mat-q-${cycleNum}')">
+                        <span class="mb-tab-num">2</span> Material Quality
+                    </button>
+                    <button type="button" class="mb-summary-tab-btn comp-tab-btn-${cycleNum}" onclick="MixingBaking_Checklist.switchCompletedTab(this, ${cycleNum}, 'comp-mix-f-${cycleNum}')">
+                        <span class="mb-tab-num">3</span> Mixing & Forming
+                    </button>
+                    <button type="button" class="mb-summary-tab-btn comp-tab-btn-${cycleNum}" onclick="MixingBaking_Checklist.switchCompletedTab(this, ${cycleNum}, 'comp-bake-s-${cycleNum}')">
+                        <span class="mb-tab-num">4</span> Baking & Standards
+                    </button>
                 </div>
                 
-                <div class="summary-sections-container" style="color: #334155; line-height: 1.5;">
+                <div class="summary-sections-container">
                     
                     <!-- TAB 1: INGREDIENT QUALITY -->
-                    <div class="comp-tab-pane-${cycleNum}" id="comp-ing-q-${cycleNum}" style="display: block; border: 1px solid #f1f5f9; border-radius: 8px; background: #fafafa; padding: 16px;">
-                        <h6 style="margin-top: 0; margin-bottom: 12px; font-size: 13px; color: #2563eb; font-weight: 700; border-left: 3px solid #2563eb; padding-left: 8px; text-transform: uppercase; letter-spacing: 0.5px;">1. Ingredient Quality & Temperatures</h6>
+                    <div class="comp-tab-pane-${cycleNum} mb-summary-pane" id="comp-ing-q-${cycleNum}" style="display: block;">
+                        <div class="mb-summary-pane-header">
+                            <span class="accent-bar"></span> 1. Ingredient Quality & Temperatures (&deg;C)
+                        </div>
                         
-                        <div class="table-responsive" style="margin-bottom: 12px; border-radius: 8px; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
-                            <table style="width: 100%; min-width: 650px; table-layout: fixed; border-collapse: collapse; font-size: 12px; text-align: left; background: white;">
+                        <div class="mb-summary-table-wrapper">
+                            <table class="mb-summary-table">
                                 <thead>
-                                    <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-                                        <th style="width: 22%; padding: 10px 12px; font-weight: 600; color: #475569;">Ingredient</th>
-                                        <th style="width: 15%; padding: 10px 12px; font-weight: 600; color: #475569;">Standard</th>
-                                        <th style="width: 15%; padding: 10px 12px; font-weight: 600; color: #475569;">Observed</th>
-                                        <th style="width: 24%; padding: 10px 12px; font-weight: 600; color: #475569;">Remarks</th>
-                                        <th style="width: 24%; padding: 10px 12px; font-weight: 600; color: #475569;">Action Taken</th>
+                                    <tr>
+                                        <th style="width: 24%;">Ingredient</th>
+                                        <th style="width: 16%;">Standard (&deg;C)</th>
+                                        <th style="width: 16%;">Observed (&deg;C)</th>
+                                        <th style="width: 22%;">Remarks</th>
+                                        <th style="width: 22%;">Action Taken</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     ${[
-                                        { label: "RPO", key: "cr3ea_rpo" },
-                                        { label: "Solid Fat", key: "cr3ea_solidfat" },
-                                        { label: "Butter", key: "cr3ea_butter" },
-                                        { label: "Blackjack (Initial)", key: "cr3ea_blackjack" },
-                                        { label: "Sponge", key: "cr3ea_spongetemp" },
-                                        { label: "Slurry", key: "cr3ea_slurry" },
-                                        { label: "Ground Sugar Temp", key: "cr3ea_groundsugartemp" },
-                                        { label: "Ground Sugar Particle", key: "cr3ea_groundsugarparticlesize" }
-                                    ].map((item, idx) => `
-                                        <tr style="border-bottom: 1px solid #f1f5f9; background: ${idx % 2 === 0 ? '#ffffff' : '#fcfcfc'};">
-                                            <td style="padding: 10px 12px; font-weight: 600; color: #1e293b; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${item.label}</td>
-                                            <td style="padding: 10px 12px; color: #334155; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${val(cycleData[item.key + "standard"])}</td>
-                                            <td style="padding: 10px 12px; font-weight: 600; color: #0f172a; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${val(cycleData[item.key + "observed"])}</td>
-                                            <td style="padding: 10px 12px; color: #64748b; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${val(cycleData[item.key + "remarks"])}</td>
-                                            <td style="padding: 10px 12px; color: #64748b; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${val(cycleData[item.key + "actiontaken"])}</td>
+                                        { label: "RPO (°C)", key: "cr3ea_rpo" },
+                                        { label: "Solid Fat (°C)", key: "cr3ea_solidfat" },
+                                        { label: "Butter (°C)", key: "cr3ea_butter" },
+                                        { label: "Blackjack (Initial) (°C)", key: "cr3ea_blackjack" },
+                                        { label: "Sponge (°C)", key: "cr3ea_spongetemp" },
+                                        { label: "Slurry (°C)", key: "cr3ea_slurry" },
+                                        { label: "Ground Sugar Temp (°C)", key: "cr3ea_groundsugartemp" },
+                                        { label: "Ground Sugar Particle (Mesh)", key: "cr3ea_groundsugarparticlesize" }
+                                    ].map((item) => `
+                                        <tr>
+                                            <td style="font-weight: 700; color: #1e293b;">${item.label}</td>
+                                            <td><span class="mb-standard-pill">${val(cycleData[item.key + "standard"])}</span></td>
+                                            <td><span class="mb-observed-val">${val(cycleData[item.key + "observed"])}</span></td>
+                                            <td>${val(cycleData[item.key + "remarks"])}</td>
+                                            <td>${val(cycleData[item.key + "actiontaken"])}</td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
                             </table>
                         </div>
 
-                        <div class="minor-summary" style="margin-top: 16px; background: white; border: 1px solid #e2e8f0; padding: 12px 16px; border-radius: 8px;">
-                            <span style="font-weight: 700; font-size: 11px; display: block; margin-bottom: 8px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Minor Ingredients Checklist:</span>
-                            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        <div class="mb-summary-card" style="margin-top: 14px;">
+                            <div class="mb-summary-card-title">
+                                <span>Minor Ingredients Checklist</span>
+                                <span style="font-size: 11px; font-weight: 600; color: #64748b;">Verification Status</span>
+                            </div>
+                            <div class="mb-minor-grid">
                                 ${[
                                     { label: "Cocoa Powder", key: "cr3ea_cocoapowderdone" },
                                     { label: "SMP", key: "cr3ea_smpdone" },
@@ -1313,12 +1494,15 @@ const MixingBaking_Checklist = {
                                     { label: "Salt 2", key: "cr3ea_salt2done" },
                                     { label: "Others", key: "cr3ea_othersdone" }
                                 ].map(item => {
-                                    const isDone = cycleData[item.key] === "Done";
-                                    const bg = isDone ? "#dcfce7" : "#fee2e2";
-                                    const color = isDone ? "#15803d" : "#b91c1c";
-                                    return `<span style="padding: 4px 8px; border-radius: 6px; font-size: 11px; background: ${bg}; color: ${color}; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
-                                        <span style="width: 5px; height: 5px; background: ${color}; border-radius: 50%;"></span>
-                                        ${item.label}: ${cycleData[item.key] || 'Not Done'}
+                                    const rawVal = cycleData[item.key];
+                                    const isDone = rawVal === "Done";
+                                    const isNa = rawVal === "NA";
+                                    let badgeClass = isDone ? "is-done" : "is-not-done";
+                                    let icon = isDone ? "✓" : "✕";
+                                    let text = rawVal || "Not Done";
+                                    return `<span class="mb-minor-badge ${badgeClass}">
+                                        <span>${icon}</span>
+                                        <strong>${item.label}:</strong> ${text}
                                     </span>`;
                                 }).join('')}
                             </div>
@@ -1326,173 +1510,197 @@ const MixingBaking_Checklist = {
                     </div>
 
                     <!-- TAB 2: MATERIAL QUALITY -->
-                    <div class="comp-tab-pane-${cycleNum}" id="comp-mat-q-${cycleNum}" style="display: none; border: 1px solid #f1f5f9; border-radius: 8px; background: #fafafa; padding: 16px;">
-                        <h6 style="margin-top: 0; margin-bottom: 12px; font-size: 13px; color: #2563eb; font-weight: 700; border-left: 3px solid #2563eb; padding-left: 8px; text-transform: uppercase; letter-spacing: 0.5px;">2. Material Quality & Sponge</h6>
+                    <div class="comp-tab-pane-${cycleNum} mb-summary-pane" id="comp-mat-q-${cycleNum}" style="display: none;">
+                        <div class="mb-summary-pane-header">
+                            <span class="accent-bar"></span> 2. Material Quality & Sponge Parameters
+                        </div>
                         
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; font-size: 12px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 16px;">
                             <!-- Supplier Details -->
-                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 12px;">
-                                <span style="font-weight: 700; font-size: 13px; color: #1e293b; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 4px;">Supplier Details</span>
-                                <div>
-                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Flour Supplier</div>
-                                    <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_floursupplier)}</div>
+                            <div class="mb-summary-card">
+                                <div class="mb-summary-card-title">
+                                    <span>Supplier Details</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                                 </div>
-                                <div style="border-top: 1px solid #f8fafc; padding-top: 8px;">
-                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Choco Chips Supplier</div>
-                                    ${cycleData.cr3ea_chocochipssupplier ? `
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${cycleData.cr3ea_chocochipssupplier}</div>
-                                        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 11px; color: #475569;">
-                                            <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Temp: <strong>${val(cycleData.cr3ea_chocochipstemp)}&deg;C</strong></span>
-                                            <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Count: <strong>${val(cycleData.cr3ea_chocochipscountperkg)}/kg</strong></span>
-                                            <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Type: <strong>${val(cycleData.cr3ea_chocochipscompoundorpure)}</strong></span>
-                                        </div>
-                                    ` : '<div style="color: #94a3b8; font-size: 12px; font-style: italic; margin-top: 2px;">No Choco Chips data</div>'}
+                                
+                                <div class="mb-stat-tile" style="margin-bottom: 12px;">
+                                    <div class="mb-stat-label">Flour Supplier</div>
+                                    <div class="mb-stat-value" style="font-size: 14px; color: #1e293b;">${val(cycleData.cr3ea_floursupplier)}</div>
                                 </div>
-                                <div style="border-top: 1px solid #f8fafc; padding-top: 8px;">
-                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Cashew Supplier</div>
-                                    ${cycleData.cr3ea_cashewsupplier ? `
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${cycleData.cr3ea_cashewsupplier}</div>
-                                        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 11px; color: #475569;">
-                                            <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Temp: <strong>${val(cycleData.cr3ea_cashewtemp)}&deg;C</strong></span>
-                                            <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Count: <strong>${val(cycleData.cr3ea_cashewcountperkg)}/kg</strong></span>
-                                            <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Type: <strong>${val(cycleData.cr3ea_cashewcompoundorpure)}</strong></span>
-                                        </div>
-                                    ` : '<div style="color: #94a3b8; font-size: 12px; font-style: italic; margin-top: 2px;">No Cashew data</div>'}
+
+                                <div style="border-top: 1px solid #f1f5f9; padding-top: 10px; margin-bottom: 10px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                        <div class="mb-stat-label">Choco Chips Supplier</div>
+                                        <span style="font-size: 12.5px; font-weight: 700; color: #0f172a;">${val(cycleData.cr3ea_chocochipssupplier)}</span>
+                                    </div>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                        <span class="mb-pill mb-pill-temp">Temp: <strong>${val(cycleData.cr3ea_chocochipstemp)}°C</strong></span>
+                                        <span class="mb-pill mb-pill-count">Count: <strong>${val(cycleData.cr3ea_chocochipscountperkg)}/kg</strong></span>
+                                        <span class="mb-pill mb-pill-type">Type: <strong>${val(cycleData.cr3ea_chocochipscompoundorpure)}</strong></span>
+                                    </div>
+                                </div>
+
+                                <div style="border-top: 1px solid #f1f5f9; padding-top: 10px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                        <div class="mb-stat-label">Cashew Supplier</div>
+                                        <span style="font-size: 12.5px; font-weight: 700; color: #0f172a;">${val(cycleData.cr3ea_cashewsupplier)}</span>
+                                    </div>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                        <span class="mb-pill mb-pill-temp">Temp: <strong>${val(cycleData.cr3ea_cashewtemp)}°C</strong></span>
+                                        <span class="mb-pill mb-pill-count">Count: <strong>${val(cycleData.cr3ea_cashewcountperkg)}/kg</strong></span>
+                                        <span class="mb-pill mb-pill-type">Type: <strong>${val(cycleData.cr3ea_cashewcompoundorpure)}</strong></span>
+                                    </div>
                                 </div>
                             </div>
 
                             <!-- Syrups & Liquids -->
-                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 12px;">
-                                <span style="font-weight: 700; font-size: 13px; color: #1e293b; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 4px;">Syrups & Liquids</span>
-                                <div>
-                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Invert Syrup</div>
-                                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 11px; color: #475569;">
-                                        <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Temp: <strong>${val(cycleData.cr3ea_invertsyruptemp)}&deg;C</strong></span>
-                                        <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">pH: <strong>${val(cycleData.cr3ea_invertsyrupph)}</strong></span>
-                                        <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Brix: <strong>${val(cycleData.cr3ea_invertsyrupbrix)}</strong></span>
+                            <div class="mb-summary-card">
+                                <div class="mb-summary-card-title">
+                                    <span>Syrups & Liquids</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
+                                </div>
+                                
+                                <div style="margin-bottom: 14px;">
+                                    <div style="font-size: 12px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">Invert Syrup Parameters</div>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                        <span class="mb-pill mb-pill-temp">Temp: <strong>${val(cycleData.cr3ea_invertsyruptemp)}°C</strong></span>
+                                        <span class="mb-pill mb-pill-ph">pH: <strong>${val(cycleData.cr3ea_invertsyrupph)}</strong></span>
+                                        <span class="mb-pill mb-pill-brix">Brix: <strong>${val(cycleData.cr3ea_invertsyrupbrix)}°Bx</strong></span>
                                     </div>
                                 </div>
-                                <div style="border-top: 1px solid #f8fafc; padding-top: 12px;">
-                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Blackjack (2nd Stage)</div>
-                                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 11px; color: #475569;">
-                                        <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Temp: <strong>${val(cycleData.cr3ea_blackjack2temp)}&deg;C</strong></span>
-                                        <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">pH: <strong>${val(cycleData.cr3ea_blackjack2ph)}</strong></span>
-                                        <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">Brix: <strong>${val(cycleData.cr3ea_blackjack2brix)}</strong></span>
+
+                                <div style="border-top: 1px solid #f1f5f9; padding-top: 12px;">
+                                    <div style="font-size: 12px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">Blackjack (2nd Stage)</div>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                        <span class="mb-pill mb-pill-temp">Temp: <strong>${val(cycleData.cr3ea_blackjack2temp)}°C</strong></span>
+                                        <span class="mb-pill mb-pill-ph">pH: <strong>${val(cycleData.cr3ea_blackjack2ph)}</strong></span>
+                                        <span class="mb-pill mb-pill-brix">Brix: <strong>${val(cycleData.cr3ea_blackjack2brix)}°Bx</strong></span>
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
-                            <!-- Sponge Parameters -->
-                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; grid-column: 1 / -1; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                                <span style="font-weight: 700; font-size: 13px; color: #1e293b; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 12px;">Mixing Sponge Parameters</span>
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Sponge Name</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_spongeproductname)}</div>
-                                    </div>
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Water Quantity</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_spongewaterquantity)}</div>
-                                    </div>
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Yeast Quantity</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_spongeyeastquantity)}</div>
-                                    </div>
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Water Temp</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_spongewatertemp)}&deg;C</div>
-                                    </div>
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Mixing Time</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_spongemixingtime)} min</div>
-                                    </div>
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Fermentation Start Temp</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_fermentationstarttemp)}&deg;C</div>
-                                    </div>
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Fermentation Room Temp</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_fermentationroomtemp)}&deg;C</div>
-                                    </div>
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Final Temp (After Ferm)</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_finaltempafterfermentation)}&deg;C</div>
-                                    </div>
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Final pH</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_finalphafterfermentation)}</div>
-                                    </div>
+                        <!-- Sponge Parameters Full Width Card -->
+                        <div class="mb-summary-card">
+                            <div class="mb-summary-card-title">
+                                <span>Mixing Sponge Parameters</span>
+                                <span style="font-size: 11px; font-weight: 600; color: #64748b;">Stage Formulation & Outcomes</span>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+                                <div class="mb-stat-tile">
+                                    <div class="mb-stat-label">Sponge Name</div>
+                                    <div class="mb-stat-value">${val(cycleData.cr3ea_spongeproductname)}</div>
+                                </div>
+                                <div class="mb-stat-tile">
+                                    <div class="mb-stat-label">Water Quantity</div>
+                                    <div class="mb-stat-value">${metricVal(cycleData.cr3ea_spongewaterquantity, 'kg')}</div>
+                                </div>
+                                <div class="mb-stat-tile">
+                                    <div class="mb-stat-label">Yeast Quantity</div>
+                                    <div class="mb-stat-value">${metricVal(cycleData.cr3ea_spongeyeastquantity, 'kg')}</div>
+                                </div>
+                                <div class="mb-stat-tile is-temp">
+                                    <div class="mb-stat-label">Water Temp</div>
+                                    <div class="mb-stat-value">${metricVal(cycleData.cr3ea_spongewatertemp, '°C')}</div>
+                                </div>
+                                <div class="mb-stat-tile">
+                                    <div class="mb-stat-label">Mixing Time</div>
+                                    <div class="mb-stat-value">${metricVal(cycleData.cr3ea_spongemixingtime, 'min')}</div>
+                                </div>
+                                <div class="mb-stat-tile is-temp">
+                                    <div class="mb-stat-label">Ferm. Start Temp</div>
+                                    <div class="mb-stat-value">${metricVal(cycleData.cr3ea_fermentationstarttemp, '°C')}</div>
+                                </div>
+                                <div class="mb-stat-tile is-temp">
+                                    <div class="mb-stat-label">Ferm. Room Temp</div>
+                                    <div class="mb-stat-value">${metricVal(cycleData.cr3ea_fermentationroomtemp, '°C')}</div>
+                                </div>
+                                <div class="mb-stat-tile is-temp">
+                                    <div class="mb-stat-label">Final Temp (After Ferm)</div>
+                                    <div class="mb-stat-value">${metricVal(cycleData.cr3ea_finaltempafterfermentation, '°C')}</div>
+                                </div>
+                                <div class="mb-stat-tile">
+                                    <div class="mb-stat-label">Final pH</div>
+                                    <div class="mb-stat-value">${metricVal(cycleData.cr3ea_finalphafterfermentation)}</div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- TAB 3: MIXING & FORMING -->
-                    <div class="comp-tab-pane-${cycleNum}" id="comp-mix-f-${cycleNum}" style="display: none; border: 1px solid #f1f5f9; border-radius: 8px; background: #fafafa; padding: 16px;">
-                        <h6 style="margin-top: 0; margin-bottom: 12px; font-size: 13px; color: #2563eb; font-weight: 700; border-left: 3px solid #2563eb; padding-left: 8px; text-transform: uppercase; letter-spacing: 0.5px;">3. Mixing Dough & Forming Stage</h6>
+                    <div class="comp-tab-pane-${cycleNum} mb-summary-pane" id="comp-mix-f-${cycleNum}" style="display: none;">
+                        <div class="mb-summary-pane-header">
+                            <span class="accent-bar"></span> 3. Mixing Dough & Forming Stage
+                        </div>
                         
-                        <div class="table-responsive" style="margin-bottom: 12px; border-radius: 8px; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
-                            <table style="width: 100%; min-width: 450px; table-layout: fixed; border-collapse: collapse; font-size: 12px; text-align: left; background: white;">
+                        <div class="mb-summary-table-wrapper">
+                            <table class="mb-summary-table">
                                 <thead>
-                                    <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-                                        <th style="width: 40%; padding: 10px 12px; font-weight: 600; color: #475569;">Dough Parameter</th>
-                                        <th style="width: 30%; padding: 10px 12px; font-weight: 600; color: #475569;">Standard</th>
-                                        <th style="width: 30%; padding: 10px 12px; font-weight: 600; color: #475569;">Observed</th>
+                                    <tr>
+                                        <th style="width: 44%;">Dough Parameter</th>
+                                        <th style="width: 28%;">Standard</th>
+                                        <th style="width: 28%;">Observed</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     ${[
-                                        { label: "Creaming Time", key: "cr3ea_creamingtime" },
-                                        { label: "Mixing Time", key: "cr3ea_mixingtime" },
-                                        { label: "Dough Temperature", key: "cr3ea_doughtemp" },
-                                        { label: "Jacket of Mixer Temperature", key: "cr3ea_jackettemp" },
+                                        { label: "Creaming Time (min)", key: "cr3ea_creamingtime" },
+                                        { label: "Mixing Time (min)", key: "cr3ea_mixingtime" },
+                                        { label: "Dough Temperature (°C)", key: "cr3ea_doughtemp" },
+                                        { label: "Jacket of Mixer Temperature (°C)", key: "cr3ea_jackettemp" },
                                         { label: "Dough Consistency", key: "cr3ea_doughconsistency" },
-                                        { label: "Dough Standing Time", key: "cr3ea_doughstandingtime" }
-                                    ].map((item, idx) => `
-                                        <tr style="border-bottom: 1px solid #f1f5f9; background: ${idx % 2 === 0 ? '#ffffff' : '#fcfcfc'};">
-                                            <td style="padding: 10px 12px; font-weight: 600; color: #1e293b; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${item.label}</td>
-                                            <td style="padding: 10px 12px; color: #334155; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${val(cycleData[item.key + "standard"])}</td>
-                                            <td style="padding: 10px 12px; font-weight: 600; color: #0f172a; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${val(cycleData[item.key + "observed"])}</td>
+                                        { label: "Dough Standing Time (min)", key: "cr3ea_doughstandingtime" }
+                                    ].map((item) => `
+                                        <tr>
+                                            <td style="font-weight: 700; color: #1e293b;">${item.label}</td>
+                                            <td><span class="mb-standard-pill">${val(cycleData[item.key + "standard"])}</span></td>
+                                            <td><span class="mb-observed-val">${val(cycleData[item.key + "observed"])}</span></td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
                             </table>
                         </div>
 
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; font-size: 12px; margin-top: 16px;">
-                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); display: flex; align-items: center; gap: 8px;">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 14px;">
+                            <div class="mb-summary-card" style="display: flex; align-items: center; gap: 14px;">
+                                <div class="mb-summary-icon-badge" style="background: #f1f5f9; color: #475569; width: 44px; height: 44px;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                                </div>
                                 <div>
-                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Mixer Type</div>
-                                    <div style="font-size: 14px; color: #1e293b; font-weight: 700; margin-top: 2px;">${val(cycleData.cr3ea_typeofmixer)}</div>
+                                    <div class="mb-stat-label">Mixer Type</div>
+                                    <div style="font-size: 15px; color: #0f172a; font-weight: 800; margin-top: 2px;">${val(cycleData.cr3ea_typeofmixer)}</div>
                                 </div>
                             </div>
-                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                                <span style="font-weight: 700; font-size: 13px; color: #1e293b; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 12px;">Forming Details</span>
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px;">
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Moulder RPM</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_moulderrpmstrokes)}</div>
+
+                            <div class="mb-summary-card">
+                                <div class="mb-summary-card-title">
+                                    <span>Forming Details</span>
+                                    <span style="font-size: 11px; font-weight: 600; color: #64748b;">Moulding & Weights</span>
+                                </div>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px;">
+                                    <div class="mb-stat-tile">
+                                        <div class="mb-stat-label">Moulder RPM</div>
+                                        <div class="mb-stat-value">${metricVal(cycleData.cr3ea_moulderrpmstrokes, 'RPM')}</div>
                                     </div>
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Sample Count</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_formingsamplecount)}</div>
+                                    <div class="mb-stat-tile">
+                                        <div class="mb-stat-label">Sample Count</div>
+                                        <div class="mb-stat-value">${metricVal(cycleData.cr3ea_formingsamplecount, 'bis')}</div>
                                     </div>
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Wet Weight (Std)</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_standardwetweight)}</div>
+                                    <div class="mb-stat-tile">
+                                        <div class="mb-stat-label">Wet Wt (Std)</div>
+                                        <div class="mb-stat-value">${metricVal(cycleData.cr3ea_standardwetweight, 'g')}</div>
                                     </div>
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Wet Weight (Obs)</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_observedwetweight)}</div>
+                                    <div class="mb-stat-tile">
+                                        <div class="mb-stat-label">Wet Wt (Obs)</div>
+                                        <div class="mb-stat-value">${metricVal(cycleData.cr3ea_observedwetweight, 'g')}</div>
                                     </div>
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Wt Before Sugar</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_weightbeforesugarsprinkling)}</div>
+                                    <div class="mb-stat-tile">
+                                        <div class="mb-stat-label">Wt Before Sugar</div>
+                                        <div class="mb-stat-value">${metricVal(cycleData.cr3ea_weightbeforesugarsprinkling, 'g')}</div>
                                     </div>
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Weight After Sugar</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_weightaftersugarsprinkling)}</div>
+                                    <div class="mb-stat-tile">
+                                        <div class="mb-stat-label">Wt After Sugar</div>
+                                        <div class="mb-stat-value">${metricVal(cycleData.cr3ea_weightaftersugarsprinkling, 'g')}</div>
                                     </div>
                                 </div>
                             </div>
@@ -1500,142 +1708,160 @@ const MixingBaking_Checklist = {
                     </div>
 
                     <!-- TAB 4: BAKING & STANDARDS -->
-                    <div class="comp-tab-pane-${cycleNum}" id="comp-bake-s-${cycleNum}" style="display: none; border: 1px solid #f1f5f9; border-radius: 8px; background: #fafafa; padding: 16px;">
-                        <h6 style="margin-top: 0; margin-bottom: 12px; font-size: 13px; color: #2563eb; font-weight: 700; border-left: 3px solid #2563eb; padding-left: 8px; text-transform: uppercase; letter-spacing: 0.5px;">4. Baking Stage & Physical Standards</h6>
+                    <div class="comp-tab-pane-${cycleNum} mb-summary-pane" id="comp-bake-s-${cycleNum}" style="display: none;">
+                        <div class="mb-summary-pane-header">
+                            <span class="accent-bar"></span> 4. Baking Stage & Physical Standards
+                        </div>
                         
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; font-size: 12px; margin-bottom: 16px;">
-                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 8px;">
-                                <span style="font-weight: 700; font-size: 13px; color: #1e293b; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 4px;">Baking Settings</span>
-                                <div>
-                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Baking Time</div>
-                                    <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_bakingtime)}</div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 16px;">
+                            <div class="mb-summary-card">
+                                <div class="mb-summary-card-title">
+                                    <span>Baking Settings</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                                 </div>
-                                <div style="border-top: 1px solid #f8fafc; padding-top: 6px;">
-                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Baking Taste Profile</div>
-                                    <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_bakingprofiletaste)}</div>
-                                </div>
-                                <div style="border-top: 1px solid #f8fafc; padding-top: 6px;">
-                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">As per template</div>
-                                    <div style="margin-top: 4px;">
-                                        <span style="padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; background: ${cycleData.cr3ea_bakingprofileaspertemplate === 'Yes' ? '#dcfce7' : '#fee2e2'}; color: ${cycleData.cr3ea_bakingprofileaspertemplate === 'Yes' ? '#15803d' : '#b91c1c'};">
-                                            ${val(cycleData.cr3ea_bakingprofileaspertemplate)}
-                                        </span>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px;">
+                                    <div class="mb-stat-tile">
+                                        <div class="mb-stat-label">Baking Time</div>
+                                        <div class="mb-stat-value">${val(cycleData.cr3ea_bakingtime)}</div>
+                                    </div>
+                                    <div class="mb-stat-tile">
+                                        <div class="mb-stat-label">Taste Profile</div>
+                                        <div class="mb-stat-value">${val(cycleData.cr3ea_bakingprofiletaste)}</div>
+                                    </div>
+                                    <div class="mb-stat-tile" style="grid-column: 1 / -1;">
+                                        <div class="mb-stat-label">As Per Template</div>
+                                        <div style="margin-top: 2px;">
+                                            <span class="mb-pill ${cycleData.cr3ea_bakingprofileaspertemplate === 'Yes' ? 'mb-pill-type' : 'mb-pill-count'}">
+                                                ${val(cycleData.cr3ea_bakingprofileaspertemplate)}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                             
-                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 10px;">
-                                <span style="font-weight: 700; font-size: 13px; color: #1e293b; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 4px;">Product Temperatures after Baking</span>
-                                <div>
-                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Top Product Temp</div>
-                                    <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_topproducttempafterbaking)}&deg;C</div>
+                            <div class="mb-summary-card">
+                                <div class="mb-summary-card-title">
+                                    <span>Product Temperatures after Baking</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"></path></svg>
                                 </div>
-                                <div style="border-top: 1px solid #f8fafc; padding-top: 8px;">
-                                    <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Bottom Product Temp</div>
-                                    <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_bottomproducttempafterbaking)}&deg;C</div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                    <div class="mb-stat-tile is-temp">
+                                        <div class="mb-stat-label">Top Product Temp</div>
+                                        <div class="mb-stat-value">${metricVal(cycleData.cr3ea_topproducttempafterbaking, '°C')}</div>
+                                    </div>
+                                    <div class="mb-stat-tile is-temp">
+                                        <div class="mb-stat-label">Bottom Product Temp</div>
+                                        <div class="mb-stat-value">${metricVal(cycleData.cr3ea_bottomproducttempafterbaking, '°C')}</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Baking Zone Temperatures Table -->
-                        <span style="font-weight: 700; font-size: 11px; display: block; margin-bottom: 8px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Baking Zone Temperatures (&deg;C):</span>
-                        <div class="table-responsive" style="margin-bottom: 16px; border-radius: 8px; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
-                            <table style="width: 100%; min-width: 600px; table-layout: fixed; border-collapse: collapse; font-size: 11px; text-align: center; background: white;">
-                                <thead>
-                                    <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-                                        <th style="padding: 8px 10px; text-align: left; font-weight: 600; color: #475569;">Zone</th>
-                                        <th style="padding: 8px 10px; font-weight: 600; color: #475569;">Z1</th>
-                                        <th style="padding: 8px 10px; font-weight: 600; color: #475569;">Z2</th>
-                                        <th style="padding: 8px 10px; font-weight: 600; color: #475569;">Z3</th>
-                                        <th style="padding: 8px 10px; font-weight: 600; color: #475569;">Z4</th>
-                                        <th style="padding: 8px 10px; font-weight: 600; color: #475569;">Z5</th>
-                                        <th style="padding: 8px 10px; font-weight: 600; color: #475569;">Z6</th>
-                                        <th style="padding: 8px 10px; font-weight: 600; color: #475569;">Z7</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr style="border-bottom: 1px solid #f1f5f9;">
-                                        <td style="padding: 8px 10px; font-weight: 600; text-align: left; color: #475569; background: #fcfcfc;">Top</td>
-                                        ${[1,2,3,4,5,6,7].map(i => `<td style="padding: 8px 10px;">${val(cycleData[`cr3ea_topbakingtempzone${i}`])}</td>`).join('')}
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 8px 10px; font-weight: 600; text-align: left; color: #475569; background: #fcfcfc;">Bottom</td>
-                                        ${[1,2,3,4,5,6,7].map(i => `<td style="padding: 8px 10px;">${val(cycleData[`cr3ea_bottombakingtempzone${i}`])}</td>`).join('')}
-                                    </tr>
-                                </tbody>
-                            </table>
+                        <!-- Baking Zone Temperatures Modern Strip -->
+                        <div class="mb-summary-card" style="margin-bottom: 16px;">
+                            <div class="mb-summary-card-title">
+                                <span>Baking Zone Temperatures (°C)</span>
+                                <span style="font-size: 11px; font-weight: 600; color: #64748b;">Zones 1 through 7</span>
+                            </div>
+
+                            <div style="margin-bottom: 10px;">
+                                <div style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 4px;">Top Zone Temperatures:</div>
+                                <div class="mb-summary-zone-grid">
+                                    ${[1,2,3,4,5,6,7].map(i => `
+                                        <div class="mb-summary-zone-item">
+                                            <span class="mb-summary-zone-name">Z${i}</span>
+                                            <span class="mb-summary-zone-val">${val(cycleData[`cr3ea_topbakingtempzone${i}`])}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            <div style="border-top: 1px solid #f1f5f9; padding-top: 10px;">
+                                <div style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 4px;">Bottom Zone Temperatures:</div>
+                                <div class="mb-summary-zone-grid">
+                                    ${[1,2,3,4,5,6,7].map(i => `
+                                        <div class="mb-summary-zone-item">
+                                            <span class="mb-summary-zone-name">Z${i}</span>
+                                            <span class="mb-summary-zone-val">${val(cycleData[`cr3ea_bottombakingtempzone${i}`])}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
                         </div>
 
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; font-size: 12px; margin-top: 8px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 8px;">
                             <!-- Biscuit Physical Standards -->
-                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                                <span style="font-weight: 700; font-size: 13px; color: #1e293b; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 12px;">Biscuit Physical Standards</span>
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px;">
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Length</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_biscuitlength)}</div>
+                            <div class="mb-summary-card">
+                                <div class="mb-summary-card-title">
+                                    <span>Biscuit Physical Standards</span>
+                                    <span style="font-size: 11px; font-weight: 600; color: #64748b;">Dimensions & Weights</span>
+                                </div>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px;">
+                                    <div class="mb-stat-tile">
+                                        <div class="mb-stat-label">Length</div>
+                                        <div class="mb-stat-value">${metricVal(cycleData.cr3ea_biscuitlength, 'mm')}</div>
                                     </div>
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Width</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_biscuitwidth)}</div>
+                                    <div class="mb-stat-tile">
+                                        <div class="mb-stat-label">Width</div>
+                                        <div class="mb-stat-value">${metricVal(cycleData.cr3ea_biscuitwidth, 'mm')}</div>
                                     </div>
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Diameter</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_biscuitdiameter)}</div>
+                                    <div class="mb-stat-tile">
+                                        <div class="mb-stat-label">Diameter</div>
+                                        <div class="mb-stat-value">${metricVal(cycleData.cr3ea_biscuitdiameter, 'mm')}</div>
                                     </div>
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Sample Count</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_standardssamplecount)}</div>
+                                    <div class="mb-stat-tile">
+                                        <div class="mb-stat-label">Sample Count</div>
+                                        <div class="mb-stat-value">${metricVal(cycleData.cr3ea_standardssamplecount, 'bis')}</div>
                                     </div>
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Std Weight</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_biscuitstdweight)}</div>
+                                    <div class="mb-stat-tile">
+                                        <div class="mb-stat-label">Std Weight</div>
+                                        <div class="mb-stat-value">${metricVal(cycleData.cr3ea_biscuitstdweight, 'g')}</div>
                                     </div>
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Obs. Weight</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_biscuitobservedweight)}</div>
+                                    <div class="mb-stat-tile">
+                                        <div class="mb-stat-label">Obs. Weight</div>
+                                        <div class="mb-stat-value">${metricVal(cycleData.cr3ea_biscuitobservedweight, 'g')}</div>
                                     </div>
-                                    <div>
-                                        <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Wt After Oil</div>
-                                        <div style="font-size: 13px; color: #1e293b; font-weight: 600; margin-top: 2px;">${val(cycleData.cr3ea_weightafteroilspray)}</div>
+                                    <div class="mb-stat-tile">
+                                        <div class="mb-stat-label">Wt After Oil</div>
+                                        <div class="mb-stat-value">${metricVal(cycleData.cr3ea_weightafteroilspray, 'g')}</div>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Quality & Moisture Parameters -->
-                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                                <span style="font-weight: 700; font-size: 13px; color: #1e293b; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 12px;">Quality & Moisture Parameters</span>
-                                <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 6px; font-weight: 700; margin-bottom: 6px; color: #475569; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">
-                                    <div>Parameter</div>
-                                    <div>Standard</div>
-                                    <div>Observed</div>
+                            <div class="mb-summary-card">
+                                <div class="mb-summary-card-title">
+                                    <span>Quality & Moisture</span>
+                                    <span style="font-size: 11px; font-weight: 600; color: #64748b;">Color & Moisture</span>
                                 </div>
-                                <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 6px; border-bottom: 1px solid #f8fafc; padding-bottom: 4px; font-size: 12px;">
-                                    <div style="font-weight: 600; color: #334155;">Top Colour</div>
-                                    <div style="color: #64748b;">${val(cycleData.cr3ea_topcolourstandard)}</div>
-                                    <div style="font-weight: 600; color: #0f172a;">${val(cycleData.cr3ea_topcolourobserved)}</div>
-                                </div>
-                                <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 6px; border-bottom: 1px solid #f8fafc; padding-top: 4px; padding-bottom: 4px; font-size: 12px;">
-                                    <div style="font-weight: 600; color: #334155;">Bottom Colour</div>
-                                    <div style="color: #64748b;">${val(cycleData.cr3ea_bottomcolourstandard)}</div>
-                                    <div style="font-weight: 600; color: #0f172a;">${val(cycleData.cr3ea_bottomcolourobserved)}</div>
-                                </div>
-                                <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 6px; padding-top: 4px; font-size: 12px;">
-                                    <div style="font-weight: 600; color: #334155;">Moisture %</div>
-                                    <div style="color: #64748b;">${val(cycleData.cr3ea_moisturestandard)}</div>
-                                    <div style="font-weight: 600; color: #0f172a;">${val(cycleData.cr3ea_moistureobserved)}</div>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px;">
+                                    <div class="mb-stat-tile">
+                                        <div class="mb-stat-label">Top Colour (Std / Obs)</div>
+                                        <div class="mb-stat-value" style="font-size: 12.5px;">${val(cycleData.cr3ea_topcolourstandard)} / <strong>${val(cycleData.cr3ea_topcolourobserved)}</strong></div>
+                                    </div>
+                                    <div class="mb-stat-tile">
+                                        <div class="mb-stat-label">Bottom Colour (Std / Obs)</div>
+                                        <div class="mb-stat-value" style="font-size: 12.5px;">${val(cycleData.cr3ea_bottomcolourstandard)} / <strong>${val(cycleData.cr3ea_bottomcolourobserved)}</strong></div>
+                                    </div>
+                                    <div class="mb-stat-tile" style="grid-column: 1 / -1;">
+                                        <div class="mb-stat-label">Moisture % (Std / Obs)</div>
+                                        <div class="mb-stat-value" style="font-size: 13.5px; color: #0284c7;">${val(cycleData.cr3ea_moisturestandard)}% / <strong>${val(cycleData.cr3ea_moistureobserved)}%</strong></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Document Attachment Section -->
-                        <div id="mb-attachment-container-${cycleNum}-${cycleData.cr3ea_prod_rajpura_mixingandbakingid}" style="margin-top: 16px; padding: 12px 16px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; font-size: 13px;">
-                            <span style="color: #64748b;">Checking for uploaded document...</span>
+                        <div id="mb-attachment-container-${cycleNum}-${cycleData.cr3ea_prod_rajpura_mixingandbakingid}" style="margin-top: 16px; padding: 14px 18px; background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 10px; font-size: 13px;">
+                            <span style="color: #64748b;">Checking for uploaded tour document...</span>
                         </div>
                     </div>
 
                 </div>
-                <p style="margin-top:20px; font-size:11px; color:#64748b; font-style: italic; border-top: 1px solid #f1f5f9; padding-top: 12px;">To review complete records or export detailed Excel/PDF reports, please visit the central HOD/PM plant tour dashboard.</p>
+                <p style="margin-top:20px; font-size:11.5px; color:#64748b; font-style: italic; border-top: 1px solid #f1f5f9; padding-top: 12px; display: flex; align-items: center; gap: 6px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    To review complete records or export detailed Excel/PDF reports, please visit the central HOD/PM plant tour dashboard.
+                </p>
             </div>
         `;
 
@@ -1660,11 +1886,11 @@ const MixingBaking_Checklist = {
                                         <line x1="16" y1="17" x2="8" y2="17"></line>
                                         <polyline points="10 9 9 9 8 9"></polyline>
                                     </svg>
-                                    <strong style="color: #334155; font-size: 13px;">${file.Title}</strong>
+                                    <strong style="color: #1e293b; font-size: 13px;">${file.Title}</strong>
                                 </div>
-                                <a href="${file.FileRef}" target="_blank" class="bs-btn" style="padding: 6px 12px; font-size: 12px; background: #2563eb; color: white; border: none; border-radius: 4px; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                                <a href="${file.FileRef}" target="_blank" class="bs-btn" style="padding: 6px 14px; font-size: 12px; background: #2563eb; color: white; border: none; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(37,99,235,0.2);">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                                    View Document
+                                    View Attached Document
                                 </a>
                             </div>
                         `;
@@ -1700,15 +1926,11 @@ const MixingBaking_Checklist = {
         
         // Toggle button active classes matching the segmented navigation style
         document.querySelectorAll(`.comp-tab-btn-${cycleNum}`).forEach(b => {
-            b.style.background = "transparent";
-            b.style.color = "#475569";
-            b.style.boxShadow = "none";
+            b.classList.remove("active");
         });
         
         // Highlight active button
-        btn.style.background = "#ffffff";
-        btn.style.color = "#1e293b";
-        btn.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06)";
+        btn.classList.add("active");
     },
 
     // Collapsible Accordion toggler handler
@@ -1756,6 +1978,12 @@ const MixingBaking_Checklist = {
             return;
         }
 
+        // If active uncompleted cycle form exists on page, trigger completeCycleAndTour
+        const activeForm = document.getElementById("cycle-1");
+        if (activeForm && !activeForm.classList.contains("completed-cycle")) {
+            return this.completeCycleAndTour(1);
+        }
+
         const confirmComplete = confirm("Are you sure you want to complete this Quality Tour? This will lock the tour from further edits.");
         if (!confirmComplete) return;
 
@@ -1791,15 +2019,22 @@ const MixingBaking_Checklist = {
         if (!product) return;
         console.log(`Populating standard values dynamically for Product: "${product}", Cycle: ${cycleNum}`);
 
-        // Helper to safely set element value (stripping redundant "Celsius" if present)
+        // Helper to safely format standard value
+        const sanitizeStandardValue = (val) => {
+            if (val === undefined || val === null) return "";
+            if (typeof val === "boolean") return val;
+            let str = String(val).trim();
+            if (str === "" || str === "-") {
+                return "NA";
+            }
+            return str;
+        };
+
         const setVal = (id, val) => {
             const el = document.getElementById(id);
             if (el) {
                 if (val === undefined || val === null) return;
-                if (typeof val === "string") {
-                    val = val.replace(/\s*celsius/gi, "").trim();
-                }
-                el.value = val;
+                el.value = sanitizeStandardValue(val);
             }
         };
 
@@ -1812,16 +2047,16 @@ const MixingBaking_Checklist = {
         // Clean values before prefilling standard fields to prevent bleed
         const fieldsToClear = [
             "cr3ea_rpostandard", "cr3ea_solidfatstandard", "cr3ea_butterstandard", "cr3ea_blackjackstandard", "cr3ea_spongetempstandard", "cr3ea_slurrystandard", "cr3ea_groundsugartempstandard", "cr3ea_groundsugarparticlesizestandard",
-            "cr3ea_rpoobserved", "cr3ea_solidfatobserved", "cr3ea_butterobserved", "cr3ea_blackjackobserved", "cr3ea_spongetempobserved", "cr3ea_slurryobserved",
+            "cr3ea_rpoobserved", "cr3ea_solidfatobserved", "cr3ea_butterobserved", "cr3ea_blackjackobserved", "cr3ea_spongetempobserved", "cr3ea_slurryobserved", "cr3ea_groundsugartempobserved", "cr3ea_groundsugarparticlesizeobserved",
             "cr3ea_chocochipssupplier", "cr3ea_chocochipstemp", "cr3ea_chocochipscountperkg", "cr3ea_chocochipscompoundorpure",
             "cr3ea_cashewsupplier", "cr3ea_cashewtemp", "cr3ea_cashewcountperkg", "cr3ea_cashewcompoundorpure",
-            "cr3ea_floursupplier", "cr3ea_invertsyruptemp", "cr3ea_blackjack2temp",
-            "cr3ea_spongeproductname", "cr3ea_spongewaterquantity", "cr3ea_spongeyeastquantity", "cr3ea_spongewatertemp", "cr3ea_fermentationstarttemp", "cr3ea_fermentationroomtemp", "cr3ea_finaltempafterfermentation", "cr3ea_finalphafterfermentation",
-            "cr3ea_creamingtimestandard", "cr3ea_creamingtimeobserved", "cr3ea_mixingtimestandard", "cr3ea_mixingtimeobserved", "cr3ea_doughtempstandard", "cr3ea_doughtempobserved", "cr3ea_doughstandingtimestandard", "cr3ea_doughstandingtimeobserved",
+            "cr3ea_floursupplier", "cr3ea_invertsyruptemp", "cr3ea_invertsyrupph", "cr3ea_invertsyrupbrix", "cr3ea_blackjack2temp", "cr3ea_blackjack2ph", "cr3ea_blackjack2brix",
+            "cr3ea_spongeproductname", "cr3ea_spongewaterquantity", "cr3ea_spongeyeastquantity", "cr3ea_spongewatertemp", "cr3ea_spongemixingtime", "cr3ea_fermentationstarttemp", "cr3ea_fermentationroomtemp", "cr3ea_finaltempafterfermentation", "cr3ea_finalphafterfermentation",
+            "cr3ea_creamingtimestandard", "cr3ea_creamingtimeobserved", "cr3ea_mixingtimestandard", "cr3ea_mixingtimeobserved", "cr3ea_doughtempstandard", "cr3ea_doughtempobserved", "cr3ea_doughstandingtimestandard", "cr3ea_doughstandingtimeobserved", "cr3ea_doughconsistency",
             "cr3ea_moulderrpmstrokes", "cr3ea_formingsamplecount", "cr3ea_standardwetweight",
-            "cr3ea_biscuitlength", "cr3ea_biscuitwidth", "cr3ea_biscuitdiameter", "cr3ea_standardssamplecount", "cr3ea_biscuitstdweight",
+            "cr3ea_bakingtime", "cr3ea_bakingprofiletaste", "cr3ea_biscuitlength", "cr3ea_biscuitwidth", "cr3ea_biscuitdiameter", "cr3ea_gauge", "cr3ea_standardssamplecount", "cr3ea_biscuitstdweight",
             "cr3ea_topcolourstandard", "cr3ea_topcolourobserved", "cr3ea_bottomcolourstandard", "cr3ea_bottomcolourobserved",
-            "cr3ea_moisturestandard", "cr3ea_weightafteroilspray"
+            "cr3ea_moisturestandard", "cr3ea_weightbeforeoil", "cr3ea_weightafteroilspray", "cr3ea_weightwithseasoning"
         ];
         fieldsToClear.forEach(f => {
             const el = document.getElementById(`${f}-${cycleNum}`);
@@ -1833,105 +2068,161 @@ const MixingBaking_Checklist = {
             ? MixingBaking_Main.state.recipes
             : ((typeof MB_RECIPES_SEED_DATA !== "undefined" && Array.isArray(MB_RECIPES_SEED_DATA)) ? MB_RECIPES_SEED_DATA : []);
 
-        const cleanProd = String(product).toLowerCase().trim();
-        const recipe = allRecipes.find(r => r.title && r.title.toLowerCase().trim() === cleanProd);
+        const clean = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const target = clean(product);
 
-        if (!recipe || !recipe.standards) {
-            console.warn(`No configured recipe standards found for product "${product}". Checking fallback variations...`);
-            // Check substring match
-            const fallbackRecipe = allRecipes.find(r => r.title && (cleanProd.includes(r.title.toLowerCase().trim()) || r.title.toLowerCase().trim().includes(cleanProd)));
-            if (fallbackRecipe && fallbackRecipe.standards) {
-                this.applyRecipeStandards(cycleNum, fallbackRecipe.standards, setVal, setChecked);
-            }
+        // 1. Direct match on display title or title or variety
+        let recipe = allRecipes.find(r => {
+            const skuStr = (r.skuRaw || (Array.isArray(r.sku) ? r.sku.join(", ") : "") || "").trim();
+            const title = (r.title || r.variety || "").trim();
+            const displayTitle = (skuStr && skuStr !== "-" && skuStr.toUpperCase() !== "NA" && !title.toLowerCase().includes(skuStr.toLowerCase()))
+                ? `${title} (${skuStr})`
+                : title;
+            return clean(displayTitle) === target || clean(r.title) === target || clean(r.variety) === target;
+        });
+
+        // 2. Combined title + SKU check
+        if (!recipe) {
+            recipe = allRecipes.find(r => clean(`${r.title} ${r.skuRaw || ""}`) === target);
+        }
+
+        // 3. Fallback substring match
+        if (!recipe) {
+            recipe = allRecipes.find(r => {
+                const rTitle = clean(r.title || r.variety || "");
+                return rTitle && (target.includes(rTitle) || rTitle.includes(target));
+            });
+        }
+
+        if (!recipe || (!recipe.standards && typeof recipe !== "object")) {
+            console.warn(`No configured recipe standards found for product "${product}".`);
             return;
         }
 
-        this.applyRecipeStandards(cycleNum, recipe.standards, setVal, setChecked);
+        const standards = recipe.standards || recipe;
+        this.applyRecipeStandards(cycleNum, standards, setVal, setChecked);
+        this.updateSectionTabIndicators(cycleNum);
     },
 
     applyRecipeStandards: function (cycleNum, s, setVal, setChecked) {
         if (!s || typeof s !== "object") return;
 
-        // 1. Ingredient Temperatures Standard
-        if (s.rpoStandard !== undefined) setVal(`cr3ea_rpostandard-${cycleNum}`, s.rpoStandard);
-        if (s.solidFatStandard !== undefined) setVal(`cr3ea_solidfatstandard-${cycleNum}`, s.solidFatStandard);
-        if (s.butterStandard !== undefined) setVal(`cr3ea_butterstandard-${cycleNum}`, s.butterStandard);
-        if (s.blackJackStandard !== undefined) setVal(`cr3ea_blackjackstandard-${cycleNum}`, s.blackJackStandard);
-        if (s.spongeTempStandard !== undefined) setVal(`cr3ea_spongetempstandard-${cycleNum}`, s.spongeTempStandard);
-        if (s.slurryStandard !== undefined) setVal(`cr3ea_slurrystandard-${cycleNum}`, s.slurryStandard);
-        if (s.groundSugarTempStandard !== undefined) setVal(`cr3ea_groundsugartempstandard-${cycleNum}`, s.groundSugarTempStandard);
-        if (s.groundSugarParticleSizeStandard !== undefined) setVal(`cr3ea_groundsugarparticlesizestandard-${cycleNum}`, s.groundSugarParticleSizeStandard);
+        // Helper to check if a value is NA / empty / not applicable
+        const isNA = (v) => {
+            if (v === undefined || v === null) return true;
+            const str = String(v).trim().toUpperCase();
+            return str === "" || str === "NA" || str === "N/A" || str === "-";
+        };
 
-        // 2. Observed fields auto-set to "NA"
-        if (s.rpoObserved !== undefined) setVal(`cr3ea_rpoobserved-${cycleNum}`, s.rpoObserved);
-        if (s.butterObserved !== undefined) setVal(`cr3ea_butterobserved-${cycleNum}`, s.butterObserved);
-        if (s.solidFatObserved !== undefined) setVal(`cr3ea_solidfatobserved-${cycleNum}`, s.solidFatObserved);
-        if (s.blackJackObserved !== undefined) setVal(`cr3ea_blackjackobserved-${cycleNum}`, s.blackJackObserved);
-        if (s.spongeTempObserved !== undefined) setVal(`cr3ea_spongetempobserved-${cycleNum}`, s.spongeTempObserved);
-        if (s.slurryObserved !== undefined) setVal(`cr3ea_slurryobserved-${cycleNum}`, s.slurryObserved);
-        if (s.groundSugarTempObserved !== undefined) setVal(`cr3ea_groundsugartempobserved-${cycleNum}`, s.groundSugarTempObserved);
-        if (s.groundSugarParticleSizeObserved !== undefined) setVal(`cr3ea_groundsugarparticlesizeobserved-${cycleNum}`, s.groundSugarParticleSizeObserved);
+        // 1. Ingredient Temperatures Standard
+        const rpoStd = s.rpoStandard !== undefined ? s.rpoStandard : (s.rpo !== undefined ? s.rpo : "45");
+        const solidFatStd = s.solidFatStandard !== undefined ? s.solidFatStandard : (s.solidFat !== undefined ? s.solidFat : "NA");
+        const butterStd = s.butterStandard !== undefined ? s.butterStandard : (s.butter !== undefined ? s.butter : "NA");
+        const blackJackStd = s.blackJackStandard !== undefined ? s.blackJackStandard : (s.blackJack !== undefined ? s.blackJack : "NA");
+        const spongeTempStd = s.spongeTempStandard !== undefined ? s.spongeTempStandard : (s.spongeTemp !== undefined ? s.spongeTemp : "NA");
+        const slurryStd = s.slurryStandard !== undefined ? s.slurryStandard : (s.slurry !== undefined ? s.slurry : "NA");
+        const groundSugarTempStd = s.groundSugarTempStandard !== undefined ? s.groundSugarTempStandard : (s.groundSugarTemp !== undefined ? s.groundSugarTemp : "NA");
+        const groundSugarParticleStd = s.groundSugarParticleSizeStandard !== undefined ? s.groundSugarParticleSizeStandard : (s.groundSugarParticleSize !== undefined ? s.groundSugarParticleSize : "NA");
+
+        setVal(`cr3ea_rpostandard-${cycleNum}`, rpoStd);
+        setVal(`cr3ea_solidfatstandard-${cycleNum}`, solidFatStd);
+        setVal(`cr3ea_butterstandard-${cycleNum}`, butterStd);
+        setVal(`cr3ea_blackjackstandard-${cycleNum}`, blackJackStd);
+        setVal(`cr3ea_spongetempstandard-${cycleNum}`, spongeTempStd);
+        setVal(`cr3ea_slurrystandard-${cycleNum}`, slurryStd);
+        setVal(`cr3ea_groundsugartempstandard-${cycleNum}`, groundSugarTempStd);
+        setVal(`cr3ea_groundsugarparticlesizestandard-${cycleNum}`, groundSugarParticleStd);
+
+        // 2. Observed fields auto-set to "NA" if not applicable
+        setVal(`cr3ea_rpoobserved-${cycleNum}`, s.rpoObserved !== undefined ? s.rpoObserved : (isNA(rpoStd) ? "NA" : ""));
+        setVal(`cr3ea_solidfatobserved-${cycleNum}`, s.solidFatObserved !== undefined ? s.solidFatObserved : (isNA(solidFatStd) ? "NA" : ""));
+        setVal(`cr3ea_butterobserved-${cycleNum}`, s.butterObserved !== undefined ? s.butterObserved : (isNA(butterStd) ? "NA" : ""));
+        setVal(`cr3ea_blackjackobserved-${cycleNum}`, s.blackJackObserved !== undefined ? s.blackJackObserved : (isNA(blackJackStd) ? "NA" : ""));
+        setVal(`cr3ea_spongetempobserved-${cycleNum}`, s.spongeTempObserved !== undefined ? s.spongeTempObserved : (isNA(spongeTempStd) ? "NA" : ""));
+        setVal(`cr3ea_slurryobserved-${cycleNum}`, s.slurryObserved !== undefined ? s.slurryObserved : (isNA(slurryStd) ? "NA" : ""));
+        setVal(`cr3ea_groundsugartempobserved-${cycleNum}`, s.groundSugarTempObserved !== undefined ? s.groundSugarTempObserved : (isNA(groundSugarTempStd) ? "NA" : ""));
+        setVal(`cr3ea_groundsugarparticlesizeobserved-${cycleNum}`, s.groundSugarParticleSizeObserved !== undefined ? s.groundSugarParticleSizeObserved : (isNA(groundSugarParticleStd) ? "NA" : ""));
 
         // 3. Raw Material Suppliers
-        if (s.chocoChipsSupplier !== undefined) setVal(`cr3ea_chocochipssupplier-${cycleNum}`, s.chocoChipsSupplier);
-        if (s.chocoChipsTemp !== undefined) setVal(`cr3ea_chocochipstemp-${cycleNum}`, s.chocoChipsTemp);
-        if (s.chocoChipsCountPerKg !== undefined) setVal(`cr3ea_chocochipscountperkg-${cycleNum}`, s.chocoChipsCountPerKg);
-        if (s.chocoChipsCompoundOrPure !== undefined) setVal(`cr3ea_chocochipscompoundorpure-${cycleNum}`, s.chocoChipsCompoundOrPure);
+        setVal(`cr3ea_chocochipssupplier-${cycleNum}`, s.chocoChipsSupplier !== undefined ? s.chocoChipsSupplier : "NA");
+        setVal(`cr3ea_chocochipstemp-${cycleNum}`, s.chocoChipsTemp !== undefined ? s.chocoChipsTemp : "NA");
+        setVal(`cr3ea_chocochipscountperkg-${cycleNum}`, s.chocoChipsCountPerKg !== undefined ? s.chocoChipsCountPerKg : "NA");
+        setVal(`cr3ea_chocochipscompoundorpure-${cycleNum}`, s.chocoChipsCompoundOrPure !== undefined ? s.chocoChipsCompoundOrPure : "NA");
 
-        if (s.cashewSupplier !== undefined) setVal(`cr3ea_cashewsupplier-${cycleNum}`, s.cashewSupplier);
-        if (s.cashewTemp !== undefined) setVal(`cr3ea_cashewtemp-${cycleNum}`, s.cashewTemp);
-        if (s.cashewCountPerKg !== undefined) setVal(`cr3ea_cashewcountperkg-${cycleNum}`, s.cashewCountPerKg);
-        if (s.cashewCompoundOrPure !== undefined) setVal(`cr3ea_cashewcompoundorpure-${cycleNum}`, s.cashewCompoundOrPure);
+        setVal(`cr3ea_cashewsupplier-${cycleNum}`, s.cashewSupplier !== undefined ? s.cashewSupplier : "NA");
+        setVal(`cr3ea_cashewtemp-${cycleNum}`, s.cashewTemp !== undefined ? s.cashewTemp : "NA");
+        setVal(`cr3ea_cashewcountperkg-${cycleNum}`, s.cashewCountPerKg !== undefined ? s.cashewCountPerKg : "NA");
+        setVal(`cr3ea_cashewcompoundorpure-${cycleNum}`, s.cashewCompoundOrPure !== undefined ? s.cashewCompoundOrPure : "NA");
 
-        if (s.flourSupplier !== undefined) setVal(`cr3ea_floursupplier-${cycleNum}`, s.flourSupplier);
+        setVal(`cr3ea_floursupplier-${cycleNum}`, s.flourSupplier !== undefined ? s.flourSupplier : "Amul / In-house");
 
         // 4. Syrups & Liquid Sugars
-        if (s.invertSyrupTemp !== undefined) setVal(`cr3ea_invertsyruptemp-${cycleNum}`, s.invertSyrupTemp);
-        if (s.blackJack2Temp !== undefined) setVal(`cr3ea_blackjack2temp-${cycleNum}`, s.blackJack2Temp);
+        setVal(`cr3ea_invertsyruptemp-${cycleNum}`, s.invertSyrupTemp !== undefined ? s.invertSyrupTemp : "NA");
+        setVal(`cr3ea_invertsyrupph-${cycleNum}`, s.invertSyrupPh !== undefined ? s.invertSyrupPh : "NA");
+        setVal(`cr3ea_invertsyrupbrix-${cycleNum}`, s.invertSyrupBrix !== undefined ? s.invertSyrupBrix : "NA");
+        setVal(`cr3ea_blackjack2temp-${cycleNum}`, s.blackJack2Temp !== undefined ? s.blackJack2Temp : "NA");
+        setVal(`cr3ea_blackjack2ph-${cycleNum}`, s.blackJack2Ph !== undefined ? s.blackJack2Ph : "NA");
+        setVal(`cr3ea_blackjack2brix-${cycleNum}`, s.blackJack2Brix !== undefined ? s.blackJack2Brix : "NA");
 
         // 5. Sponge & Fermentation
-        if (s.spongeProductName !== undefined) setVal(`cr3ea_spongeproductname-${cycleNum}`, s.spongeProductName);
-        if (s.spongeWaterQuantity !== undefined) setVal(`cr3ea_spongewaterquantity-${cycleNum}`, s.spongeWaterQuantity);
-        if (s.spongeYeastQuantity !== undefined) setVal(`cr3ea_spongeyeastquantity-${cycleNum}`, s.spongeYeastQuantity);
-        if (s.spongeWaterTemp !== undefined) setVal(`cr3ea_spongewatertemp-${cycleNum}`, s.spongeWaterTemp);
-        if (s.fermentationStartTemp !== undefined) setVal(`cr3ea_fermentationstarttemp-${cycleNum}`, s.fermentationStartTemp);
-        if (s.fermentationRoomTemp !== undefined) setVal(`cr3ea_fermentationroomtemp-${cycleNum}`, s.fermentationRoomTemp);
-        if (s.finalTempAfterFermentation !== undefined) setVal(`cr3ea_finaltempafterfermentation-${cycleNum}`, s.finalTempAfterFermentation);
-        if (s.finalPhAfterFermentation !== undefined) setVal(`cr3ea_finalphafterfermentation-${cycleNum}`, s.finalPhAfterFermentation);
+        setVal(`cr3ea_spongeproductname-${cycleNum}`, s.spongeProductName !== undefined ? s.spongeProductName : (s.variety || "NA"));
+        setVal(`cr3ea_spongewaterquantity-${cycleNum}`, s.spongeWaterQuantity !== undefined ? s.spongeWaterQuantity : "NA");
+        setVal(`cr3ea_spongeyeastquantity-${cycleNum}`, s.spongeYeastQuantity !== undefined ? s.spongeYeastQuantity : "NA");
+        setVal(`cr3ea_spongewatertemp-${cycleNum}`, s.spongeWaterTemp !== undefined ? s.spongeWaterTemp : "NA");
+        setVal(`cr3ea_spongemixingtime-${cycleNum}`, s.spongeMixingTime !== undefined ? s.spongeMixingTime : "NA");
+        setVal(`cr3ea_fermentationstarttemp-${cycleNum}`, s.fermentationStartTemp !== undefined ? s.fermentationStartTemp : "NA");
+        setVal(`cr3ea_fermentationroomtemp-${cycleNum}`, s.fermentationRoomTemp !== undefined ? s.fermentationRoomTemp : "NA");
+        setVal(`cr3ea_finaltempafterfermentation-${cycleNum}`, s.finalTempAfterFermentation !== undefined ? s.finalTempAfterFermentation : "NA");
+        setVal(`cr3ea_finalphafterfermentation-${cycleNum}`, s.finalPhAfterFermentation !== undefined ? s.finalPhAfterFermentation : "NA");
 
         // 6. Dough Mixing Standards
-        if (s.creamingTimeStandard !== undefined) setVal(`cr3ea_creamingtimestandard-${cycleNum}`, s.creamingTimeStandard);
+        setVal(`cr3ea_creamingtimestandard-${cycleNum}`, s.creamingTimeStandard !== undefined ? s.creamingTimeStandard : "10 min");
         if (s.creamingTimeObserved !== undefined) setVal(`cr3ea_creamingtimeobserved-${cycleNum}`, s.creamingTimeObserved);
-        if (s.mixingTimeStandard !== undefined) setVal(`cr3ea_mixingtimestandard-${cycleNum}`, s.mixingTimeStandard);
+        setVal(`cr3ea_mixingtimestandard-${cycleNum}`, s.mixingTimeStandard !== undefined ? s.mixingTimeStandard : "5 Min");
         if (s.mixingTimeObserved !== undefined) setVal(`cr3ea_mixingtimeobserved-${cycleNum}`, s.mixingTimeObserved);
-        if (s.doughTempStandard !== undefined) setVal(`cr3ea_doughtempstandard-${cycleNum}`, s.doughTempStandard);
+        setVal(`cr3ea_doughtempstandard-${cycleNum}`, s.doughTempStandard !== undefined ? s.doughTempStandard : "32-35");
         if (s.doughTempObserved !== undefined) setVal(`cr3ea_doughtempobserved-${cycleNum}`, s.doughTempObserved);
-        if (s.doughStandingTimeStandard !== undefined) setVal(`cr3ea_doughstandingtimestandard-${cycleNum}`, s.doughStandingTimeStandard);
+        setVal(`cr3ea_doughstandingtimestandard-${cycleNum}`, s.doughStandingTimeStandard !== undefined ? s.doughStandingTimeStandard : "10 Min");
         if (s.doughStandingTimeObserved !== undefined) setVal(`cr3ea_doughstandingtimeobserved-${cycleNum}`, s.doughStandingTimeObserved);
+        setVal(`cr3ea_doughconsistency-${cycleNum}`, s.doughConsistency !== undefined ? s.doughConsistency : "Smooth / Homogeneous");
 
         // 7. Forming & Moulding
-        if (s.moulderRpmStrokes !== undefined) setVal(`cr3ea_moulderrpmstrokes-${cycleNum}`, s.moulderRpmStrokes);
-        if (s.formingSampleCount !== undefined) setVal(`cr3ea_formingsamplecount-${cycleNum}`, s.formingSampleCount);
-        if (s.standardWetWeight !== undefined) setVal(`cr3ea_standardwetweight-${cycleNum}`, s.standardWetWeight);
+        setVal(`cr3ea_moulderrpmstrokes-${cycleNum}`, s.moulderRpmStrokes !== undefined ? s.moulderRpmStrokes : "NA");
+        const formingCount = s.formingSampleCount !== undefined ? s.formingSampleCount : (s.numberOfBiscuits !== undefined ? s.numberOfBiscuits : "10");
+        setVal(`cr3ea_formingsamplecount-${cycleNum}`, formingCount);
+        setVal(`cr3ea_standardwetweight-${cycleNum}`, s.standardWetWeight !== undefined ? s.standardWetWeight : "NA");
 
         // 8. Baking Profile
-        if (s.bakingProfileAsPerTemplate !== undefined) {
-            setChecked(`cr3ea_bakingprofileaspertemplate-${cycleNum}`, s.bakingProfileAsPerTemplate);
-        }
+        setVal(`cr3ea_bakingtime-${cycleNum}`, s.bakingTime !== undefined ? s.bakingTime : "4'45\"");
+        setVal(`cr3ea_bakingprofiletaste-${cycleNum}`, s.bakingProfileTaste !== undefined ? s.bakingProfileTaste : "Standard / Normal");
+        setChecked(`cr3ea_bakingprofileaspertemplate-${cycleNum}`, s.bakingProfileAsPerTemplate !== false);
 
-        // 9. Biscuit Physical Dimensions
-        if (s.biscuitLength !== undefined) setVal(`cr3ea_biscuitlength-${cycleNum}`, s.biscuitLength);
-        if (s.biscuitWidth !== undefined) setVal(`cr3ea_biscuitwidth-${cycleNum}`, s.biscuitWidth);
-        if (s.biscuitDiameter !== undefined) setVal(`cr3ea_biscuitdiameter-${cycleNum}`, s.biscuitDiameter);
-        if (s.standardsSampleCount !== undefined) setVal(`cr3ea_standardssamplecount-${cycleNum}`, s.standardsSampleCount);
-        if (s.biscuitStdWeight !== undefined) setVal(`cr3ea_biscuitstdweight-${cycleNum}`, s.biscuitStdWeight);
+        // 9. Biscuit Physical Dimensions & Weights
+        const biscuitLength = s.biscuitLength !== undefined ? s.biscuitLength : (s.length !== undefined ? s.length : "NA");
+        const biscuitWidth = s.biscuitWidth !== undefined ? s.biscuitWidth : (s.width !== undefined ? s.width : "NA");
+        const biscuitDiameter = s.biscuitDiameter !== undefined ? s.biscuitDiameter : (s.diameter !== undefined ? s.diameter : "NA");
+        const gaugeVal = s.gauge !== undefined ? s.gauge : "NA";
+        const stdSampleCount = s.standardsSampleCount !== undefined ? s.standardsSampleCount : (s.numberOfBiscuits !== undefined ? s.numberOfBiscuits : "10");
+        const biscuitStdWeight = s.biscuitStdWeight !== undefined ? s.biscuitStdWeight : (s.dryBiscuitWeight !== undefined ? s.dryBiscuitWeight : "NA");
+        const wtBeforeOil = s.weightBeforeOil !== undefined ? s.weightBeforeOil : "NA";
+        const wtAfterOil = s.weightAfterOilSpray !== undefined ? s.weightAfterOilSpray : (s.weightAfterOil !== undefined ? s.weightAfterOil : "NA");
+        const wtSeasoning = s.weightWithSeasoning !== undefined ? s.weightWithSeasoning : "NA";
+
+        setVal(`cr3ea_biscuitlength-${cycleNum}`, biscuitLength);
+        setVal(`cr3ea_biscuitwidth-${cycleNum}`, biscuitWidth);
+        setVal(`cr3ea_biscuitdiameter-${cycleNum}`, biscuitDiameter);
+        setVal(`cr3ea_gauge-${cycleNum}`, gaugeVal);
+        setVal(`cr3ea_standardssamplecount-${cycleNum}`, stdSampleCount);
+        setVal(`cr3ea_biscuitstdweight-${cycleNum}`, biscuitStdWeight);
+        setVal(`cr3ea_weightbeforeoil-${cycleNum}`, wtBeforeOil);
+        setVal(`cr3ea_weightafteroilspray-${cycleNum}`, wtAfterOil);
+        setVal(`cr3ea_weightwithseasoning-${cycleNum}`, wtSeasoning);
 
         // 10. Quality & Moisture
-        if (s.topColourStandard !== undefined) setVal(`cr3ea_topcolourstandard-${cycleNum}`, s.topColourStandard);
-        if (s.topColourObserved !== undefined) setVal(`cr3ea_topcolourobserved-${cycleNum}`, s.topColourObserved);
-        if (s.bottomColourStandard !== undefined) setVal(`cr3ea_bottomcolourstandard-${cycleNum}`, s.bottomColourStandard);
-        if (s.bottomColourObserved !== undefined) setVal(`cr3ea_bottomcolourobserved-${cycleNum}`, s.bottomColourObserved);
-        if (s.moistureStandard !== undefined) setVal(`cr3ea_moisturestandard-${cycleNum}`, s.moistureStandard);
-        if (s.weightAfterOilSpray !== undefined) setVal(`cr3ea_weightafteroilspray-${cycleNum}`, s.weightAfterOilSpray);
+        setVal(`cr3ea_topcolourstandard-${cycleNum}`, s.topColourStandard !== undefined ? s.topColourStandard : "As per std");
+        setVal(`cr3ea_topcolourobserved-${cycleNum}`, s.topColourObserved !== undefined ? s.topColourObserved : "As per std");
+        setVal(`cr3ea_bottomcolourstandard-${cycleNum}`, s.bottomColourStandard !== undefined ? s.bottomColourStandard : "As per std");
+        setVal(`cr3ea_bottomcolourobserved-${cycleNum}`, s.bottomColourObserved !== undefined ? s.bottomColourObserved : "As per std");
+        setVal(`cr3ea_moisturestandard-${cycleNum}`, s.moistureStandard !== undefined ? s.moistureStandard : (s.moisture !== undefined ? s.moisture : "2.25%"));
     }
 };

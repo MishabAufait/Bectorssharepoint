@@ -27,7 +27,7 @@
                 siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/home-page.min.css?v=2.0",
                 siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/style.css?v=2.0",
                 siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=2.2",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/style.css?v=5.4"
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/style.css?v=7.0"
             ];
 
             for (var i = 0; i < cssLinks.length; i++) {
@@ -265,52 +265,54 @@
                 </div>
             </div>
 
-            <div class="bs-card">
-                <div class="bs-card-header">
-                    <h4 class="bs-card-title">PPE Audit Details</h4>
-                </div>
-                <div class="bs-card-body" style="padding: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
-                    <div class="form-group">
-                        <label class="form-label">Area</label>
-                        <div class="select2-parent">
-                            <select id="ppeAreaSelect" class="form-select">
-                                <option value="Mixing + Oven">Mixing + Oven</option>
-                                <option value="Packing">Packing</option>
-                            </select>
+            <div class="fs-checklist-scroll-container">
+                <div class="bs-card">
+                    <div class="bs-card-header">
+                        <h4 class="bs-card-title">PPE Audit Details</h4>
+                    </div>
+                    <div class="bs-card-body" style="padding: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                        <div class="form-group">
+                            <label class="form-label">Area</label>
+                            <div class="select2-parent">
+                                <select id="ppeAreaSelect" class="form-select" onchange="PPEChecklistScreen.handleAreaChange()">
+                                    <option value="Mixing + Oven">Mixing + Oven</option>
+                                    <option value="Packing">Packing</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Sample Size</label>
+                            <input type="number" class="form-control" id="ppe-sample-size-input" min="1" value="50" oninput="PPEChecklistScreen.handleSampleSizeChange()" onchange="PPEChecklistScreen.handleSampleSizeChange()">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Total Possible Defects</label>
+                            <input type="number" class="form-control" id="ppe-possible-defects-input" min="1" value="200" readonly style="background-color: #f1f5f9; cursor: not-allowed;">
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Sample Size</label>
-                        <input type="number" class="form-control" id="ppe-sample-size-input" min="1" value="50">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Total Possible Defects</label>
-                        <input type="number" class="form-control" id="ppe-possible-defects-input" min="1" value="2">
-                    </div>
                 </div>
-            </div>
 
-            <!-- PPE Checkpoints Card Table -->
-            <div class="bs-card">
-                <div class="bs-card-header">
-                    <h4 class="bs-card-title">PPE Checkpoints Table</h4>
-                </div>
-                <div class="bs-card-body" style="padding: 20px; overflow-x: auto;">
-                    <table class="bs-table" style="width: 100%; border-collapse: collapse; text-align: center; font-size: 14px;">
-                        <thead>
-                            <tr style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0;">
-                                <th style="width: 5%;">No.</th>
-                                <th style="width: 45%; text-align: left;">Checkpoint Criteria</th>
-                                <th style="width: 15%;">Defect Count</th>
-                                <th style="width: 35%; text-align: left;">Defect Remarks & Proof</th>
-                            </tr>
-                        </thead>
-                        <tbody id="ppe-checklist-tbody">
-                            <!-- Populated dynamically -->
-                        </tbody>
-                    </table>
-                    <div id="ppe-defect-restriction-msg" style="display: none; margin-top: 15px; padding: 10px 15px; border-radius: 6px; background-color: #fee2e2; border: 1px solid #fecaca; color: #b91c1c; font-size: 13px; font-weight: 600; text-align: center;">
-                        Defect count cannot exceed the defined Sample Size (<span id="ppe-max-sample-display">50</span>).
+                <!-- PPE Checkpoints Card Table -->
+                <div class="bs-card">
+                    <div class="bs-card-header">
+                        <h4 class="bs-card-title">PPE Checkpoints Table</h4>
+                    </div>
+                    <div class="bs-card-body" style="padding: 20px; overflow-x: auto;">
+                        <table class="bs-table" style="width: 100%; border-collapse: collapse; text-align: center; font-size: 14px;">
+                            <thead>
+                                <tr style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                                    <th style="width: 5%;">No.</th>
+                                    <th style="width: 45%; text-align: left;">Checkpoint Criteria</th>
+                                    <th style="width: 15%;">Defect Count</th>
+                                    <th style="width: 35%; text-align: left;">Defect Remarks & Proof</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ppe-checklist-tbody">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                        <div id="ppe-defect-restriction-msg" style="display: none; margin-top: 15px; padding: 10px 15px; border-radius: 6px; background-color: #fee2e2; border: 1px solid #fecaca; color: #b91c1c; font-size: 13px; font-weight: 600; text-align: center;">
+                            Defect count cannot exceed the defined Sample Size (<span id="ppe-max-sample-display">50</span>).
+                        </div>
                     </div>
                 </div>
             </div>
@@ -391,7 +393,7 @@
                 </div>
             </div>
 
-            <div id="gmp-tables-wrapper">
+            <div id="gmp-tables-wrapper" class="fs-checklist-scroll-container">
                 <!-- Checklist groups rendered dynamically -->
             </div>
 
@@ -491,7 +493,7 @@
 
             <!-- Locations panel -->
             <div id="pci-checklist-panel" style="display: none;">
-                <div id="pci-locations-container">
+                <div id="pci-locations-container" class="fs-checklist-scroll-container">
                     <!-- Loaded dynamically based on Area -->
                 </div>
 
@@ -636,19 +638,19 @@
                 siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/libraries/moment.min.js",
                 siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/CommonDAL.js",
                 siteBaseUrl + "/BectorsSourceCode/JS/CommonJS/Common.js",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=5.4",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/notification.js?v=5.5",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Components/Header.js?v=5.4",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Components/Dropdown.js?v=5.4",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Components/DataCard.js?v=5.4",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/Welcome.js?v=5.4",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/ChecklistInformation.js?v=5.4",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/PPEChecklist.js?v=5.4",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/GMPChecklist.js?v=5.4",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/PCIChecklist.js?v=5.4",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/Summary.js?v=5.4",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/dal.js?v=5.4",
-                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/script.js?v=5.4"
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=7.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/notification.js?v=7.2",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Components/Header.js?v=7.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Components/Dropdown.js?v=7.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Components/DataCard.js?v=7.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/Welcome.js?v=7.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/ChecklistInformation.js?v=7.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/PPEChecklist.js?v=7.1",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/GMPChecklist.js?v=7.1",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/PCIChecklist.js?v=7.1",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/Screens/Summary.js?v=7.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/dal.js?v=7.0",
+                siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/FoodSafety/script.js?v=7.0"
             ];
 
             if (document.readyState === "loading") {

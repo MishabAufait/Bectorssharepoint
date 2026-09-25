@@ -70,18 +70,60 @@ const CCP_OPRP_Workflow = {
         }
 
         try {
-            const line = record.cr3ea_location;
-            const config = CCP_OPRP_Main.configList.find(c => c.Title === line && c.ConfigType === "CCP_OPRP");
+            const line = record.cr3ea_location || "Sieves & Magnets";
+            const config = CCP_OPRP_Main.configList.find(c => 
+                (c.Title === line || line === "Sieves & Magnets" || c.Title === "Line-1") && 
+                (c.ConfigType === "CCP_OPRP" || c.ConfigType === "Sieves_Magnets" || c.ConfigType === "Sieves and Magnets")
+            );
             
             if (config && config.EscalationManager && config.EscalationManager.results) {
                 const emails = config.EscalationManager.results.map(m => m.EMail).filter(Boolean);
                 if (emails.length > 0) {
                     console.log(`Sending escalation email to managers: ${emails.join(", ")}`);
+                    await this.sendEscalationEmail(emails, record);
                 }
             }
         } catch (e) {
             console.warn("Escalation email trigger failed: ", e);
         }
+    },
+
+    sendEscalationEmail: async function (recipientEmails, record) {
+        const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
+        const emailUrl = `${webUrl}/_api/SP.Utilities.Utility.SendEmail`;
+
+        const bodyText = `
+            Dear Management Team,<br/><br/>
+            <strong>ESCALATION ALERT:</strong> A quality deviation logged during CCP / OPRP / Sieves monitoring has remained unresolved for over 8 hours.<br/><br/>
+            <strong>Deviation Details:</strong><br/>
+            - Cycle: ${record.cr3ea_cycle || "N/A"}<br/>
+            - Location / Line: ${record.cr3ea_location || "N/A"}<br/>
+            - Checkpoint: ${record.cr3ea_checkpointname || "N/A"}<br/>
+            - Deviation Remarks: ${record.cr3ea_defectremarks || "N/A"}<br/>
+            - Action Status: ${record.cr3ea_deviationstatus || "Escalated"}<br/><br/>
+            Please intervene and ensure corrective action is completed immediately.
+        `;
+
+        const payload = {
+            'properties': {
+                '__metadata': { 'type': 'SP.Utilities.EmailProperties' },
+                'To': { 'results': recipientEmails },
+                'Subject': `[ESCALATION] Overdue Quality Deviation: ${record.cr3ea_checkpointname || "CCP/OPRP"} (${record.cr3ea_location || ""})`,
+                'Body': bodyText
+            }
+        };
+
+        const headers = {
+            "Accept": "application/json;odata=verbose",
+            "content-type": "application/json;odata=verbose",
+            "X-RequestDigest": document.getElementById("__REQUESTDIGEST")?.value || ""
+        };
+
+        await fetch(emailUrl, {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify(payload)
+        });
     },
 
     sendNotificationEmail: async function (recipientEmails, record) {
