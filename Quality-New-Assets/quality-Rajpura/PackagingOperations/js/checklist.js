@@ -1719,8 +1719,14 @@ const PKGOPS_Checklist = {
                         "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
                     };
 
-                    await PKGOPS_DAL.saveSubChecklistRow("CHILD_PQI_EVALUATION", evalRecord);
                     newEvalRows.push(evalRecord);
+                }
+
+                // High-performance parallel batch save in waves
+                const CHUNK_SIZE = 5;
+                for (let i = 0; i < newEvalRows.length; i += CHUNK_SIZE) {
+                    const chunk = newEvalRows.slice(i, i + CHUNK_SIZE);
+                    await Promise.all(chunk.map(rec => PKGOPS_DAL.saveSubChecklistRow("CHILD_PQI_EVALUATION", rec)));
                 }
 
                 this.savedPqiEvaluations = (this.savedPqiEvaluations || []).filter(r => r.cr3ea_evaluationtype !== val).concat(newEvalRows);
@@ -2434,7 +2440,14 @@ const PKGOPS_Checklist = {
                         cr3ea_deviationstatus: status === "Not Okay" ? "Open" : "None",
                         "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
                     };
-                    await PKGOPS_DAL.saveSubChecklistRow("CHILD_CODE_VERIFICATION", cvRecord);
+                    cvRecordsToSave.push(cvRecord);
+                }
+
+                // Batch upload Code Verification records in parallel waves
+                const CHUNK_SIZE_CV = 5;
+                for (let j = 0; j < cvRecordsToSave.length; j += CHUNK_SIZE_CV) {
+                    const chunk = cvRecordsToSave.slice(j, j + CHUNK_SIZE_CV);
+                    await Promise.all(chunk.map(rec => PKGOPS_DAL.saveSubChecklistRow("CHILD_CODE_VERIFICATION", rec)));
                 }
             } 
             else if (this.pkgopsType === "PAPA") {
@@ -2496,6 +2509,8 @@ const PKGOPS_Checklist = {
                 categoryADefects = [];
 
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_PAPA", this.currentTourId);
+                const papaRecordsToSave = [];
+
                 for (let i = 0; i < PKGOPS_PAPA_DEFECTS_FLAT.length; i++) {
                     const chk = document.getElementById(`papa-chk-${i}`);
                     if (!chk) continue;
@@ -2527,7 +2542,7 @@ const PKGOPS_Checklist = {
                             cr3ea_deviationstatus: "Open",
                             "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
                         };
-                        await PKGOPS_DAL.saveSubChecklistRow("CHILD_PAPA", papaRecord);
+                        papaRecordsToSave.push(papaRecord);
                     }
                 }
 
@@ -2544,7 +2559,14 @@ const PKGOPS_Checklist = {
                         cr3ea_deviationstatus: "None",
                         "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
                     };
-                    await PKGOPS_DAL.saveSubChecklistRow("CHILD_PAPA", finalPapaRecord);
+                    papaRecordsToSave.push(finalPapaRecord);
+                }
+
+                // Batch upload PAPA records in parallel waves
+                const CHUNK_SIZE_PAPA = 5;
+                for (let k = 0; k < papaRecordsToSave.length; k += CHUNK_SIZE_PAPA) {
+                    const chunk = papaRecordsToSave.slice(k, k + CHUNK_SIZE_PAPA);
+                    await Promise.all(chunk.map(rec => PKGOPS_DAL.saveSubChecklistRow("CHILD_PAPA", rec)));
                 }
             } 
             else if (this.pkgopsType === "PQI") {
@@ -2776,15 +2798,22 @@ const PKGOPS_Checklist = {
                     const score = hasDeviation ? 0 : 100;
                     const result = hasDeviation ? "Fail" : "Pass";
                     const isPass = !hasDeviation;
+                    const activeConfigs = (typeof PKGOPS_StateMachine !== "undefined" && PKGOPS_StateMachine.configs) 
+                        ? PKGOPS_StateMachine.configs 
+                        : ((typeof PKGOPS_DAL !== "undefined" && PKGOPS_DAL.configs) ? PKGOPS_DAL.configs : []);
+
                     const mergedSession = {
                         ...PKGOPS_StateMachine.currentSession,
-                        ...targetTourRecord
+                        ...targetTourRecord,
+                        cr3ea_pkgops_type: this.pkgopsType || (PKGOPS_StateMachine.currentSession && PKGOPS_StateMachine.currentSession.cr3ea_pkgops_type) || "Packaging Operations"
                     };
+
                     await ALC_Notification.sendVerificationComplete(
                         mergedSession,
                         score,
                         result,
-                        isPass
+                        isPass,
+                        activeConfigs
                     );
 
                     // Send detailed Category A critical defect notification to Top Management (General)
@@ -2797,7 +2826,8 @@ const PKGOPS_Checklist = {
                                     prefix: "PKGOPS_",
                                     parentType: "Packaging_Operations",
                                     type: this.pkgopsType || "Packaging Operations"
-                                }
+                                },
+                                activeConfigs
                             );
                         } catch (catAErr) {
                             console.warn("Failed to dispatch Category A critical defect notification:", catAErr);
@@ -2870,6 +2900,7 @@ const PKGOPS_Checklist = {
                 const expiry = document.getElementById("cv-expiry")?.value || null;
 
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_CODE_VERIFICATION", this.currentTourId);
+                const cvRecordsToSave = [];
 
                 for (let i = 0; i < 10; i++) {
                     const status = document.getElementById(`cv-status-${i}`)?.value || "Okay";
@@ -2911,8 +2942,13 @@ const PKGOPS_Checklist = {
                     };
                     if (pkd) cvRecord.cr3ea_pkd = pkd;
                     if (expiry) cvRecord.cr3ea_expirydate = expiry;
+                    cvRecordsToSave.push(cvRecord);
+                }
 
-                    await PKGOPS_DAL.saveSubChecklistRow("CHILD_CODE_VERIFICATION", cvRecord);
+                // Save in parallel chunks (waves of 6)
+                for (let i = 0; i < cvRecordsToSave.length; i += 6) {
+                    const chunk = cvRecordsToSave.slice(i, i + 6);
+                    await Promise.all(chunk.map(rec => PKGOPS_DAL.saveSubChecklistRow("CHILD_CODE_VERIFICATION", rec)));
                 }
             } 
             else if (this.pkgopsType === "PAPA") {
@@ -2923,6 +2959,7 @@ const PKGOPS_Checklist = {
                 let overallDefectCount = 0;
 
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_PAPA", this.currentTourId);
+                const draftPapaRecords = [];
 
                 for (let i = 0; i < PKGOPS_PAPA_DEFECTS_FLAT.length; i++) {
                     const chk = document.getElementById(`papa-chk-${i}`);
@@ -2944,7 +2981,7 @@ const PKGOPS_Checklist = {
                             cr3ea_deviationstatus: "Open",
                             "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
                         };
-                        await PKGOPS_DAL.saveSubChecklistRow("CHILD_PAPA", papaRecord);
+                        draftPapaRecords.push(papaRecord);
                     }
                 }
 
@@ -2959,7 +2996,13 @@ const PKGOPS_Checklist = {
                     cr3ea_deviationstatus: "None",
                     "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
                 };
-                await PKGOPS_DAL.saveSubChecklistRow("CHILD_PAPA", finalPapaRecord);
+                draftPapaRecords.push(finalPapaRecord);
+
+                const CHUNK_SIZE_DRAFT_PAPA = 5;
+                for (let n = 0; n < draftPapaRecords.length; n += CHUNK_SIZE_DRAFT_PAPA) {
+                    const chunk = draftPapaRecords.slice(n, n + CHUNK_SIZE_DRAFT_PAPA);
+                    await Promise.all(chunk.map(rec => PKGOPS_DAL.saveSubChecklistRow("CHILD_PAPA", rec)));
+                }
             } 
             else if (this.pkgopsType === "PQI") {
                 const product = document.getElementById("pqi-product")?.value || "";
@@ -3066,9 +3109,15 @@ const PKGOPS_Checklist = {
                             };
                             if (pkd) evalRecord.cr3ea_pkd = pkd;
 
-                            await PKGOPS_DAL.saveSubChecklistRow("CHILD_PQI_EVALUATION", evalRecord);
                             newEvalRows.push(evalRecord);
                         }
+
+                        const CHUNK_SIZE_DRAFT_PQI = 5;
+                        for (let p = 0; p < newEvalRows.length; p += CHUNK_SIZE_DRAFT_PQI) {
+                            const chunk = newEvalRows.slice(p, p + CHUNK_SIZE_DRAFT_PQI);
+                            await Promise.all(chunk.map(rec => PKGOPS_DAL.saveSubChecklistRow("CHILD_PQI_EVALUATION", rec)));
+                        }
+
                         this.savedPqiEvaluations = (this.savedPqiEvaluations || []).filter(r => r.cr3ea_evaluationtype !== val).concat(newEvalRows);
                         this.pqiSubChecklistsFilled[val] = true;
                         this.updatePqiBadges();
@@ -3272,14 +3321,18 @@ const PKGOPS_Checklist = {
                 }
             } 
             else if (this.pkgopsType === "PQI") {
-                const nwRows = await PKGOPS_DAL.getSubChecklistRows("CHILD_PQI_NET_WEIGHT", this.currentTourId);
+                // High-performance parallel fetch for Net Weight and Evaluation records
+                const [nwRows, evalRows] = await Promise.all([
+                    PKGOPS_DAL.getSubChecklistRows("CHILD_PQI_NET_WEIGHT", this.currentTourId),
+                    PKGOPS_DAL.getSubChecklistRows("CHILD_PQI_EVALUATION", this.currentTourId)
+                ]);
+
                 if (nwRows && nwRows.length > 0) {
                     const row = nwRows[0];
                     this.savedPqiNetWeight = row;
                     this.pqiSubChecklistsFilled.NetWeight = true;
                 }
 
-                const evalRows = await PKGOPS_DAL.getSubChecklistRows("CHILD_PQI_EVALUATION", this.currentTourId);
                 if (evalRows && evalRows.length > 0) {
                     this.savedPqiEvaluations = evalRows;
                     const types = ["Product", "Primary", "Secondary", "CBB"];
@@ -3312,13 +3365,11 @@ const PKGOPS_Checklist = {
                     const row = rows[0];
                     if (document.getElementById("wall-product")) this.setProductWithCategory("wall", row.cr3ea_productname);
                     if (document.getElementById("wall-sku")) this.setSelectValueSafely("wall-sku", row.cr3ea_sku);
-                    if (row.cr3ea_facilitator) {
-                        await this.populatePickerFromSavedValue("wall-facilitator", row.cr3ea_facilitator);
-                    }
+                    await Promise.all([
+                        row.cr3ea_facilitator ? this.populatePickerFromSavedValue("wall-facilitator", row.cr3ea_facilitator) : Promise.resolve(),
+                        row.cr3ea_memberspresent ? this.populatePickerFromSavedValue("wall-members", row.cr3ea_memberspresent) : Promise.resolve()
+                    ]);
                     if (document.getElementById("wall-type")) document.getElementById("wall-type").value = row.cr3ea_typeofqualitywall || "";
-                    if (row.cr3ea_memberspresent) {
-                        await this.populatePickerFromSavedValue("wall-members", row.cr3ea_memberspresent);
-                    }
                     if (document.getElementById("wall-rating-appearance")) document.getElementById("wall-rating-appearance").value = row.cr3ea_packappearancerating || "5";
                     if (document.getElementById("wall-rating-sealing")) document.getElementById("wall-rating-sealing").value = row.cr3ea_sealingqualityrating || "5";
                     if (document.getElementById("wall-rating-coding")) document.getElementById("wall-rating-coding").value = row.cr3ea_codingrating || "5";

@@ -224,6 +224,9 @@ const QualityRajpura_Config = {
         if (payload.cr3ea_food_safety_cycle && !payload.cr3ea_cycle) payload.cr3ea_cycle = payload.cr3ea_food_safety_cycle;
         if (payload.cr3ea_ccp_oprp_sieves_productvariety && !payload.cr3ea_runningvariety) payload.cr3ea_runningvariety = payload.cr3ea_ccp_oprp_sieves_productvariety;
         if (payload.cr3ea_shiftexecutivequality && !payload.cr3ea_executivename) payload.cr3ea_executivename = payload.cr3ea_shiftexecutivequality;
+        if (payload.cr3ea_production_incharge && !payload.cr3ea_shiftexecutiveproduction) payload.cr3ea_shiftexecutiveproduction = payload.cr3ea_production_incharge;
+        if (payload.cr3ea_qaexecutive && !payload.cr3ea_assigned_qa) payload.cr3ea_assigned_qa = payload.cr3ea_qaexecutive;
+        if (payload.cr3ea_shiftexecutive && !payload.cr3ea_observedby) payload.cr3ea_observedby = payload.cr3ea_shiftexecutive;
 
         for (const key of Object.keys(payload)) {
             if (validSet.has(key)) {
@@ -233,28 +236,16 @@ const QualityRajpura_Config = {
         return clean;
     },
 
-    // Validates whether an email is valid and not a dummy/mock email address
-    isDummyEmail: function (email) {
-        if (!email || typeof email !== "string") return true;
+    // Validates whether an email is a valid email format
+    isValidEmail: function (email) {
+        if (!email || typeof email !== "string") return false;
         const trimmed = email.trim().toLowerCase();
-        if (!trimmed.includes("@") || !trimmed.includes(".")) return true;
-        const dummyDomains = [
-            "bectorfoods.com",
-            "example.com",
-            "test.com",
-            "sample.com",
-            "invalid.com",
-            "temp.com",
-            "localhost",
-            "domain.com"
-        ];
-        const parts = trimmed.split("@");
-        if (parts.length !== 2) return true;
-        const domain = parts[1];
-        if (dummyDomains.some(d => domain === d || domain.endsWith("." + d))) return true;
-        const dummyKeywords = ["dummy", "fake", "placeholder", "mockuser", "testuser", "nobody"];
-        if (dummyKeywords.some(k => trimmed.includes(k))) return true;
-        return false;
+        return Boolean(trimmed.match(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/));
+    },
+
+    // Validates email validity (alias for backward compatibility)
+    isDummyEmail: function (email) {
+        return !this.isValidEmail(email);
     },
 
     // Escalation contacts & audit payload utilities (Zero Schema Dataverse storage)

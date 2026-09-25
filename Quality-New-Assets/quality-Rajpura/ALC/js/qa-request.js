@@ -391,15 +391,32 @@ const ALC_QARequest = {
         }
 
         const selectedOption = qaSelect.options[qaSelect.selectedIndex];
-        const assignedQaEmail = selectedOption.getAttribute("data-email");
+        let assignedQaEmail = (selectedOption.getAttribute("data-email") || "").trim();
         const assignedQaName = selectedOption.text;
         const configRowId = selectedOption.getAttribute("data-rowid");
+
+        if (typeof ALC_Notification !== "undefined") {
+            if (!assignedQaEmail || !assignedQaEmail.includes("@")) {
+                const resQa = await ALC_Notification.resolveUserEmailAsync(assignedQaName || assignedQaEmail, this.qaMatrix, ALC_StateMachine.currentSession);
+                if (resQa) assignedQaEmail = resQa;
+            }
+            assignedQaEmail = ALC_Notification.extractEmail(assignedQaEmail) || assignedQaEmail;
+        }
 
         // Resolve QA Shift Executive (Normal Dropdown)
         const qaShiftSelect = document.getElementById("header-qa-shift-exec");
         let qaShiftExecsVal = "";
         if (qaShiftSelect && qaShiftSelect.value) {
-            qaShiftExecsVal = qaShiftSelect.value.trim();
+            const opt = (qaShiftSelect.selectedIndex >= 0) ? qaShiftSelect.options[qaShiftSelect.selectedIndex] : null;
+            const optEm = opt ? (opt.getAttribute("data-email") || "").trim() : "";
+            qaShiftExecsVal = optEm || qaShiftSelect.value.trim();
+            if (typeof ALC_Notification !== "undefined" && (!qaShiftExecsVal || !qaShiftExecsVal.includes("@"))) {
+                const resQaShift = await ALC_Notification.resolveUserEmailAsync((opt ? opt.text : "") || qaShiftExecsVal, this.qaMatrix, ALC_StateMachine.currentSession);
+                if (resQaShift) qaShiftExecsVal = resQaShift;
+            }
+            if (typeof ALC_Notification !== "undefined") {
+                qaShiftExecsVal = ALC_Notification.extractEmail(qaShiftExecsVal) || qaShiftExecsVal;
+            }
         }
 
         // Resolve escalation managers
@@ -407,13 +424,25 @@ const ALC_QARequest = {
         if (escalationEmails.length === 0 && configRowId) {
             const configRow = (this.qaMatrix || []).find(c => c.Id == configRowId);
             if (configRow && configRow.EscalationManager && configRow.EscalationManager.results) {
-                escalationEmails = configRow.EscalationManager.results.map(em => em.EMail);
+                escalationEmails = configRow.EscalationManager.results
+                    .map(em => (typeof ALC_Notification !== "undefined" ? ALC_Notification.extractEmail(em.EMail || em.Name || em.LoginName || em.UserPrincipalName || "") : (em.EMail || "")))
+                    .filter(Boolean);
             }
         }
 
         const productionExecName = document.getElementById("header-exec-prod")?.value || "Unknown";
-        const currentExecEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? String(_spPageContextInfo.userEmail).trim() : "";
-        const productionExecEmailOrName = currentExecEmail || productionExecName;
+        let productionExecEmailOrName = (typeof _spPageContextInfo !== 'undefined')
+            ? (typeof ALC_Notification !== "undefined" ? (ALC_Notification.extractEmail(_spPageContextInfo.userEmail) || ALC_Notification.extractEmail(_spPageContextInfo.userLoginName) || "") : (_spPageContextInfo.userEmail || ""))
+            : "";
+        if (!productionExecEmailOrName && typeof ALC_Notification !== "undefined") {
+            const resProd = await ALC_Notification.resolveUserEmailAsync(productionExecName, this.qaMatrix, ALC_StateMachine.currentSession);
+            if (resProd) productionExecEmailOrName = resProd;
+        }
+        if (typeof ALC_Notification !== "undefined") {
+            productionExecEmailOrName = ALC_Notification.extractEmail(productionExecEmailOrName) || productionExecEmailOrName || productionExecName;
+        } else {
+            productionExecEmailOrName = productionExecEmailOrName || productionExecName;
+        }
 
         const shift = document.getElementById("header-shift")?.value || "Shift 1";
         const line = document.getElementById("header-line")?.value || "Line 1";
@@ -772,19 +801,28 @@ const ALC_QARequest = {
             }
         }
 
-        let qaEmail = typeof currentUserEmail !== "undefined" ? currentUserEmail : "";
-        if (!qaEmail && typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) {
-            qaEmail = _spPageContextInfo.userEmail;
+        let qaEmail = (typeof currentUserEmail !== "undefined" && currentUserEmail) ? currentUserEmail : "";
+        if (!qaEmail && typeof _spPageContextInfo !== 'undefined') {
+            qaEmail = (typeof ALC_Notification !== "undefined")
+                ? (ALC_Notification.extractEmail(_spPageContextInfo.userEmail) || ALC_Notification.extractEmail(_spPageContextInfo.userLoginName) || "")
+                : (_spPageContextInfo.userEmail || "");
         }
-        if (!qaEmail && typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) {
-            qaEmail = _spPageContextInfo.userDisplayName;
+        if (!qaEmail && this.assignedQaEmailResolved) {
+            qaEmail = this.assignedQaEmailResolved;
         }
-        if (!qaEmail) {
-            // Fallback to cached assigned QA email
-            qaEmail = this.assignedQaEmailResolved || "";
+        if (!qaEmail && currentSession.cr3ea_assigned_qa) {
+            qaEmail = currentSession.cr3ea_assigned_qa;
         }
-        if (!qaEmail) {
-            qaEmail = "QA Executive";
+        if (typeof ALC_Notification !== "undefined") {
+            if (!qaEmail || !qaEmail.includes("@")) {
+                const resQa = await ALC_Notification.resolveUserEmailAsync(
+                    (typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : "") || qaEmail,
+                    this.qaMatrix,
+                    currentSession
+                );
+                if (resQa) qaEmail = resQa;
+            }
+            qaEmail = ALC_Notification.extractEmail(qaEmail) || qaEmail;
         }
 
         const qaDisplayName = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName)

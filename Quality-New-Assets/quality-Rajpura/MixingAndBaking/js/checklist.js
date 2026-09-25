@@ -122,7 +122,7 @@ const MixingBaking_Checklist = {
                             selected = 'selected';
                         }
                     }
-                    qaSelect.append(`<option value="${u.EMail || u.Title}" ${selected}>${u.Title}</option>`);
+                    qaSelect.append(`<option value="${u.EMail || u.Title}" data-email="${u.EMail || ''}" ${selected}>${u.Title}</option>`);
                 });
             }
         }
@@ -134,7 +134,7 @@ const MixingBaking_Checklist = {
             if (state.usersConfig && state.usersConfig.prodUsers) {
                 state.usersConfig.prodUsers.forEach(u => {
                     const selected = (state.productionIncharge && ((u.EMail && u.EMail.toLowerCase() === state.productionIncharge.toLowerCase()) || (u.Title && u.Title.toLowerCase() === state.productionIncharge.toLowerCase()))) ? 'selected' : '';
-                    prodSelect.append(`<option value="${u.EMail || u.Title}" ${selected}>${u.Title}</option>`);
+                    prodSelect.append(`<option value="${u.EMail || u.Title}" data-email="${u.EMail || ''}" ${selected}>${u.Title}</option>`);
                 });
             }
         }
@@ -242,6 +242,26 @@ const MixingBaking_Checklist = {
             return;
         }
 
+        let resolvedQa = qa;
+        let resolvedProd = prod;
+        const shiftExecEmail = (typeof _spPageContextInfo !== 'undefined')
+            ? (typeof ALC_Notification !== "undefined" ? (ALC_Notification.extractEmail(_spPageContextInfo.userEmail) || ALC_Notification.extractEmail(_spPageContextInfo.userLoginName) || "") : (_spPageContextInfo.userEmail || ""))
+            : "";
+
+        if (typeof ALC_Notification !== "undefined") {
+            if (!resolvedQa || !resolvedQa.includes("@")) {
+                const r = await ALC_Notification.resolveUserEmailAsync(qa, state.usersConfig?.qaUsers, null);
+                if (r) resolvedQa = r;
+            }
+            resolvedQa = ALC_Notification.extractEmail(resolvedQa) || resolvedQa;
+
+            if (!resolvedProd || !resolvedProd.includes("@")) {
+                const r = await ALC_Notification.resolveUserEmailAsync(prod, state.usersConfig?.prodUsers, null);
+                if (r) resolvedProd = r;
+            }
+            resolvedProd = ALC_Notification.extractEmail(resolvedProd) || resolvedProd;
+        }
+
         ShowLoader();
         try {
             let generatedGUID = MixingBaking_Main.state.varTourID;
@@ -250,9 +270,10 @@ const MixingBaking_Checklist = {
             const plantId = (site === "Rajpura") ? QualityRajpura_Config.PLANT_ID : site;
 
             const parentPayload = {
-                cr3ea_assigned_qa: qa,
-                cr3ea_shiftexecutiveproduction: prod,
-                cr3ea_observedby: shiftExec,
+                cr3ea_assigned_qa: resolvedQa,
+                cr3ea_tourby: resolvedQa,
+                cr3ea_shiftexecutiveproduction: resolvedProd,
+                cr3ea_observedby: shiftExecEmail || shiftExec,
                 cr3ea_status: "In Progress",
                 cr3ea_shift: MixingBaking_Main.state.shift || sessionStorage.getItem("shiftValue") || "Shift-1",
                 cr3ea_lineno: line,

@@ -41,8 +41,13 @@ const PKGOPS_Main = {
             try {
                 if (typeof ShowLoader === "function") ShowLoader();
 
-                // Fetch parent tour session data
-                this.currentSession = await PKGOPS_DAL.getTour(this.currentTourId);
+                // Parallel fetch parent tour session data & configs concurrently
+                const [sessionData, configs] = await Promise.all([
+                    PKGOPS_DAL.getTour(this.currentTourId),
+                    PKGOPS_DAL.getConfig()
+                ]);
+
+                this.currentSession = sessionData;
                 PKGOPS_StateMachine.currentSession = this.currentSession;
 
                 if (!this.currentSession) {
@@ -102,9 +107,6 @@ const PKGOPS_Main = {
                         ? String(UserName).toLowerCase().trim() 
                         : (typeof currentUser !== "undefined" ? String(currentUser).toLowerCase().trim() : 
                           ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? String(_spPageContextInfo.userDisplayName).toLowerCase().trim() : (sessionStorage.getItem("userName") || ""))));
-
-                // Load config mappings and determine permissions/roles with active session
-                const configs = await PKGOPS_DAL.getConfig();
                 PKGOPS_StateMachine.calculateRoles(configs, userEmail, userTitle, this.currentSession);
 
                 // Check if tour is Cancelled

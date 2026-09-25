@@ -32,7 +32,7 @@ $(document).ready(function () {
 
         const script = document.createElement("script");
         script.id = adminScriptId;
-        script.src = `${webUrl}/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/admin.js?v=8.2`;
+        script.src = `${webUrl}/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/admin.js?v=9.6`;
         document.body.appendChild(script);
     }
     ALC_Dashboard.init();
@@ -1085,9 +1085,50 @@ const ALC_Dashboard = {
         const isCCP = this.selectedCategory === "CCP_OPRP_Sieves";
         const isMB = this.selectedCategory === "MixingAndBaking";
         const isPkgOps = this.selectedCategory === "PackagingOperations";
-        const currentUserEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? _spPageContextInfo.userEmail.toLowerCase().trim() : "";
-        const currentUserName = (typeof EmployeeName !== 'undefined' && EmployeeName) ? EmployeeName.toLowerCase().trim() :
-            ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? _spPageContextInfo.userDisplayName.toLowerCase().trim() : "");
+
+        const myUserNames = [
+            (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? _spPageContextInfo.userDisplayName : "",
+            (typeof currentUser !== 'undefined' && currentUser) ? currentUser : "",
+            (typeof UserName !== 'undefined' && UserName) ? UserName : "",
+            (typeof EmployeeName !== 'undefined' && EmployeeName) ? EmployeeName : "",
+            (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userLoginName) ? _spPageContextInfo.userLoginName : ""
+        ].map(s => String(s || "").toLowerCase().trim()).filter(Boolean);
+
+        const myUserEmails = [
+            (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? _spPageContextInfo.userEmail : "",
+            (typeof userEmail !== 'undefined' && userEmail) ? userEmail : "",
+            (typeof UserEmail !== 'undefined' && UserEmail) ? UserEmail : ""
+        ].map(s => String(s || "").toLowerCase().trim()).filter(Boolean);
+
+        const currentUserEmail = myUserEmails[0] || "";
+        const currentUserName = myUserNames[0] || "";
+
+        const isMatchUser = (val) => {
+            if (!val) return false;
+            const raw = String(val).toLowerCase().trim();
+            if (!raw || raw === "n/a" || raw === "none" || raw === "production team" || raw === "qa team") return false;
+            const resolved = raw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(raw).toLowerCase().trim() : raw;
+            
+            for (const em of myUserEmails) {
+                if (!em) continue;
+                if (raw === em || em.includes(raw) || raw.includes(em)) return true;
+                const strippedEm = em.split("@")[0].replace(/[^a-z0-9]/g, "");
+                const cleanRaw = raw.replace(/[^a-z0-9]/g, "");
+                if (strippedEm && cleanRaw && (cleanRaw === strippedEm || (cleanRaw.length >= 3 && strippedEm.length >= 3 && (cleanRaw.includes(strippedEm) || strippedEm.includes(cleanRaw))))) return true;
+            }
+            
+            for (const nm of myUserNames) {
+                if (!nm) continue;
+                if (raw === nm || nm.includes(raw) || raw.includes(nm)) return true;
+                if (resolved === nm || nm.includes(resolved) || resolved.includes(nm)) return true;
+                const cleanNm = nm.replace(/[^a-z0-9]/g, "");
+                const cleanRaw = raw.replace(/[^a-z0-9]/g, "");
+                const cleanRes = resolved.replace(/[^a-z0-9]/g, "");
+                if (cleanNm && cleanRaw && (cleanRaw === cleanNm || (cleanRaw.length >= 3 && cleanNm.length >= 3 && (cleanRaw.includes(cleanNm) || cleanNm.includes(cleanRaw))))) return true;
+                if (cleanNm && cleanRes && (cleanRes === cleanNm || (cleanRes.length >= 3 && cleanNm.length >= 3 && (cleanRes.includes(cleanNm) || cleanNm.includes(cleanRes))))) return true;
+            }
+            return false;
+        };
 
         list.forEach(t => {
             try {
@@ -1142,14 +1183,10 @@ const ALC_Dashboard = {
                     
                     let isMyTask = false;
                     const isQaStatus = (status === "Pending QA" || status === "QA In Progress" || status.startsWith("QA In Progress") || status === "In Progress" || status === "InProgress-paused" || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
-                    if (isQaStatus) {
-                        const qaEmail = (t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
-                        const qaResolvedName = qaEmail.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaEmail).toLowerCase().trim() : qaEmail;
-                        if ((currentUserEmail && qaEmail && (currentUserEmail === qaEmail || currentUserEmail.includes(qaEmail))) ||
-                            (currentUserName && qaEmail && (currentUserName === qaEmail || currentUserName.includes(qaEmail) || qaEmail.includes(currentUserName))) ||
-                            (currentUserName && qaResolvedName && (currentUserName === qaResolvedName || currentUserName.includes(qaResolvedName) || qaResolvedName.includes(currentUserName)))) {
-                            isMyTask = true;
-                        }
+                    const qaValues = [t.cr3ea_assigned_qa, t.cr3ea_tourby, t.cr3ea_qaexecutive].filter(Boolean);
+                    const isAssignedQA = qaValues.some(isMatchUser);
+                    if (isQaStatus && isAssignedQA) {
+                        isMyTask = true;
                     }
  
                     if (isMyTask) {
@@ -1222,14 +1259,10 @@ const ALC_Dashboard = {
                     
                     let isMyTask = false;
                     const isQaStatus = (status === "In Progress" || status === "InProgress-paused" || status === "Pending QA");
-                    if (isQaStatus) {
-                        const qaEmail = String(t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
-                        const qaResolvedName = qaEmail.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaEmail).toLowerCase().trim() : qaEmail;
-                        if ((currentUserEmail && qaEmail && (currentUserEmail === qaEmail || currentUserEmail.includes(qaEmail))) ||
-                            (currentUserName && qaEmail && (currentUserName === qaEmail || currentUserName.includes(qaEmail) || qaEmail.includes(currentUserName))) ||
-                            (currentUserName && qaResolvedName && (currentUserName === qaResolvedName || currentUserName.includes(qaResolvedName) || qaResolvedName.includes(currentUserName)))) {
-                            isMyTask = true;
-                        }
+                    const qaValues = [t.cr3ea_assigned_qa, t.cr3ea_tourby, t.cr3ea_qaexecutive].filter(Boolean);
+                    const isAssignedQA = qaValues.some(isMatchUser);
+                    if (isQaStatus && isAssignedQA) {
+                        isMyTask = true;
                     }
 
                     if (isMyTask) {
@@ -1322,22 +1355,15 @@ const ALC_Dashboard = {
                     
                     let isMyTask = false;
                     const isQaStatus = (status === "In Progress" || status === "InProgress-paused" || status === "Escalated" || status === "Pending QA Re-Verification" || status === "Pending QA");
-                    if (isQaStatus) {
-                        const qaEmail = String(t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
-                        const qaResolvedName = (typeof qaEmail === "string" && qaEmail.includes("@")) ? ALC_Dashboard.resolveQaNameFromEmail(qaEmail).toLowerCase().trim() : qaEmail;
-                        if ((currentUserEmail && qaEmail && (currentUserEmail === qaEmail || currentUserEmail.includes(qaEmail))) ||
-                            (currentUserName && qaEmail && (currentUserName === qaEmail || currentUserName.includes(qaEmail) || qaEmail.includes(currentUserName))) ||
-                            (currentUserName && qaResolvedName && (currentUserName === qaResolvedName || currentUserName.includes(qaResolvedName) || qaResolvedName.includes(currentUserName)))) {
-                            isMyTask = true;
-                        }
+                    const qaValues = [t.cr3ea_assigned_qa, t.cr3ea_tourby, t.cr3ea_qaexecutive].filter(Boolean);
+                    const isAssignedQA = qaValues.some(isMatchUser);
+                    if (isQaStatus && isAssignedQA) {
+                        isMyTask = true;
                     }
 
                     // Also check if current user is Production team for this tour or in general
-                    const prodExecRawVal = String(t.cr3ea_shiftexecutiveproduction || t.cr3ea_production_incharge || t.cr3ea_observedby || "").toLowerCase().trim();
-                    const prodExecResolvedVal = (typeof prodExecRawVal === "string" && prodExecRawVal.includes("@")) ? ALC_Dashboard.resolveQaNameFromEmail(prodExecRawVal).toLowerCase().trim() : prodExecRawVal;
-                    const isUserProdExec = (currentUserEmail && prodExecRawVal && (currentUserEmail === prodExecRawVal || currentUserEmail.includes(prodExecRawVal) || prodExecRawVal.includes(currentUserEmail))) ||
-                        (currentUserName && prodExecRawVal && (currentUserName === prodExecRawVal || currentUserName.includes(prodExecRawVal) || prodExecRawVal.includes(currentUserName))) ||
-                        (currentUserName && prodExecResolvedVal && (currentUserName === prodExecResolvedVal || currentUserName.includes(prodExecResolvedVal) || prodExecResolvedVal.includes(currentUserName))) ||
+                    const prodValues = [t.cr3ea_shiftexecutiveproduction, t.cr3ea_production_incharge, t.cr3ea_observedby, t.cr3ea_shiftexecutive].filter(Boolean);
+                    const isUserProdExec = prodValues.some(isMatchUser) ||
                         (typeof DepartmentNameLeftNavi === "string" && (DepartmentNameLeftNavi.toLowerCase().includes("prod") || DepartmentNameLeftNavi.toLowerCase().includes("baking") || DepartmentNameLeftNavi.toLowerCase().includes("mixing"))) ||
                         (typeof RoleName === "string" && RoleName.toLowerCase().includes("prod"));
 
@@ -1459,39 +1485,16 @@ const ALC_Dashboard = {
                     let badgeClass = "badge-warning";
                     let isMyTask = false;
 
-                    const qaEmail = (t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
-                    const qaResolvedName = qaEmail.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaEmail).toLowerCase().trim() : qaEmail;
-                    const isAssignedQA = Boolean(
-                        (currentUserEmail && qaEmail && (currentUserEmail === qaEmail || currentUserEmail.includes(qaEmail))) ||
-                        (currentUserName && qaEmail && (currentUserName === qaEmail || currentUserName.includes(qaEmail) || qaEmail.includes(currentUserName))) ||
-                        (currentUserName && qaResolvedName && (currentUserName === qaResolvedName || currentUserName.includes(qaResolvedName) || qaResolvedName.includes(currentUserName)))
-                    );
+                    const qaValues = [t.cr3ea_assigned_qa, t.cr3ea_tourby, t.cr3ea_qaexecutive].filter(Boolean);
+                    const isAssignedQA = qaValues.some(isMatchUser);
 
                     const isQaStatus = (status === "Pending QA" || status === "QA In Progress" || status.startsWith("QA In Progress") || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification" || status === "In Progress" || status === "InProgress-paused");
                     if (isQaStatus && isAssignedQA) {
                         isMyTask = true;
                     }
 
-                    const prodExecRawVal = (t.cr3ea_shiftexecutiveproduction || t.cr3ea_observedby || "").toLowerCase().trim();
-                    const prodExecResolvedVal = prodExecRawVal.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(prodExecRawVal).toLowerCase().trim() : prodExecRawVal;
-                    const isUserProdExec = Boolean(
-                        (currentUserName && prodExecRawVal && (prodExecRawVal === currentUserName || prodExecRawVal.includes(currentUserName) || currentUserName.includes(prodExecRawVal))) ||
-                        (currentUserName && prodExecResolvedVal && (prodExecResolvedVal === currentUserName || prodExecResolvedVal.includes(currentUserName) || currentUserName.includes(prodExecResolvedVal))) ||
-                        (currentUserEmail && prodExecRawVal && (currentUserEmail === prodExecRawVal || currentUserEmail.includes(prodExecRawVal.replace(/\s+/g, ".")))) ||
-                        (currentUserEmail && prodExecRawVal.includes("@") && currentUserEmail === prodExecRawVal)
-                    );
-
-                    const isUserProd = Boolean(
-                        isUserProdExec ||
-                        (typeof DepartmentNameLeftNavi === "string" && DepartmentNameLeftNavi.toLowerCase().includes("prod")) ||
-                        (typeof RoleName === "string" && RoleName.toLowerCase().includes("prod"))
-                    );
-
-                    const isUserQA = Boolean(
-                        isAssignedQA ||
-                        (typeof DepartmentNameLeftNavi === "string" && (DepartmentNameLeftNavi.toLowerCase().includes("qa") || DepartmentNameLeftNavi.toLowerCase().includes("quality"))) ||
-                        (typeof RoleName === "string" && (RoleName.toLowerCase().includes("qa") || RoleName.toLowerCase().includes("quality")))
-                    );
+                    const prodValues = [t.cr3ea_shiftexecutiveproduction, t.cr3ea_shiftexecutive, t.cr3ea_production_incharge, t.cr3ea_observedby].filter(Boolean);
+                    const isUserProdExec = prodValues.some(isMatchUser);
 
                     if (status === "Escalated") {
                         if (isUserProdExec) {
@@ -1574,11 +1577,11 @@ const ALC_Dashboard = {
                     let isClickable = true;
                     if (isPkgCancelled) {
                         isClickable = false;
-                    } else if (isPkgInProgress && !isAssignedQA && !isUserQA && !isMyTask) {
+                    } else if (isPkgInProgress && !isAssignedQA) {
                         isClickable = false;
-                    } else if (isPkgReverify && !isAssignedQA && !isUserQA && !isMyTask) {
+                    } else if (isPkgReverify && !isAssignedQA) {
                         isClickable = false;
-                    } else if (isPkgProdPending && !isUserProdExec && !isUserProd && !isMyTask) {
+                    } else if (isPkgProdPending && !isUserProdExec) {
                         isClickable = false;
                     }
 
@@ -1745,17 +1748,13 @@ const ALC_Dashboard = {
                         }
                     }
 
-                    const isUserEscalationManager = currentUserEmail && escalationEmails.includes(currentUserEmail);
-                    const isUserEscalationManagerByName = currentUserName && escalationEmails.some(email => email.includes(currentUserName));
+                    const isUserEscalationManager = Boolean(currentUserEmail && escalationEmails.includes(currentUserEmail));
+                    const isUserEscalationManagerByName = Boolean(currentUserName && escalationEmails.some(email => email.includes(currentUserName)));
 
                     const isEscalatedForMe = isEscalated && (isUserEscalationManager || isUserEscalationManagerByName);
 
-                    const prodExecRawVal = (t.cr3ea_shiftexecutiveproduction || t.cr3ea_observedby || "").toLowerCase().trim();
-                    const prodExecResolvedVal = prodExecRawVal.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(prodExecRawVal).toLowerCase().trim() : prodExecRawVal;
-                    const isUserProdExec = (currentUserName && prodExecRawVal && (prodExecRawVal === currentUserName || prodExecRawVal.includes(currentUserName) || currentUserName.includes(prodExecRawVal))) ||
-                        (currentUserName && prodExecResolvedVal && (prodExecResolvedVal === currentUserName || prodExecResolvedVal.includes(currentUserName) || currentUserName.includes(prodExecResolvedVal))) ||
-                        (currentUserEmail && prodExecRawVal && (currentUserEmail === prodExecRawVal || currentUserEmail.includes(prodExecRawVal.replace(/\s+/g, ".")))) ||
-                        (currentUserEmail && prodExecRawVal.includes("@") && currentUserEmail === prodExecRawVal);
+                    const prodValues = [t.cr3ea_shiftexecutiveproduction, t.cr3ea_observedby, t.cr3ea_shiftexecutive, t.cr3ea_production_incharge].filter(Boolean);
+                    const isUserProdExec = prodValues.some(isMatchUser);
 
                     if (status === "Escalated") {
                         if (isUserProdExec) {

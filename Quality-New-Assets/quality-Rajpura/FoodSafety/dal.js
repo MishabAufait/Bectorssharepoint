@@ -118,14 +118,28 @@ const FoodSafety_DAL = {
 
             const normalizeUsers = (raw) => {
                 if (!raw) return [];
+                const extractUserEmail = (u) => {
+                    if (!u) return "";
+                    const rawEmail = u.EMail || u.Email || u.email || "";
+                    if (rawEmail && rawEmail.includes("@")) {
+                        const m = rawEmail.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+                        if (m) return m[0].toLowerCase();
+                    }
+                    const nameClaim = u.Name || u.name || u.LoginName || u.loginName || u.UserPrincipalName || "";
+                    if (nameClaim) {
+                        const m = nameClaim.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+                        if (m) return m[0].toLowerCase();
+                    }
+                    return "";
+                };
                 if (raw.results && Array.isArray(raw.results)) {
-                    return raw.results.map(u => ({ Title: u.Title || u.title || "", EMail: u.EMail || u.email || "", Id: u.Id || u.id || "" }));
+                    return raw.results.map(u => ({ Title: u.Title || u.title || "", EMail: extractUserEmail(u), Id: u.Id || u.id || "" }));
                 }
                 if (Array.isArray(raw)) {
-                    return raw.map(u => ({ Title: u.Title || u.title || "", EMail: u.EMail || u.email || "", Id: u.Id || u.id || "" }));
+                    return raw.map(u => ({ Title: u.Title || u.title || "", EMail: extractUserEmail(u), Id: u.Id || u.id || "" }));
                 }
-                if (raw.Title || raw.EMail || raw.title || raw.email) {
-                    return [{ Title: raw.Title || raw.title || "", EMail: raw.EMail || raw.email || "", Id: raw.Id || raw.id || "" }];
+                if (raw.Title || raw.EMail || raw.title || raw.email || raw.Name || raw.name) {
+                    return [{ Title: raw.Title || raw.title || "", EMail: extractUserEmail(raw), Id: raw.Id || raw.id || "" }];
                 }
                 return [];
             };
@@ -158,41 +172,24 @@ const FoodSafety_DAL = {
                 Title: "PPE Checklist",
                 Plant: "Rajpura",
                 ChecklistType: "PPE",
-                QAExecutives: [
-                    { Title: "Mishab Muhammed", EMail: "", Id: 101 },
-                    { Title: "Gokul K", EMail: "", Id: 108 },
-                    { Title: "Babifas P", EMail: "", Id: 112 }
-                ],
-                ProductionIncharges: [
-                    { Title: "Shaan Arshaqu", EMail: "", Id: 111 },
-                    { Title: "Mishab Muhammed", EMail: "", Id: 101 }
-                ]
+                QAExecutives: [],
+                ProductionIncharges: []
             },
             {
                 Id: 2,
                 Title: "GMP Checklist",
                 Plant: "Rajpura",
                 ChecklistType: "GMP",
-                QAExecutives: [
-                    { Title: "Mishab Muhammed", EMail: "", Id: 101 },
-                    { Title: "Gokul K", EMail: "", Id: 108 }
-                ],
-                ProductionIncharges: [
-                    { Title: "Shaan Arshaqu", EMail: "", Id: 111 },
-                    { Title: "Ajith K", EMail: "", Id: 110 }
-                ]
+                QAExecutives: [],
+                ProductionIncharges: []
             },
             {
                 Id: 3,
                 Title: "PCI Checklist",
                 Plant: "Rajpura",
                 ChecklistType: "PCI",
-                QAExecutives: [
-                    { Title: "Mishab Muhammed", EMail: "", Id: 101 }
-                ],
-                ProductionIncharges: [
-                    { Title: "Mishab Muhammed", EMail: "", Id: 101 }
-                ]
+                QAExecutives: [],
+                ProductionIncharges: []
             }
         ];
     },
@@ -759,41 +756,6 @@ const FoodSafety_DAL = {
 
     getMockTourHistory: function () {
         let history = JSON.parse(localStorage.getItem("mock_foodsafety_tours") || "[]");
-        if (history.length === 0) {
-            // Seed a mock tour for demonstration
-            history = [
-                {
-                    cr3ea_prod_rajpura_quality_tourid: "mock-tour-guid-1",
-                    cr3ea_food_safety_checklisttype: "PPE Checklist",
-                    cr3ea_plantid: "Rajpura",
-                    cr3ea_lineno: "Line 1",
-                    cr3ea_assigned_qa: "QA Executive 1",
-                    cr3ea_shiftexecutiveproduction: "Production Lead",
-                    cr3ea_tourstartdate: new Date(Date.now() - 86400000 * 2).toISOString(),
-                    cr3ea_tourcompletiondate: new Date(Date.now() - 86400000 * 2 + 1800000).toISOString(),
-                    cr3ea_status: "Submitted",
-                    cr3ea_checklist_result: "Pass",
-                    cr3ea_overall_score: "96%",
-                    cr3ea_food_safety_area: "Packing",
-                    cr3ea_food_safety_cycle: "Cycle-1"
-                },
-                {
-                    cr3ea_prod_rajpura_quality_tourid: "mock-tour-guid-2",
-                    cr3ea_food_safety_checklisttype: "GMP Checklist",
-                    cr3ea_plantid: "Rajpura",
-                    cr3ea_lineno: "Line 2",
-                    cr3ea_assigned_qa: "QA Executive 2",
-                    cr3ea_shiftexecutiveproduction: "Production Lead 2",
-                    cr3ea_tourstartdate: new Date(Date.now() - 86400000).toISOString(),
-                    cr3ea_tourcompletiondate: new Date(Date.now() - 86400000 + 1200000).toISOString(),
-                    cr3ea_status: "Submitted",
-                    cr3ea_checklist_result: "Fail",
-                    cr3ea_overall_score: "78%",
-                    cr3ea_food_safety_cycle: "Cycle-2"
-                }
-            ];
-            localStorage.setItem("mock_foodsafety_tours", JSON.stringify(history));
-        }
         return history;
     },
 

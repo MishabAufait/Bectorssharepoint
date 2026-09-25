@@ -223,11 +223,15 @@ const MixingBaking_DAL = {
             const addUnique = (targetList, user) => {
                 if (!user) return;
                 const title = (user.Title || user.title || "").trim();
-                const email = (user.EMail || user.email || user.Email || "").trim();
+                let email = (user.EMail || user.email || user.Email || "").trim();
+                if (!email || !email.includes("@")) {
+                    const match = String(user.Name || user.name || user.LoginName || user.UserPrincipalName || "").match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+                    if (match) email = match[0].toLowerCase();
+                }
                 const id = user.Id || user.id || 0;
                 if (!title) return;
                 if (!targetList.some(existing => (email && existing.EMail && existing.EMail.toLowerCase() === email.toLowerCase()) || (title && existing.Title && existing.Title.toLowerCase() === title.toLowerCase()))) {
-                    targetList.push({ Title: title, EMail: email, Id: id });
+                    targetList.push({ Title: title, EMail: email.toLowerCase(), Id: id });
                 }
             };
 
@@ -325,16 +329,8 @@ const MixingBaking_DAL = {
     getParentTour: async function (tourId) {
         const AccessToken = await this.getAccessToken();
         if (!AccessToken) {
-            console.warn("No Dataverse token available. Simulating parent tour fetch.");
-            return {
-                cr3ea_prod_rajpura_quality_tourid: tourId,
-                cr3ea_lineno: "Line-1",
-                cr3ea_assigned_qa: "QA User",
-                cr3ea_shiftexecutiveproduction: "Prod User",
-                cr3ea_plantid: "Rajpura",
-                cr3ea_tourstartdate: moment().format("MM-DD-YYYY"),
-                cr3ea_shift: "Shift-1"
-            };
+            console.warn("No Dataverse token available. Cannot fetch parent tour.");
+            return null;
         }
 
         const apiVersion = "9.2";

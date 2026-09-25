@@ -130,7 +130,7 @@ const PKGOPS_StateMachine = {
                 }
             }
 
-            const prodRaw = String(session.cr3ea_shiftexecutiveproduction || session.cr3ea_production_incharge || session.cr3ea_observedby || "").toLowerCase().trim();
+            const prodRaw = String(session.cr3ea_shiftexecutiveproduction || session.cr3ea_shiftexecutive || session.cr3ea_production_incharge || session.cr3ea_observedby || "").toLowerCase().trim();
             const prodResolved = (typeof PKGOPS_Main !== "undefined" && PKGOPS_Main.resolveUserName) ? PKGOPS_Main.resolveUserName(prodRaw).toLowerCase().trim() : prodRaw;
             if (prodRaw) {
                 hasAssignedProd = true;
@@ -153,17 +153,9 @@ const PKGOPS_StateMachine = {
             }
         }
 
-        // Developer / Admin check
-        const devKeys = ["mishab", "aufait", "admin", "developer", "tester"];
-        const isDev = devKeys.some(d => 
-            this.currentUserEmail.includes(d) || 
-            this.currentUserName.includes(d) || 
-            this.currentUserLogin.includes(d)
-        );
-        this.isDev = isDev;
-
-        const isUserQA = isAssignedQA || isConfigQA || isDeptQA || isDev;
-        const isUserProd = isAssignedProd || isConfigProd || isDeptProd || isDev;
+        this.isDev = false;
+        const isUserQA = isAssignedQA || isConfigQA || isDeptQA;
+        const isUserProd = isAssignedProd || isConfigProd || isDeptProd;
 
         this.hasAssignedQA = hasAssignedQA;
         this.hasAssignedProd = hasAssignedProd;

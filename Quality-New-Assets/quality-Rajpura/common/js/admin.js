@@ -296,15 +296,6 @@ const Rajpura_Admin = {
             }
         }
 
-        // Fallback for localhost testing
-        const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-        if (admins.length === 0 && isLocal) {
-            admins = [
-                { id: 1, title: "Mishab Muhammed", email: "mishab@bectors.com", name: "mishab" },
-                { id: 2, title: "Gokul K", email: "gokul.k@bectors.com", name: "gokul" }
-            ];
-        }
-
         this._authorizedAdmins = admins;
         return admins;
     },
@@ -666,21 +657,8 @@ const Rajpura_Admin = {
             console.warn("Fallback to mock employees for offline dev:", err);
         }
 
-        // Default mock employees for local test preview
         if (this.employees.length === 0) {
-            this.employees = [
-                { id: 101, spUserId: 101, title: "Mishab Muhammed", email: "mishab@bectors.com", department: "Quality Assurance", plant: "Rajpura" },
-                { id: 102, spUserId: 102, title: "Ankur Sharma", email: "ankur.sharma@bectors.com", department: "Quality Assurance", plant: "Rajpura" },
-                { id: 103, spUserId: 103, title: "Suresh Kumar", email: "suresh.kumar@bectors.com", department: "Quality HOD", plant: "Rajpura" },
-                { id: 104, spUserId: 104, title: "Mahesh Singh", email: "mahesh.singh@bectors.com", department: "Production", plant: "Rajpura" },
-                { id: 105, spUserId: 105, title: "Rajesh Verma", email: "rajesh.verma@bectors.com", department: "Production Incharge", plant: "Rajpura" },
-                { id: 106, spUserId: 106, title: "Vikas Patel", email: "vikas.patel@bectors.com", department: "Quality Executive", plant: "Rajpura" },
-                { id: 107, spUserId: 107, title: "Priya Nair", email: "priya.nair@bectors.com", department: "Packaging Quality", plant: "Rajpura" },
-                { id: 108, spUserId: 108, title: "Gokul K", email: "gokul.k@bectors.com", department: "Quality Assurance", plant: "Rajpura" },
-                { id: 109, spUserId: 109, title: "Aiswarya N V", email: "aiswarya.nv@bectors.com", department: "Quality Assurance", plant: "Rajpura" },
-                { id: 110, spUserId: 110, title: "Ajith K", email: "ajith.k@bectors.com", department: "Production", plant: "Rajpura" },
-                { id: 111, spUserId: 111, title: "Shaan Arshaqu", email: "shaan.arshaqu@bectors.com", department: "Production", plant: "Rajpura" }
-            ];
+            this.employees = [];
         }
     },
 
@@ -1056,32 +1034,47 @@ const Rajpura_Admin = {
      */
     normalizeUsers: function (raw) {
         if (!raw) return [];
+        const extractUserEmail = (u) => {
+            if (!u) return "";
+            const rawEmail = u.EMail || u.Email || u.email || "";
+            if (rawEmail && rawEmail.includes("@")) {
+                const m = rawEmail.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+                if (m) return m[0].toLowerCase();
+            }
+            const nameClaim = u.Name || u.name || u.LoginName || u.loginName || u.UserPrincipalName || "";
+            if (nameClaim) {
+                const m = nameClaim.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+                if (m) return m[0].toLowerCase();
+            }
+            return "";
+        };
+
         if (Array.isArray(raw)) {
             return raw
-                .filter(u => u && (u.Id || u.id || u.Title || u.title || u.EMail || u.email))
+                .filter(u => u && (u.Id || u.id || u.Title || u.title || u.EMail || u.email || u.Name || u.name))
                 .map(u => ({
                     id: u.Id || u.id || u.ID || null,
                     spUserId: u.Id || u.id || u.ID || null,
-                    title: (u.Title || u.title || "").trim(),
-                    email: (u.EMail || u.Email || u.email || "").trim()
+                    title: (u.Title || u.title || u.Name || "Unknown").trim(),
+                    email: extractUserEmail(u)
                 }));
         }
         if (raw.results && Array.isArray(raw.results)) {
             return raw.results
-                .filter(u => u && (u.Id || u.id || u.Title || u.title || u.EMail || u.email))
+                .filter(u => u && (u.Id || u.id || u.Title || u.title || u.EMail || u.email || u.Name || u.name))
                 .map(u => ({
                     id: u.Id || u.id || u.ID || null,
                     spUserId: u.Id || u.id || u.ID || null,
-                    title: (u.Title || u.title || "").trim(),
-                    email: (u.EMail || u.Email || u.email || "").trim()
+                    title: (u.Title || u.title || u.Name || "Unknown").trim(),
+                    email: extractUserEmail(u)
                 }));
         }
-        if (raw.Title || raw.EMail || raw.Id || raw.title || raw.email || raw.id) {
+        if (raw.Title || raw.EMail || raw.Id || raw.title || raw.email || raw.id || raw.Name || raw.name) {
             return [{
                 id: raw.Id || raw.id || raw.ID || null,
                 spUserId: raw.Id || raw.id || raw.ID || null,
-                title: (raw.Title || raw.title || "").trim(),
-                email: (raw.EMail || raw.Email || raw.email || "").trim()
+                title: (raw.Title || raw.title || raw.Name || "Unknown").trim(),
+                email: extractUserEmail(raw)
             }];
         }
         return [];
@@ -1110,13 +1103,13 @@ const Rajpura_Admin = {
                 { id: 204, title: "Shift G", configType: "Shift Master", shiftCode: "G", shiftName: "General", shiftStart: "9:30 A.M.", shiftEnd: "6:00 P.M.", plant: "Rajpura", isActive: true, assignedUsers: [], escalationManagers: [], productionIncharges: [] },
 
                 // 3. Area Inspector Assignment (7 Areas)
-                { id: 301, title: "AREA-01", configType: "Area Inspector", area: "RM Store", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 104, title: "Rajesh Kumar", email: "" }, { id: 105, title: "Karan Singh", email: "" }], escalationManagers: [], productionIncharges: [] },
-                { id: 302, title: "AREA-02", configType: "Area Inspector", area: "Flour & Sugar Handling", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 105, title: "Karan Singh", email: "" }, { id: 106, title: "Asit Kumar", email: "" }], escalationManagers: [], productionIncharges: [] },
-                { id: 303, title: "AREA-03", configType: "Area Inspector", area: "Chemical Handling Area", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 105, title: "Karan Singh", email: "" }, { id: 106, title: "Asit Kumar", email: "" }], escalationManagers: [], productionIncharges: [] },
-                { id: 304, title: "AREA-04", configType: "Area Inspector", area: "Mixing", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 105, title: "Karan Singh", email: "" }, { id: 107, title: "Jayant Shrivastava", email: "" }], escalationManagers: [], productionIncharges: [] },
-                { id: 305, title: "AREA-05", configType: "Area Inspector", area: "Oven", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 105, title: "Karan Singh", email: "" }, { id: 108, title: "Maheshwar Yadav", email: "" }], escalationManagers: [], productionIncharges: [] },
-                { id: 306, title: "AREA-06", configType: "Area Inspector", area: "Post Bake & Packing Section", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 105, title: "Karan Singh", email: "" }, { id: 109, title: "Satish Verma", email: "" }], escalationManagers: [], productionIncharges: [] },
-                { id: 307, title: "AREA-07", configType: "Area Inspector", area: "Biscuit Grinding", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 105, title: "Karan Singh", email: "" }, { id: 109, title: "Satish Verma", email: "" }], escalationManagers: [], productionIncharges: [] },
+                { id: 301, title: "AREA-01", configType: "Area Inspector", area: "RM Store", plant: "Rajpura", isActive: true, assignedUsers: [], escalationManagers: [], productionIncharges: [] },
+                { id: 302, title: "AREA-02", configType: "Area Inspector", area: "Flour & Sugar Handling", plant: "Rajpura", isActive: true, assignedUsers: [], escalationManagers: [], productionIncharges: [] },
+                { id: 303, title: "AREA-03", configType: "Area Inspector", area: "Chemical Handling Area", plant: "Rajpura", isActive: true, assignedUsers: [], escalationManagers: [], productionIncharges: [] },
+                { id: 304, title: "AREA-04", configType: "Area Inspector", area: "Mixing", plant: "Rajpura", isActive: true, assignedUsers: [], escalationManagers: [], productionIncharges: [] },
+                { id: 305, title: "AREA-05", configType: "Area Inspector", area: "Oven", plant: "Rajpura", isActive: true, assignedUsers: [], escalationManagers: [], productionIncharges: [] },
+                { id: 306, title: "AREA-06", configType: "Area Inspector", area: "Post Bake & Packing Section", plant: "Rajpura", isActive: true, assignedUsers: [], escalationManagers: [], productionIncharges: [] },
+                { id: 307, title: "AREA-07", configType: "Area Inspector", area: "Biscuit Grinding", plant: "Rajpura", isActive: true, assignedUsers: [], escalationManagers: [], productionIncharges: [] },
 
                 // 4. QA Shift Assignment Matrix
                 {
@@ -1126,14 +1119,8 @@ const Rajpura_Admin = {
                     shiftCode: "Default",
                     plant: "Rajpura",
                     isActive: true,
-                    assignedUsers: [
-                        { id: 101, title: "QA Process Team 1", email: "" },
-                        { id: 102, title: "QA Process Team 2", email: "" }
-                    ],
-                    escalationManagers: [
-                        { id: 105, title: "Karan Singh", email: "" },
-                        { id: 106, title: "Asit Kumar", email: "" }
-                    ],
+                    assignedUsers: [],
+                    escalationManagers: [],
                     productionIncharges: []
                 },
                 {
@@ -1143,12 +1130,8 @@ const Rajpura_Admin = {
                     shiftCode: "A",
                     plant: "Rajpura",
                     isActive: true,
-                    assignedUsers: [
-                        { id: 101, title: "QA Process Team 1", email: "" }
-                    ],
-                    escalationManagers: [
-                        { id: 105, title: "Karan Singh", email: "" }
-                    ],
+                    assignedUsers: [],
+                    escalationManagers: [],
                     productionIncharges: []
                 },
 
@@ -1166,14 +1149,8 @@ const Rajpura_Admin = {
                     configType: "PPE Checklist",
                     checklistType: "PPE",
                     plant: "Rajpura",
-                    assignedUsers: [
-                        { id: 101, title: "Mishab Muhammed", email: "mishab@bectors.com" },
-                        { id: 108, title: "Gokul K", email: "gokul.k@bectors.com" }
-                    ],
-                    productionIncharges: [
-                        { id: 111, title: "Shaan Arshaqu", email: "shaan.arshaqu@bectors.com" },
-                        { id: 101, title: "Mishab Muhammed", email: "mishab@bectors.com" }
-                    ],
+                    assignedUsers: [],
+                    productionIncharges: [],
                     escalationManagers: []
                 },
                 {
@@ -1182,14 +1159,8 @@ const Rajpura_Admin = {
                     configType: "GMP Checklist",
                     checklistType: "GMP",
                     plant: "Rajpura",
-                    assignedUsers: [
-                        { id: 101, title: "Mishab Muhammed", email: "mishab@bectors.com" },
-                        { id: 108, title: "Gokul K", email: "gokul.k@bectors.com" }
-                    ],
-                    productionIncharges: [
-                        { id: 111, title: "Shaan Arshaqu", email: "shaan.arshaqu@bectors.com" },
-                        { id: 110, title: "Ajith K", email: "ajith.k@bectors.com" }
-                    ],
+                    assignedUsers: [],
+                    productionIncharges: [],
                     escalationManagers: []
                 },
                 {
@@ -1198,12 +1169,8 @@ const Rajpura_Admin = {
                     configType: "PCI Checklist",
                     checklistType: "PCI",
                     plant: "Rajpura",
-                    assignedUsers: [
-                        { id: 101, title: "Mishab Muhammed", email: "mishab@bectors.com" }
-                    ],
-                    productionIncharges: [
-                        { id: 101, title: "Mishab Muhammed", email: "mishab@bectors.com" }
-                    ],
+                    assignedUsers: [],
+                    productionIncharges: [],
                     escalationManagers: []
                 }
             ];
@@ -1226,10 +1193,10 @@ const Rajpura_Admin = {
             }));
 
             return [
-                { id: 21, title: "Line-1", configType: "CCP_OPRP", area: "Line-1", plant: "Rajpura", assignedUsers: [{ id: 101, title: "Mishab Muhammed", email: "mishab@bectors.com" }], productionIncharges: [{ id: 104, title: "Mahesh Singh", email: "mahesh.singh@bectors.com" }], escalationManagers: [{ id: 103, title: "Suresh Kumar", email: "suresh.kumar@bectors.com" }] },
-                { id: 22, title: "Line-2", configType: "CCP_OPRP", area: "Line-2", plant: "Rajpura", assignedUsers: [{ id: 102, title: "Ankur Sharma", email: "ankur.sharma@bectors.com" }], productionIncharges: [{ id: 105, title: "Rajesh Verma", email: "rajesh.verma@bectors.com" }], escalationManagers: [{ id: 103, title: "Suresh Kumar", email: "suresh.kumar@bectors.com" }] },
-                { id: 23, title: "Line-5", configType: "CCP_OPRP", area: "Line-5", plant: "Rajpura", assignedUsers: [{ id: 106, title: "Vikas Patel", email: "vikas.patel@bectors.com" }], productionIncharges: [{ id: 104, title: "Mahesh Singh", email: "mahesh.singh@bectors.com" }], escalationManagers: [{ id: 103, title: "Suresh Kumar", email: "suresh.kumar@bectors.com" }] },
-                { id: 24, title: "Line-6", configType: "CCP_OPRP", area: "Line-6", plant: "Rajpura", assignedUsers: [{ id: 101, title: "Mishab Muhammed", email: "mishab@bectors.com" }], productionIncharges: [{ id: 105, title: "Rajesh Verma", email: "rajesh.verma@bectors.com" }], escalationManagers: [{ id: 103, title: "Suresh Kumar", email: "suresh.kumar@bectors.com" }] },
+                { id: 21, title: "Line-1", configType: "CCP_OPRP", area: "Line-1", plant: "Rajpura", assignedUsers: [], productionIncharges: [], escalationManagers: [] },
+                { id: 22, title: "Line-2", configType: "CCP_OPRP", area: "Line-2", plant: "Rajpura", assignedUsers: [], productionIncharges: [], escalationManagers: [] },
+                { id: 23, title: "Line-5", configType: "CCP_OPRP", area: "Line-5", plant: "Rajpura", assignedUsers: [], productionIncharges: [], escalationManagers: [] },
+                { id: 24, title: "Line-6", configType: "CCP_OPRP", area: "Line-6", plant: "Rajpura", assignedUsers: [], productionIncharges: [], escalationManagers: [] },
                 ...seedItems
             ];
         }
@@ -1261,16 +1228,8 @@ const Rajpura_Admin = {
                     area: "Mixing & Baking Line",
                     plant: "Rajpura",
                     isActive: true,
-                    assignedUsers: [
-                        { id: 101, title: "Mishab Muhammed", email: "mishab@bectors.com" },
-                        { id: 108, title: "Gokul K", email: "gokul.k@bectors.com" },
-                        { id: 109, title: "Aiswarya N V", email: "aiswarya.nv@bectors.com" }
-                    ],
-                    productionIncharges: [
-                        { id: 101, title: "Mishab Muhammed", email: "mishab@bectors.com" },
-                        { id: 110, title: "Ajith K", email: "ajith.k@bectors.com" },
-                        { id: 109, title: "Aiswarya N V", email: "aiswarya.nv@bectors.com" }
-                    ],
+                    assignedUsers: [],
+                    productionIncharges: [],
                     escalationManagers: []
                 },
                 ...seedRecipes
@@ -1306,10 +1265,10 @@ const Rajpura_Admin = {
 
             return [
                 // 1. Role Assignments
-                { id: 41, title: "QA User", configType: "QA User", area: "Packaging Lines", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 101, title: "Mishab Muhammed", email: "" }, { id: 108, title: "Gokul K", email: "" }, { id: 112, title: "Babifas P", email: "" }], productionIncharges: [], escalationManagers: [] },
-                { id: 42, title: "Production Incharge", configType: "Production Incharge", area: "Packaging Area", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 101, title: "Mishab Muhammed", email: "" }], productionIncharges: [], escalationManagers: [] },
-                { id: 43, title: "QA HOD", configType: "QA HOD", area: "Quality Assurance", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 201, title: "Jayant Shrivastava", email: "" }], productionIncharges: [], escalationManagers: [] },
-                { id: 44, title: "Production HOD", configType: "Production HOD", area: "Plant Production", plant: "Rajpura", isActive: true, assignedUsers: [{ id: 202, title: "Maheshwar Yadav", email: "" }], productionIncharges: [], escalationManagers: [] },
+                { id: 41, title: "QA User", configType: "QA User", area: "Packaging Lines", plant: "Rajpura", isActive: true, assignedUsers: [], productionIncharges: [], escalationManagers: [] },
+                { id: 42, title: "Production Incharge", configType: "Production Incharge", area: "Packaging Area", plant: "Rajpura", isActive: true, assignedUsers: [], productionIncharges: [], escalationManagers: [] },
+                { id: 43, title: "QA HOD", configType: "QA HOD", area: "Quality Assurance", plant: "Rajpura", isActive: true, assignedUsers: [], productionIncharges: [], escalationManagers: [] },
+                { id: 44, title: "Production HOD", configType: "Production HOD", area: "Plant Production", plant: "Rajpura", isActive: true, assignedUsers: [], productionIncharges: [], escalationManagers: [] },
 
                 // 2. Product Master (1,105 Products)
                 ...seedProducts,
@@ -3707,6 +3666,18 @@ const Rajpura_Admin = {
             return;
         }
 
+        const normTitle = title.toLowerCase();
+        const isDuplicate = (this.configs.ALC || []).some(r => {
+            if (r.configType !== "Line Master") return false;
+            if (rowId && r.id === rowId) return false;
+            return (r.title || "").trim().toLowerCase() === normTitle;
+        });
+
+        if (isDuplicate) {
+            alert(`Line "${title}" already exists. Duplicate creations are not allowed.`);
+            return;
+        }
+
         const btn = document.getElementById("btn-save-line");
         if (btn) { btn.innerText = "Saving..."; btn.disabled = true; }
 
@@ -3837,6 +3808,20 @@ const Rajpura_Admin = {
             return;
         }
 
+        const normCode = code.toLowerCase();
+        const isDuplicate = (this.configs.ALC || []).some(r => {
+            if (r.configType !== "Shift Master") return false;
+            if (rowId && r.id === rowId) return false;
+            const rCode = (r.shiftCode || "").trim().toLowerCase();
+            const rTitle = (r.title || "").trim().toLowerCase();
+            return rCode === normCode || rTitle === `shift ${normCode}` || rTitle === normCode;
+        });
+
+        if (isDuplicate) {
+            alert(`Shift "${code}" already exists. Duplicate creations are not allowed.`);
+            return;
+        }
+
         const btn = document.getElementById("btn-save-shift");
         if (btn) { btn.innerText = "Saving..."; btn.disabled = true; }
 
@@ -3953,6 +3938,21 @@ const Rajpura_Admin = {
             return;
         }
 
+        const normTitle = title.toLowerCase();
+        const normCode = (code || "").trim().toLowerCase();
+        const isDuplicate = (this.configs.ALC || []).some(r => {
+            if (r.configType !== "Product Master") return false;
+            if (rowId && r.id === rowId) return false;
+            const rTitle = (r.title || "").trim().toLowerCase();
+            const rCode = (r.productCode || "").trim().toLowerCase();
+            return rTitle === normTitle || (normCode && rCode && rCode === normCode);
+        });
+
+        if (isDuplicate) {
+            alert(`Product "${title}" already exists. Duplicate creations are not allowed.`);
+            return;
+        }
+
         const btn = document.getElementById("btn-save-prod");
         if (btn) { btn.innerText = "Saving..."; btn.disabled = true; }
 
@@ -3986,10 +3986,19 @@ const Rajpura_Admin = {
         const lines = (this.configs.ALC || []).filter(r => r.configType === "Line Master");
         const shifts = (this.configs.ALC || []).filter(r => r.configType === "Shift Master");
 
-        const lineOptions = `<option value="Default">Default (All Lines)</option>` +
+        const hasDefaultMatrix = (this.configs.ALC || []).some(r => 
+            (r.configType === "QA Assignment" || r.configType === "QA User") &&
+            (!r.title || r.title === "Default" || r.title === "All Lines") &&
+            (!r.shiftCode || r.shiftCode === "Default" || r.shiftCode === "All Shifts")
+        );
+
+        const defaultLineOpt = hasDefaultMatrix ? '' : '<option value="Default">Default (All Lines)</option>';
+        const defaultShiftOpt = hasDefaultMatrix ? '' : '<option value="Default">Default (All Shifts)</option>';
+
+        const lineOptions = defaultLineOpt +
             lines.map(l => `<option value="${this.escapeHtml(l.title)}">${this.escapeHtml(l.title)}${l.lineName ? ` - ${this.escapeHtml(l.lineName)}` : ''}</option>`).join("");
 
-        const shiftOptions = `<option value="Default">Default (All Shifts)</option>` +
+        const shiftOptions = defaultShiftOpt +
             shifts.map(s => `<option value="${this.escapeHtml(s.shiftCode || s.title)}">Shift ${this.escapeHtml(s.shiftCode || s.title)} - ${this.escapeHtml(s.shiftName || '')}</option>`).join("");
 
         mount.innerHTML = `
@@ -4078,6 +4087,7 @@ const Rajpura_Admin = {
 
         const isDefaultLine = !row || !row.title || row.title === 'Default' || row.title === 'All Lines';
         const isDefaultShift = !row || !row.shiftCode || row.shiftCode === 'Default' || row.shiftCode === 'All Shifts';
+        const isDefaultAssignment = isDefaultLine && isDefaultShift;
 
         const lineOptions = `<option value="Default" ${isDefaultLine ? 'selected' : ''}>Default (All Lines)</option>` +
             lines.map(l => `<option value="${this.escapeHtml(l.title)}" ${(row && row.title === l.title) ? 'selected' : ''}>${this.escapeHtml(l.title)}${l.lineName ? ` - ${this.escapeHtml(l.lineName)}` : ''}</option>`).join("");
@@ -4089,20 +4099,20 @@ const Rajpura_Admin = {
             <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
                 <div class="admin-modal-card">
                     <div class="admin-modal-header">
-                        <h4 class="admin-modal-title">Edit QA Shift Assignment &bull; ${this.escapeHtml(row ? row.title : 'New')}</h4>
+                        <h4 class="admin-modal-title">Edit QA Shift Assignment &bull; ${this.escapeHtml(isDefaultAssignment ? 'Default (All Lines / All Shifts)' : (row ? row.title : 'New'))}</h4>
                         <button type="button" class="admin-modal-close" onclick="Rajpura_Admin.closeModal()">&times;</button>
                     </div>
                     <div class="admin-modal-body">
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                             <div class="admin-form-group">
-                                <label class="admin-form-label">Line Selection</label>
-                                <select id="modal-matrix-line" class="admin-form-select">
+                                <label class="admin-form-label">Line Selection ${isDefaultAssignment ? '<span style="font-size: 11px; color: #10b981; font-weight: normal;">(System Default)</span>' : ''}</label>
+                                <select id="modal-matrix-line" class="admin-form-select" ${isDefaultAssignment ? 'disabled style="background: #f8fafc; cursor: not-allowed;"' : ''}>
                                     ${lineOptions}
                                 </select>
                             </div>
                             <div class="admin-form-group">
-                                <label class="admin-form-label">Shift Selection</label>
-                                <select id="modal-matrix-shift" class="admin-form-select">
+                                <label class="admin-form-label">Shift Selection ${isDefaultAssignment ? '<span style="font-size: 11px; color: #10b981; font-weight: normal;">(System Default)</span>' : ''}</label>
+                                <select id="modal-matrix-shift" class="admin-form-select" ${isDefaultAssignment ? 'disabled style="background: #f8fafc; cursor: not-allowed;"' : ''}>
                                     ${shiftOptions}
                                 </select>
                             </div>
@@ -4146,11 +4156,18 @@ const Rajpura_Admin = {
                             <label for="modal-matrix-active" style="cursor: pointer; font-size: 13.5px; font-weight: 500; margin: 0;">Is Active</label>
                         </div>
                     </div>
-                    <div class="admin-modal-footer" style="display: flex; justify-content: flex-end; gap: 8px;">
-                        <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
-                        <button type="button" class="admin-btn-primary" id="btn-save-matrix" onclick="Rajpura_Admin.saveAlcQaMatrix(${rowId || 'null'})">
-                            Save Changes
-                        </button>
+                    <div class="admin-modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+                        ${(rowId && !isDefaultAssignment) ? `
+                            <button type="button" class="admin-btn-secondary" style="color: #dc2626; border-color: #fecaca; background: #fff5f5; font-weight: 600;" onclick="Rajpura_Admin.confirmDeleteRow('ALC', ${rowId})">
+                                Delete Assignment
+                            </button>
+                        ` : (isDefaultAssignment ? `<div style="font-size: 12px; color: #64748b; font-style: italic;">Permanent System Default (Cannot be deleted)</div>` : '<div></div>')}
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
+                            <button type="button" class="admin-btn-primary" id="btn-save-matrix" onclick="Rajpura_Admin.saveAlcQaMatrix(${rowId || 'null'})">
+                                Save Changes
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -4169,8 +4186,8 @@ const Rajpura_Admin = {
     },
 
     saveAlcQaMatrix: async function (rowId) {
-        const line = document.getElementById("modal-matrix-line")?.value;
-        const shift = document.getElementById("modal-matrix-shift")?.value;
+        const line = document.getElementById("modal-matrix-line")?.value || "Default";
+        const shift = document.getElementById("modal-matrix-shift")?.value || "Default";
         const assignedUsers = this.pickerState.users || [];
         const qaShiftExecutives = this.pickerState['qa-shift'] || this.pickerState.qaShift || [];
         const escalationManagers = this.pickerState.mgr || [];
@@ -4178,6 +4195,25 @@ const Rajpura_Admin = {
 
         if (assignedUsers.length === 0) {
             alert("Please select at least one QA Executive");
+            return;
+        }
+
+        const normLine = (line || "Default").trim().toLowerCase();
+        const normShift = (shift || "Default").trim().toLowerCase();
+
+        // Strict duplicate check across all existing QA Assignment rows
+        const existingMatrix = (this.configs.ALC || []).find(r => {
+            if (r.configType !== "QA Assignment" && r.configType !== "QA User") return false;
+            if (rowId && r.id === rowId) return false;
+            const rLine = (r.title || "Default").trim().toLowerCase();
+            const rShift = (r.shiftCode || "Default").trim().toLowerCase();
+            return rLine === normLine && rShift === normShift;
+        });
+
+        if (existingMatrix) {
+            const displayL = (line === "Default" || line === "All Lines") ? "Default (All Lines)" : line;
+            const displayS = (shift === "Default" || shift === "All Shifts") ? "Default (All Shifts)" : (shift.startsWith("Shift") ? shift : `Shift ${shift}`);
+            alert(`A QA Shift Assignment for "${displayL}" and "${displayS}" already exists.\n\nDuplicate creations are not allowed. Please edit the existing assignment instead.`);
             return;
         }
 
@@ -4203,7 +4239,7 @@ const Rajpura_Admin = {
             this.renderCurrentTab();
             this.updateStatsCounters();
         } else if (btn) {
-            btn.innerText = "Save QA Assignment to SharePoint";
+            btn.innerText = rowId ? "Save Changes" : "Save QA Assignment to SharePoint";
             btn.disabled = false;
         }
     },
@@ -4430,6 +4466,21 @@ const Rajpura_Admin = {
             return;
         }
 
+        const normTitle = title.toLowerCase();
+        const normCode = (code || "").toLowerCase();
+        const isDuplicate = (this.configs.PackagingOperations || []).some(r => {
+            if (r.configType !== "Product Master") return false;
+            if (rowId && r.id === rowId) return false;
+            const rTitle = (r.title || "").trim().toLowerCase();
+            const rCode = (r.productCode || "").trim().toLowerCase();
+            return rTitle === normTitle || (normCode && rCode && rCode === normCode);
+        });
+
+        if (isDuplicate) {
+            alert(`A Packaging Product with name "${title}" or code "${code}" already exists. Duplicate creations are not allowed.`);
+            return;
+        }
+
         const btn = document.getElementById("btn-save-pkg-prod");
         if (btn) { btn.innerText = "Saving..."; btn.disabled = true; }
 
@@ -4529,6 +4580,18 @@ const Rajpura_Admin = {
 
         if (!title) {
             alert("Please enter an SKU Weight / Pack Size");
+            return;
+        }
+
+        const normTitle = title.toLowerCase();
+        const isDuplicate = (this.configs.PackagingOperations || []).some(r => {
+            if (r.configType !== "SKU Master") return false;
+            if (rowId && r.id === rowId) return false;
+            return (r.title || "").trim().toLowerCase() === normTitle;
+        });
+
+        if (isDuplicate) {
+            alert(`SKU weight "${title}" already exists. Duplicate creations are not allowed.`);
             return;
         }
 
@@ -5416,6 +5479,19 @@ const Rajpura_Admin = {
 
         if (!title) {
             alert("Please enter a Product Name / Variety");
+            return;
+        }
+
+        const normMbTitle = title.toLowerCase();
+        const isMbDuplicate = (this.configs.MixingAndBaking || []).some(r => {
+            if (r.configType !== "Product Recipe") return false;
+            if (rowId && r.id === rowId) return false;
+            const rTitle = (r.title || (r.recipeConfig && r.recipeConfig.variety) || "").trim().toLowerCase();
+            return rTitle === normMbTitle;
+        });
+
+        if (isMbDuplicate) {
+            alert(`A Product Recipe for "${title}" already exists.\n\nDuplicate creations are not allowed. Please edit the existing recipe instead.`);
             return;
         }
 
@@ -6419,6 +6495,21 @@ const Rajpura_Admin = {
         if (!title) {
             alert("Please enter a Product Name / Variety.");
             if (titleEl) titleEl.focus();
+            return;
+        }
+
+        const normTitle = title.toLowerCase();
+        const normCode = code.toLowerCase();
+        const isDuplicate = (this.configs.CCP_OPRP_Sieves || []).some(r => {
+            if (r.configType !== "Product Master") return false;
+            if (rowId && r.id === rowId) return false;
+            const rTitle = (r.title || "").trim().toLowerCase();
+            const rCode = (r.productCode || "").trim().toLowerCase();
+            return rTitle === normTitle || (normCode && rCode && rCode === normCode);
+        });
+
+        if (isDuplicate) {
+            alert(`A CCP Product with name "${title}" or code "${code}" already exists. Duplicate creations are not allowed.`);
             return;
         }
 
@@ -7615,6 +7706,17 @@ const Rajpura_Admin = {
         let titleVal = lineEl ? lineEl.value : (titleInput ? titleInput.value.trim() : "");
         if (!titleVal) titleVal = roleVal || "Assignment";
 
+        const isAssignDuplicate = (this.configs[formKey] || []).some(r => {
+            const rTitle = (r.title || "").trim().toLowerCase();
+            const rConfigType = (r.configType || "").trim().toLowerCase();
+            return rTitle === titleVal.trim().toLowerCase() && rConfigType === (roleVal || "").trim().toLowerCase();
+        });
+
+        if (isAssignDuplicate) {
+            alert(`An assignment for "${titleVal}" (${roleVal}) already exists.\n\nDuplicate creations are not allowed. Please edit the existing assignment instead.`);
+            return;
+        }
+
         const assignedUsers = this.pickerState.users || [];
         const prodUsers = this.pickerState.prod || [];
         const mgrUsers = this.pickerState.mgr || [];
@@ -7750,19 +7852,25 @@ const Rajpura_Admin = {
         const row = (this.configs[formKey] || []).find(r => r.id === rowId);
         if (!row) return;
 
-        // Safety guard: only allow deleting Product Master items
-        if (row.configType !== "Product Master") {
-            this.showToast("Deleting non-product master records is disabled.", "warning");
+        const isDefaultAssignment = (row.configType === "QA Assignment" || row.configType === "QA User") &&
+            (!row.title || row.title === "Default" || row.title === "All Lines") &&
+            (!row.shiftCode || row.shiftCode === "Default" || row.shiftCode === "All Shifts");
+
+        if (isDefaultAssignment) {
+            alert("The 'Default (All Lines) / Default (All Shifts)' assignment cannot be deleted as it is required as the permanent system default.");
             return;
         }
 
-        if (!confirm(`Are you sure you want to delete product '${row.title}' from ${form ? form.name : formKey}?`)) {
+        const recordType = row.configType || "Record";
+        const recordName = row.title || (row.recipeConfig && row.recipeConfig.variety) || row.shiftCode || "Item";
+
+        if (!confirm(`Are you sure you want to delete ${recordType} '${recordName}' from ${form ? form.name : formKey}?`)) {
             return;
         }
 
         const success = await this.deleteItemFromSharePoint(formKey, rowId);
         if (success) {
-            this.showToast(`Assignment '${row.title}' deleted successfully`, "warning");
+            this.showToast(`${recordType} '${recordName}' deleted successfully`, "warning");
             this.closeModal();
             this.configs[formKey] = (this.configs[formKey] || []).filter(r => r.id !== rowId);
             this.renderCurrentTab();
@@ -8122,9 +8230,9 @@ const Rajpura_Admin = {
         for (const listName of listNames) {
             if (loaded) break;
             const queries = [
-                "?$select=Id,Title,Admins/Id,Admins/Title,Admins/EMail,TopManagementALC/Id,TopManagementALC/Title,TopManagementALC/EMail,TopManagementGeneral/Id,TopManagementGeneral/Title,TopManagementGeneral/EMail&$expand=Admins,TopManagementALC,TopManagementGeneral&$top=5",
-                "?$select=Id,Title,TopManagementALC/Id,TopManagementALC/Title,TopManagementALC/EMail,TopManagementGeneral/Id,TopManagementGeneral/Title,TopManagementGeneral/EMail&$expand=TopManagementALC,TopManagementGeneral&$top=5",
-                "?$select=Id,Title,TopManagement_x0020_ALC/Id,TopManagement_x0020_ALC/Title,TopManagement_x0020_ALC/EMail,TopManagement_x0020_General/Id,TopManagement_x0020_General/Title,TopManagement_x0020_General/EMail&$expand=TopManagement_x0020_ALC,TopManagement_x0020_General&$top=5",
+                "?$select=Id,Title,Admins/Id,Admins/Title,Admins/EMail,Admins/Name,TopManagementALC/Id,TopManagementALC/Title,TopManagementALC/EMail,TopManagementALC/Name,TopManagementGeneral/Id,TopManagementGeneral/Title,TopManagementGeneral/EMail,TopManagementGeneral/Name&$expand=Admins,TopManagementALC,TopManagementGeneral&$top=5",
+                "?$select=Id,Title,TopManagementALC/Id,TopManagementALC/Title,TopManagementALC/EMail,TopManagementALC/Name,TopManagementGeneral/Id,TopManagementGeneral/Title,TopManagementGeneral/EMail,TopManagementGeneral/Name&$expand=TopManagementALC,TopManagementGeneral&$top=5",
+                "?$select=Id,Title,TopManagement_x0020_ALC/Id,TopManagement_x0020_ALC/Title,TopManagement_x0020_ALC/EMail,TopManagement_x0020_ALC/Name,TopManagement_x0020_General/Id,TopManagement_x0020_General/Title,TopManagement_x0020_General/EMail,TopManagement_x0020_General/Name&$expand=TopManagement_x0020_ALC,TopManagement_x0020_General&$top=5",
                 "?$top=5"
             ];
 
@@ -8154,17 +8262,6 @@ const Rajpura_Admin = {
                     console.warn(`Error querying list '${listName}' for TopManagement with query '${q}':`, err);
                 }
             }
-        }
-
-        // Mock fallback if offline or local
-        const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-        if (isLocal && !loaded && this.topManagementState.alcUsers.length === 0 && this.topManagementState.generalUsers.length === 0) {
-            this.topManagementState.alcUsers = [
-                { id: 101, title: "Mishab Muhammed", email: "mishab@bectors.com" }
-            ];
-            this.topManagementState.generalUsers = [
-                { id: 108, title: "Gokul K", email: "gokul.k@bectors.com" }
-            ];
         }
 
         this.topManagementState.isLoading = false;

@@ -150,52 +150,42 @@ const CCP_OPRP_DAL = {
                 const productCategoryVal = productCategoryField ? item[productCategoryField.InternalName] : (item.ProductCategory || item.Product_x0020_Category || "");
                 const isActiveVal = isActiveField ? (item[isActiveField.InternalName] !== false) : (item.IsActive !== false);
                 
-                const rawQA = assignedQAField ? item[assignedQAField.InternalName] : null;
-                let qaNormalized = { results: [] };
-                if (rawQA) {
-                    if (rawQA.results && Array.isArray(rawQA.results)) {
-                        qaNormalized = rawQA;
-                    } else if (rawQA.Title || rawQA.EMail) {
-                        qaNormalized = { results: [rawQA] };
+                const extractUserEmail = (u) => {
+                    if (!u) return "";
+                    let em = u.EMail || u.email || u.Email || "";
+                    if (!em || !em.includes("@")) {
+                        const match = String(u.Name || u.name || u.LoginName || u.loginName || u.UserPrincipalName || "").match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+                        if (match) em = match[0].toLowerCase();
                     }
-                }
+                    return em ? em.toLowerCase() : "";
+                };
 
-                const rawUser = assignedUserField ? item[assignedUserField.InternalName] : null;
-                let userNormalized = { results: [] };
-                if (rawUser) {
-                    if (rawUser.results && Array.isArray(rawUser.results)) {
-                        userNormalized = rawUser;
-                    } else if (rawUser.Title || rawUser.EMail) {
-                        userNormalized = { results: [rawUser] };
+                const normalizeUsers = (raw) => {
+                    if (!raw) return { results: [] };
+                    if (raw.results && Array.isArray(raw.results)) {
+                        return { results: raw.results.map(u => ({ Title: u.Title || u.title || "", EMail: extractUserEmail(u), Id: u.Id || u.id || "" })) };
                     }
-                }
+                    if (Array.isArray(raw)) {
+                        return { results: raw.map(u => ({ Title: u.Title || u.title || "", EMail: extractUserEmail(u), Id: u.Id || u.id || "" })) };
+                    }
+                    if (raw.Title || raw.EMail || raw.Name || raw.LoginName) {
+                        return { results: [{ Title: raw.Title || raw.title || "", EMail: extractUserEmail(raw), Id: raw.Id || raw.id || "" }] };
+                    }
+                    return { results: [] };
+                };
+
+                const qaNormalized = normalizeUsers(assignedQAField ? item[assignedQAField.InternalName] : null);
+                const userNormalized = normalizeUsers(assignedUserField ? item[assignedUserField.InternalName] : null);
 
                 // If AssignedQA was not present on this row but AssignedUser was, map it
                 if (qaNormalized.results.length === 0 && userNormalized.results.length > 0) {
                     if (item.Title === "QA User" || item.Title === "QA HOD" || configTypeVal === "QA User" || configTypeVal === "QA HOD") {
-                        qaNormalized = userNormalized;
+                        qaNormalized.results = [...userNormalized.results];
                     }
                 }
 
-                const rawManager = escalationManagerField ? item[escalationManagerField.InternalName] : null;
-                let managerNormalized = { results: [] };
-                if (rawManager) {
-                    if (rawManager.results && Array.isArray(rawManager.results)) {
-                        managerNormalized = rawManager;
-                    } else if (rawManager.Title || rawManager.EMail) {
-                        managerNormalized = { results: [rawManager] };
-                    }
-                }
-
-                const rawIncharge = productionInchargeField ? item[productionInchargeField.InternalName] : null;
-                let inchargeNormalized = { results: [] };
-                if (rawIncharge) {
-                    if (rawIncharge.results && Array.isArray(rawIncharge.results)) {
-                        inchargeNormalized = rawIncharge;
-                    } else if (rawIncharge.Title || rawIncharge.EMail) {
-                        inchargeNormalized = { results: [rawIncharge] };
-                    }
-                }
+                const managerNormalized = normalizeUsers(escalationManagerField ? item[escalationManagerField.InternalName] : null);
+                const inchargeNormalized = normalizeUsers(productionInchargeField ? item[productionInchargeField.InternalName] : null);
 
                 return {
                     Id: item.Id,
@@ -254,10 +244,10 @@ const CCP_OPRP_DAL = {
                 Plant: "Rajpura",
                 LineName: "Line-1",
                 IsActive: true,
-                AssignedQA: { results: [{ Id: 101, Title: "Mishab Muhammed", EMail: "" }] },
-                AssignedUser: { results: [{ Id: 101, Title: "Mishab Muhammed", EMail: "" }] },
-                ProductionIncharge: { results: [{ Id: 104, Title: "Mahesh Singh", EMail: "" }] },
-                EscalationManager: { results: [{ Id: 103, Title: "Suresh Kumar", EMail: "" }] }
+                AssignedQA: { results: [] },
+                AssignedUser: { results: [] },
+                ProductionIncharge: { results: [] },
+                EscalationManager: { results: [] }
             },
             {
                 Id: 22,
@@ -266,10 +256,10 @@ const CCP_OPRP_DAL = {
                 Plant: "Rajpura",
                 LineName: "Line-1",
                 IsActive: true,
-                AssignedQA: { results: [{ Id: 101, Title: "Mishab Muhammed", EMail: "" }, { Id: 108, Title: "Gokul K", EMail: "" }] },
-                AssignedUser: { results: [{ Id: 101, Title: "Mishab Muhammed", EMail: "" }, { Id: 108, Title: "Gokul K", EMail: "" }] },
-                ProductionIncharge: { results: [{ Id: 105, Title: "Rajesh Verma", EMail: "" }] },
-                EscalationManager: { results: [{ Id: 103, Title: "Suresh Kumar", EMail: "" }] }
+                AssignedQA: { results: [] },
+                AssignedUser: { results: [] },
+                ProductionIncharge: { results: [] },
+                EscalationManager: { results: [] }
             },
             ...seedProducts
         ];
@@ -736,10 +726,10 @@ const CCP_OPRP_DAL = {
         }));
 
         return [
-            { Id: 1, Title: "Line-1", ConfigType: "CCP_OPRP", Plant: "Rajpura", AssignedQA: { results: [{ Title: "QA Ankur", EMail: "ankur@sp.com" }] }, EscalationManager: { results: [{ Title: "Mgr Suresh", EMail: "suresh@sp.com" }] }, ProductionIncharge: { results: [{ Title: "Prod Mahesh", EMail: "mahesh@sp.com" }] } },
-            { Id: 2, Title: "Line-2", ConfigType: "CCP_OPRP", Plant: "Rajpura", AssignedQA: { results: [{ Title: "QA Ankur", EMail: "ankur@sp.com" }] }, EscalationManager: { results: [{ Title: "Mgr Suresh", EMail: "suresh@sp.com" }] }, ProductionIncharge: { results: [{ Title: "Prod Mahesh", EMail: "mahesh@sp.com" }] } },
-            { Id: 5, Title: "Line-5", ConfigType: "CCP_OPRP", Plant: "Rajpura", AssignedQA: { results: [{ Title: "QA Ankur", EMail: "ankur@sp.com" }] }, EscalationManager: { results: [{ Title: "Mgr Suresh", EMail: "suresh@sp.com" }] }, ProductionIncharge: { results: [{ Title: "Prod Mahesh", EMail: "mahesh@sp.com" }] } },
-            { Id: 6, Title: "Line-6", ConfigType: "CCP_OPRP", Plant: "Rajpura", AssignedQA: { results: [{ Title: "QA Ankur", EMail: "ankur@sp.com" }] }, EscalationManager: { results: [{ Title: "Mgr Suresh", EMail: "suresh@sp.com" }] }, ProductionIncharge: { results: [{ Title: "Prod Mahesh", EMail: "mahesh@sp.com" }] } },
+            { Id: 1, Title: "Line-1", ConfigType: "CCP_OPRP", Plant: "Rajpura", AssignedQA: { results: [] }, EscalationManager: { results: [] }, ProductionIncharge: { results: [] } },
+            { Id: 2, Title: "Line-2", ConfigType: "CCP_OPRP", Plant: "Rajpura", AssignedQA: { results: [] }, EscalationManager: { results: [] }, ProductionIncharge: { results: [] } },
+            { Id: 5, Title: "Line-5", ConfigType: "CCP_OPRP", Plant: "Rajpura", AssignedQA: { results: [] }, EscalationManager: { results: [] }, ProductionIncharge: { results: [] } },
+            { Id: 6, Title: "Line-6", ConfigType: "CCP_OPRP", Plant: "Rajpura", AssignedQA: { results: [] }, EscalationManager: { results: [] }, ProductionIncharge: { results: [] } },
             ...seedProducts
         ];
     },
@@ -752,8 +742,8 @@ const CCP_OPRP_DAL = {
                 cr3ea_prod_rajpura_quality_tourid: tourId || "mock-tour-guid",
                 cr3ea_plantid: "Rajpura",
                 cr3ea_lineno: "Line-5",
-                cr3ea_assigned_qa: "QA Ankur",
-                cr3ea_shiftexecutiveproduction: "Prod Mahesh",
+                cr3ea_assigned_qa: "",
+                cr3ea_shiftexecutiveproduction: "",
                 cr3ea_ccp_oprp_sieves_parametertype: "CCP & OPRP",
                 cr3ea_ccp_oprp_sieves_frequency: "4hrs",
                 cr3ea_status: "In Progress"

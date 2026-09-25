@@ -138,36 +138,33 @@ const ALC_DAL = {
             const results = data.d?.results || [];
 
             const mapped = results.map(item => {
-                const rawUser = assignedUserField ? item[assignedUserField.InternalName] : (item.AssignedUser || item.Assigned_x0020_User);
-                const rawManager = escalationManagerField ? item[escalationManagerField.InternalName] : (item.EscalationManager || item.Escalation_x0020_Manager);
-                const rawQaShift = qaShiftField ? item[qaShiftField.InternalName] : (item.QAShiftExecutive || item.QAShift_x0020_Executive);
-
-                let assignedUserNormalized = { results: [] };
-                if (rawUser) {
-                    if (rawUser.results && Array.isArray(rawUser.results)) {
-                        assignedUserNormalized = rawUser;
-                    } else if (rawUser.Title || rawUser.EMail) {
-                        assignedUserNormalized = { results: [rawUser] };
+                const extractUserEmail = (u) => {
+                    if (!u) return "";
+                    let em = u.EMail || u.email || u.Email || "";
+                    if (!em || !em.includes("@")) {
+                        const match = String(u.Name || u.name || u.LoginName || u.loginName || u.UserPrincipalName || "").match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+                        if (match) em = match[0].toLowerCase();
                     }
-                }
+                    return em ? em.toLowerCase() : "";
+                };
 
-                let escalationManagerNormalized = { results: [] };
-                if (rawManager) {
-                    if (rawManager.results && Array.isArray(rawManager.results)) {
-                        escalationManagerNormalized = rawManager;
-                    } else if (rawManager.Title || rawManager.EMail) {
-                        escalationManagerNormalized = { results: [rawManager] };
+                const normalizeUsers = (raw) => {
+                    if (!raw) return { results: [] };
+                    if (raw.results && Array.isArray(raw.results)) {
+                        return { results: raw.results.map(u => ({ Title: u.Title || u.title || "", EMail: extractUserEmail(u), Id: u.Id || u.id || "" })) };
                     }
-                }
+                    if (Array.isArray(raw)) {
+                        return { results: raw.map(u => ({ Title: u.Title || u.title || "", EMail: extractUserEmail(u), Id: u.Id || u.id || "" })) };
+                    }
+                    if (raw.Title || raw.EMail || raw.Name || raw.LoginName) {
+                        return { results: [{ Title: raw.Title || raw.title || "", EMail: extractUserEmail(raw), Id: raw.Id || raw.id || "" }] };
+                    }
+                    return { results: [] };
+                };
 
-                let qaShiftNormalized = { results: [] };
-                if (rawQaShift) {
-                    if (rawQaShift.results && Array.isArray(rawQaShift.results)) {
-                        qaShiftNormalized = rawQaShift;
-                    } else if (rawQaShift.Title || rawQaShift.EMail) {
-                        qaShiftNormalized = { results: [rawQaShift] };
-                    }
-                }
+                const assignedUserNormalized = normalizeUsers(assignedUserField ? item[assignedUserField.InternalName] : (item.AssignedUser || item.Assigned_x0020_User));
+                const escalationManagerNormalized = normalizeUsers(escalationManagerField ? item[escalationManagerField.InternalName] : (item.EscalationManager || item.Escalation_x0020_Manager));
+                const qaShiftNormalized = normalizeUsers(qaShiftField ? item[qaShiftField.InternalName] : (item.QAShiftExecutive || item.QAShift_x0020_Executive));
 
                 let finalTitle = (item.Title && item.Title.trim() !== "" && item.Title.trim() !== "N/A") ? item.Title.trim() : "";
                 let extractedSeq = 0;
@@ -261,13 +258,13 @@ const ALC_DAL = {
             { Id: 204, Title: "Shift G", ConfigType: "Shift Master", ShiftCode: "G", ShiftName: "General", ShiftStart: "9:30 A.M.", ShiftEnd: "6:00 P.M.", Plant: "Rajpura", IsActive: true },
 
             // 3. Area Inspector Assignment (7 Areas)
-            { Id: 301, Title: "AREA-01", ConfigType: "Area Inspector", Area: "RM Store", Plant: "Rajpura", AssignedUser: { results: [{ Title: "Mishab Muhammed", EMail: "" }, { Title: "Rajesh Kumar", EMail: "" }, { Title: "Karan Singh", EMail: "" }] } },
-            { Id: 302, Title: "AREA-02", ConfigType: "Area Inspector", Area: "Flour & Sugar Handling", Plant: "Rajpura", AssignedUser: { results: [{ Title: "Gokul K", EMail: "" }, { Title: "Karan Singh", EMail: "" }, { Title: "Asit Kumar", EMail: "" }] } },
-            { Id: 303, Title: "AREA-03", ConfigType: "Area Inspector", Area: "Chemical Handling Area", Plant: "Rajpura", AssignedUser: { results: [{ Title: "Babifas P", EMail: "" }, { Title: "Karan Singh", EMail: "" }, { Title: "Asit Kumar", EMail: "" }] } },
-            { Id: 304, Title: "AREA-04", ConfigType: "Area Inspector", Area: "Mixing", Plant: "Rajpura", AssignedUser: { results: [{ Title: "Mishab Muhammed", EMail: "" }, { Title: "Jayant Shrivastava", EMail: "" }] } },
-            { Id: 305, Title: "AREA-05", ConfigType: "Area Inspector", Area: "Oven", Plant: "Rajpura", AssignedUser: { results: [{ Title: "Gokul K", EMail: "" }, { Title: "Maheshwar Yadav", EMail: "" }] } },
-            { Id: 306, Title: "AREA-06", ConfigType: "Area Inspector", Area: "Post Bake & Packing Section", Plant: "Rajpura", AssignedUser: { results: [{ Title: "Babifas P", EMail: "" }, { Title: "Satish Verma", EMail: "" }] } },
-            { Id: 307, Title: "AREA-07", ConfigType: "Area Inspector", Area: "Biscuit Grinding", Plant: "Rajpura", AssignedUser: { results: [{ Title: "Mishab Muhammed", EMail: "" }, { Title: "Satish Verma", EMail: "" }] } },
+            { Id: 301, Title: "AREA-01", ConfigType: "Area Inspector", Area: "RM Store", Plant: "Rajpura", AssignedUser: { results: [] } },
+            { Id: 302, Title: "AREA-02", ConfigType: "Area Inspector", Area: "Flour & Sugar Handling", Plant: "Rajpura", AssignedUser: { results: [] } },
+            { Id: 303, Title: "AREA-03", ConfigType: "Area Inspector", Area: "Chemical Handling Area", Plant: "Rajpura", AssignedUser: { results: [] } },
+            { Id: 304, Title: "AREA-04", ConfigType: "Area Inspector", Area: "Mixing", Plant: "Rajpura", AssignedUser: { results: [] } },
+            { Id: 305, Title: "AREA-05", ConfigType: "Area Inspector", Area: "Oven", Plant: "Rajpura", AssignedUser: { results: [] } },
+            { Id: 306, Title: "AREA-06", ConfigType: "Area Inspector", Area: "Post Bake & Packing Section", Plant: "Rajpura", AssignedUser: { results: [] } },
+            { Id: 307, Title: "AREA-07", ConfigType: "Area Inspector", Area: "Biscuit Grinding", Plant: "Rajpura", AssignedUser: { results: [] } },
 
             // 4. QA Shift Assignment Matrix
             {
@@ -277,26 +274,10 @@ const ALC_DAL = {
                 ShiftCode: "Default",
                 Plant: "Rajpura",
                 AssignedUser: {
-                    results: [
-                        { Title: "Mishab Muhammed", EMail: "" },
-                        { Title: "Gokul K", EMail: "" },
-                        { Title: "Babifas P", EMail: "" },
-                        { Title: "QA Process Team 1", EMail: "" },
-                        { Title: "QA Process Team 2", EMail: "" }
-                    ]
+                    results: []
                 },
                 EscalationManager: {
-                    results: [
-                        { Title: "Karan Singh", EMail: "" },
-                        { Title: "Asit Kumar", EMail: "" },
-                        { Title: "Jayant Shrivastava", EMail: "" },
-                        { Title: "Maheshwar Yadav", EMail: "" },
-                        { Title: "Satish Verma", EMail: "" },
-                        { Title: "Sandeep Singh", EMail: "" },
-                        { Title: "Ankur Singh", EMail: "" },
-                        { Title: "Rakesh Matharu", EMail: "" },
-                        { Title: "Karan Mehta", EMail: "" }
-                    ]
+                    results: []
                 }
             },
             // Legacy QA User fallback row
@@ -307,19 +288,10 @@ const ALC_DAL = {
                 Area: "General",
                 Plant: "Rajpura",
                 AssignedUser: {
-                    results: [
-                        { Title: "Mishab Muhammed", EMail: "" },
-                        { Title: "Gokul K", EMail: "" },
-                        { Title: "Babifas P", EMail: "" },
-                        { Title: "QA Process Team 1", EMail: "" },
-                        { Title: "QA Process Team 2", EMail: "" }
-                    ]
+                    results: []
                 },
                 EscalationManager: {
-                    results: [
-                        { Title: "Karan Singh", EMail: "" },
-                        { Title: "Asit Kumar", EMail: "" }
-                    ]
+                    results: []
                 }
             },
 

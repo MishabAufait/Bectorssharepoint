@@ -5,28 +5,31 @@ console.log("ALC Notification Module loaded");
 const ALC_NOTIFICATION_FLOW_URL = "https://86c49df27027e13c808b32506fa981.d1.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/12/workflows/42a6c8814f9f4479b348f034f1084f99/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=rd6tp8DE5TveTIWR97PfKAKQRcH2d9qQ4BAUyGhHDm4";
 
 const ALC_Notification = {
-    // Validates whether an email is a dummy/mock placeholder
-    isDummyEmail: function (email) {
-        if (!email || typeof email !== "string") return true;
+    // In-memory cache for resolved user emails
+    _userEmailCache: {},
+
+    // Helper: extracts a valid email address from any string or claim (e.g. "i:0#.f|membership|user@bectors.com")
+    extractEmail: function (val) {
+        if (!val) return "";
+        const str = (typeof val === "string") ? val.trim() : (val.EMail || val.email || val.Email || val.Name || val.name || val.UserName || val.LoginName || val.UserPrincipalName || "");
+        if (!str || typeof str !== "string") return "";
+        const match = str.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+        if (match && match[0]) {
+            return match[0].toLowerCase();
+        }
+        return "";
+    },
+
+    // Validates whether an email is a syntactically valid email address
+    isValidEmail: function (email) {
+        if (!email || typeof email !== "string") return false;
         const trimmed = email.trim().toLowerCase();
-        if (!trimmed.includes("@") || !trimmed.includes(".")) return true;
-        const dummyDomains = [
-            "bectorfoods.com",
-            "example.com",
-            "test.com",
-            "sample.com",
-            "invalid.com",
-            "temp.com",
-            "localhost",
-            "domain.com"
-        ];
-        const parts = trimmed.split("@");
-        if (parts.length !== 2) return true;
-        const domain = parts[1];
-        if (dummyDomains.some(d => domain === d || domain.endsWith("." + d))) return true;
-        const dummyKeywords = ["dummy", "fake", "placeholder", "mockuser", "testuser", "nobody"];
-        if (dummyKeywords.some(k => trimmed.includes(k))) return true;
-        return false;
+        return Boolean(trimmed.match(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/));
+    },
+
+    // Validates email validity (alias for backward compatibility)
+    isDummyEmail: function (email) {
+        return !this.isValidEmail(email);
     },
 
     // Sanitizes outgoing payload to strictly adhere to Power Automate Flow JSON trigger schema
@@ -50,15 +53,8 @@ const ALC_Notification = {
         ];
         emailFields.forEach(field => {
             if (payload[field]) {
-                const val = String(payload[field]).trim();
-                if (val.includes("(") && val.includes(")")) {
-                    const match = val.match(/\(([^)]+)\)/);
-                    if (match && match[1] && this.isDummyEmail(match[1])) {
-                        payload[field] = val.split("(")[0].trim() || "";
-                    }
-                } else if (val.includes("@") && this.isDummyEmail(val)) {
-                    payload[field] = "";
-                }
+                const extracted = this.extractEmail(payload[field]);
+                payload[field] = extracted || (String(payload[field]).includes("@") ? "" : String(payload[field]).trim());
             }
         });
 
@@ -67,16 +63,16 @@ const ALC_Notification = {
             payload.RecipientEmails = payload.RecipientEmails ? [String(payload.RecipientEmails)] : [];
         }
         payload.RecipientEmails = payload.RecipientEmails
-            .map(e => (typeof e === "string" ? e.trim().toLowerCase() : ""))
-            .filter(e => e.includes("@") && !this.isDummyEmail(e));
+            .map(e => this.extractEmail(e))
+            .filter(Boolean);
 
         // Optional Array Properties: EscalationEmails
         if (!Array.isArray(payload.EscalationEmails)) {
             payload.EscalationEmails = [];
         } else {
             payload.EscalationEmails = payload.EscalationEmails
-                .map(e => (typeof e === "string" ? e.trim().toLowerCase() : ""))
-                .filter(e => e.includes("@") && !this.isDummyEmail(e));
+                .map(e => this.extractEmail(e))
+                .filter(Boolean);
         }
 
         // Optional Array Properties: TopManagementEmails
@@ -84,8 +80,8 @@ const ALC_Notification = {
             payload.TopManagementEmails = [];
         } else {
             payload.TopManagementEmails = payload.TopManagementEmails
-                .map(e => (typeof e === "string" ? e.trim().toLowerCase() : ""))
-                .filter(e => e.includes("@") && !this.isDummyEmail(e));
+                .map(e => this.extractEmail(e))
+                .filter(Boolean);
         }
 
         if (!Array.isArray(payload.CriticalFailures)) {
@@ -248,80 +244,365 @@ const ALC_Notification = {
         };
     },
 
-    // Dynamic resolution of Production Executive email from SharePoint configurations or context
-    resolveProductionExecutiveEmail: function (session, configs) {
-        if (!session) return "";
-        const name = session.cr3ea_shiftexecutiveproduction || session.cr3ea_observedby;
-        if (!name) return "";
-        if (typeof name === "string" && name.includes("@")) {
-            if (!this.isDummyEmail(name)) {
-                return name.trim().toLowerCase();
+    // Collect all active in-memory configurations and employee directories
+    _collectAllActiveConfigs: function (passedConfigs) {
+        const list = [];
+        if (passedConfigs && Array.isArray(passedConfigs) && passedConfigs.length > 0) {
+            list.push(...passedConfigs);
+        }
+        if (typeof PKGOPS_StateMachine !== "undefined" && Array.isArray(PKGOPS_StateMachine.configs)) {
+            list.push(...PKGOPS_StateMachine.configs);
+        }
+        if (typeof PKGOPS_DAL !== "undefined" && Array.isArray(PKGOPS_DAL.configs)) {
+            list.push(...PKGOPS_DAL.configs);
+        }
+        if (typeof ALC_StateMachine !== "undefined" && Array.isArray(ALC_StateMachine.configs)) {
+            list.push(...ALC_StateMachine.configs);
+        }
+        if (typeof ALC_QARequest !== "undefined" && Array.isArray(ALC_QARequest.qaMatrix)) {
+            list.push(...ALC_QARequest.qaMatrix);
+        }
+        if (typeof PKGOPS_QARequest !== "undefined" && Array.isArray(PKGOPS_QARequest.qaList)) {
+            list.push(...PKGOPS_QARequest.qaList);
+        }
+        if (typeof FOODSAFETY_StateMachine !== "undefined" && Array.isArray(FOODSAFETY_StateMachine.configs)) {
+            list.push(...FOODSAFETY_StateMachine.configs);
+        }
+        if (typeof CCP_StateMachine !== "undefined" && Array.isArray(CCP_StateMachine.configs)) {
+            list.push(...CCP_StateMachine.configs);
+        }
+        if (typeof MIXING_StateMachine !== "undefined" && Array.isArray(MIXING_StateMachine.configs)) {
+            list.push(...MIXING_StateMachine.configs);
+        }
+        if (typeof BAKING_StateMachine !== "undefined" && Array.isArray(BAKING_StateMachine.configs)) {
+            list.push(...BAKING_StateMachine.configs);
+        }
+        if (typeof Rajpura_Admin !== "undefined" && Rajpura_Admin.configs) {
+            Object.values(Rajpura_Admin.configs).forEach(cfgArr => {
+                if (Array.isArray(cfgArr)) list.push(...cfgArr);
+            });
+        }
+        if (typeof QualityRajpura_Config !== "undefined" && Array.isArray(QualityRajpura_Config.configs)) {
+            list.push(...QualityRajpura_Config.configs);
+        }
+        return list;
+    },
+
+    // Universal Asynchronous User Email Resolver
+    resolveUserEmailAsync: async function (userVal, configs, session) {
+        if (!userVal && session) {
+            userVal = session.cr3ea_shiftexecutiveproduction || 
+                      session.cr3ea_tourby || 
+                      session.cr3ea_assigned_qa || 
+                      session.cr3ea_observedby || 
+                      session.cr3ea_production_incharge || 
+                      session.cr3ea_executivename || 
+                      "";
+        }
+        if (!userVal) return "";
+
+        const siteUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+            ? _spPageContextInfo.webAbsoluteUrl
+            : (typeof QualityRajpura_Config !== 'undefined' && typeof QualityRajpura_Config.getSiteBaseUrl === 'function' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS");
+
+        // If userVal is an object (e.g. SharePoint Person object)
+        if (typeof userVal === "object") {
+            const objDirectEmail = this.extractEmail(userVal);
+            if (objDirectEmail) return objDirectEmail;
+
+            // If user object has Id, query getuserbyid directly from SharePoint
+            const uId = userVal.Id || userVal.id || userVal.spUserId || userVal.ID;
+            if (uId) {
+                try {
+                    const uRes = await fetch(`${siteUrl}/_api/web/getuserbyid(${uId})?$select=Id,Title,Email,LoginName,UserPrincipalName`, { headers: { "Accept": "application/json; odata=verbose" } });
+                    if (uRes.ok) {
+                        const uData = await uRes.json();
+                        const spUser = uData.d || uData;
+                        const spEmail = this.extractEmail(spUser.Email || spUser.EMail || spUser.LoginName || spUser.UserPrincipalName);
+                        if (spEmail) {
+                            const k = String(userVal.Title || userVal.title || uId).toLowerCase();
+                            this._userEmailCache[k] = spEmail;
+                            return spEmail;
+                        }
+                    }
+                } catch (uidErr) {
+                    console.warn("ALC_Notification: Error resolving getuserbyid:", uidErr);
+                }
+            }
+
+            userVal = userVal.Title || userVal.title || userVal.Name || userVal.name || String(uId || "");
+        }
+
+        const rawStr = String(userVal).trim();
+        if (!rawStr || rawStr === "N/A" || rawStr.toLowerCase() === "unknown") return "";
+
+        // 1. Direct check: extract email from string
+        const directEmail = this.extractEmail(rawStr);
+        if (directEmail) {
+            return directEmail;
+        }
+
+        const lookupKey = rawStr.toLowerCase();
+        if (this._userEmailCache[lookupKey]) {
+            return this._userEmailCache[lookupKey];
+        }
+
+        // 2. Search all in-memory config matrices
+        const allConfigs = this._collectAllActiveConfigs(configs);
+        for (const config of allConfigs) {
+            const userGroups = [
+                config.AssignedUser?.results || (Array.isArray(config.AssignedUser) ? config.AssignedUser : (config.AssignedUser ? [config.AssignedUser] : [])),
+                config.assignedUsers || [],
+                config.ProductionIncharge?.results || (Array.isArray(config.ProductionIncharge) ? config.ProductionIncharge : (config.ProductionIncharge ? [config.ProductionIncharge] : [])),
+                config.productionIncharges || [],
+                config.QAShiftExecutive?.results || (Array.isArray(config.QAShiftExecutive) ? config.QAShiftExecutive : (config.QAShiftExecutive ? [config.QAShiftExecutive] : [])),
+                config.qaShiftExecutives || [],
+                config.EscalationManager?.results || (Array.isArray(config.EscalationManager) ? config.EscalationManager : (config.EscalationManager ? [config.EscalationManager] : [])),
+                config.escalationManagers || [],
+                config.QAExecutives || [],
+                config.Admins?.results || (Array.isArray(config.Admins) ? config.Admins : (config.Admins ? [config.Admins] : []))
+            ];
+
+            for (const grp of userGroups) {
+                for (const u of grp) {
+                    if (!u) continue;
+                    const uTitle = (u.Title || u.title || "").trim().toLowerCase();
+                    const uName = (u.Name || u.name || "").trim().toLowerCase();
+                    const uEmail = this.extractEmail(u);
+                    const uId = String(u.Id || u.id || u.spUserId || "");
+
+                    if (uEmail) {
+                        if (uTitle === lookupKey || uName === lookupKey || uId === lookupKey ||
+                            (uTitle && lookupKey.includes(uTitle)) || (lookupKey && uTitle.includes(lookupKey)) ||
+                            (uName && lookupKey.includes(uName)) || (uEmail.split("@")[0] === lookupKey)) {
+                            this._userEmailCache[lookupKey] = uEmail;
+                            return uEmail;
+                        }
+                    }
+                }
             }
         }
 
-        // 1. Try resolving using SharePoint configurations list
-        let activeConfigs = [];
-        if (configs && configs.length > 0) {
-            activeConfigs = configs;
-        } else if (typeof ALC_StateMachine !== "undefined" && ALC_StateMachine.configs) {
-            activeConfigs = ALC_StateMachine.configs;
-        } else if (typeof ALC_QARequest !== "undefined" && ALC_QARequest.qaMatrix) {
-            activeConfigs = ALC_QARequest.qaMatrix;
-        } else if (typeof PKGOPS_QARequest !== "undefined" && PKGOPS_QARequest.qaList) {
-            activeConfigs = PKGOPS_QARequest.qaList;
-        }
-
-        if (activeConfigs.length > 0) {
-            for (const config of activeConfigs) {
-                if (config.AssignedUser && config.AssignedUser.results) {
-                    const user = config.AssignedUser.results.find(u => u.Title === name || (u.Title && name.includes(u.Title)));
-                    if (user && user.EMail && !this.isDummyEmail(user.EMail)) {
-                        return user.EMail.trim().toLowerCase();
-                    }
-                }
-                if (config.ProductionIncharge && config.ProductionIncharge.results) {
-                    const user = config.ProductionIncharge.results.find(u => u.Title === name || (u.Title && name.includes(u.Title)));
-                    if (user && user.EMail && !this.isDummyEmail(user.EMail)) {
-                        return user.EMail.trim().toLowerCase();
+        // 3. Search master EmployeeList directories if loaded in memory
+        const employeeDirs = [
+            (typeof PKGOPS_DAL !== "undefined" && Array.isArray(PKGOPS_DAL.employees)) ? PKGOPS_DAL.employees : [],
+            (typeof Rajpura_Admin !== "undefined" && Array.isArray(Rajpura_Admin.employees)) ? Rajpura_Admin.employees : []
+        ];
+        for (const dir of employeeDirs) {
+            for (const emp of dir) {
+                if (!emp) continue;
+                const empTitle = (emp.title || emp.Title || "").trim().toLowerCase();
+                const empEmail = this.extractEmail(emp.email || emp.EMail);
+                if (empEmail) {
+                    if (empTitle === lookupKey || empTitle.includes(lookupKey) || lookupKey.includes(empTitle) || empEmail.split("@")[0] === lookupKey) {
+                        this._userEmailCache[lookupKey] = empEmail;
+                        return empEmail;
                     }
                 }
             }
         }
 
-        // 2. Fall back to current context if the logged-in user is the executive
-        const currentEmail = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userEmail : "";
-        const currentName = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : "";
-        if (currentName && name && currentName.toLowerCase().trim() === name.toLowerCase().trim() && currentEmail) {
-            if (!this.isDummyEmail(currentEmail)) {
-                return currentEmail.trim().toLowerCase();
+        // 4. Match against current SharePoint logged-in user context
+        if (typeof _spPageContextInfo !== "undefined") {
+            const currentName = (_spPageContextInfo.userDisplayName || "").trim().toLowerCase();
+            const currentLogin = (_spPageContextInfo.userLoginName || "").trim().toLowerCase();
+            const currentEmail = this.extractEmail(_spPageContextInfo.userEmail) || this.extractEmail(_spPageContextInfo.userLoginName);
+
+            if (currentEmail) {
+                if (currentName === lookupKey || lookupKey.includes(currentName) || currentName.includes(lookupKey) ||
+                    currentLogin.includes(lookupKey) || lookupKey.includes(currentLogin.split("@")[0])) {
+                    this._userEmailCache[lookupKey] = currentEmail;
+                    return currentEmail;
+                }
+            }
+        }
+
+        // 5. Query SharePoint REST API directly for site user / employee lookup
+        try {
+            // 5a. Query Site Users
+            const encKey = encodeURIComponent(rawStr);
+            const userUrl = `${siteUrl}/_api/web/siteusers?$filter=substringof('${encKey}',Title) or substringof('${encKey}',Email) or substringof('${encKey}',LoginName)&$top=5`;
+            const res = await fetch(userUrl, { headers: { "Accept": "application/json; odata=verbose" } });
+            if (res.ok) {
+                const data = await res.json();
+                const users = (data.d && data.d.results) ? data.d.results : (data.value || []);
+                for (const u of users) {
+                    const email = this.extractEmail(u.Email || u.EMail || u.LoginName || u.UserPrincipalName);
+                    if (email) {
+                        this._userEmailCache[lookupKey] = email;
+                        return email;
+                    }
+                }
+            }
+        } catch (spUserErr) {
+            console.warn("ALC_Notification: Error resolving user from siteusers:", spUserErr);
+        }
+
+        try {
+            // 5b. Query EmployeeList
+            const encKey = encodeURIComponent(rawStr);
+            const empUrl = `${siteUrl}/_api/web/lists/getByTitle('EmployeeList')/items?$select=Title,EmployeeName/Title,EmployeeName/EMail&$expand=EmployeeName&$filter=substringof('${encKey}',Title) or substringof('${encKey}',EmployeeName/Title)&$top=5`;
+            const res = await fetch(empUrl, { headers: { "Accept": "application/json; odata=verbose" } });
+            if (res.ok) {
+                const data = await res.json();
+                const items = (data.d && data.d.results) ? data.d.results : (data.value || []);
+                for (const item of items) {
+                    const emp = item.EmployeeName || {};
+                    const email = this.extractEmail(emp.EMail || emp.Email || emp.Title);
+                    if (email) {
+                        this._userEmailCache[lookupKey] = email;
+                        return email;
+                    }
+                }
+            }
+        } catch (empErr) {
+            console.warn("ALC_Notification: Error resolving user from EmployeeList:", empErr);
+        }
+
+        // 6. Query SharePoint Site User Information List (hidden list supporting substringof)
+        try {
+            const encKey = encodeURIComponent(rawStr);
+            const userUrl = `${siteUrl}/_api/web/siteuserinfolist/items?$select=Id,Title,EMail,Name,UserName&$filter=substringof('${encKey}',Title) or substringof('${encKey}',Name) or substringof('${encKey}',EMail)&$top=5`;
+            const res = await fetch(userUrl, { headers: { "Accept": "application/json; odata=verbose" } });
+            if (res.ok) {
+                const data = await res.json();
+                const users = (data.d && data.d.results) ? data.d.results : (data.value || []);
+                for (const u of users) {
+                    const email = this.extractEmail(u.EMail || u.Name || u.UserName || u.Title);
+                    if (email) {
+                        this._userEmailCache[lookupKey] = email;
+                        return email;
+                    }
+                }
+            }
+        } catch (spUserErr) {
+            console.warn("ALC_Notification: Error resolving user from siteuserinfolist:", spUserErr);
+        }
+
+        // 7. Context-based Line/Shift fallback: find matching line/shift config
+        if (session && (session.cr3ea_lineno || session.cr3ea_shift)) {
+            const line = String(session.cr3ea_lineno || "").trim().toLowerCase();
+            const shift = String(session.cr3ea_shift || "").trim().toLowerCase();
+            for (const config of allConfigs) {
+                const cfgLine = String(config.LineNo || config.Line || config.cr3ea_lineno || "").trim().toLowerCase();
+                const cfgShift = String(config.Shift || config.cr3ea_shift || "").trim().toLowerCase();
+                if ((!line || cfgLine === line || cfgLine.includes(line)) && (!shift || cfgShift === shift || cfgShift.includes(shift))) {
+                    const fallbackUsers = [
+                        ...(config.ProductionIncharge?.results || (config.ProductionIncharge ? [config.ProductionIncharge] : [])),
+                        ...(config.AssignedUser?.results || (config.AssignedUser ? [config.AssignedUser] : [])),
+                        ...(config.productionIncharges || []),
+                        ...(config.assignedUsers || [])
+                    ];
+                    for (const u of fallbackUsers) {
+                        const email = this.extractEmail(u);
+                        if (email) {
+                            this._userEmailCache[lookupKey] = email;
+                            return email;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 8. Absolute fallback: current logged in user
+        if (typeof _spPageContextInfo !== "undefined") {
+            const fallbackEmail = this.extractEmail(_spPageContextInfo.userLoginName) || this.extractEmail(_spPageContextInfo.userEmail);
+            if (fallbackEmail) {
+                return fallbackEmail;
             }
         }
 
         return "";
     },
 
-    // Dynamic resolution of Production Executive display name
-    resolveProductionExecutiveName: function (session, configs) {
-        if (!session) return "Unknown";
-        const rawName = session.cr3ea_shiftexecutiveproduction || session.cr3ea_observedby || "Unknown";
-        if (!rawName.includes("@")) return rawName;
+    // Synchronous fallback resolver (calls cache or in-memory configs)
+    resolveUserEmail: function (userVal, configs, session) {
+        if (!userVal && session) {
+            userVal = session.cr3ea_shiftexecutiveproduction || 
+                      session.cr3ea_tourby || 
+                      session.cr3ea_assigned_qa || 
+                      session.cr3ea_observedby || 
+                      session.cr3ea_production_incharge || 
+                      "";
+        }
+        if (!userVal) return "";
+        if (typeof userVal === "object") {
+            const objEmail = (userVal.EMail || userVal.email || userVal.Email || "").trim().toLowerCase();
+            if (objEmail && objEmail.includes("@") && !this.isDummyEmail(objEmail)) return objEmail;
+            userVal = userVal.Title || userVal.title || userVal.Name || userVal.name || "";
+        }
+        const rawStr = String(userVal).trim();
+        if (rawStr.includes("@") && !this.isDummyEmail(rawStr)) return rawStr.toLowerCase();
+        const lookupKey = rawStr.toLowerCase();
+        if (this._userEmailCache[lookupKey]) return this._userEmailCache[lookupKey];
 
-        let activeConfigs = [];
-        if (configs && configs.length > 0) {
-            activeConfigs = configs;
-        } else if (typeof ALC_StateMachine !== "undefined" && ALC_StateMachine.configs) {
-            activeConfigs = ALC_StateMachine.configs;
-        } else if (typeof ALC_QARequest !== "undefined" && ALC_QARequest.qaMatrix) {
-            activeConfigs = ALC_QARequest.qaMatrix;
-        } else if (typeof PKGOPS_QARequest !== "undefined" && PKGOPS_QARequest.qaList) {
-            activeConfigs = PKGOPS_QARequest.qaList;
+        const allConfigs = this._collectAllActiveConfigs(configs);
+        for (const config of allConfigs) {
+            const userGroups = [
+                config.AssignedUser?.results || (Array.isArray(config.AssignedUser) ? config.AssignedUser : (config.AssignedUser ? [config.AssignedUser] : [])),
+                config.assignedUsers || [],
+                config.ProductionIncharge?.results || (Array.isArray(config.ProductionIncharge) ? config.ProductionIncharge : (config.ProductionIncharge ? [config.ProductionIncharge] : [])),
+                config.productionIncharges || [],
+                config.QAShiftExecutive?.results || (Array.isArray(config.QAShiftExecutive) ? config.QAShiftExecutive : (config.QAShiftExecutive ? [config.QAShiftExecutive] : [])),
+                config.qaShiftExecutives || [],
+                config.QAExecutives || []
+            ];
+            for (const grp of userGroups) {
+                for (const u of grp) {
+                    if (!u) continue;
+                    const uTitle = (u.Title || u.title || "").trim().toLowerCase();
+                    const uEmail = (u.EMail || u.email || u.Email || "").trim().toLowerCase();
+                    if (uEmail && uEmail.includes("@") && !this.isDummyEmail(uEmail)) {
+                        if (uTitle === lookupKey || uTitle.includes(lookupKey) || lookupKey.includes(uTitle)) {
+                            this._userEmailCache[lookupKey] = uEmail;
+                            return uEmail;
+                        }
+                    }
+                }
+            }
         }
 
-        if (activeConfigs.length > 0) {
-            for (const config of activeConfigs) {
-                if (config.AssignedUser && config.AssignedUser.results) {
-                    const user = config.AssignedUser.results.find(u => u.EMail && u.EMail.toLowerCase() === rawName.toLowerCase());
-                    if (user && user.Title) return user.Title;
+        if (typeof _spPageContextInfo !== "undefined" && _spPageContextInfo.userEmail) {
+            const currentName = (_spPageContextInfo.userDisplayName || "").trim().toLowerCase();
+            if (currentName === lookupKey || lookupKey.includes(currentName) || currentName.includes(lookupKey)) {
+                return _spPageContextInfo.userEmail.trim().toLowerCase();
+            }
+        }
+
+        return "";
+    },
+
+    // Dynamic resolution of Production Executive email
+    resolveProductionExecutiveEmail: function (session, configs) {
+        if (!session) return "";
+        const name = session.cr3ea_shiftexecutiveproduction || session.cr3ea_observedby || session.cr3ea_production_incharge || session.cr3ea_shiftexecutive;
+        return this.resolveUserEmail(name, configs, session);
+    },
+
+    resolveProductionExecutiveEmailAsync: async function (session, configs) {
+        if (!session) return "";
+        const name = session.cr3ea_shiftexecutiveproduction || session.cr3ea_observedby || session.cr3ea_production_incharge || session.cr3ea_shiftexecutive;
+        return await this.resolveUserEmailAsync(name, configs, session);
+    },
+
+    // Dynamic resolution of Production Executive display name
+    resolveProductionExecutiveName: function (session, configs) {
+        if (!session) return "Production Executive";
+        const rawName = session.cr3ea_shiftexecutiveproduction || session.cr3ea_observedby || session.cr3ea_production_incharge || session.cr3ea_shiftexecutive || "Production Executive";
+        if (!rawName.includes("@")) return rawName;
+
+        const allConfigs = this._collectAllActiveConfigs(configs);
+        for (const config of allConfigs) {
+            const users = [
+                ...(config.ProductionIncharge?.results || (config.ProductionIncharge ? [config.ProductionIncharge] : [])),
+                ...(config.AssignedUser?.results || (config.AssignedUser ? [config.AssignedUser] : [])),
+                ...(config.productionIncharges || []),
+                ...(config.assignedUsers || [])
+            ];
+            for (const user of users) {
+                const uEmail = (user.EMail || user.email || "").toLowerCase();
+                if (uEmail && uEmail === rawName.toLowerCase() && (user.Title || user.title)) {
+                    return user.Title || user.title;
                 }
             }
         }
@@ -331,74 +612,121 @@ const ALC_Notification = {
         return prefix.replace(/\b\w/g, l => l.toUpperCase());
     },
 
+    // Dynamic resolution of QA Executive email
+    resolveQAExecutiveEmail: function (session, configs) {
+        if (!session) return "";
+        const rawQa = session.cr3ea_tourby || session.cr3ea_assigned_qa || session.cr3ea_qaexecutive || session.cr3ea_executivename || "";
+        const email = this.resolveUserEmail(rawQa, configs, session);
+        if (email) return email;
+        if (typeof _spPageContextInfo !== "undefined" && _spPageContextInfo.userEmail && !this.isDummyEmail(_spPageContextInfo.userEmail)) {
+            return _spPageContextInfo.userEmail.trim().toLowerCase();
+        }
+        return "";
+    },
+
+    resolveQAExecutiveEmailAsync: async function (session, configs) {
+        if (!session) return "";
+        const rawQa = session.cr3ea_tourby || session.cr3ea_assigned_qa || session.cr3ea_qaexecutive || session.cr3ea_executivename || "";
+        const email = await this.resolveUserEmailAsync(rawQa, configs, session);
+        if (email) return email;
+        if (typeof _spPageContextInfo !== "undefined" && _spPageContextInfo.userEmail && !this.isDummyEmail(_spPageContextInfo.userEmail)) {
+            return _spPageContextInfo.userEmail.trim().toLowerCase();
+        }
+        return "";
+    },
+
     // Dynamic resolution of QA Shift Executive email from SharePoint configurations or session
     resolveQAShiftExecutiveEmail: function (session, configs) {
         if (!session) return "";
         const name = session.cr3ea_executivename || session.cr3ea_shiftexecutivequality;
-        if (!name) return "";
-        if (name.includes("@") && !this.isDummyEmail(name)) return name.trim().toLowerCase();
+        return this.resolveUserEmail(name, configs, session);
+    },
 
-        let activeConfigs = [];
-        if (configs && configs.length > 0) {
-            activeConfigs = configs;
-        } else if (typeof ALC_StateMachine !== "undefined" && ALC_StateMachine.configs) {
-            activeConfigs = ALC_StateMachine.configs;
-        } else if (typeof ALC_QARequest !== "undefined" && ALC_QARequest.qaMatrix) {
-            activeConfigs = ALC_QARequest.qaMatrix;
-        } else if (typeof PKGOPS_QARequest !== "undefined" && PKGOPS_QARequest.qaList) {
-            activeConfigs = PKGOPS_QARequest.qaList;
+    resolveQAShiftExecutiveEmailAsync: async function (session, configs) {
+        if (!session) return "";
+        const name = session.cr3ea_executivename || session.cr3ea_shiftexecutivequality;
+        return await this.resolveUserEmailAsync(name, configs, session);
+    },
+
+    // Parse escalation contact emails from Dataverse session or fall back to configured escalation managers
+    parseEscalationEmails: function (session, configs) {
+        if (!session) return [];
+        const emails = [];
+
+        // 1. If explicit escalation contacts string is present in session
+        if (session.cr3ea_escalation_contacts) {
+            const rawStr = String(session.cr3ea_escalation_contacts).split("||")[0].trim();
+            rawStr.split(",").forEach(e => {
+                const clean = e.trim().toLowerCase();
+                if (clean.includes("@") && !this.isDummyEmail(clean) && !emails.includes(clean)) {
+                    emails.push(clean);
+                }
+            });
         }
 
-        if (activeConfigs.length > 0) {
-            for (const config of activeConfigs) {
-                // Check QAShiftExecutive results
-                if (config.QAShiftExecutive && config.QAShiftExecutive.results) {
-                    const user = config.QAShiftExecutive.results.find(u => u.Title === name || (u.Title && name.includes(u.Title)));
-                    if (user && user.EMail && !this.isDummyEmail(user.EMail)) return user.EMail.trim().toLowerCase();
-                }
-                // Check AssignedUser results
-                if (config.AssignedUser && config.AssignedUser.results) {
-                    const user = config.AssignedUser.results.find(u => u.Title === name || (u.Title && name.includes(u.Title)));
-                    if (user && user.EMail && !this.isDummyEmail(user.EMail)) return user.EMail.trim().toLowerCase();
+        // 2. Fallback: retrieve escalation managers from active configs matching line & shift
+        if (emails.length === 0) {
+            const allConfigs = this._collectAllActiveConfigs(configs);
+            const line = String(session.cr3ea_lineno || "").trim().toLowerCase();
+            const shift = String(session.cr3ea_shift || "").trim().toLowerCase();
+
+            for (const config of allConfigs) {
+                const cfgLine = String(config.LineNo || config.Line || config.cr3ea_lineno || "").trim().toLowerCase();
+                const cfgShift = String(config.Shift || config.cr3ea_shift || "").trim().toLowerCase();
+                const matchesLine = !line || !cfgLine || cfgLine === line || cfgLine.includes(line) || cfgLine === "all lines";
+                const matchesShift = !shift || !cfgShift || cfgShift === shift || cfgShift.includes(shift) || cfgShift === "all shifts";
+
+                if (matchesLine && matchesShift) {
+                    const mgrs = [
+                        ...(config.EscalationManager?.results || (config.EscalationManager ? [config.EscalationManager] : [])),
+                        ...(config.escalationManagers || []),
+                        ...(config.ProductionIncharge?.results || (config.ProductionIncharge ? [config.ProductionIncharge] : [])),
+                        ...(config.productionIncharges || [])
+                    ];
+                    for (const m of mgrs) {
+                        const email = (m?.EMail || m?.email || m?.Email || "").trim().toLowerCase();
+                        if (email && email.includes("@") && !this.isDummyEmail(email) && !emails.includes(email)) {
+                            emails.push(email);
+                        }
+                    }
                 }
             }
         }
 
-        return "";
+        return emails;
     },
 
-    // Parse escalation contact emails from the saved comma-separated string in Dataverse (ALC only)
-    parseEscalationEmails: function (session) {
-        if (!session) return [];
-        const meta = this.resolveChecklistMeta(session);
-        // Escalation managers are exclusively applicable to Area Line Clearance (ALC)
-        if (meta.prefix !== "ALC_" && meta.parentType !== "ALC") {
-            return [];
+    resolveEscalationEmailsAsync: async function (session, configs) {
+        const emails = this.parseEscalationEmails(session, configs);
+        if (emails.length > 0) return emails;
+
+        // Try resolving individual escalation names via universal resolver
+        const allConfigs = this._collectAllActiveConfigs(configs);
+        for (const config of allConfigs) {
+            const mgrs = [
+                ...(config.EscalationManager?.results || (config.EscalationManager ? [config.EscalationManager] : [])),
+                ...(config.escalationManagers || [])
+            ];
+            for (const m of mgrs) {
+                const resolved = await this.resolveUserEmailAsync(m, configs, session);
+                if (resolved && !emails.includes(resolved)) {
+                    emails.push(resolved);
+                }
+            }
         }
-        if (!session.cr3ea_escalation_contacts) return [];
-        if (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.parseEscalationContacts) {
-            return QualityRajpura_Config.parseEscalationContacts(session.cr3ea_escalation_contacts);
-        }
-        if (typeof QualityRajpura_Utils !== 'undefined' && QualityRajpura_Utils.parseEscalationContacts) {
-            return QualityRajpura_Utils.parseEscalationContacts(session.cr3ea_escalation_contacts);
-        }
-        const rawStr = String(session.cr3ea_escalation_contacts).split("||")[0].trim();
-        return rawStr
-            .split(",")
-            .map(e => e.trim().toLowerCase())
-            .filter(e => e.includes("@") && !this.isDummyEmail(e));
+        return emails;
     },
 
     // 1. Triggered on initial Tour request submission
-    sendSubmitRequest: async function (session, qaEmail, escalationEmails) {
+    sendSubmitRequest: async function (session, qaEmail, escalationEmails, configs) {
         if (!session) return;
         const line = session.cr3ea_lineno || "N/A";
         const shift = session.cr3ea_shift || "N/A";
-        const prodName = this.resolveProductionExecutiveName(session);
-        const prodEmail = this.resolveProductionExecutiveEmail(session);
-        const resolvedQaEmail = qaEmail || session.cr3ea_tourby || session.cr3ea_assigned_qa || "";
+        const prodName = this.resolveProductionExecutiveName(session, configs);
+        const prodEmail = await this.resolveProductionExecutiveEmailAsync(session, configs);
+        const resolvedQaEmail = (qaEmail && qaEmail.includes("@")) ? qaEmail.trim().toLowerCase() : await this.resolveQAExecutiveEmailAsync(session, configs);
         const qaShiftName = session.cr3ea_executivename || session.cr3ea_shiftexecutivequality || "";
-        const qaShiftEmail = this.resolveQAShiftExecutiveEmail(session);
+        const qaShiftEmail = await this.resolveQAShiftExecutiveEmailAsync(session, configs);
 
         const recipients = [resolvedQaEmail].filter(Boolean);
         if (qaShiftEmail && !recipients.includes(qaShiftEmail)) {
@@ -406,8 +734,9 @@ const ALC_Notification = {
         }
 
         const meta = this.resolveChecklistMeta(session);
-        const isALC = (meta.prefix === "ALC_" || meta.parentType === "ALC");
-        const resolvedEscalationEmails = isALC ? (escalationEmails || []) : [];
+        const resolvedEscalationEmails = (escalationEmails && escalationEmails.length > 0) 
+            ? escalationEmails 
+            : await this.resolveEscalationEmailsAsync(session, configs);
 
         const payload = {
             "Scenario": "SUBMIT_" + meta.prefix + "REQUEST",
@@ -429,7 +758,7 @@ const ALC_Notification = {
             "Score": "0.00",
             "Result": "Pending Score",
             "IsPass": false,
-            "RecipientEmails": recipients,
+            "RecipientEmails": recipients.length > 0 ? recipients : [resolvedQaEmail || prodEmail].filter(Boolean),
             "EscalationEmails": resolvedEscalationEmails
         };
         await this.sendNotificationFlow(payload);
@@ -441,11 +770,11 @@ const ALC_Notification = {
         const line = session.cr3ea_lineno || "N/A";
         const shift = session.cr3ea_shift || "N/A";
         const prodName = this.resolveProductionExecutiveName(session, configs);
-        const prodEmail = this.resolveProductionExecutiveEmail(session, configs);
-        const qaEmail = session.cr3ea_tourby || session.cr3ea_assigned_qa || "";
+        const prodEmail = await this.resolveProductionExecutiveEmailAsync(session, configs);
+        const qaEmail = await this.resolveQAExecutiveEmailAsync(session, configs);
         const qaShiftName = session.cr3ea_executivename || session.cr3ea_shiftexecutivequality || "";
-        const qaShiftEmail = this.resolveQAShiftExecutiveEmail(session, configs);
-        const escalationEmails = this.parseEscalationEmails(session);
+        const qaShiftEmail = await this.resolveQAShiftExecutiveEmailAsync(session, configs);
+        const escalationEmails = await this.resolveEscalationEmailsAsync(session, configs);
 
         const audit = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.parseEscalationAudit)
             ? QualityRajpura_Config.parseEscalationAudit(session)
@@ -492,22 +821,22 @@ const ALC_Notification = {
             "Score": String(score) + "%",
             "Result": result || "Fail",
             "IsPass": isPass,
-            "RecipientEmails": recipients,
+            "RecipientEmails": recipients.length > 0 ? recipients : [qaEmail || prodEmail].filter(Boolean),
             "EscalationEmails": escalationEmails
         };
         await this.sendNotificationFlow(payload);
     },
 
     // 3. Triggered when Resubmitting corrective actions
-    sendResubmitRequest: async function (session, stillPendingActions) {
+    sendResubmitRequest: async function (session, stillPendingActions, configs) {
         if (!session) return;
         const line = session.cr3ea_lineno || "N/A";
         const shift = session.cr3ea_shift || "N/A";
-        const prodName = this.resolveProductionExecutiveName(session);
-        const prodEmail = this.resolveProductionExecutiveEmail(session);
-        const qaEmail = session.cr3ea_tourby || session.cr3ea_assigned_qa || "";
+        const prodName = this.resolveProductionExecutiveName(session, configs);
+        const prodEmail = await this.resolveProductionExecutiveEmailAsync(session, configs);
+        const qaEmail = await this.resolveQAExecutiveEmailAsync(session, configs);
         const qaShiftName = session.cr3ea_executivename || session.cr3ea_shiftexecutivequality || "";
-        const qaShiftEmail = this.resolveQAShiftExecutiveEmail(session);
+        const qaShiftEmail = await this.resolveQAShiftExecutiveEmailAsync(session, configs);
 
         const recipients = [qaEmail].filter(Boolean);
         if (qaShiftEmail && !recipients.includes(qaShiftEmail)) {
@@ -535,23 +864,23 @@ const ALC_Notification = {
             "Score": session.cr3ea_overall_score ? String(session.cr3ea_overall_score) + "%" : "Pending Score",
             "Result": stillPendingActions ? "Partial Action Submitted" : "All Actions Submitted",
             "IsPass": false,
-            "RecipientEmails": recipients,
+            "RecipientEmails": recipients.length > 0 ? recipients : [qaEmail || prodEmail].filter(Boolean),
             "EscalationEmails": []
         };
         await this.sendNotificationFlow(payload);
     },
 
     // 4. Triggered when QA completes re-verification
-    sendReverificationComplete: async function (session, score, result, isPass) {
+    sendReverificationComplete: async function (session, score, result, isPass, configs) {
         if (!session) return;
         const line = session.cr3ea_lineno || "N/A";
         const shift = session.cr3ea_shift || "N/A";
-        const prodName = this.resolveProductionExecutiveName(session);
-        const prodEmail = this.resolveProductionExecutiveEmail(session);
-        const qaEmail = session.cr3ea_tourby || session.cr3ea_assigned_qa || "";
+        const prodName = this.resolveProductionExecutiveName(session, configs);
+        const prodEmail = await this.resolveProductionExecutiveEmailAsync(session, configs);
+        const qaEmail = await this.resolveQAExecutiveEmailAsync(session, configs);
         const qaShiftName = session.cr3ea_executivename || session.cr3ea_shiftexecutivequality || "";
-        const qaShiftEmail = this.resolveQAShiftExecutiveEmail(session);
-        const escalationEmails = this.parseEscalationEmails(session);
+        const qaShiftEmail = await this.resolveQAShiftExecutiveEmailAsync(session, configs);
+        const escalationEmails = await this.resolveEscalationEmailsAsync(session, configs);
 
         const audit = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.parseEscalationAudit)
             ? QualityRajpura_Config.parseEscalationAudit(session)
@@ -598,26 +927,26 @@ const ALC_Notification = {
             "Score": String(score) + "%",
             "Result": result || "Fail",
             "IsPass": isPass,
-            "RecipientEmails": recipients,
+            "RecipientEmails": recipients.length > 0 ? recipients : [qaEmail || prodEmail].filter(Boolean),
             "EscalationEmails": escalationEmails
         };
         await this.sendNotificationFlow(payload);
     },
 
     // 5. Triggered when QA acceptance timer expires and session is escalated
-    sendEscalationNotification: async function (session, qaEmail, escalationEmails) {
+    sendEscalationNotification: async function (session, qaEmail, escalationEmails, configs) {
         if (!session) return;
         const line = session.cr3ea_lineno || "N/A";
         const shift = session.cr3ea_shift || "N/A";
-        const prodName = this.resolveProductionExecutiveName(session);
-        const prodEmail = this.resolveProductionExecutiveEmail(session);
-        const resolvedQaEmail = qaEmail || session.cr3ea_tourby || session.cr3ea_assigned_qa || "";
+        const prodName = this.resolveProductionExecutiveName(session, configs);
+        const prodEmail = await this.resolveProductionExecutiveEmailAsync(session, configs);
+        const resolvedQaEmail = (qaEmail && qaEmail.includes("@")) ? qaEmail.trim().toLowerCase() : await this.resolveQAExecutiveEmailAsync(session, configs);
         const qaShiftName = session.cr3ea_executivename || session.cr3ea_shiftexecutivequality || "";
-        const qaShiftEmail = this.resolveQAShiftExecutiveEmail(session);
+        const qaShiftEmail = await this.resolveQAShiftExecutiveEmailAsync(session, configs);
 
         let escList = Array.isArray(escalationEmails) && escalationEmails.length > 0
             ? escalationEmails
-            : this.parseEscalationEmails(session);
+            : await this.resolveEscalationEmailsAsync(session, configs);
 
         // Build recipient list: Escalation Managers are primary recipients, with Production Executive and QA Executive included
         const recipients = [...escList];
@@ -660,7 +989,7 @@ const ALC_Notification = {
             "IsPass": false,
             "NotificationType": "Informational",
             "ActionRequired": "None - Informational Only. Shift Executive can reassign QA Executive or QA can accept.",
-            "RecipientEmails": recipients.length > 0 ? recipients : [resolvedQaEmail].filter(Boolean),
+            "RecipientEmails": recipients.length > 0 ? recipients : [resolvedQaEmail || prodEmail].filter(Boolean),
             "EscalationEmails": escList,
             "Comments": "QA Executive did not accept the clearance request within the 5-minute limit. This notification is sent to the Escalation Manager for informational purposes only. No action is required from the Escalation Manager."
         };
@@ -668,23 +997,23 @@ const ALC_Notification = {
     },
 
     // 6. Triggered when QA accepts a request post-escalation / delayed
-    sendPostEscalationAcceptanceNotification: async function (session, auditObj, escalationEmails) {
+    sendPostEscalationAcceptanceNotification: async function (session, auditObj, escalationEmails, configs) {
         if (!session) return;
         const line = session.cr3ea_lineno || "N/A";
         const shift = session.cr3ea_shift || "N/A";
-        const prodName = this.resolveProductionExecutiveName(session);
-        const prodEmail = this.resolveProductionExecutiveEmail(session);
+        const prodName = this.resolveProductionExecutiveName(session, configs);
+        const prodEmail = await this.resolveProductionExecutiveEmailAsync(session, configs);
 
         let escList = Array.isArray(escalationEmails) && escalationEmails.length > 0
             ? escalationEmails
-            : this.parseEscalationEmails(session);
+            : await this.resolveEscalationEmailsAsync(session, configs);
 
         const audit = auditObj || (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.parseEscalationAudit ? QualityRajpura_Config.parseEscalationAudit(session) : null) || {};
 
-        const qaEmail = audit.acceptedByEmail || session.cr3ea_tourby || session.cr3ea_assigned_qa || "";
+        const qaEmail = audit.acceptedByEmail || await this.resolveQAExecutiveEmailAsync(session, configs);
         const qaDisplayName = audit.acceptedByName || qaEmail;
         const qaShiftName = session.cr3ea_executivename || session.cr3ea_shiftexecutivequality || "";
-        const qaShiftEmail = this.resolveQAShiftExecutiveEmail(session);
+        const qaShiftEmail = await this.resolveQAShiftExecutiveEmailAsync(session, configs);
 
         const reqTimeFormatted = audit.tourStartTime ? (typeof moment !== 'undefined' ? moment(audit.tourStartTime).format("DD-MM-YYYY hh:mm A") : audit.tourStartTime) : (session.cr3ea_tourstartdate ? (typeof moment !== 'undefined' ? moment(session.cr3ea_tourstartdate).format("DD-MM-YYYY hh:mm A") : session.cr3ea_tourstartdate) : "N/A");
         const thresholdFormatted = audit.escalationThresholdTime ? (typeof moment !== 'undefined' ? moment(audit.escalationThresholdTime).format("DD-MM-YYYY hh:mm A") + " (Expired)" : "5 Minutes Limit Expired") : "5 Minutes Limit Expired";
@@ -727,7 +1056,7 @@ const ALC_Notification = {
             "IsPass": false,
             "NotificationType": "Informational",
             "ActionRequired": "None - Informational Only. Inspection has resumed.",
-            "RecipientEmails": recipients.length > 0 ? recipients : [qaEmail].filter(Boolean),
+            "RecipientEmails": recipients.length > 0 ? recipients : [qaEmail || prodEmail].filter(Boolean),
             "EscalationEmails": escList,
             "Comments": `QA Executive ${qaDisplayName} has accepted the line clearance request after escalation with a delay of ${delayMins} minute(s). Inspection is now in progress.`
         };
@@ -737,7 +1066,7 @@ const ALC_Notification = {
     _topManagementCache: null,
     _topManagementCacheExpiry: 0,
 
-    // Fetches configured Top Management emails from the SharePoint AdminPanel list
+    // Fetches configured Top Management emails from the SharePoint AdminPanel list with schema-resilient multi-probing
     fetchTopManagementEmails: async function (category) {
         const now = Date.now();
         if (this._topManagementCache && now < this._topManagementCacheExpiry) {
@@ -751,40 +1080,120 @@ const ALC_Notification = {
         const alcEmails = [];
         const genEmails = [];
 
-        try {
-            const endpoint = `${siteUrl}/_api/web/lists/getByTitle('AdminPanel')/items?$select=Id,Title,TopManagementALC/EMail,TopManagementALC/Title,TopManagementGeneral/EMail,TopManagementGeneral/Title&$expand=TopManagementALC,TopManagementGeneral&$top=1`;
-            const res = await fetch(endpoint, {
-                headers: {
-                    "Accept": "application/json; odata=verbose",
-                    "Content-Type": "application/json; odata=verbose"
-                }
+        // Check if already in Rajpura_Admin state in-memory
+        if (typeof Rajpura_Admin !== "undefined" && Rajpura_Admin.topManagementState) {
+            (Rajpura_Admin.topManagementState.alcUsers || []).forEach(u => {
+                const em = (u.email || u.EMail || "").trim().toLowerCase();
+                if (em && em.includes("@") && !this.isDummyEmail(em) && !alcEmails.includes(em)) alcEmails.push(em);
             });
+            (Rajpura_Admin.topManagementState.generalUsers || []).forEach(u => {
+                const em = (u.email || u.EMail || "").trim().toLowerCase();
+                if (em && em.includes("@") && !this.isDummyEmail(em) && !genEmails.includes(em)) genEmails.push(em);
+            });
+        }
 
-            if (res.ok) {
-                const data = await res.json();
-                const item = data.d?.results?.[0] || data.d?.[0] || null;
-                if (item) {
-                    const rawAlc = item.TopManagementALC || item.TopManagement_x0020_ALC || item.TopManagementAlc;
-                    const alcResults = rawAlc?.results || (Array.isArray(rawAlc) ? rawAlc : (rawAlc ? [rawAlc] : []));
-                    alcResults.forEach(u => {
-                        const email = (u.EMail || u.email || u.Email || "").trim().toLowerCase();
-                        if (email && email.includes("@") && !alcEmails.includes(email)) {
-                            alcEmails.push(email);
+        const listNames = ["AdminPanel", "Admin Panel", "Admin_Panel", "Admin_x0020_Panel"];
+        let loaded = (alcEmails.length > 0 && genEmails.length > 0);
+
+        for (const listName of listNames) {
+            if (loaded) break;
+            const queries = [
+                "?$select=Id,Title,TopManagementALC/Id,TopManagementALC/Title,TopManagementALC/EMail,TopManagementALC/Name,TopManagementGeneral/Id,TopManagementGeneral/Title,TopManagementGeneral/EMail,TopManagementGeneral/Name&$expand=TopManagementALC,TopManagementGeneral&$top=5",
+                "?$select=Id,Title,TopManagement_x0020_ALC/Id,TopManagement_x0020_ALC/Title,TopManagement_x0020_ALC/EMail,TopManagement_x0020_General/Id,TopManagement_x0020_General/Title,TopManagement_x0020_General/EMail&$expand=TopManagement_x0020_ALC,TopManagement_x0020_General&$top=5",
+                "?$top=5"
+            ];
+
+            for (const q of queries) {
+                try {
+                    const endpoint = `${siteUrl}/_api/web/lists/getByTitle('${listName}')/items${q}`;
+                    const res = await fetch(endpoint, {
+                        headers: {
+                            "Accept": "application/json; odata=verbose",
+                            "Content-Type": "application/json; odata=verbose"
                         }
                     });
 
-                    const rawGen = item.TopManagementGeneral || item.TopManagement_x0020_General || item.TopManagementgeneral;
-                    const genResults = rawGen?.results || (Array.isArray(rawGen) ? rawGen : (rawGen ? [rawGen] : []));
-                    genResults.forEach(u => {
-                        const email = (u.EMail || u.email || u.Email || "").trim().toLowerCase();
-                        if (email && email.includes("@") && !genEmails.includes(email)) {
-                            genEmails.push(email);
+                    if (res.ok) {
+                        const data = await res.json();
+                        const items = (data.d && data.d.results) ? data.d.results : (data.value || []);
+                        if (items.length > 0) {
+                            for (const item of items) {
+                                // Extract ALC users
+                                const rawAlc = item.TopManagementALC || item.TopManagement_x0020_ALC || item.TopManagementAlc;
+                                const alcResults = rawAlc?.results || (Array.isArray(rawAlc) ? rawAlc : (rawAlc ? [rawAlc] : []));
+                                for (const u of alcResults) {
+                                    let email = this.extractEmail(u);
+                                    if (!email) {
+                                        email = await this.resolveUserEmailAsync(u);
+                                    }
+                                    if (email && !alcEmails.includes(email)) {
+                                        alcEmails.push(email);
+                                    }
+                                }
+
+                                // Extract General users
+                                const rawGen = item.TopManagementGeneral || item.TopManagement_x0020_General || item.TopManagementgeneral || item.TopManagementTemplates || item.TopManagementOther;
+                                const genResults = rawGen?.results || (Array.isArray(rawGen) ? rawGen : (rawGen ? [rawGen] : []));
+                                for (const u of genResults) {
+                                    let email = this.extractEmail(u);
+                                    if (!email) {
+                                        email = await this.resolveUserEmailAsync(u);
+                                    }
+                                    if (email && !genEmails.includes(email)) {
+                                        genEmails.push(email);
+                                    }
+                                }
+
+                                // Extract Admins as fallback
+                                const rawAdmins = item.Admins || item.Admin || item.Administrators;
+                                const adminResults = rawAdmins?.results || (Array.isArray(rawAdmins) ? rawAdmins : (rawAdmins ? [rawAdmins] : []));
+                                for (const u of adminResults) {
+                                    let email = this.extractEmail(u);
+                                    if (!email) {
+                                        email = await this.resolveUserEmailAsync(u);
+                                    }
+                                    if (email) {
+                                        if (alcEmails.length === 0 && !alcEmails.includes(email)) alcEmails.push(email);
+                                        if (genEmails.length === 0 && !genEmails.includes(email)) genEmails.push(email);
+                                    }
+                                }
+                            }
+
+                            if (alcEmails.length > 0 || genEmails.length > 0) {
+                                loaded = true;
+                                break;
+                            }
                         }
-                    });
+                    }
+                } catch (err) {
+                    console.warn(`ALC_Notification: Could not fetch Top Management from '${listName}':`, err);
                 }
             }
-        } catch (err) {
-            console.warn("ALC_Notification: Could not fetch Top Management emails from AdminPanel:", err);
+        }
+
+        // Fallback: If AdminPanel is not configured yet in UAT, populate from configured Escalation Managers across all lines
+        if (alcEmails.length === 0 || genEmails.length === 0) {
+            const allConfigs = this._collectAllActiveConfigs();
+            for (const config of allConfigs) {
+                const mgrs = [
+                    ...(config.EscalationManager?.results || (config.EscalationManager ? [config.EscalationManager] : [])),
+                    ...(config.escalationManagers || [])
+                ];
+                for (const m of mgrs) {
+                    const em = this.extractEmail(m);
+                    if (em) {
+                        if (alcEmails.length === 0 && !alcEmails.includes(em)) alcEmails.push(em);
+                        if (genEmails.length === 0 && !genEmails.includes(em)) genEmails.push(em);
+                    }
+                }
+            }
+        }
+
+        if (genEmails.length === 0 && alcEmails.length > 0) {
+            genEmails.push(...alcEmails);
+        }
+        if (alcEmails.length === 0 && genEmails.length > 0) {
+            alcEmails.push(...genEmails);
         }
 
         // Cache for 5 minutes
@@ -803,11 +1212,11 @@ const ALC_Notification = {
         const line = session.cr3ea_lineno || "N/A";
         const shift = session.cr3ea_shift || "N/A";
         const prodName = this.resolveProductionExecutiveName(session, configs);
-        const prodEmail = this.resolveProductionExecutiveEmail(session, configs);
-        const qaEmail = session.cr3ea_tourby || session.cr3ea_assigned_qa || "";
+        const prodEmail = await this.resolveProductionExecutiveEmailAsync(session, configs);
+        const qaEmail = await this.resolveQAExecutiveEmailAsync(session, configs);
         const qaShiftName = session.cr3ea_executivename || session.cr3ea_shiftexecutivequality || "";
-        const qaShiftEmail = this.resolveQAShiftExecutiveEmail(session, configs);
-        const escalationEmails = this.parseEscalationEmails(session);
+        const qaShiftEmail = await this.resolveQAShiftExecutiveEmailAsync(session, configs);
+        const escalationEmails = await this.resolveEscalationEmailsAsync(session, configs);
 
         let topMgmtAlcEmails = [];
         try {
@@ -824,6 +1233,15 @@ const ALC_Notification = {
         escalationEmails.forEach(email => {
             if (email && !recipients.includes(email)) recipients.push(email);
         });
+
+        // Ensure at least one recipient exists to avoid flow execution failures
+        if (recipients.length === 0) {
+            const fallbackUser = this.extractEmail(typeof _spPageContextInfo !== 'undefined' ? (_spPageContextInfo.userLoginName || _spPageContextInfo.userEmail) : "");
+            if (fallbackUser) recipients.push(fallbackUser);
+        }
+        if (topMgmtAlcEmails.length === 0 && recipients.length > 0) {
+            topMgmtAlcEmails = [...recipients];
+        }
 
         const items = Array.isArray(failedCriticalItems) ? failedCriticalItems : [];
         const formattedCritList = items.map(item => ({
@@ -859,7 +1277,7 @@ const ALC_Notification = {
             "IsPass": false,
             "FailedCriticalCount": formattedCritList.length,
             "CriticalFailures": formattedCritList,
-            "RecipientEmails": recipients.length > 0 ? recipients : [qaEmail].filter(Boolean),
+            "RecipientEmails": recipients.length > 0 ? recipients : [qaEmail || prodEmail].filter(Boolean),
             "TopManagementEmails": topMgmtAlcEmails,
             "EscalationEmails": escalationEmails,
             "NotificationType": "Critical Alert",
@@ -876,11 +1294,11 @@ const ALC_Notification = {
         const line = session.cr3ea_lineno || "N/A";
         const shift = session.cr3ea_shift || "N/A";
         const prodName = this.resolveProductionExecutiveName(session, configs);
-        const prodEmail = this.resolveProductionExecutiveEmail(session, configs);
-        const qaEmail = session.cr3ea_tourby || session.cr3ea_assigned_qa || "";
+        const prodEmail = await this.resolveProductionExecutiveEmailAsync(session, configs);
+        const qaEmail = await this.resolveQAExecutiveEmailAsync(session, configs);
         const qaShiftName = session.cr3ea_executivename || session.cr3ea_shiftexecutivequality || "";
-        const qaShiftEmail = this.resolveQAShiftExecutiveEmail(session, configs);
-        const escalationEmails = this.parseEscalationEmails(session);
+        const qaShiftEmail = await this.resolveQAShiftExecutiveEmailAsync(session, configs);
+        const escalationEmails = await this.resolveEscalationEmailsAsync(session, configs);
 
         let topMgmtGenEmails = [];
         try {
@@ -897,6 +1315,15 @@ const ALC_Notification = {
         escalationEmails.forEach(email => {
             if (email && !recipients.includes(email)) recipients.push(email);
         });
+
+        // Ensure at least one recipient exists to avoid flow execution failures
+        if (recipients.length === 0) {
+            const fallbackUser = this.extractEmail(typeof _spPageContextInfo !== 'undefined' ? (_spPageContextInfo.userLoginName || _spPageContextInfo.userEmail) : "");
+            if (fallbackUser) recipients.push(fallbackUser);
+        }
+        if (topMgmtGenEmails.length === 0 && recipients.length > 0) {
+            topMgmtGenEmails = [...recipients];
+        }
 
         const defects = Array.isArray(categoryADefects) ? categoryADefects : [];
         const formattedDefects = defects.map(d => ({
@@ -933,7 +1360,7 @@ const ALC_Notification = {
             "IsPass": false,
             "CategoryADefectsCount": formattedDefects.length,
             "CategoryADefects": formattedDefects,
-            "RecipientEmails": recipients.length > 0 ? recipients : [qaEmail].filter(Boolean),
+            "RecipientEmails": recipients.length > 0 ? recipients : [qaEmail || prodEmail].filter(Boolean),
             "TopManagementEmails": topMgmtGenEmails,
             "EscalationEmails": escalationEmails,
             "NotificationType": "Critical Alert",
@@ -944,3 +1371,4 @@ const ALC_Notification = {
         await this.sendNotificationFlow(payload);
     }
 };
+

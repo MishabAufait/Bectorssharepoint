@@ -35,85 +35,9 @@ const PKGOPS_QARequest = {
             console.error("Failed to load QA / Production config from SharePoint list:", error);
         }
 
-        // Check if we got any assigned users in the filtered QA list
-        const totalQaUsersFound = (this.qaList || []).reduce((acc, item) => {
-            const raw = item.AssignedUser?.results || item.assignedUsers || item.Assigned_x0020_User?.results || [];
-            return acc + (Array.isArray(raw) ? raw.length : (raw ? 1 : 0));
-        }, 0);
-
-        // Fallback to mock QA users if query failed or returned no users
-        if (!this.qaList || this.qaList.length === 0 || totalQaUsersFound === 0) {
-            console.log("Populating mock QA users for development fallback");
-            this.qaList = [
-                {
-                    Id: 1,
-                    id: 1,
-                    Title: "QA User",
-                    title: "QA User",
-                    ConfigType: "QA User",
-                    configType: "QA User",
-                    Plant: "Rajpura",
-                    AssignedUser: {
-                        results: [
-                            { Id: 101, Title: "Mishab Muhammed", EMail: "" },
-                            { Id: 108, Title: "Gokul K", EMail: "" },
-                            { Id: 112, Title: "Babifas P", EMail: "" }
-                        ]
-                    },
-                    assignedUsers: [
-                        { id: 101, title: "Mishab Muhammed", email: "" },
-                        { id: 108, title: "Gokul K", email: "" },
-                        { id: 112, title: "Babifas P", email: "" }
-                    ]
-                }
-            ];
-        }
-
-        // Check if we got any assigned users in the filtered Production list
-        const totalProdUsersFound = (this.prodList || []).reduce((acc, item) => {
-            const raw = item.ProductionIncharge?.results || item.productionIncharges || item.AssignedUser?.results || item.assignedUsers || [];
-            return acc + (Array.isArray(raw) ? raw.length : (raw ? 1 : 0));
-        }, 0);
-
-        // Fallback to mock Production users if query failed or returned no users
-        if (!this.prodList || this.prodList.length === 0 || totalProdUsersFound === 0) {
-            console.log("Populating mock Production users for development fallback");
-            this.prodList = [
-                {
-                    Id: 2,
-                    id: 2,
-                    Title: "Production Incharge",
-                    title: "Production Incharge",
-                    ConfigType: "Production Incharge",
-                    configType: "Production Incharge",
-                    Plant: "Rajpura",
-                    AssignedUser: {
-                        results: [
-                            { Id: 101, Title: "Mishab Muhammed", EMail: "" },
-                            { Id: 108, Title: "Gokul K", EMail: "" },
-                            { Id: 112, Title: "Babifas P", EMail: "" }
-                        ]
-                    },
-                    assignedUsers: [
-                        { id: 101, title: "Mishab Muhammed", email: "" },
-                        { id: 108, title: "Gokul K", email: "" },
-                        { id: 112, title: "Babifas P", email: "" }
-                    ],
-                    ProductionIncharge: {
-                        results: [
-                            { Id: 101, Title: "Mishab Muhammed", EMail: "" },
-                            { Id: 108, Title: "Gokul K", EMail: "" },
-                            { Id: 112, Title: "Babifas P", EMail: "" }
-                        ]
-                    },
-                    productionIncharges: [
-                        { id: 101, title: "Mishab Muhammed", email: "" },
-                        { id: 108, title: "Gokul K", email: "" },
-                        { id: 112, title: "Babifas P", email: "" }
-                    ]
-                }
-            ];
-        }
+        // Keep real SharePoint lists without mock fallbacks
+        if (!this.qaList) this.qaList = [];
+        if (!this.prodList) this.prodList = [];
 
         // Set Date and Time
         const todayDate = moment().format("DD/MM/YYYY");
@@ -167,13 +91,17 @@ const PKGOPS_QARequest = {
         const addUser = (u, rowId) => {
             if (!u) return;
             const title = (u.Title || u.title || "").trim();
-            const email = (u.EMail || u.email || u.Email || "").trim();
+            let email = (u.EMail || u.email || u.Email || "").trim();
+            if (!email || !email.includes("@")) {
+                const match = String(u.Name || u.name || u.LoginName || u.loginName || u.UserPrincipalName || "").match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+                if (match) email = match[0].toLowerCase();
+            }
             const id = u.Id || u.id || u.spUserId || "";
-            if (!title) return;
+            if (!title && !email) return;
             const key = (email || title).toLowerCase();
             if (seenKeys.has(key)) return;
             seenKeys.add(key);
-            uniqueUsers.push({ id, title, email, rowId });
+            uniqueUsers.push({ id, title: title || email, email, rowId });
         };
 
         (this.qaList || []).forEach(item => {
@@ -237,13 +165,17 @@ const PKGOPS_QARequest = {
         const addUser = (u, rowId) => {
             if (!u) return;
             const title = (u.Title || u.title || "").trim();
-            const email = (u.EMail || u.email || u.Email || "").trim();
+            let email = (u.EMail || u.email || u.Email || "").trim();
+            if (!email || !email.includes("@")) {
+                const match = String(u.Name || u.name || u.LoginName || u.loginName || u.UserPrincipalName || "").match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+                if (match) email = match[0].toLowerCase();
+            }
             const id = u.Id || u.id || u.spUserId || "";
-            if (!title) return;
+            if (!title && !email) return;
             const key = (email || title).toLowerCase();
             if (seenKeys.has(key)) return;
             seenKeys.add(key);
-            uniqueUsers.push({ id, title, email, rowId });
+            uniqueUsers.push({ id, title: title || email, email, rowId });
         };
 
         (this.prodList || []).forEach(item => {
@@ -331,13 +263,21 @@ const PKGOPS_QARequest = {
 
         const selectedOption = qaSelect.options[qaSelect.selectedIndex];
         const optQaEmail = (selectedOption.getAttribute("data-email") || "").trim();
-        const isQaDummy = typeof QualityRajpura_Utils !== 'undefined' ? QualityRajpura_Utils.isDummyEmail(optQaEmail) : optQaEmail.includes("bectorfoods.com");
-        const assignedQaEmail = (!isQaDummy && optQaEmail) ? optQaEmail : (selectedOption.value || selectedOption.textContent || "");
-        const configRowId = selectedOption.getAttribute("data-rowid");
+        let assignedQaEmail = optQaEmail || selectedOption.value || "";
+        if (typeof ALC_Notification !== "undefined") {
+            if (!assignedQaEmail || !assignedQaEmail.includes("@")) {
+                const resolvedQa = await ALC_Notification.resolveUserEmailAsync(selectedOption.textContent || assignedQaEmail, this.qaList, PKGOPS_StateMachine.currentSession);
+                if (resolvedQa) assignedQaEmail = resolvedQa;
+            }
+            assignedQaEmail = ALC_Notification.extractEmail(assignedQaEmail) || assignedQaEmail;
+        }
 
         // Shift Executive (logged-in user starting tour)
         const shiftExecName = document.getElementById("setup-shift-exec")?.value || 
             ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? _spPageContextInfo.userDisplayName : "Shift Executive");
+        const currentLoggedInEmail = (typeof _spPageContextInfo !== 'undefined')
+            ? (ALC_Notification.extractEmail(_spPageContextInfo.userEmail) || ALC_Notification.extractEmail(_spPageContextInfo.userLoginName) || "")
+            : "";
 
         // Production Executive selection
         const prodSelect = document.getElementById("setup-exec-prod");
@@ -346,11 +286,17 @@ const PKGOPS_QARequest = {
             if (prodSelect.tagName === "SELECT" && prodSelect.selectedIndex >= 0) {
                 const opt = prodSelect.options[prodSelect.selectedIndex];
                 const optEmail = (opt.getAttribute("data-email") || "").trim();
-                const isDummy = typeof QualityRajpura_Utils !== 'undefined' ? QualityRajpura_Utils.isDummyEmail(optEmail) : optEmail.includes("bectorfoods.com");
-                productionExecEmailOrName = (!isDummy && optEmail) ? optEmail : (opt.textContent || opt.value || "");
+                productionExecEmailOrName = optEmail || opt.value || opt.textContent || "";
+                if (typeof ALC_Notification !== "undefined" && (!productionExecEmailOrName || !productionExecEmailOrName.includes("@"))) {
+                    const resolvedProd = await ALC_Notification.resolveUserEmailAsync(opt.textContent || productionExecEmailOrName, this.prodList, PKGOPS_StateMachine.currentSession);
+                    if (resolvedProd) productionExecEmailOrName = resolvedProd;
+                }
             } else {
                 productionExecEmailOrName = prodSelect.value || "";
             }
+        }
+        if (typeof ALC_Notification !== "undefined") {
+            productionExecEmailOrName = ALC_Notification.extractEmail(productionExecEmailOrName) || productionExecEmailOrName;
         }
         if (!productionExecEmailOrName) {
             alert("Please select a Production Executive.");
@@ -367,8 +313,8 @@ const PKGOPS_QARequest = {
 
         const tourData = {
             cr3ea_plantid: QualityRajpura_Config.PLANT_ID,
-            cr3ea_observedby: shiftExecName || productionExecEmailOrName,
-            cr3ea_shiftexecutive: shiftExecName,
+            cr3ea_observedby: currentLoggedInEmail || shiftExecName,
+            cr3ea_shiftexecutive: currentLoggedInEmail || shiftExecName,
             cr3ea_shiftexecutiveproduction: productionExecEmailOrName,
             cr3ea_tourstartdate: tourStartDate,
             cr3ea_status: "QA In Progress",

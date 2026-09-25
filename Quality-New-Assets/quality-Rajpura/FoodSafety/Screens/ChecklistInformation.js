@@ -289,14 +289,37 @@ const ChecklistInformationScreen = {
                 }
             }
 
+            // Resolve authentic user emails for Dataverse persistence
+            let resolvedQaEmail = qaExec;
+            let resolvedProdEmail = prodIncharge;
+            const shiftExecEmail = (typeof _spPageContextInfo !== 'undefined')
+                ? (typeof ALC_Notification !== "undefined" ? (ALC_Notification.extractEmail(_spPageContextInfo.userEmail) || ALC_Notification.extractEmail(_spPageContextInfo.userLoginName) || "") : (_spPageContextInfo.userEmail || ""))
+                : "";
+
+            if (typeof ALC_Notification !== "undefined") {
+                if (!resolvedQaEmail || !resolvedQaEmail.includes("@")) {
+                    const r = await ALC_Notification.resolveUserEmailAsync(qaExec, FoodSafety_Main.configs, null);
+                    if (r) resolvedQaEmail = r;
+                }
+                resolvedQaEmail = ALC_Notification.extractEmail(resolvedQaEmail) || resolvedQaEmail;
+
+                if (!resolvedProdEmail || !resolvedProdEmail.includes("@")) {
+                    const r = await ALC_Notification.resolveUserEmailAsync(prodIncharge, FoodSafety_Main.configs, null);
+                    if (r) resolvedProdEmail = r;
+                }
+                resolvedProdEmail = ALC_Notification.extractEmail(resolvedProdEmail) || resolvedProdEmail;
+            }
+
             // Prepare Table 1 OData Payload (Strict Parent Tour Schema)
             const tourPayload = {
                 cr3ea_food_safety_checklisttype: FoodSafety_Main.state.selectedChecklistType,
                 cr3ea_plantid: site === "Rajpura" ? QualityRajpura_Config.PLANT_ID : site,
                 cr3ea_lineno: line,
-                cr3ea_assigned_qa: qaExec,
-                cr3ea_shiftexecutiveproduction: prodIncharge,
-                cr3ea_observedby: shiftExec, // Shift Executive who started the tour
+                cr3ea_assigned_qa: resolvedQaEmail,
+                cr3ea_tourby: resolvedQaEmail,
+                cr3ea_shiftexecutiveproduction: resolvedProdEmail,
+                cr3ea_observedby: shiftExecEmail || shiftExec, // Shift Executive who started the tour
+                cr3ea_shiftexecutive: shiftExecEmail || shiftExec,
                 cr3ea_tourstartdate: FoodSafety_Main.state.tourStartDate,
                 cr3ea_status: "In Progress",
                 cr3ea_cycle: cycle,

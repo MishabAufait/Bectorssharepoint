@@ -50,21 +50,27 @@ const MixingBaking_Main = {
         this.state.varTourID = urlParams.get('TourId');
 
         try {
-            // 2. Fetch SharePoint config list user mappings
-            this.configList = await MixingBaking_DAL.getConfig();
+            // 2. Parallel fetch all configuration mappings, recipes, parent tour & cycles history concurrently
+            const [configList, usersConfig, recipes, tourData, completedCycles] = await Promise.all([
+                MixingBaking_DAL.getConfig(),
+                MixingBaking_DAL.getMixingBakingUsersConfig(),
+                MixingBaking_DAL.getProductRecipes(),
+                this.state.varTourID ? MixingBaking_DAL.getParentTour(this.state.varTourID) : Promise.resolve({}),
+                this.state.varTourID ? MixingBaking_DAL.getCycles(this.state.varTourID) : Promise.resolve([])
+            ]);
+
+            this.configList = configList;
+            this.state.usersConfig = usersConfig;
+            this.state.recipes = recipes;
+            this.state.tourData = tourData || {};
+            this.state.completedCycles = completedCycles || [];
+
             console.log("SharePoint configuration mappings loaded:", this.configList);
-
-            // Fetch specific users configuration for Mixing & Baking dropdowns
-            this.state.usersConfig = await MixingBaking_DAL.getMixingBakingUsersConfig();
             console.log("Mixing & Baking users configuration loaded:", this.state.usersConfig);
-
-            // Fetch product recipes standards matrix
-            this.state.recipes = await MixingBaking_DAL.getProductRecipes();
             console.log(`Mixing & Baking product recipes loaded (${this.state.recipes.length} products):`, this.state.recipes);
 
             // 3. Fetch Parent Tour details
             if (this.state.varTourID) {
-                this.state.tourData = await MixingBaking_DAL.getParentTour(this.state.varTourID);
                 console.log("Parent Tour details loaded:", this.state.tourData);
 
                 // Expiry Check: Check if tour was created on a previous day and is not terminal
@@ -359,7 +365,9 @@ const MixingBaking_Main = {
             return;
         }
 
-        const completedCycles = await MixingBaking_DAL.getCycles(this.state.varTourID);
+        const completedCycles = (this.state.completedCycles && this.state.completedCycles.length >= 0) 
+            ? this.state.completedCycles 
+            : await MixingBaking_DAL.getCycles(this.state.varTourID);
         console.log("Loaded completed cycles:", completedCycles);
 
         const parentElement = document.querySelector(".tour-cycle-card-panel-lists");

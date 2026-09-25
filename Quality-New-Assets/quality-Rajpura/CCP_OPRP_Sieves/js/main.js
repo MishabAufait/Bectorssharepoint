@@ -501,16 +501,33 @@ const CCP_OPRP_Main = {
             const prods = {};
 
             matchingConfigs.forEach(c => {
-                if (c.AssignedQA && c.AssignedQA.results) {
-                    c.AssignedQA.results.forEach(u => {
-                        if (u.EMail && u.Title) qas[u.EMail.toLowerCase().trim()] = u.Title;
-                    });
-                }
-                if (c.ProductionIncharge && c.ProductionIncharge.results) {
-                    c.ProductionIncharge.results.forEach(u => {
-                        if (u.EMail && u.Title) prods[u.EMail.toLowerCase().trim()] = u.Title;
-                    });
-                }
+                const qaList = (c.AssignedQA && c.AssignedQA.results) || (c.AssignedUser && c.AssignedUser.results) || (Array.isArray(c.AssignedQA) ? c.AssignedQA : []) || (Array.isArray(c.AssignedUser) ? c.AssignedUser : []) || [];
+                qaList.forEach(u => {
+                    if (!u) return;
+                    let em = (u.EMail || u.email || "").trim();
+                    if (!em && typeof ALC_Notification !== "undefined") {
+                        em = ALC_Notification.extractEmail(u.Name || u.name || u.LoginName || u.loginName || u.UserPrincipalName || "") || "";
+                    }
+                    const title = (u.Title || u.title || em || "").trim();
+                    if (title || em) {
+                        const k = (em || title).toLowerCase().trim();
+                        qas[k] = { email: em, title: title || em };
+                    }
+                });
+
+                const prodList = (c.ProductionIncharge && c.ProductionIncharge.results) || (c.ProductionExecutive && c.ProductionExecutive.results) || (Array.isArray(c.ProductionIncharge) ? c.ProductionIncharge : []) || (Array.isArray(c.ProductionExecutive) ? c.ProductionExecutive : []) || [];
+                prodList.forEach(u => {
+                    if (!u) return;
+                    let em = (u.EMail || u.email || "").trim();
+                    if (!em && typeof ALC_Notification !== "undefined") {
+                        em = ALC_Notification.extractEmail(u.Name || u.name || u.LoginName || u.loginName || u.UserPrincipalName || "") || "";
+                    }
+                    const title = (u.Title || u.title || em || "").trim();
+                    if (title || em) {
+                        const k = (em || title).toLowerCase().trim();
+                        prods[k] = { email: em, title: title || em };
+                    }
+                });
             });
 
             console.log("Extracted personnel sets from SharePoint:", {
@@ -522,12 +539,14 @@ const CCP_OPRP_Main = {
             qaSelect.insertAdjacentHTML("beforeend", `<option value="">Select QA Executive...</option>`);
             prodSelect.insertAdjacentHTML("beforeend", `<option value="">Select Production Executive...</option>`);
 
-            for (const email in qas) {
-                qaSelect.insertAdjacentHTML("beforeend", `<option value="${email}">${qas[email]}</option>`);
+            for (const key in qas) {
+                const item = qas[key];
+                qaSelect.insertAdjacentHTML("beforeend", `<option value="${item.email || item.title}" data-email="${item.email || ''}">${item.title}</option>`);
             }
 
-            for (const email in prods) {
-                prodSelect.insertAdjacentHTML("beforeend", `<option value="${email}">${prods[email]}</option>`);
+            for (const key in prods) {
+                const item = prods[key];
+                prodSelect.insertAdjacentHTML("beforeend", `<option value="${item.email || item.title}" data-email="${item.email || ''}">${item.title}</option>`);
             }
 
             // Set initial value to empty
@@ -636,10 +655,28 @@ const CCP_OPRP_Main = {
             return;
         }
 
-        const shiftExecEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? _spPageContextInfo.userEmail : "";
+        let resolvedProdEmail = prodVal;
+        let resolvedQaEmail = qaVal;
+        const shiftExecEmail = (typeof _spPageContextInfo !== 'undefined')
+            ? (typeof ALC_Notification !== "undefined" ? (ALC_Notification.extractEmail(_spPageContextInfo.userEmail) || ALC_Notification.extractEmail(_spPageContextInfo.userLoginName) || "") : (_spPageContextInfo.userEmail || ""))
+            : "";
         const shiftExecName = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) 
             ? _spPageContextInfo.userDisplayName 
             : (typeof EmployeeName !== 'undefined' ? EmployeeName : (typeof currentUser !== "undefined" ? currentUser : "Shift Executive"));
+
+        if (typeof ALC_Notification !== "undefined") {
+            if (!resolvedQaEmail || !resolvedQaEmail.includes("@")) {
+                const r = await ALC_Notification.resolveUserEmailAsync(qaVal, CCP_OPRP_DAL.configCache, null);
+                if (r) resolvedQaEmail = r;
+            }
+            resolvedQaEmail = ALC_Notification.extractEmail(resolvedQaEmail) || resolvedQaEmail;
+
+            if (!resolvedProdEmail || !resolvedProdEmail.includes("@")) {
+                const r = await ALC_Notification.resolveUserEmailAsync(prodVal, CCP_OPRP_DAL.configCache, null);
+                if (r) resolvedProdEmail = r;
+            }
+            resolvedProdEmail = ALC_Notification.extractEmail(resolvedProdEmail) || resolvedProdEmail;
+        }
 
         const btn = document.getElementById("start-tour-btn");
         if (btn) {
@@ -661,13 +698,13 @@ const CCP_OPRP_Main = {
             cr3ea_runningvariety: typeVal === "CCP & OPRP" ? productVal : null,
             cr3ea_plantid: siteVal === "Rajpura" ? QualityRajpura_Config.PLANT_ID : siteVal,
             cr3ea_lineno: lineVal,
-            cr3ea_assigned_qa: qaVal,
-            cr3ea_qaexecutive: qaVal,
-            cr3ea_shiftexecutiveproduction: prodVal,
-            cr3ea_production_incharge: prodVal,
-            cr3ea_observedby: prodVal,
-            cr3ea_tourby: shiftExecEmail || shiftExecName,
-            cr3ea_shiftexecutive: shiftExecName,
+            cr3ea_assigned_qa: resolvedQaEmail,
+            cr3ea_qaexecutive: resolvedQaEmail,
+            cr3ea_shiftexecutiveproduction: resolvedProdEmail,
+            cr3ea_production_incharge: resolvedProdEmail,
+            cr3ea_observedby: shiftExecEmail || shiftExecName,
+            cr3ea_tourby: resolvedQaEmail || shiftExecEmail || shiftExecName,
+            cr3ea_shiftexecutive: shiftExecEmail || shiftExecName,
             cr3ea_status: "In Progress",
             cr3ea_processstatus: "In Progress",
             cr3ea_shift: sessionStorage.getItem("shiftValue") || "Shift-1",

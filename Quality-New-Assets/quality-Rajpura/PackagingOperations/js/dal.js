@@ -197,17 +197,24 @@ const PKGOPS_DAL = {
             if (!raw) return { results: [] };
             if (raw.results && Array.isArray(raw.results)) return raw;
             if (Array.isArray(raw)) return { results: raw };
-            if (raw.Title || raw.EMail || raw.Id || raw.title || raw.email) return { results: [raw] };
+            if (raw.Title || raw.EMail || raw.Id || raw.title || raw.email || raw.Name || raw.name) return { results: [raw] };
             return { results: [] };
         };
 
         const toCleanUserList = (rawNormalized) => {
             if (!rawNormalized || !rawNormalized.results) return [];
-            return rawNormalized.results.map(u => ({
-                id: u.Id || u.id || 0,
-                title: u.Title || u.title || "Unknown",
-                email: u.EMail || u.email || u.Email || ""
-            }));
+            return rawNormalized.results.map(u => {
+                let em = u.EMail || u.email || u.Email || "";
+                if (!em || !em.includes("@")) {
+                    const match = String(u.Name || u.name || u.LoginName || u.UserPrincipalName || "").match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+                    if (match) em = match[0].toLowerCase();
+                }
+                return {
+                    id: u.Id || u.id || 0,
+                    title: u.Title || u.title || "Unknown",
+                    email: em.toLowerCase()
+                };
+            });
         };
 
         const safeStr = (val) => (val === null || val === undefined) ? "" : String(val).trim();
@@ -279,18 +286,8 @@ const PKGOPS_DAL = {
                 plant: "Rajpura",
                 IsActive: true,
                 isActive: true,
-                AssignedUser: {
-                    results: [
-                        { Id: 101, Title: "Mishab Muhammed", EMail: "" },
-                        { Id: 108, Title: "Gokul K", EMail: "" },
-                        { Id: 112, Title: "Babifas P", EMail: "" }
-                    ]
-                },
-                assignedUsers: [
-                    { id: 101, title: "Mishab Muhammed", email: "" },
-                    { id: 108, title: "Gokul K", email: "" },
-                    { id: 112, title: "Babifas P", email: "" }
-                ],
+                AssignedUser: { results: [] },
+                assignedUsers: [],
                 EscalationManager: { results: [] },
                 escalationManagers: []
             },
@@ -305,14 +302,8 @@ const PKGOPS_DAL = {
                 plant: "Rajpura",
                 IsActive: true,
                 isActive: true,
-                AssignedUser: {
-                    results: [
-                        { Id: 101, Title: "Mishab Muhammed", EMail: "" }
-                    ]
-                },
-                assignedUsers: [
-                    { id: 101, title: "Mishab Muhammed", email: "" }
-                ],
+                AssignedUser: { results: [] },
+                assignedUsers: [],
                 EscalationManager: { results: [] },
                 escalationManagers: []
             },
@@ -901,7 +892,7 @@ const PKGOPS_DAL = {
         return true;
     },
 
-    // 7.c Clean all existing sub-checklist rows for a tour ID
+    // 7.c Clean all existing sub-checklist rows for a tour ID (High-performance Parallel Batch Delete)
     cleanSubChecklistRows: async function (subChecklistKey, tourId, evaluationType) {
         try {
             const existing = await this.getSubChecklistRows(subChecklistKey, tourId);
@@ -921,6 +912,7 @@ const PKGOPS_DAL = {
 
                 const baseSuffix = idColumn.replace(/^cr3ea_(prod_)?rajpura_pkgops_/, "");
 
+                const guidsToDelete = [];
                 for (let item of existing) {
                     if (evaluationType && item.cr3ea_evaluationtype !== evaluationType) {
                         continue;
@@ -929,7 +921,15 @@ const PKGOPS_DAL = {
                                  item["cr3ea_prod_rajpura_pkgops_" + baseSuffix] ||
                                  item["cr3ea_rajpura_pkgops_" + baseSuffix];
                     if (guid) {
-                        await this.deleteSubChecklistRow(subChecklistKey, guid);
+                        guidsToDelete.push(guid);
+                    }
+                }
+
+                if (guidsToDelete.length > 0) {
+                    const CHUNK_SIZE = 6;
+                    for (let i = 0; i < guidsToDelete.length; i += CHUNK_SIZE) {
+                        const chunk = guidsToDelete.slice(i, i + CHUNK_SIZE);
+                        await Promise.all(chunk.map(g => this.deleteSubChecklistRow(subChecklistKey, g)));
                     }
                 }
             }
@@ -1138,20 +1138,8 @@ const PKGOPS_DAL = {
             console.warn("PKGOPS_DAL: Fallback to mock employees for offline dev:", err);
         }
 
-        // Default mock employees for local test / preview
-        this.employeesCache = [
-            { id: 101, spUserId: 101, title: "Mishab Muhammed", email: "mishab@bectors.com", department: "Quality Assurance", plant: "Rajpura" },
-            { id: 102, spUserId: 102, title: "Ankur Sharma", email: "ankur.sharma@bectors.com", department: "Quality Assurance", plant: "Rajpura" },
-            { id: 103, spUserId: 103, title: "Suresh Kumar", email: "suresh.kumar@bectors.com", department: "Quality HOD", plant: "Rajpura" },
-            { id: 104, spUserId: 104, title: "Mahesh Singh", email: "mahesh.singh@bectors.com", department: "Production", plant: "Rajpura" },
-            { id: 105, spUserId: 105, title: "Rajesh Verma", email: "rajesh.verma@bectors.com", department: "Production Incharge", plant: "Rajpura" },
-            { id: 106, spUserId: 106, title: "Vikas Patel", email: "vikas.patel@bectors.com", department: "Quality Executive", plant: "Rajpura" },
-            { id: 107, spUserId: 107, title: "Priya Nair", email: "priya.nair@bectors.com", department: "Packaging Quality", plant: "Rajpura" },
-            { id: 108, spUserId: 108, title: "Gokul K", email: "gokul.k@bectors.com", department: "Quality Assurance", plant: "Rajpura" },
-            { id: 109, spUserId: 109, title: "Aiswarya N V", email: "aiswarya.nv@bectors.com", department: "Quality Assurance", plant: "Rajpura" },
-            { id: 110, spUserId: 110, title: "Ajith K", email: "ajith.k@bectors.com", department: "Production", plant: "Rajpura" },
-            { id: 111, spUserId: 111, title: "Shaan Arshaqu", email: "shaan.arshaqu@bectors.com", department: "Production", plant: "Rajpura" }
-        ];
+        // If no employees from SharePoint, return empty list
+        this.employeesCache = [];
         return this.employeesCache;
     },
 
