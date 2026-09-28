@@ -550,15 +550,24 @@ const PKGOPS_Checklist = {
 
     initSelect2OnChecklist: function () {
         if (window.jQuery && $.fn.select2) {
+            // Destroy Select2 on any table / PQI evaluation / sub-select dropdowns if accidentally attached
+            $('#checklist-form-area select.pqi-eval-status, #checklist-form-area select.pqi-eval-defect-cat, #checklist-form-area select.pqi-eval-defect-detail, #checklist-form-area #pqi-sub-select, #checklist-form-area table select').each(function () {
+                if ($(this).hasClass("select2-hidden-accessible")) {
+                    try { $(this).select2('destroy'); } catch (e) {}
+                }
+            });
+
             setTimeout(() => {
-                $('#checklist-form-area select.form-select').each(function () {
-                    if (!$(this).hasClass("select2-hidden-accessible")) {
-                        $(this).select2({
-                            dropdownParent: $(this).parent(),
-                            width: '100%'
-                        });
-                    }
-                });
+                $('#checklist-form-area select.form-select')
+                    .not('.pqi-eval-status, .pqi-eval-defect-cat, .pqi-eval-defect-detail, #pqi-sub-select, table select')
+                    .each(function () {
+                        if (!$(this).hasClass("select2-hidden-accessible")) {
+                            $(this).select2({
+                                dropdownParent: $(this).parent(),
+                                width: '100%'
+                            });
+                        }
+                    });
 
                 // Ensure product dropdown changes instantly propagate to SKU
                 const prefixes = ["cv", "papa", "pqi", "seal", "cream", "wall"];
@@ -1259,6 +1268,8 @@ const PKGOPS_Checklist = {
                 if (status === "Not Okay" || cat || detail) hasAny = true;
 
                 const existingPrev = (this.savedPqiEvaluations || []).find(r => r.cr3ea_evaluationtype === prevVal && r.cr3ea_samplenumber === `Sample ${idx + 1}`);
+                const prevPictureUrl = (status === "Not Okay" && existingPrev && existingPrev.cr3ea_batchcodepictureurl) ? existingPrev.cr3ea_batchcodepictureurl : "";
+
                 capturedRows.push({
                     cr3ea_evaluationtype: prevVal,
                     cr3ea_productname: product,
@@ -1267,9 +1278,9 @@ const PKGOPS_Checklist = {
                     cr3ea_batchcode: batch,
                     cr3ea_samplenumber: `Sample ${idx + 1}`,
                     cr3ea_sampleresult: status,
-                    cr3ea_defectcategory: cat,
-                    cr3ea_defectdetail: detail,
-                    cr3ea_batchcodepictureurl: (existingPrev && existingPrev.cr3ea_batchcodepictureurl) || ""
+                    cr3ea_defectcategory: status === "Not Okay" ? cat : "",
+                    cr3ea_defectdetail: status === "Not Okay" ? detail : "",
+                    cr3ea_batchcodepictureurl: prevPictureUrl
                 });
             }
             if (hasAny) {
@@ -1355,18 +1366,20 @@ const PKGOPS_Checklist = {
                         </div>
 
                         <h4 class="form-section-title">Sample Evaluation (Ok / Not Ok)</h4>
-                        <table class="table table-bordered mt-2 text-center align-middle">
+                        <table class="table table-bordered mt-2 text-center align-middle" style="background-color: #ffffff;">
                             <thead class="table-light">
-                                <th>Sample No</th>
-                                <th>Status</th>
-                                <th>Defect Category</th>
-                                <th>Defect Detail</th>
-                                <th>Photo Reference</th>
+                                <tr>
+                                    <th style="width: 12%;">Sample No</th>
+                                    <th style="width: 16%;">Status</th>
+                                    <th style="width: 25%;">Defect Category</th>
+                                    <th style="width: 27%;">Defect Detail</th>
+                                    <th style="width: 20%;">Photo Reference</th>
+                                </tr>
                             </thead>
                             <tbody>
                                 ${Array.from({ length: 10 }).map((_, idx) => `
                                     <tr>
-                                        <td>Sample ${idx + 1}</td>
+                                        <td class="fw-semibold text-muted">Sample ${idx + 1}</td>
                                         <td>
                                             <select class="form-select pqi-eval-status" id="pqi-eval-status-${idx}" onchange="PKGOPS_Checklist.togglePqiDefectFields(${idx})">
                                                 <option value="Okay">Okay</option>
@@ -1382,13 +1395,13 @@ const PKGOPS_Checklist = {
                                             </select>
                                         </td>
                                         <td>
-                                            <select class="form-select pqi-eval-defect-detail" id="pqi-eval-detail-${idx}" disabled>
+                                            <select class="form-select pqi-eval-defect-detail" id="pqi-eval-detail-${idx}" disabled onchange="PKGOPS_Checklist.onPqiDefectDetailChange(${idx})">
                                                 <option value="">-- Select Detail --</option>
                                             </select>
                                         </td>
                                         <td>
-                                            <input type="file" class="form-control pqi-eval-file" id="pqi-eval-file-${idx}" accept="image/*" multiple disabled onchange="PKGOPS_Checklist.onFileSelected(this, 'pqi-${idx}')">
-                                            <div id="file-status-pqi-${idx}" class="form-text text-muted" style="margin-top: 4px; font-size: 11px;"></div>
+                                            <input type="file" class="form-control pqi-eval-file" id="pqi-eval-file-${idx}" accept="image/*" multiple disabled onchange="PKGOPS_Checklist.onFileSelected(this, 'pqi-${val}-${idx}')">
+                                            <div id="file-status-pqi-${val}-${idx}" class="form-text text-muted" style="margin-top: 4px; font-size: 11px;"></div>
                                         </td>
                                     </tr>
                                 `).join('')}
@@ -1406,6 +1419,8 @@ const PKGOPS_Checklist = {
     onPqiDefectCatChange: function (idx, selectedDetail) {
         const catSelect = document.getElementById(`pqi-eval-cat-${idx}`);
         const detailSelect = document.getElementById(`pqi-eval-detail-${idx}`);
+        const statusSelect = document.getElementById(`pqi-eval-status-${idx}`);
+        const fileInput = document.getElementById(`pqi-eval-file-${idx}`);
         if (!catSelect || !detailSelect) return;
 
         PKGOPS_Validator.highlight(catSelect, false);
@@ -1423,10 +1438,10 @@ const PKGOPS_Checklist = {
                 optionsHtml += `<option value="${d}">${d}</option>`;
             });
             detailSelect.innerHTML = optionsHtml;
-            const statusEl = document.getElementById(`pqi-eval-status-${idx}`);
-            if (statusEl && statusEl.value === "Not Okay") {
+            if (statusSelect && statusSelect.value === "Not Okay") {
                 detailSelect.disabled = false;
             }
+
             if (selectedDetail) {
                 detailSelect.value = selectedDetail;
                 if (!detailSelect.value && selectedDetail) {
@@ -1439,16 +1454,27 @@ const PKGOPS_Checklist = {
                 }
             }
         }
+
+        this.calculatePqiEvaluationMetrics();
+    },
+
+    onPqiDefectDetailChange: function (idx) {
+        const detailSelect = document.getElementById(`pqi-eval-detail-${idx}`);
+        if (detailSelect) PKGOPS_Validator.highlight(detailSelect, false);
+        this.calculatePqiEvaluationMetrics();
     },
 
     togglePqiDefectFields: function (idx) {
-        const status = document.getElementById(`pqi-eval-status-${idx}`)?.value;
+        const statusSelect = document.getElementById(`pqi-eval-status-${idx}`);
+        const status = statusSelect?.value;
         const catSelect = document.getElementById(`pqi-eval-cat-${idx}`);
         const detailSelect = document.getElementById(`pqi-eval-detail-${idx}`);
         const fileInput = document.getElementById(`pqi-eval-file-${idx}`);
+        const val = document.getElementById("pqi-sub-select")?.value || "Product";
 
         if (status === "Not Okay") {
             if (catSelect) catSelect.disabled = false;
+            if (fileInput) fileInput.disabled = false;
             if (detailSelect) {
                 if (catSelect && catSelect.value) {
                     detailSelect.disabled = false;
@@ -1456,11 +1482,11 @@ const PKGOPS_Checklist = {
                     detailSelect.disabled = true;
                 }
             }
-            if (fileInput) fileInput.disabled = false;
         } else {
+            // Disabled when status is Okay
             if (catSelect) {
-                catSelect.disabled = true;
                 catSelect.value = "";
+                catSelect.disabled = true;
                 PKGOPS_Validator.highlight(catSelect, false);
             }
             if (detailSelect) {
@@ -1476,8 +1502,8 @@ const PKGOPS_Checklist = {
                 const row = fileInput.closest("tr");
                 if (row) row.removeAttribute("data-existing-files");
             }
-            delete this.uploadedFiles[`pqi-${idx}`];
-            const fileStatus = document.getElementById(`file-status-pqi-${idx}`);
+            delete this.uploadedFiles[`pqi-${val}-${idx}`];
+            const fileStatus = document.getElementById(`file-status-pqi-${val}-${idx}`);
             if (fileStatus) fileStatus.innerHTML = "";
         }
         this.calculatePqiEvaluationMetrics();
@@ -1659,7 +1685,8 @@ const PKGOPS_Checklist = {
                             return;
                         }
 
-                        const files = this.uploadedFiles[`pqi-${idx}`] || (fileInput && fileInput.files && fileInput.files.length ? Array.from(fileInput.files) : []);
+                        const fileKey = `pqi-${val}-${idx}`;
+                        const files = this.uploadedFiles[fileKey] || (fileInput && fileInput.files && fileInput.files.length ? Array.from(fileInput.files) : []);
                         const existingPrev = (this.savedPqiEvaluations || []).find(r => r.cr3ea_evaluationtype === val && r.cr3ea_samplenumber === `Sample ${idx + 1}`);
                         const hasOldPhoto = existingPrev && existingPrev.cr3ea_batchcodepictureurl;
 
@@ -1685,23 +1712,26 @@ const PKGOPS_Checklist = {
                     const fileInput = document.getElementById(`pqi-eval-file-${idx}`);
 
                     let pictureUrl = "";
-                    const files = this.uploadedFiles[`pqi-${idx}`] || (fileInput && fileInput.files && fileInput.files.length ? Array.from(fileInput.files) : []);
-                    if (files.length > 0) {
-                        const uploadPromises = files.map(file => PKGOPS_DAL.uploadAttachmentFile(file, this.currentTourId, `PQI_${val}`, `PQI-Sample-${idx}`, detail));
-                        const urls = await Promise.all(uploadPromises);
-                        const validUrls = urls.filter(Boolean);
+                    const fileKey = `pqi-${val}-${idx}`;
+
+                    if (status === "Not Okay") {
+                        const files = this.uploadedFiles[fileKey] || (fileInput && fileInput.files && fileInput.files.length ? Array.from(fileInput.files) : []);
                         const existingPrev = (this.savedPqiEvaluations || []).find(r => r.cr3ea_evaluationtype === val && r.cr3ea_samplenumber === `Sample ${idx + 1}`);
-                        const existingUrl = (existingPrev && existingPrev.cr3ea_batchcodepictureurl) ? existingPrev.cr3ea_batchcodepictureurl.trim() : "";
-                        if (existingUrl) {
-                            pictureUrl = existingUrl + ", " + validUrls.join(", ");
+                        const existingUrls = (existingPrev && existingPrev.cr3ea_batchcodepictureurl) ? existingPrev.cr3ea_batchcodepictureurl.split(",").map(u => u.trim()).filter(Boolean) : [];
+
+                        if (files.length > 0) {
+                            const uploadPromises = files.map(file => PKGOPS_DAL.uploadAttachmentFile(file, this.currentTourId, `PQI_${val}`, `PQI-${val}-Sample-${idx + 1}`, detail));
+                            const urls = await Promise.all(uploadPromises);
+                            const validUrls = urls.filter(Boolean);
+                            const combined = Array.from(new Set([...existingUrls, ...validUrls]));
+                            pictureUrl = combined.join(", ");
+                            delete this.uploadedFiles[fileKey];
                         } else {
-                            pictureUrl = validUrls.join(", ");
+                            pictureUrl = Array.from(new Set(existingUrls)).join(", ");
                         }
                     } else {
-                        const existingPrev = (this.savedPqiEvaluations || []).find(r => r.cr3ea_evaluationtype === val && r.cr3ea_samplenumber === `Sample ${idx + 1}`);
-                        if (existingPrev && existingPrev.cr3ea_batchcodepictureurl) {
-                            pictureUrl = existingPrev.cr3ea_batchcodepictureurl;
-                        }
+                        delete this.uploadedFiles[fileKey];
+                        pictureUrl = "";
                     }
 
                     const evalRecord = {
@@ -1713,8 +1743,8 @@ const PKGOPS_Checklist = {
                         cr3ea_batchcode: batch,
                         cr3ea_samplenumber: `Sample ${idx + 1}`,
                         cr3ea_sampleresult: status,
-                        cr3ea_defectcategory: cat,
-                        cr3ea_defectdetail: detail,
+                        cr3ea_defectcategory: status === "Not Okay" ? cat : "",
+                        cr3ea_defectdetail: status === "Not Okay" ? detail : "",
                         cr3ea_batchcodepictureurl: pictureUrl,
                         "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
                     };
@@ -3075,23 +3105,26 @@ const PKGOPS_Checklist = {
                             const fileInput = document.getElementById(`pqi-eval-file-${idx}`);
 
                             let pictureUrl = "";
-                            const files = this.uploadedFiles[`pqi-${idx}`] || (fileInput && fileInput.files && fileInput.files.length ? Array.from(fileInput.files) : []);
-                            if (files.length > 0) {
-                                const uploadPromises = files.map(file => PKGOPS_DAL.uploadAttachmentFile(file, this.currentTourId, `PQI_${val}`, `PQI-Sample-${idx}`, detail));
-                                const urls = await Promise.all(uploadPromises);
-                                const validUrls = urls.filter(Boolean);
+                            const fileKey = `pqi-${val}-${idx}`;
+
+                            if (status === "Not Okay") {
+                                const files = this.uploadedFiles[fileKey] || (fileInput && fileInput.files && fileInput.files.length ? Array.from(fileInput.files) : []);
                                 const existingPrev = (this.savedPqiEvaluations || []).find(r => r.cr3ea_evaluationtype === val && r.cr3ea_samplenumber === `Sample ${idx + 1}`);
-                                const existingUrl = (existingPrev && existingPrev.cr3ea_batchcodepictureurl) ? existingPrev.cr3ea_batchcodepictureurl.trim() : "";
-                                if (existingUrl) {
-                                    pictureUrl = existingUrl + ", " + validUrls.join(", ");
+                                const existingUrls = (existingPrev && existingPrev.cr3ea_batchcodepictureurl) ? existingPrev.cr3ea_batchcodepictureurl.split(",").map(u => u.trim()).filter(Boolean) : [];
+
+                                if (files.length > 0) {
+                                    const uploadPromises = files.map(file => PKGOPS_DAL.uploadAttachmentFile(file, this.currentTourId, `PQI_${val}`, `PQI-${val}-Sample-${idx + 1}`, detail));
+                                    const urls = await Promise.all(uploadPromises);
+                                    const validUrls = urls.filter(Boolean);
+                                    const combined = Array.from(new Set([...existingUrls, ...validUrls]));
+                                    pictureUrl = combined.join(", ");
+                                    delete this.uploadedFiles[fileKey];
                                 } else {
-                                    pictureUrl = validUrls.join(", ");
+                                    pictureUrl = Array.from(new Set(existingUrls)).join(", ");
                                 }
                             } else {
-                                const existingPrev = (this.savedPqiEvaluations || []).find(r => r.cr3ea_evaluationtype === val && r.cr3ea_samplenumber === `Sample ${idx + 1}`);
-                                if (existingPrev && existingPrev.cr3ea_batchcodepictureurl) {
-                                    pictureUrl = existingPrev.cr3ea_batchcodepictureurl;
-                                }
+                                delete this.uploadedFiles[fileKey];
+                                pictureUrl = "";
                             }
 
                             const evalRecord = {
@@ -3102,8 +3135,8 @@ const PKGOPS_Checklist = {
                                 cr3ea_batchcode: batch,
                                 cr3ea_samplenumber: `Sample ${idx + 1}`,
                                 cr3ea_sampleresult: status,
-                                cr3ea_defectcategory: cat,
-                                cr3ea_defectdetail: detail,
+                                cr3ea_defectcategory: status === "Not Okay" ? cat : "",
+                                cr3ea_defectdetail: status === "Not Okay" ? detail : "",
                                 cr3ea_batchcodepictureurl: pictureUrl,
                                 "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
                             };
@@ -3461,22 +3494,24 @@ const PKGOPS_Checklist = {
                                 PKGOPS_Checklist.onPqiDefectCatChange(i, row.cr3ea_defectdetail || "");
                             }
 
-                            const savedUrls = (row.cr3ea_batchcodepictureurl || "").split(",").map(u => u.trim()).filter(Boolean);
-                            if (savedUrls.length > 0) {
-                                const fileStatus = document.getElementById(`file-status-pqi-${i}`);
-                                const fileInput = document.getElementById(`pqi-eval-file-${i}`);
-                                if (fileInput) {
-                                    const tr = fileInput.closest("tr");
-                                    if (tr) tr.setAttribute("data-existing-files", "true");
-                                }
-                                if (fileStatus) {
-                                    let linksHtml = `<div class="pkgops-saved-file-links-container">`;
-                                    savedUrls.forEach((u, uIdx) => {
-                                        const fileName = u.substring(u.lastIndexOf("/") + 1) || `Photo ${uIdx + 1}`;
-                                        linksHtml += `<a href="${u}" target="_blank" class="pkgops-saved-file-link"><i class="fa fa-paperclip"></i> ${fileName}</a>`;
-                                    });
-                                    linksHtml += `</div>`;
-                                    fileStatus.innerHTML = linksHtml;
+                            if (row.cr3ea_sampleresult === "Not Okay" && row.cr3ea_batchcodepictureurl) {
+                                const savedUrls = Array.from(new Set((row.cr3ea_batchcodepictureurl || "").split(",").map(u => u.trim()).filter(Boolean)));
+                                if (savedUrls.length > 0) {
+                                    const fileStatus = document.getElementById(`file-status-pqi-${val}-${i}`);
+                                    const fileInput = document.getElementById(`pqi-eval-file-${i}`);
+                                    if (fileInput) {
+                                        const tr = fileInput.closest("tr");
+                                        if (tr) tr.setAttribute("data-existing-files", "true");
+                                    }
+                                    if (fileStatus) {
+                                        let linksHtml = `<div class="pkgops-saved-file-links-container">`;
+                                        savedUrls.forEach((u, uIdx) => {
+                                            const fileName = u.substring(u.lastIndexOf("/") + 1) || `Photo ${uIdx + 1}`;
+                                            linksHtml += `<a href="${u}" target="_blank" class="pkgops-saved-file-link"><i class="fa fa-paperclip"></i> ${fileName}</a>`;
+                                        });
+                                        linksHtml += `</div>`;
+                                        fileStatus.innerHTML = linksHtml;
+                                    }
                                 }
                             }
                         }

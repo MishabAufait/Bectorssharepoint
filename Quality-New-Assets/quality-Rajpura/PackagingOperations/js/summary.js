@@ -24,7 +24,7 @@ const PKGOPS_Summary = {
 
     formatProofLinks: function (proofString, label = "Proof") {
         if (!proofString) return "";
-        const urls = String(proofString).split(",").map(u => u.trim()).filter(Boolean);
+        const urls = Array.from(new Set(String(proofString).split(",").map(u => u.trim()).filter(Boolean)));
         if (urls.length === 0) return "";
         return urls.map((u, i) => {
             const text = urls.length > 1 ? `${label} ${i + 1}` : `View ${label}`;
@@ -542,7 +542,10 @@ const PKGOPS_Summary = {
                                          const qaRemarks = qaPart.split(" | Proof: ")[0] || "-";
                                          const qaProof = qaPart.split(" | Proof: ")[1] || "";
 
-                                         const defectLinkHtml = row.cr3ea_batchcodepictureurl ? `<br>${PKGOPS_Summary.formatProofLinks(row.cr3ea_batchcodepictureurl, "Defect Photo")}` : "";
+                                         const defectLinkHtml = (isNotOk && row.cr3ea_batchcodepictureurl) ? `<br>${PKGOPS_Summary.formatProofLinks(row.cr3ea_batchcodepictureurl, "Defect Photo")}` : "";
+                                         const defectDesc = isNotOk 
+                                             ? `<span class="text-danger fw-bold">${row.cr3ea_defectcategory || "Defect"}</span>: ${row.cr3ea_defectdetail || "Unspecified"}${defectLinkHtml}`
+                                             : `<span class="text-success"><i class="fa fa-check-circle me-1"></i> No Defects (Okay)</span>`;
                                          const prodLinkHtml = prodProof ? PKGOPS_Summary.formatProofLinks(prodProof, "Proof") : "";
                                          const qaLinkHtml = qaProof ? PKGOPS_Summary.formatProofLinks(qaProof, "QA Proof") : "";
 
@@ -557,7 +560,7 @@ const PKGOPS_Summary = {
                                              <tr style="${rowStyle} border-bottom: 1px solid #e2e8f0;">
                                                  <td style="padding: 12px 16px; font-weight: 600;">${row.cr3ea_samplenumber || "-"}</td>
                                                  <td style="padding: 12px 16px;">${badge}</td>
-                                                 <td style="padding: 12px 16px; text-align: left; font-weight: 500;">${row.cr3ea_defectcategory || "-"} - ${row.cr3ea_defectdetail || "-"}${defectLinkHtml}</td>
+                                                 <td style="padding: 12px 16px; text-align: left; font-weight: 500;">${defectDesc}</td>
                                                  <td style="padding: 12px 16px; text-align: left; font-size: 13px; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${prodRemarks}${prodLinkHtml}</td>
                                                  <td style="padding: 12px 16px; text-align: left; font-size: 13px; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${qaRemarks}${qaLinkHtml}</td>
                                              </tr>

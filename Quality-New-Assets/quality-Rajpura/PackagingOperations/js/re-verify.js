@@ -178,7 +178,7 @@ const PKGOPS_Reverify = {
                                     rowId = row.cr3ea_rajpura_pkgops_sealintegrityid || row.cr3ea_prod_rajpura_pkgops_sealintegrityid || row.id;
                                 }
 
-                                const defectPhotos = (row.cr3ea_codepictureurl || row.cr3ea_batchcodepictureurl || "").split(",").map(u => u.trim()).filter(Boolean);
+                                const defectPhotos = Array.from(new Set((row.cr3ea_codepictureurl || row.cr3ea_batchcodepictureurl || "").split(",").map(u => u.trim()).filter(Boolean)));
                                 let defectPhotosHtml = "";
                                 if (defectPhotos.length > 0) {
                                     defectPhotosHtml = `<div class="mt-1 pkgops-saved-file-links-container">` +

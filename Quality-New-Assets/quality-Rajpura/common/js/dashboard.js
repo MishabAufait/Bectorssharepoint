@@ -389,6 +389,7 @@ const ALC_Dashboard = {
                     console.log("Dashboard category changed to: " + categoryDropdown.value);
                     ALC_Dashboard.selectedCategory = categoryDropdown.value;
                     localStorage.setItem("lastVisitedDashboard", categoryDropdown.value);
+                    ALC_Dashboard.populateLineDropdown();
                     ALC_Dashboard.applyCategoryFilter();
                 });
                 // Sync select state with category (triggers Select2 UI update)
@@ -2542,39 +2543,160 @@ const ALC_Dashboard = {
         return percentRaw.toFixed(2);
     },
 
-    // Populate line dropdown dynamically from tour records
+    // Helper to filter tours strictly by category/template
+    getToursForCategory: function (category) {
+        const cat = category || this.selectedCategory || "ALC";
+        const isFS = cat === "FoodSafety";
+        const isCCP = cat === "CCP_OPRP_Sieves";
+        const isMB = cat === "MixingAndBaking";
+        const isPkgOps = cat === "PackagingOperations";
+
+        return (this.allToursRaw || []).filter(t => {
+            const titleVal = String(t.cr3ea_title || "");
+            let cleanTitle = titleVal.split("||")[0].trim();
+            
+            const isMBTitle = cleanTitle.startsWith("MixingBaking_") || cleanTitle.toLowerCase().includes("mixingbaking");
+            const isMBItem = isMBTitle;
+
+            const isFSPrefix = cleanTitle.startsWith("FoodSafety_") || cleanTitle.startsWith("Food_Safety_");
+            if (isFSPrefix) {
+                cleanTitle = cleanTitle.replace("FoodSafety_", "").replace("Food_Safety_", "");
+            }
+            const isFSTitle = isFSPrefix || cleanTitle.startsWith("PPE_") || cleanTitle.startsWith("GMP_") || cleanTitle.startsWith("PCI_") || cleanTitle.toLowerCase().includes("checklist");
+            const hasFSField = t.cr3ea_food_safety_checklisttype;
+            const isFSItem = !!hasFSField || isFSTitle;
+            
+            const hasCCPField = t.cr3ea_ccp_oprp_sieves_parametertype;
+            const isCCPTitle = cleanTitle.startsWith("CCP_") || cleanTitle.startsWith("Sieves_") || cleanTitle.toLowerCase().includes("ccp") || cleanTitle.toLowerCase().includes("sieves");
+            const isCCPItem = !!hasCCPField || isCCPTitle;
+
+            const isPkgOpsTitle = cleanTitle.startsWith("PkgOps_") || cleanTitle.startsWith("PackagingOperations_") || cleanTitle.toLowerCase().includes("pkgops");
+            const hasPkgOpsField = t.cr3ea_pkgops_type;
+            const isPkgOpsItem = !!hasPkgOpsField || isPkgOpsTitle;
+
+            if (isFS) return isFSItem;
+            if (isCCP) return isCCPItem;
+            if (isMB) return isMBItem;
+            if (isPkgOps) return isPkgOpsItem;
+            return !isFSItem && !isCCPItem && !isMBItem && !isPkgOpsItem;
+        });
+    },
+
+    // Populate line dropdown dynamically based strictly on the selected template dashboard
     populateLineDropdown: function () {
         const lineSelect = document.getElementById("dashboardLineSelect");
         if (!lineSelect) return;
 
-        const currentVal = this.selectedLine || "All";
-        const standardLines = [
-            "Line No. 1", "Line No. 2", "Line No. 3", "Line No. 4",
-            "Line No. 5", "Line No. 6", "Line No. 7", "Line No. 8"
-        ];
+        const currentCategory = this.selectedCategory || "ALC";
+        const categoryTours = this.getToursForCategory(currentCategory);
+        let templateLines = [];
 
-        const linesInTours = new Set();
-        (this.allToursRaw || []).forEach(t => {
-            const rawLine = t.cr3ea_lineno;
-            if (rawLine && typeof rawLine === "string" && rawLine.trim()) {
-                linesInTours.add(rawLine.trim());
+        if (currentCategory === "ALC") {
+            // Check if ALC configs have Line Master rows
+            const alcConfigs = (typeof Rajpura_Admin !== "undefined" && Rajpura_Admin.configs && Rajpura_Admin.configs.ALC)
+                ? Rajpura_Admin.configs.ALC
+                : ((typeof ALC_DAL !== "undefined" && ALC_DAL.configs) ? ALC_DAL.configs : []);
+            const lineMasterRows = alcConfigs.filter(r => (r.configType === "Line Master" || r.ConfigType === "Line Master") && r.isActive !== false);
+
+            if (lineMasterRows.length > 0) {
+                templateLines = lineMasterRows.map(r => {
+                    const title = r.title || r.Title || "Line";
+                    const lineName = r.lineName || r.LineName || "";
+                    return lineName ? `${title} - ${lineName}` : title;
+                });
+            } else {
+                templateLines = [
+                    "Line No. 1 - HAAS",
+                    "Line No. 2 - IMAFORNI",
+                    "Line No. 3 - HAAS",
+                    "Line No. 4 - AZAAN",
+                    "Line No. 5 - AZAAN",
+                    "Line No. 6 - AZAAN",
+                    "Line No. 7 - AZAAN",
+                    "Line No. 8 - HAAS"
+                ];
+            }
+        } else if (currentCategory === "MixingAndBaking") {
+            // Mixing & Baking uses standard lines: Line 1 through Line 8
+            templateLines = [
+                "Line 1", "Line 2", "Line 3", "Line 4",
+                "Line 5", "Line 6", "Line 7", "Line 8"
+            ];
+        } else if (currentCategory === "PackagingOperations") {
+            templateLines = [
+                "Line 1", "Line 2", "Line 3", "Line 4",
+                "Line 5", "Line 6", "Line 7", "Line 8"
+            ];
+        } else if (currentCategory === "FoodSafety") {
+            templateLines = [
+                "Line 1", "Line 2", "Line 3", "Line 4",
+                "Line 5", "Line 6", "Line 7", "Line 8"
+            ];
+        } else if (currentCategory === "CCP_OPRP_Sieves") {
+            templateLines = [
+                "Line 1", "Line 2", "Line 3", "Line 4",
+                "Line 5", "Line 6", "Line 7", "Line 8"
+            ];
+        } else {
+            templateLines = [
+                "Line 1", "Line 2", "Line 3", "Line 4",
+                "Line 5", "Line 6", "Line 7", "Line 8"
+            ];
+        }
+
+        // Add any additional non-standard line from the active template's tours
+        const seenDigits = new Set(templateLines.map(l => l.replace(/\D/g, "")).filter(Boolean));
+        const extraLines = [];
+
+        categoryTours.forEach(t => {
+            const rawLine = String(t.cr3ea_lineno || t.cr3ea_lineid || "").trim();
+            if (!rawLine || rawLine.toLowerCase() === "all" || rawLine.toLowerCase() === "n/a") return;
+            const digits = rawLine.replace(/\D/g, "");
+            if (digits) {
+                if (!seenDigits.has(digits)) {
+                    seenDigits.add(digits);
+                    extraLines.push(currentCategory === "ALC" ? `Line No. ${digits}` : `Line ${digits}`);
+                }
+            } else {
+                if (!templateLines.some(l => l.toLowerCase() === rawLine.toLowerCase()) && !extraLines.includes(rawLine)) {
+                    extraLines.push(rawLine);
+                }
             }
         });
 
-        const allUniqueLines = Array.from(new Set([...standardLines, ...Array.from(linesInTours)]));
-        allUniqueLines.sort((a, b) => {
+        // Combine and sort lines numerically
+        const allLines = [...templateLines, ...extraLines];
+        allLines.sort((a, b) => {
             const numA = parseInt(a.replace(/\D/g, ""), 10);
             const numB = parseInt(b.replace(/\D/g, ""), 10);
             if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
             return a.localeCompare(b);
         });
 
+        // Retain or match existing selection
+        let newSelectedLine = "All";
+        if (this.selectedLine && this.selectedLine !== "All") {
+            const exactMatch = allLines.find(l => l.toLowerCase() === this.selectedLine.toLowerCase());
+            if (exactMatch) {
+                newSelectedLine = exactMatch;
+            } else {
+                const selDigits = this.selectedLine.replace(/\D/g, "");
+                if (selDigits) {
+                    const digitMatch = allLines.find(l => l.replace(/\D/g, "") === selDigits);
+                    if (digitMatch) newSelectedLine = digitMatch;
+                }
+            }
+        }
+        this.selectedLine = newSelectedLine;
+
+        // Render clean HTML options
         let optionsHtml = `<option value="All">All Lines</option>`;
-        allUniqueLines.forEach(l => {
-            optionsHtml += `<option value="${l}">${l}</option>`;
+        allLines.forEach(l => {
+            const isSel = (l === newSelectedLine) ? " selected" : "";
+            optionsHtml += `<option value="${l}"${isSel}>${l}</option>`;
         });
         lineSelect.innerHTML = optionsHtml;
-        lineSelect.value = currentVal;
+        lineSelect.value = newSelectedLine;
     },
 
     // Match tour record against selected line
@@ -2722,14 +2844,6 @@ const ALC_Dashboard = {
                             <label for="dashboardLineSelect" style="font-size: 13px; font-weight: 600; color: #475569; margin: 0; white-space: nowrap;">🏭 Line:</label>
                             <select id="dashboardLineSelect" style="height: 36px; padding: 6px 12px; font-size: 13px; font-weight: 500; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #1e293b; cursor: pointer; min-width: 140px;">
                                 <option value="All">All Lines</option>
-                                <option value="Line No. 1">Line No. 1</option>
-                                <option value="Line No. 2">Line No. 2</option>
-                                <option value="Line No. 3">Line No. 3</option>
-                                <option value="Line No. 4">Line No. 4</option>
-                                <option value="Line No. 5">Line No. 5</option>
-                                <option value="Line No. 6">Line No. 6</option>
-                                <option value="Line No. 7">Line No. 7</option>
-                                <option value="Line No. 8">Line No. 8</option>
                             </select>
                         </div>
                         <div style="display: flex; align-items: center; gap: 8px;">
