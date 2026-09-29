@@ -104,7 +104,11 @@ const DashboardScreen = {
         let scoreCount = 0;
 
         this.filteredTours.forEach(t => {
-            if (t.cr3ea_checklist_result === "Pass") {
+            const rawScore = t.cr3ea_overall_score;
+            const has100 = rawScore && (rawScore === "100%" || rawScore === "100.00%" || parseFloat(rawScore) === 100);
+            const isPass = t.cr3ea_checklist_result === "Pass" || (has100 && t.cr3ea_checklist_result !== "Fail" && t.cr3ea_checklist_result !== "Expired");
+            
+            if (isPass) {
                 passCount++;
             }
             
@@ -149,7 +153,10 @@ const DashboardScreen = {
 
             const dateStr = t.cr3ea_tourstartdate ? moment(t.cr3ea_tourstartdate).format("DD-MM-YYYY hh:mm A") : "N/A";
             const score = t.cr3ea_overall_score || "N/A";
-            const result = t.cr3ea_checklist_result || "N/A";
+            const rawScore = t.cr3ea_overall_score;
+            const has100 = rawScore && (rawScore === "100%" || rawScore === "100.00%" || parseFloat(rawScore) === 100);
+            const isPass = t.cr3ea_checklist_result === "Pass" || (has100 && t.cr3ea_checklist_result !== "Fail" && t.cr3ea_checklist_result !== "Expired");
+            const result = t.cr3ea_checklist_result || (score !== "N/A" ? (isPass ? "Pass" : "Fail") : "N/A");
             const badgeClass = result === "Pass" ? "badge-success" : "badge-error";
 
             tr.innerHTML = `
@@ -181,13 +188,21 @@ const DashboardScreen = {
             html += `<span>${remarksText}</span>`;
         }
         if (proofUrl) {
-            const badgeMargin = remarksText ? "margin-left: 8px;" : "";
-            html += `
-                <a href="${proofUrl}" target="_blank" class="badge food-safety-proof-badge" 
-                   style="display: inline-flex !important; align-items: center !important; gap: 4px !important; padding: 3px 8px !important; font-size: 11px !important; background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; border-radius: 4px !important; text-decoration: none !important; font-weight: 600 !important; ${badgeMargin}">
-                    <span style="color: #ffffff !important;">View Proof</span>
-                </a>
-            `;
+            const urls = proofUrl.split(/[;,]/).map(u => u.trim()).filter(Boolean);
+            if (urls.length > 0) {
+                const badgeMargin = remarksText ? "margin-left: 8px;" : "";
+                html += `<span class="food-safety-proof-badges-wrapper" style="${badgeMargin}">`;
+                urls.forEach((u, uIdx) => {
+                    const label = urls.length > 1 ? `Proof ${uIdx + 1}` : `View Proof`;
+                    html += `
+                        <a href="${u}" target="_blank" class="badge food-safety-proof-badge" 
+                           style="display: inline-flex !important; align-items: center !important; gap: 4px !important; padding: 3px 8px !important; font-size: 11px !important; background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; border-radius: 4px !important; text-decoration: none !important; font-weight: 600 !important; margin-right: 4px;">
+                            <span style="color: #ffffff !important;"><i class="fa fa-file" style="font-size: 10px;"></i> ${label}</span>
+                        </a>
+                    `;
+                });
+                html += `</span>`;
+            }
         }
         return html || `<span style="color: #94a3b8;">--</span>`;
     },

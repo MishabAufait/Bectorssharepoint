@@ -55,13 +55,21 @@ const FoodSafety_Summary = {
             html += `<span>${remarksText}</span>`;
         }
         if (proofUrl) {
-            const badgeMargin = remarksText ? "margin-left: 8px;" : "";
-            html += `
-                <a href="${proofUrl}" target="_blank" class="badge food-safety-proof-badge" 
-                   style="display: inline-flex !important; align-items: center !important; gap: 5px !important; padding: 4px 10px !important; font-size: 11px !important; background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; border-radius: 4px !important; text-decoration: none !important; font-weight: 600 !important; ${badgeMargin}">
-                    <span style="color: #ffffff !important;">View Proof</span>
-                </a>
-            `;
+            const urls = proofUrl.split(/[;,]/).map(u => u.trim()).filter(Boolean);
+            if (urls.length > 0) {
+                const badgeMargin = remarksText ? "margin-left: 8px;" : "";
+                html += `<span class="food-safety-proof-badges-wrapper" style="${badgeMargin}">`;
+                urls.forEach((u, uIdx) => {
+                    const label = urls.length > 1 ? `Proof ${uIdx + 1}` : `View Proof`;
+                    html += `
+                        <a href="${u}" target="_blank" class="badge food-safety-proof-badge" 
+                           style="display: inline-flex !important; align-items: center !important; gap: 4px !important; padding: 4px 10px !important; font-size: 11px !important; background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; border-radius: 4px !important; text-decoration: none !important; font-weight: 600 !important; margin-right: 4px;">
+                            <span style="color: #ffffff !important;"><i class="fa fa-file" style="font-size: 10px;"></i> ${label}</span>
+                        </a>
+                    `;
+                });
+                html += `</span>`;
+            }
         }
         return html || `<span style="color: #94a3b8;">--</span>`;
     },
@@ -157,13 +165,73 @@ const FoodSafety_Summary = {
                 pciAreaWrapper.style.display = "none";
             }
             
-            // 4. Render Score Box & Result status
+            // 4. Calculate dynamic score and result based on checklist type & child items
             const status = parent.cr3ea_status || parent.cr3ea_processstatus || "";
             const isExpired = status === "Closed - Expired" || status.includes("Expired");
-            const rawScore = parent.cr3ea_overall_score;
-            const hasNoScore = !rawScore || rawScore === "0%" || rawScore === "0" || childItems.length === 0;
+            
+            let calculatedScore = null;
+            let calculatedResult = null;
 
-            const resultStatus = parent.cr3ea_checklist_result || (isExpired ? "Expired" : "Pass");
+            if (checklistType === "PPE Checklist") {
+                let totalDefects = 0;
+                let sampleSize = parseInt(parent.cr3ea_food_safety_samplesize) || 0;
+                childItems.forEach(c => {
+                    const dCount = parseInt(c.cr3ea_food_safety_defectcount !== undefined ? c.cr3ea_food_safety_defectcount : c.cr953_food_safety_defectcount) || 0;
+                    totalDefects += dCount;
+                    if (!sampleSize) {
+                        sampleSize = parseInt(c.cr3ea_food_safety_samplesize || c.cr953_food_safety_samplesize) || 0;
+                    }
+                });
+                if (sampleSize > 0) {
+                    const comp = Math.max(0, Math.min(100, ((sampleSize - totalDefects) / sampleSize) * 100));
+                    calculatedScore = `${comp.toFixed(2)}%`;
+                } else if (childItems.length > 0) {
+                    calculatedScore = totalDefects === 0 ? "100.00%" : "0.00%";
+                }
+                calculatedResult = totalDefects === 0 ? "Pass" : "Fail";
+            } else if (checklistType === "GMP Checklist") {
+                const totalItems = 46;
+                let okayCount = 0;
+                let notOkayCount = 0;
+                childItems.forEach(c => {
+                    const st = c.cr3ea_food_safety_status || c.cr953_food_safety_status || "";
+                    if (st === "Okay") okayCount++;
+                    else if (st === "Not Okay") notOkayCount++;
+                });
+                if (childItems.length > 0) {
+                    const comp = (okayCount / totalItems) * 100;
+                    calculatedScore = `${comp.toFixed(2)}%`;
+                    calculatedResult = (notOkayCount === 0 && okayCount === totalItems) ? "Pass" : "Fail";
+                }
+            } else if (checklistType === "PCI Checklist") {
+                const area = parent.cr3ea_food_safety_area || "Old Block";
+                const locations = area === "New Block" ? this.newBlockLocations : this.oldBlockLocations;
+                const totalLocs = locations.length;
+                let okayCount = 0;
+                let notOkayCount = 0;
+
+                locations.forEach(locName => {
+                    const matches = childItems.filter(c => (c.cr3ea_food_safety_location === locName || c.cr953_food_safety_location === locName));
+                    if (matches.length > 0) {
+                        const isLocOkay = matches.every(m => (m.cr3ea_food_safety_status || m.cr953_food_safety_status) === "Okay");
+                        if (isLocOkay) {
+                            okayCount++;
+                        } else {
+                            notOkayCount++;
+                        }
+                    }
+                });
+
+                if (childItems.length > 0 && totalLocs > 0) {
+                    const comp = ((okayCount / totalLocs) * 100);
+                    calculatedScore = `${comp.toFixed(2)}%`;
+                    calculatedResult = (notOkayCount === 0 && okayCount === totalLocs) ? "Pass" : "Fail";
+                }
+            }
+
+            const rawScore = calculatedScore || parent.cr3ea_overall_score;
+            const hasNoScore = !rawScore || rawScore === "0%" || rawScore === "0" || childItems.length === 0;
+            const resultStatus = isExpired ? "Expired" : (calculatedResult || parent.cr3ea_checklist_result || (rawScore === "100.00%" || rawScore === "100%" ? "Pass" : "Fail"));
             
             const scoreBox = document.getElementById("sum-score-box");
             const scoreCircle = document.getElementById("sum-score-circle");

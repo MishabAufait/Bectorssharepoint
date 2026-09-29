@@ -156,20 +156,6 @@ const CCP_OPRP_Main = {
                 document.querySelector(".tour-header-title").innerText = `${titleText} (RAJPURA)`;
 
                 await this.loadCyclesHistory();
-
-                // Toggle complete tour button visibility: strictly visible only for QA Executive
-                const compContainer = document.getElementById("complete-tour-btn-container");
-                if (compContainer) {
-                    const isCompleted = this.state.tourData && (
-                        this.state.tourData.cr3ea_status === "Completed" || 
-                        this.state.tourData.cr3ea_status === "Success" || 
-                        this.state.tourData.cr3ea_status === "Closed" ||
-                        this.state.tourData.cr3ea_status === "Closed - Expired"
-                    );
-                    const isQAUser = this.state.isQaRole;
-                    const isProdOnly = this.state.isProdOnly;
-                    compContainer.style.display = (isCompleted || !isQAUser || isProdOnly || !this.state.canEditChecklist) ? "none" : "flex";
-                }
             } else {
                 // Tour exists but parameters are not set yet, show setup form
                 this.renderSetupForm();

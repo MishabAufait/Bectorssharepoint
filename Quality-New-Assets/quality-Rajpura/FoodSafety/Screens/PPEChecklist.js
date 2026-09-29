@@ -2,6 +2,8 @@
 console.log("PPE Checklist Screen loaded");
 
 const PPEChecklistScreen = {
+    uploadedFiles: {},
+
     items: [
         "Hair Net Wearing Issue / Beard Net",
         "Apron (Torn, Dirty)",
@@ -9,8 +11,83 @@ const PPEChecklistScreen = {
         "Jewellery Policy (Bracelet, Thread, Ring, Bindi)"
     ],
 
+    escapeHtml: function (str) {
+        if (!str) return "";
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    },
+
+    onFileSelected: function (input, index) {
+        if (!input || !input.files || input.files.length === 0) return;
+        if (!this.uploadedFiles[index]) {
+            this.uploadedFiles[index] = [];
+        }
+
+        const selectedFiles = Array.from(input.files);
+        let invalidCount = 0;
+
+        for (const file of selectedFiles) {
+            const isAllowed = file.type.startsWith("image/") || file.type === "application/pdf" || /\.(jpe?g|png|gif|webp|bmp|heic|pdf|docx?|xlsx?)$/i.test(file.name);
+            if (!isAllowed) {
+                invalidCount++;
+                continue;
+            }
+            const alreadyAdded = this.uploadedFiles[index].some(f => f.name === file.name && f.size === file.size);
+            if (!alreadyAdded) {
+                this.uploadedFiles[index].push(file);
+            }
+        }
+
+        if (invalidCount > 0) {
+            alert(`${invalidCount} unsupported file(s) were ignored. Allowed formats include images and PDF documents.`);
+        }
+
+        input.value = "";
+        this.renderFileStatus(index);
+    },
+
+    removeFile: function (index, fileIdx) {
+        if (this.uploadedFiles[index] && this.uploadedFiles[index][fileIdx]) {
+            this.uploadedFiles[index].splice(fileIdx, 1);
+            if (this.uploadedFiles[index].length === 0) {
+                delete this.uploadedFiles[index];
+            }
+        }
+        this.renderFileStatus(index);
+    },
+
+    renderFileStatus: function (index) {
+        const fileStatus = document.getElementById(`ppe-file-status-${index}`);
+        if (!fileStatus) return;
+
+        const files = this.uploadedFiles[index] || [];
+        if (files.length === 0) {
+            fileStatus.innerHTML = "";
+            return;
+        }
+
+        let chipsHtml = `<div class="food-safety-file-chips-container">`;
+        chipsHtml += `<div style="font-size: 11px; font-weight: 600; color: #15803d; display: flex; align-items: center; gap: 4px;"><i class="fa fa-check-circle"></i> ${files.length} document(s) selected:</div>`;
+        files.forEach((file, fIdx) => {
+            const isPdf = file.name.toLowerCase().endsWith(".pdf") || file.type === "application/pdf";
+            const iconClass = isPdf ? "fa fa-file-pdf-o" : "fa fa-file-image-o";
+            chipsHtml += `
+                <div class="food-safety-file-chip">
+                    <span class="chip-name" title="${this.escapeHtml(file.name)}"><i class="${iconClass}"></i> ${this.escapeHtml(file.name)}</span>
+                    <button type="button" class="chip-remove-btn" onclick="PPEChecklistScreen.removeFile(${index}, ${fIdx})" title="Remove document">&times;</button>
+                </div>`;
+        });
+        chipsHtml += `</div>`;
+        fileStatus.innerHTML = chipsHtml;
+    },
+
     init: function () {
         console.log("Initializing PPE Checklist Screen...");
+        this.uploadedFiles = {};
         
         // 1. Setup default values
         const defaultSampleSize = 50;
@@ -136,9 +213,10 @@ const PPEChecklistScreen = {
                         <input type="text" class="form-control ppe-remarks-input" id="ppe-remarks-${index}" placeholder="Remarks (optional)" style="font-size: 12px; margin-bottom: 5px; width: 100%;">
                         <div class="ppe-file-wrapper" id="ppe-file-wrapper-${index}">
                             <label class="form-label" style="font-size: 11px; margin-bottom: 2px; color: #64748b; font-weight: 600; display: block;">
-                                Proof Image/Doc (Optional):
+                                Proof Images / Docs (Optional):
                             </label>
-                            <input type="file" class="form-control ppe-proof-file" id="ppe-proof-${index}" accept="image/*,application/pdf" style="font-size: 12px; padding: 4px 8px; height: auto;">
+                            <input type="file" class="form-control ppe-proof-file" id="ppe-proof-${index}" accept="image/*,application/pdf" multiple style="font-size: 12px; padding: 4px 8px; height: auto;" onchange="PPEChecklistScreen.onFileSelected(this, ${index})">
+                            <div id="ppe-file-status-${index}" style="margin-top: 4px;"></div>
                             <div id="ppe-existing-proof-${index}" style="display: none; margin-top: 4px;"></div>
                         </div>
                     </div>
@@ -166,6 +244,9 @@ const PPEChecklistScreen = {
             const noDefectMsg = document.getElementById(`ppe-no-defect-msg-${index}`);
             if (detailsEl) detailsEl.style.display = "none";
             if (noDefectMsg) noDefectMsg.style.display = "inline";
+            delete this.uploadedFiles[index];
+            const fileStatus = document.getElementById(`ppe-file-status-${index}`);
+            if (fileStatus) fileStatus.innerHTML = "";
             this.calculateScores();
             return;
         }
@@ -222,6 +303,9 @@ const PPEChecklistScreen = {
             if (remInp) remInp.value = "";
             const fileInp = document.getElementById(`ppe-proof-${index}`);
             if (fileInp) fileInp.value = "";
+            delete this.uploadedFiles[index];
+            const fileStatus = document.getElementById(`ppe-file-status-${index}`);
+            if (fileStatus) fileStatus.innerHTML = "";
             const existP = document.getElementById(`ppe-existing-proof-${index}`);
             if (existP) {
                 existP.style.display = "none";
@@ -274,7 +358,7 @@ const PPEChecklistScreen = {
             complianceDisplay.innerText = filledCount > 0 ? (compliance.toFixed(2) + "%") : "--";
         }
 
-        const isPass = compliance >= 80;
+        const isPass = (totalDefects === 0);
         const badge = document.getElementById("ppe-score-badge");
         if (badge) {
             if (!isComplete && filledCount === 0) {
@@ -449,7 +533,6 @@ const PPEChecklistScreen = {
                 if (count > 0) {
                     const remarksInp = document.getElementById(`ppe-remarks-${index}`);
                     const remarks = remarksInp ? remarksInp.value.trim() : "";
-                    const fileInput = document.getElementById(`ppe-proof-${index}`);
                     const existingProofEl = document.getElementById(`ppe-existing-proof-${index}`);
                     const existingUrl = existingProofEl ? existingProofEl.getAttribute("data-url") : "";
                     let proofUrl = "";
@@ -460,20 +543,31 @@ const PPEChecklistScreen = {
                         : { remarks: remarks.replace(/\|?\s*Proof:\s*.*$/i, "").trim(), proofUrl: "" };
                     const cleanRemarks = parsed.remarks;
 
-                    if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                    const files = (this.uploadedFiles && this.uploadedFiles[index]) ? this.uploadedFiles[index] : [];
+                    let uploadedUrls = [];
+                    if (files.length > 0) {
                         if (typeof ShowProgressLoader === "function") {
-                            ShowProgressLoader(10, `Uploading proof for PPE item ${index + 1}...`);
+                            ShowProgressLoader(10, `Uploading ${files.length} proof document(s) for PPE item ${index + 1}...`);
                         }
-                        try {
-                            proofUrl = await FoodSafety_DAL.uploadAttachmentFile(fileInput.files[0], FoodSafety_Main.state.varTourID, "PPE", `PPE_${index + 1}`, cleanRemarks);
-                        } catch (upErr) {
-                            console.warn(`Failed to upload proof for PPE item ${index + 1}:`, upErr);
-                        }
-                    } else if (existingUrl) {
-                        proofUrl = existingUrl;
-                    } else if (parsed.proofUrl) {
-                        proofUrl = parsed.proofUrl;
+                        const uploadPromises = files.map((file, fIdx) => 
+                            FoodSafety_DAL.uploadAttachmentFile(file, FoodSafety_Main.state.varTourID, "PPE", `PPE_${index + 1}_${fIdx + 1}`, cleanRemarks)
+                                .catch(upErr => {
+                                    console.warn(`Failed to upload proof ${fIdx + 1} for PPE item ${index + 1}:`, upErr);
+                                    return "";
+                                })
+                        );
+                        const results = await Promise.all(uploadPromises);
+                        uploadedUrls = results.filter(Boolean);
                     }
+
+                    let existingUrls = [];
+                    if (existingUrl) {
+                        existingUrls = existingUrl.split(/[;,]/).map(u => u.trim()).filter(Boolean);
+                    } else if (parsed.proofUrl) {
+                        existingUrls = parsed.proofUrl.split(/[;,]/).map(u => u.trim()).filter(Boolean);
+                    }
+                    const allUrls = [...existingUrls, ...uploadedUrls];
+                    proofUrl = allUrls.join(";");
 
                     finalRemarks = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.formatRemarksWithProof)
                         ? QualityRajpura_Config.formatRemarksWithProof(cleanRemarks, proofUrl)
@@ -505,7 +599,7 @@ const PPEChecklistScreen = {
 
             // 2. Calculate compliance and threshold result
             const compliance = sampleSize > 0 ? (((sampleSize - totalDefects) / sampleSize) * 100) : 0;
-            const resultStatus = compliance >= 80 ? "Pass" : "Fail";
+            const resultStatus = (totalDefects === 0) ? "Pass" : "Fail";
 
             if (typeof ShowProgressLoader === "function") {
                 ShowProgressLoader(0, "Cleaning up obsolete observations...");
@@ -606,7 +700,6 @@ const PPEChecklistScreen = {
                 if (count > 0) {
                     const remarksInp = document.getElementById(`ppe-remarks-${index}`);
                     const remarks = remarksInp ? remarksInp.value.trim() : "";
-                    const fileInput = document.getElementById(`ppe-proof-${index}`);
                     const existingProofEl = document.getElementById(`ppe-existing-proof-${index}`);
                     const existingUrl = existingProofEl ? existingProofEl.getAttribute("data-url") : "";
                     let proofUrl = "";
@@ -617,20 +710,31 @@ const PPEChecklistScreen = {
                         : { remarks: remarks.replace(/\|?\s*Proof:\s*.*$/i, "").trim(), proofUrl: "" };
                     const cleanRemarks = parsed.remarks;
 
-                    if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                    const files = (this.uploadedFiles && this.uploadedFiles[index]) ? this.uploadedFiles[index] : [];
+                    let uploadedUrls = [];
+                    if (files.length > 0) {
                         if (typeof ShowProgressLoader === "function") {
-                            ShowProgressLoader(10, `Uploading proof for PPE item ${index + 1}...`);
+                            ShowProgressLoader(10, `Uploading ${files.length} proof document(s) for PPE item ${index + 1}...`);
                         }
-                        try {
-                            proofUrl = await FoodSafety_DAL.uploadAttachmentFile(fileInput.files[0], FoodSafety_Main.state.varTourID, "PPE", `PPE_${index + 1}`, cleanRemarks);
-                        } catch (upErr) {
-                            console.warn(`Failed to upload proof for PPE item ${index + 1}:`, upErr);
-                        }
-                    } else if (existingUrl) {
-                        proofUrl = existingUrl;
-                    } else if (parsed.proofUrl) {
-                        proofUrl = parsed.proofUrl;
+                        const uploadPromises = files.map((file, fIdx) => 
+                            FoodSafety_DAL.uploadAttachmentFile(file, FoodSafety_Main.state.varTourID, "PPE", `PPE_${index + 1}_${fIdx + 1}`, cleanRemarks)
+                                .catch(upErr => {
+                                    console.warn(`Failed to upload proof ${fIdx + 1} for PPE item ${index + 1}:`, upErr);
+                                    return "";
+                                })
+                        );
+                        const results = await Promise.all(uploadPromises);
+                        uploadedUrls = results.filter(Boolean);
                     }
+
+                    let existingUrls = [];
+                    if (existingUrl) {
+                        existingUrls = existingUrl.split(/[;,]/).map(u => u.trim()).filter(Boolean);
+                    } else if (parsed.proofUrl) {
+                        existingUrls = parsed.proofUrl.split(/[;,]/).map(u => u.trim()).filter(Boolean);
+                    }
+                    const allUrls = [...existingUrls, ...uploadedUrls];
+                    proofUrl = allUrls.join(";");
 
                     finalRemarks = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.formatRemarksWithProof)
                         ? QualityRajpura_Config.formatRemarksWithProof(cleanRemarks, proofUrl)
@@ -660,7 +764,7 @@ const PPEChecklistScreen = {
             }
 
             const compliance = sampleSize > 0 ? (((sampleSize - totalDefects) / sampleSize) * 100) : 0;
-            const resultStatus = compliance >= 80 ? "Pass" : "Fail";
+            const resultStatus = (totalDefects === 0) ? "Pass" : "Fail";
 
             if (typeof ShowProgressLoader === "function") {
                 ShowProgressLoader(0, "Cleaning up obsolete observations...");
@@ -774,7 +878,14 @@ const PPEChecklistScreen = {
                             if (proofUrl && existingProofEl) {
                                 existingProofEl.style.display = "block";
                                 existingProofEl.setAttribute("data-url", proofUrl);
-                                existingProofEl.innerHTML = `<a href="${proofUrl}" target="_blank" class="badge food-safety-proof-badge" style="background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; text-decoration: none !important; padding: 4px 10px !important; border-radius: 4px !important; display: inline-flex !important; align-items: center !important; gap: 5px !important; font-size: 11px !important; font-weight: 600 !important;"><span style="color: #ffffff !important;">View Attached Proof</span></a>`;
+                                const urls = proofUrl.split(/[;,]/).map(u => u.trim()).filter(Boolean);
+                                let linksHtml = `<div class="food-safety-saved-links-container" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">`;
+                                urls.forEach((u, uIdx) => {
+                                    const docLabel = urls.length > 1 ? `View Proof ${uIdx + 1}` : `View Attached Proof`;
+                                    linksHtml += `<a href="${u}" target="_blank" class="badge food-safety-proof-badge" style="background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; text-decoration: none !important; padding: 4px 10px !important; border-radius: 4px !important; display: inline-flex !important; align-items: center !important; gap: 5px !important; font-size: 11px !important; font-weight: 600 !important;"><span style="color: #ffffff !important;">${docLabel}</span></a>`;
+                                });
+                                linksHtml += `</div>`;
+                                existingProofEl.innerHTML = linksHtml;
                             }
                         }
                     }

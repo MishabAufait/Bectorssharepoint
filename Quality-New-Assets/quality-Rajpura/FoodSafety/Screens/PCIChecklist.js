@@ -2,6 +2,8 @@
 console.log("PCI Checklist Screen loaded");
 
 const PCIChecklistScreen = {
+    uploadedFiles: {},
+
     // Locations lists
     newBlockLocations: [
         "Hand Wash Area", "Plant Entry", "Near Washing Area", "Near Emergency Gate", 
@@ -28,8 +30,83 @@ const PCIChecklistScreen = {
 
     observationTypes: ["Lizard", "Insects", "Rodents", "Cockroach", "Store Insects", "Moth", "Others"],
 
+    escapeHtml: function (str) {
+        if (!str) return "";
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    },
+
+    onFileSelected: function (input, locIndex) {
+        if (!input || !input.files || input.files.length === 0) return;
+        if (!this.uploadedFiles[locIndex]) {
+            this.uploadedFiles[locIndex] = [];
+        }
+
+        const selectedFiles = Array.from(input.files);
+        let invalidCount = 0;
+
+        for (const file of selectedFiles) {
+            const isAllowed = file.type.startsWith("image/") || file.type === "application/pdf" || /\.(jpe?g|png|gif|webp|bmp|heic|pdf|docx?|xlsx?)$/i.test(file.name);
+            if (!isAllowed) {
+                invalidCount++;
+                continue;
+            }
+            const alreadyAdded = this.uploadedFiles[locIndex].some(f => f.name === file.name && f.size === file.size);
+            if (!alreadyAdded) {
+                this.uploadedFiles[locIndex].push(file);
+            }
+        }
+
+        if (invalidCount > 0) {
+            alert(`${invalidCount} unsupported file(s) were ignored. Allowed formats include images and PDF documents.`);
+        }
+
+        input.value = "";
+        this.renderFileStatus(locIndex);
+    },
+
+    removeFile: function (locIndex, fileIdx) {
+        if (this.uploadedFiles[locIndex] && this.uploadedFiles[locIndex][fileIdx]) {
+            this.uploadedFiles[locIndex].splice(fileIdx, 1);
+            if (this.uploadedFiles[locIndex].length === 0) {
+                delete this.uploadedFiles[locIndex];
+            }
+        }
+        this.renderFileStatus(locIndex);
+    },
+
+    renderFileStatus: function (locIndex) {
+        const fileStatus = document.getElementById(`pci-file-status-${locIndex}`);
+        if (!fileStatus) return;
+
+        const files = this.uploadedFiles[locIndex] || [];
+        if (files.length === 0) {
+            fileStatus.innerHTML = "";
+            return;
+        }
+
+        let chipsHtml = `<div class="food-safety-file-chips-container">`;
+        chipsHtml += `<div style="font-size: 11px; font-weight: 600; color: #15803d; display: flex; align-items: center; gap: 4px;"><i class="fa fa-check-circle"></i> ${files.length} document(s) selected:</div>`;
+        files.forEach((file, fIdx) => {
+            const isPdf = file.name.toLowerCase().endsWith(".pdf") || file.type === "application/pdf";
+            const iconClass = isPdf ? "fa fa-file-pdf-o" : "fa fa-file-image-o";
+            chipsHtml += `
+                <div class="food-safety-file-chip">
+                    <span class="chip-name" title="${this.escapeHtml(file.name)}"><i class="${iconClass}"></i> ${this.escapeHtml(file.name)}</span>
+                    <button type="button" class="chip-remove-btn" onclick="PCIChecklistScreen.removeFile(${locIndex}, ${fIdx})" title="Remove document">&times;</button>
+                </div>`;
+        });
+        chipsHtml += `</div>`;
+        fileStatus.innerHTML = chipsHtml;
+    },
+
     init: function () {
         console.log("Initializing PCI Checklist Screen...");
+        this.uploadedFiles = {};
         
         // Reset view state to show checklist directly using area selected in screen 2
         document.getElementById("pci-checklist-panel").style.display = "block";
@@ -80,9 +157,10 @@ const PCIChecklistScreen = {
                         </div>
                         <div class="pci-proof-wrapper" id="pci-proof-wrapper-${index}" style="margin-top: 12px; padding: 10px; background: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1; text-align: left;">
                             <label style="font-size: 11px; font-weight: 600; color: #475569; display: block; margin-bottom: 3px;">
-                                Defect Proof Image/Doc (Optional):
+                                Defect Proof Images / Docs (Optional):
                             </label>
-                            <input type="file" class="form-control pci-proof-file" id="pci-proof-${index}" accept="image/*,application/pdf" style="font-size: 12px; height: auto; padding: 4px 8px;">
+                            <input type="file" class="form-control pci-proof-file" id="pci-proof-${index}" accept="image/*,application/pdf" multiple style="font-size: 12px; height: auto; padding: 4px 8px;" onchange="PCIChecklistScreen.onFileSelected(this, ${index})">
+                            <div id="pci-file-status-${index}" style="margin-top: 4px;"></div>
                             <div id="pci-existing-proof-${index}" style="display: none; margin-top: 4px;"></div>
                         </div>
                     </div>
@@ -127,6 +205,9 @@ const PCIChecklistScreen = {
             if (list) list.innerHTML = "";
             const fileInp = document.getElementById(`pci-proof-${index}`);
             if (fileInp) fileInp.value = "";
+            delete this.uploadedFiles[index];
+            const fileStatus = document.getElementById(`pci-file-status-${index}`);
+            if (fileStatus) fileStatus.innerHTML = "";
             const existP = document.getElementById(`pci-existing-proof-${index}`);
             if (existP) {
                 existP.style.display = "none";
@@ -325,23 +406,33 @@ const PCIChecklistScreen = {
                     });
                 } else {
                     hasNotOkay = true;
-                    const fileInput = document.getElementById(`pci-proof-${idx}`);
                     const existingProofEl = document.getElementById(`pci-existing-proof-${idx}`);
                     const existingUrl = existingProofEl ? existingProofEl.getAttribute("data-url") : "";
                     let proofUrl = "";
 
-                    if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                    const files = (this.uploadedFiles && this.uploadedFiles[idx]) ? this.uploadedFiles[idx] : [];
+                    let uploadedUrls = [];
+                    if (files.length > 0) {
                         if (typeof ShowProgressLoader === "function") {
-                            ShowProgressLoader(10, `Uploading proof for ${locName}...`);
+                            ShowProgressLoader(10, `Uploading ${files.length} proof document(s) for ${locName}...`);
                         }
-                        try {
-                            proofUrl = await FoodSafety_DAL.uploadAttachmentFile(fileInput.files[0], FoodSafety_Main.state.varTourID, "PCI", `PCI_${locName.replace(/[^a-zA-Z0-9_-]/g, '_')}`, `${locName} Defects`);
-                        } catch (upErr) {
-                            console.warn(`Failed to upload proof for PCI ${locName}:`, upErr);
-                        }
-                    } else if (existingUrl) {
-                        proofUrl = existingUrl;
+                        const uploadPromises = files.map((file, fIdx) => 
+                            FoodSafety_DAL.uploadAttachmentFile(file, FoodSafety_Main.state.varTourID, "PCI", `PCI_${locName.replace(/[^a-zA-Z0-9_-]/g, '_')}_${fIdx + 1}`, `${locName} Defects`)
+                                .catch(upErr => {
+                                    console.warn(`Failed to upload proof ${fIdx + 1} for PCI ${locName}:`, upErr);
+                                    return "";
+                                })
+                        );
+                        const results = await Promise.all(uploadPromises);
+                        uploadedUrls = results.filter(Boolean);
                     }
+
+                    let existingUrls = [];
+                    if (existingUrl) {
+                        existingUrls = existingUrl.split(/[;,]/).map(u => u.trim()).filter(Boolean);
+                    }
+                    const allUrls = [...existingUrls, ...uploadedUrls];
+                    proofUrl = allUrls.join(";");
 
                     const finalRemarks = proofUrl ? `Proof: ${proofUrl}` : "";
 
@@ -404,9 +495,21 @@ const PCIChecklistScreen = {
             }
 
             // 3. Update the parent Tour Session record in Dataverse
+            let okayCount = 0;
+            let notOkayCount = 0;
+            locations.forEach((locName, idx) => {
+                const statusEl = document.getElementById(`pci-status-${idx}`);
+                const status = statusEl ? statusEl.value : "";
+                if (status === "Okay") okayCount++;
+                else if (status === "Not Okay") notOkayCount++;
+            });
+            const pciScore = locations.length > 0 ? ((okayCount / locations.length) * 100) : 0;
+            const resultStatus = (notOkayCount === 0 && okayCount === locations.length) ? "Pass" : "Fail";
+
             const parentUpdatePayload = {
                 cr3ea_prod_rajpura_quality_tourid: FoodSafety_Main.state.varTourID,
-                cr3ea_checklist_result: hasNotOkay ? "Fail" : "Pass",
+                cr3ea_overall_score: pciScore.toFixed(2) + "%",
+                cr3ea_checklist_result: resultStatus,
                 cr3ea_status: "Submitted",
                 cr3ea_food_safety_area: area
             };
@@ -456,14 +559,16 @@ const PCIChecklistScreen = {
 
         const filledCount = okayCount + notOkayCount;
         const progressPercent = totalCheckpoints > 0 ? Math.round((filledCount / totalCheckpoints) * 100) : 0;
+        const pciScore = totalCheckpoints > 0 ? ((okayCount / totalCheckpoints) * 100) : 0;
         const hasNotOkay = notOkayCount > 0;
+        const isPass = !hasNotOkay && (okayCount === totalCheckpoints);
         const resultStatus = hasNotOkay ? "Fail" : "Pass";
 
         // Update progress tracker banner
         const trackerBanner = document.getElementById("pci-tracker-banner");
         if (trackerBanner) {
             trackerBanner.querySelector(".tracker-summary-text").innerHTML = `<strong>${filledCount}</strong> of <strong>${totalCheckpoints}</strong> checkpoints filled (${progressPercent}%)`;
-            trackerBanner.querySelector(".tracker-estimated-score").innerText = resultStatus;
+            trackerBanner.querySelector(".tracker-estimated-score").innerText = pciScore.toFixed(2) + "%";
             
             const trBadge = trackerBanner.querySelector(".tracker-score-badge");
             const trOkay = trackerBanner.querySelector(".tracker-count-okay");
@@ -536,23 +641,33 @@ const PCIChecklistScreen = {
                         });
                     } else {
                         hasNotOkay = true;
-                        const fileInput = document.getElementById(`pci-proof-${idx}`);
                         const existingProofEl = document.getElementById(`pci-existing-proof-${idx}`);
                         const existingUrl = existingProofEl ? existingProofEl.getAttribute("data-url") : "";
                         let proofUrl = "";
 
-                        if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                        const files = (this.uploadedFiles && this.uploadedFiles[idx]) ? this.uploadedFiles[idx] : [];
+                        let uploadedUrls = [];
+                        if (files.length > 0) {
                             if (typeof ShowProgressLoader === "function") {
-                                ShowProgressLoader(10, `Uploading proof for ${locName}...`);
+                                ShowProgressLoader(10, `Uploading ${files.length} proof document(s) for ${locName}...`);
                             }
-                            try {
-                                proofUrl = await FoodSafety_DAL.uploadAttachmentFile(fileInput.files[0], FoodSafety_Main.state.varTourID, "PCI", `PCI_${locName.replace(/[^a-zA-Z0-9_-]/g, '_')}`, `${locName} Defects`);
-                            } catch (upErr) {
-                                console.warn(`Failed to upload proof for PCI ${locName}:`, upErr);
-                            }
-                        } else if (existingUrl) {
-                            proofUrl = existingUrl;
+                            const uploadPromises = files.map((file, fIdx) => 
+                                FoodSafety_DAL.uploadAttachmentFile(file, FoodSafety_Main.state.varTourID, "PCI", `PCI_${locName.replace(/[^a-zA-Z0-9_-]/g, '_')}_${fIdx + 1}`, `${locName} Defects`)
+                                    .catch(upErr => {
+                                        console.warn(`Failed to upload proof ${fIdx + 1} for PCI ${locName}:`, upErr);
+                                        return "";
+                                    })
+                            );
+                            const results = await Promise.all(uploadPromises);
+                            uploadedUrls = results.filter(Boolean);
                         }
+
+                        let existingUrls = [];
+                        if (existingUrl) {
+                            existingUrls = existingUrl.split(/[;,]/).map(u => u.trim()).filter(Boolean);
+                        }
+                        const allUrls = [...existingUrls, ...uploadedUrls];
+                        proofUrl = allUrls.join(";");
 
                         const finalRemarks = proofUrl ? `Proof: ${proofUrl}` : "";
 
@@ -612,9 +727,21 @@ const PCIChecklistScreen = {
             }
 
             // Update parent session with InProgress-paused status
+            let okayCount = 0;
+            let notOkayCount = 0;
+            locations.forEach((locName, idx) => {
+                const statusEl = document.getElementById(`pci-status-${idx}`);
+                const status = statusEl ? statusEl.value : "";
+                if (status === "Okay") okayCount++;
+                else if (status === "Not Okay") notOkayCount++;
+            });
+            const pciScore = locations.length > 0 ? ((okayCount / locations.length) * 100) : 0;
+            const resultStatus = (hasNotOkay || notOkayCount > 0) ? "Fail" : "Pass";
+
             const parentUpdatePayload = {
                 cr3ea_prod_rajpura_quality_tourid: FoodSafety_Main.state.varTourID,
-                cr3ea_checklist_result: hasNotOkay ? "Fail" : "Pass",
+                cr3ea_overall_score: pciScore.toFixed(2) + "%",
+                cr3ea_checklist_result: resultStatus,
                 cr3ea_status: "InProgress-paused",
                 cr3ea_food_safety_area: area
             };
@@ -727,7 +854,14 @@ const PCIChecklistScreen = {
                                     if (proofUrl && existEl) {
                                         existEl.style.display = "block";
                                         existEl.setAttribute("data-url", proofUrl);
-                                        existEl.innerHTML = `<a href="${proofUrl}" target="_blank" class="badge food-safety-proof-badge" style="background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; text-decoration: none !important; padding: 4px 10px !important; border-radius: 4px !important; display: inline-flex !important; align-items: center !important; gap: 5px !important; font-size: 11px !important; font-weight: 600 !important;"><span style="color: #ffffff !important;">View Attached Proof</span></a>`;
+                                        const urls = proofUrl.split(/[;,]/).map(u => u.trim()).filter(Boolean);
+                                        let linksHtml = `<div class="food-safety-saved-links-container" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">`;
+                                        urls.forEach((u, uIdx) => {
+                                            const docLabel = urls.length > 1 ? `View Proof ${uIdx + 1}` : `View Attached Proof`;
+                                            linksHtml += `<a href="${u}" target="_blank" class="badge food-safety-proof-badge" style="background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; text-decoration: none !important; padding: 4px 10px !important; border-radius: 4px !important; display: inline-flex !important; align-items: center !important; gap: 5px !important; font-size: 11px !important; font-weight: 600 !important;"><span style="color: #ffffff !important;">${docLabel}</span></a>`;
+                                        });
+                                        linksHtml += `</div>`;
+                                        existEl.innerHTML = linksHtml;
                                     }
                                 }
                             }

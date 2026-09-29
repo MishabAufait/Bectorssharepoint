@@ -28,17 +28,55 @@ const CCP_OPRP_Checklist = {
         return clean.split(".").map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
     },
 
-    // Checkpoints list mapped by Line
+    // Checkpoints list mapped by Line (standardized across PTMS portal)
     lineCheckpoints: {
-        "Line-1": ["OPRP-1: Rotary (Metal Detector)", "OPRP-2: Rotary (Metal Detector)", "CCP: Packing (Metal Detector)"],
-        "Line-2": ["OPRP-1: Rotary (Metal Detector)", "OPRP: Rework (Metal Detector)", "CCP: Packing (Metal Detector)"],
-        "Line-3": ["OPRP-1: Rotary (Metal Detector)", "OPRP: Offline (Metal Detector)", "CCP: Packing (Metal Detector)"],
-        "Line-4": ["OPRP-1: Rotary (Metal Detector)", "OPRP: Rework (Metal Detector)", "CCP: Packing (Metal Detector)"],
-        "Line-5": ["OPRP-1: Rotary (Metal Detector)", "OPRP-2: Shell (Metal Detector)", "OPRP-3: Rework (Metal Detector)", "CCP: Post Cooling Tunnel (Metal Detector)"],
-        "Line-6": ["OPRP-1: Rotary (Metal Detector)", "OPRP-2: Rework (Metal Detector)", "CCP: Post Cooling Tunnel (Metal Detector)"],
-        "Line-7": ["OPRP-1: Rotary (Metal Detector)", "OPRP-2: Shell (Metal Detector)", "OPRP-3: Rework (Metal Detector)", "CCP (Metal Detector)"],
-        "Line-8": ["OPRP-1: Rotary (Metal Detector)", "OPRP-2: Rotary (Metal Detector)", "CCP: Packing (Metal Detector)"],
-        "FFS": ["CCP-1: Packing (Metal Detector)", "CCP-2: Packing (Metal Detector)"]
+        "Line-1": ["OPRP-1 : Rotary (Metal Detector)", "OPRP-2 : Rotary (Metal Detector)", "CCP : Packing (Metal Detector)"],
+        "Line 1": ["OPRP-1 : Rotary (Metal Detector)", "OPRP-2 : Rotary (Metal Detector)", "CCP : Packing (Metal Detector)"],
+        "1": ["OPRP-1 : Rotary (Metal Detector)", "OPRP-2 : Rotary (Metal Detector)", "CCP : Packing (Metal Detector)"],
+
+        "Line-2": ["OPRP-1 : Rotary (Metal Detector)", "OPRP : Rework (Metal Detector)", "CCP : Packing (Metal Detector)"],
+        "Line 2": ["OPRP-1 : Rotary (Metal Detector)", "OPRP : Rework (Metal Detector)", "CCP : Packing (Metal Detector)"],
+        "2": ["OPRP-1 : Rotary (Metal Detector)", "OPRP : Rework (Metal Detector)", "CCP : Packing (Metal Detector)"],
+
+        "Line-3": ["OPRP-1 : Rotary (Metal Detector)", "OPRP : Offline (Metal Detector)", "CCP : Packing (Metal Detector)"],
+        "Line 3": ["OPRP-1 : Rotary (Metal Detector)", "OPRP : Offline (Metal Detector)", "CCP : Packing (Metal Detector)"],
+        "3": ["OPRP-1 : Rotary (Metal Detector)", "OPRP : Offline (Metal Detector)", "CCP : Packing (Metal Detector)"],
+
+        "Line-4": ["OPRP-1 : Rotary (Metal Detector)", "OPRP : Rework (Metal Detector)", "CCP : Packing (Metal Detector)"],
+        "Line 4": ["OPRP-1 : Rotary (Metal Detector)", "OPRP : Rework (Metal Detector)", "CCP : Packing (Metal Detector)"],
+        "4": ["OPRP-1 : Rotary (Metal Detector)", "OPRP : Rework (Metal Detector)", "CCP : Packing (Metal Detector)"],
+
+        "Line-5": ["OPRP-1 : Rotary (Metal Detector)", "OPRP-2 : Shell (Metal Detector)", "OPRP-3 : Rework (Metal Detector)", "CCP - Post Cooling Tunnel (Metal Detector)"],
+        "Line 5": ["OPRP-1 : Rotary (Metal Detector)", "OPRP-2 : Shell (Metal Detector)", "OPRP-3 : Rework (Metal Detector)", "CCP - Post Cooling Tunnel (Metal Detector)"],
+        "5": ["OPRP-1 : Rotary (Metal Detector)", "OPRP-2 : Shell (Metal Detector)", "OPRP-3 : Rework (Metal Detector)", "CCP - Post Cooling Tunnel (Metal Detector)"],
+
+        "Line-6": ["OPRP-1 : Rotary (Metal Detector)", "OPRP-2 : Rework (Metal Detector)", "CCP - Post Cooling Tunnel (Metal Detector)"],
+        "Line 6": ["OPRP-1 : Rotary (Metal Detector)", "OPRP-2 : Rework (Metal Detector)", "CCP - Post Cooling Tunnel (Metal Detector)"],
+        "6": ["OPRP-1 : Rotary (Metal Detector)", "OPRP-2 : Rework (Metal Detector)", "CCP - Post Cooling Tunnel (Metal Detector)"],
+
+        "Line-7": ["OPRP-1 : Rotary (Metal Detector)", "OPRP-2 : Shell (Metal Detector)", "OPRP-3 : Rework (Metal Detector)", "CCP (Metal Detector)"],
+        "Line 7": ["OPRP-1 : Rotary (Metal Detector)", "OPRP-2 : Shell (Metal Detector)", "OPRP-3 : Rework (Metal Detector)", "CCP (Metal Detector)"],
+        "7": ["OPRP-1 : Rotary (Metal Detector)", "OPRP-2 : Shell (Metal Detector)", "OPRP-3 : Rework (Metal Detector)", "CCP (Metal Detector)"],
+
+        "Line-8": ["OPRP-1 : Rotary (Metal Detector)", "OPRP-2 : Rotary (Metal Detector)", "CCP : Packing (Metal Detector)"],
+        "Line 8": ["OPRP-1 : Rotary (Metal Detector)", "OPRP-2 : Rotary (Metal Detector)", "CCP : Packing (Metal Detector)"],
+        "8": ["OPRP-1 : Rotary (Metal Detector)", "OPRP-2 : Rotary (Metal Detector)", "CCP : Packing (Metal Detector)"],
+
+        "FFS": ["CCP-1 : Packing (Metal Detector)", "CCP-2 : Packing (Metal Detector)"]
+    },
+
+    getLineCheckpoints: function (line) {
+        if (!line) return ["CCP (Metal Detector)"];
+        const clean = String(line).trim();
+        if (this.lineCheckpoints[clean]) return this.lineCheckpoints[clean];
+        const numOnly = clean.replace(/[^0-9]/g, "");
+        if (numOnly && this.lineCheckpoints[`Line-${numOnly}`]) {
+            return this.lineCheckpoints[`Line-${numOnly}`];
+        }
+        if (clean.toUpperCase() === "FFS") {
+            return this.lineCheckpoints["FFS"];
+        }
+        return ["CCP (Metal Detector)"];
     },
 
     // Sieves & Magnets Checklists grouped by plant location and frequency
@@ -669,21 +707,29 @@ const CCP_OPRP_Checklist = {
             // Pre-process: Detect max row count per tab pane
             const maxRowsPerTab = {}; // Map of tabIdx -> maxRowNumber
             const line = CCP_OPRP_Main.state.selectedLine;
-            const checkpoints = this.lineCheckpoints[line] || ["CCP (Metal Detector)"];
+            const checkpoints = this.getLineCheckpoints(line);
 
             rows.forEach(row => {
                 if (row.cr3ea_checkpointname === "Metadata Initialization" || row.cr3ea_description === "Metadata Initialization") return;
                 
                 const fullName = row.cr3ea_checkpointname || "";
-                const parts = fullName.split(" - ");
-                const parentName = parts[0];
-                
-                const tabIdx = checkpoints.indexOf(parentName);
-                if (tabIdx !== -1) {
-                    let rowNum = 1;
+                let parentName = "";
+                let rowNum = 1;
+
+                const rowMatch = fullName.match(/^(.*?)\s*-\s*Row\s+(\d+)\s*-\s*(.*)$/i);
+                if (rowMatch) {
+                    parentName = rowMatch[1].trim();
+                    rowNum = parseInt(rowMatch[2]) || 1;
+                } else {
+                    const parts = fullName.split(" - ");
+                    parentName = parts[0].trim();
                     if (parts[1] && parts[1].startsWith("Row ")) {
                         rowNum = parseInt(parts[1].replace("Row ", "")) || 1;
                     }
+                }
+                
+                const tabIdx = checkpoints.indexOf(parentName);
+                if (tabIdx !== -1) {
                     maxRowsPerTab[tabIdx] = Math.max(maxRowsPerTab[tabIdx] || 1, rowNum);
                 }
             });
@@ -704,23 +750,31 @@ const CCP_OPRP_Checklist = {
             
             if (isCCP) {
                 const fullName = row.cr3ea_checkpointname || "";
-                const parts = fullName.split(" - ");
-                const parentName = parts[0];
-                
+                let parentName = "";
                 let rowNum = 1;
                 let subLabel = "";
-                if (parts[1] && parts[1].startsWith("Row ")) {
-                    rowNum = parseInt(parts[1].replace("Row ", "")) || 1;
-                    subLabel = parts.slice(2).join(" - ");
+
+                const rowMatch = fullName.match(/^(.*?)\s*-\s*Row\s+(\d+)\s*-\s*(.*)$/i);
+                if (rowMatch) {
+                    parentName = rowMatch[1].trim();
+                    rowNum = parseInt(rowMatch[2]) || 1;
+                    subLabel = rowMatch[3].trim();
                 } else {
-                    subLabel = parts.slice(1).join(" - ");
+                    const parts = fullName.split(" - ");
+                    parentName = parts[0].trim();
+                    if (parts[1] && parts[1].startsWith("Row ")) {
+                        rowNum = parseInt(parts[1].replace("Row ", "")) || 1;
+                        subLabel = parts.slice(2).join(" - ").trim();
+                    } else {
+                        subLabel = parts.slice(1).join(" - ").trim();
+                    }
                 }
 
                 // Find the tab pane matching parentName
                 const panes = formContainer.querySelectorAll(".tab-pane-content");
                 panes.forEach(pane => {
                     if (pane.dataset.checkpoint === parentName) {
-                        const checkpoints = this.lineCheckpoints[CCP_OPRP_Main.state.selectedLine] || ["CCP (Metal Detector)"];
+                        const checkpoints = this.getLineCheckpoints(CCP_OPRP_Main.state.selectedLine);
                         const tabIdx = checkpoints.indexOf(parentName);
                         
                         const rowId = `row-${cycleNum}-${tabIdx}-${rowNum}`;
@@ -804,14 +858,21 @@ const CCP_OPRP_Checklist = {
 
         if (category === "CCP") {
             const line = CCP_OPRP_Main.state.selectedLine;
-            const checkpoints = this.lineCheckpoints[line] || ["CCP (Metal Detector)"];
+            const checkpoints = this.getLineCheckpoints(line);
 
             checkpoints.forEach((cpName, idx) => {
                 const tabId = `tab-${cycleNum}-${idx}`;
                 const paneId = `pane-${cycleNum}-${idx}`;
                 
                 // Add Tab Header Button
-                const cleanName = cpName.split(":")[0];
+                let cleanName = cpName;
+                if (cpName.includes(":")) {
+                    cleanName = cpName.split(":")[0].trim();
+                } else if (cpName.includes("- Post Cooling")) {
+                    cleanName = "CCP (Post Cooling)";
+                } else if (cpName.includes("(Metal Detector)")) {
+                    cleanName = cpName.replace("(Metal Detector)", "").trim();
+                }
                 const activeClass = idx === 0 ? "active" : "";
                 tabsHeader.insertAdjacentHTML("beforeend", `
                     <button type="button" class="tab-header-btn ${activeClass}" id="${tabId}" onclick="CCP_OPRP_Checklist.switchTab('${cycleNum}', ${idx}, ${checkpoints.length})">${cleanName}</button>
@@ -1041,7 +1102,7 @@ const CCP_OPRP_Checklist = {
             if (category === "CCP") {
                 const paneElements = document.querySelectorAll(`#tabs-panes-${cycleNum} .tab-pane-content`);
                 const line = CCP_OPRP_Main.state.selectedLine;
-                const checkpoints = this.lineCheckpoints[line] || ["CCP (Metal Detector)"];
+                const checkpoints = this.getLineCheckpoints(line);
 
                 for (let tabIdx = 0; tabIdx < paneElements.length; tabIdx++) {
                     const pane = paneElements[tabIdx];

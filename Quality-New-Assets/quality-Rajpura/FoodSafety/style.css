@@ -554,3 +554,66 @@ html, body {
         min-height: 420px;
     }
 }
+
+/* Multi-file Upload Chips & Previews for Food Safety */
+.food-safety-file-chips-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.food-safety-file-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: 500;
+    max-width: 100%;
+    word-break: break-all;
+    gap: 6px;
+}
+
+.food-safety-file-chip .chip-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.food-safety-file-chip .chip-remove-btn {
+    background: transparent;
+    border: none;
+    color: #dc2626;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+    font-weight: bold;
+}
+
+.food-safety-file-chip .chip-remove-btn:hover {
+    color: #991b1b;
+}
+
+.food-safety-saved-links-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.food-safety-proof-badges-wrapper {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    vertical-align: middle;
+}
+

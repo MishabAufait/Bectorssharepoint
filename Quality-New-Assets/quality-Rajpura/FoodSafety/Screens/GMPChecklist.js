@@ -2,6 +2,8 @@
 console.log("GMP Checklist Screen loaded");
 
 const GMPChecklistScreen = {
+    uploadedFiles: {},
+
     // 46 checklist items grouped by section
     sections: {
         "Personal Hygiene": [
@@ -58,8 +60,83 @@ const GMPChecklistScreen = {
         ]
     },
 
+    escapeHtml: function (str) {
+        if (!str) return "";
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    },
+
+    onFileSelected: function (input, itemId) {
+        if (!input || !input.files || input.files.length === 0) return;
+        if (!this.uploadedFiles[itemId]) {
+            this.uploadedFiles[itemId] = [];
+        }
+
+        const selectedFiles = Array.from(input.files);
+        let invalidCount = 0;
+
+        for (const file of selectedFiles) {
+            const isAllowed = file.type.startsWith("image/") || file.type === "application/pdf" || /\.(jpe?g|png|gif|webp|bmp|heic|pdf|docx?|xlsx?)$/i.test(file.name);
+            if (!isAllowed) {
+                invalidCount++;
+                continue;
+            }
+            const alreadyAdded = this.uploadedFiles[itemId].some(f => f.name === file.name && f.size === file.size);
+            if (!alreadyAdded) {
+                this.uploadedFiles[itemId].push(file);
+            }
+        }
+
+        if (invalidCount > 0) {
+            alert(`${invalidCount} unsupported file(s) were ignored. Allowed formats include images and PDF documents.`);
+        }
+
+        input.value = "";
+        this.renderFileStatus(itemId);
+    },
+
+    removeFile: function (itemId, fileIdx) {
+        if (this.uploadedFiles[itemId] && this.uploadedFiles[itemId][fileIdx]) {
+            this.uploadedFiles[itemId].splice(fileIdx, 1);
+            if (this.uploadedFiles[itemId].length === 0) {
+                delete this.uploadedFiles[itemId];
+            }
+        }
+        this.renderFileStatus(itemId);
+    },
+
+    renderFileStatus: function (itemId) {
+        const fileStatus = document.getElementById(`gmp-file-status-${itemId}`);
+        if (!fileStatus) return;
+
+        const files = this.uploadedFiles[itemId] || [];
+        if (files.length === 0) {
+            fileStatus.innerHTML = "";
+            return;
+        }
+
+        let chipsHtml = `<div class="food-safety-file-chips-container">`;
+        chipsHtml += `<div style="font-size: 11px; font-weight: 600; color: #15803d; display: flex; align-items: center; gap: 4px;"><i class="fa fa-check-circle"></i> ${files.length} document(s) selected:</div>`;
+        files.forEach((file, fIdx) => {
+            const isPdf = file.name.toLowerCase().endsWith(".pdf") || file.type === "application/pdf";
+            const iconClass = isPdf ? "fa fa-file-pdf-o" : "fa fa-file-image-o";
+            chipsHtml += `
+                <div class="food-safety-file-chip">
+                    <span class="chip-name" title="${this.escapeHtml(file.name)}"><i class="${iconClass}"></i> ${this.escapeHtml(file.name)}</span>
+                    <button type="button" class="chip-remove-btn" onclick="GMPChecklistScreen.removeFile(${itemId}, ${fIdx})" title="Remove document">&times;</button>
+                </div>`;
+        });
+        chipsHtml += `</div>`;
+        fileStatus.innerHTML = chipsHtml;
+    },
+
     init: function () {
         console.log("Initializing GMP Checklist Screen...");
+        this.uploadedFiles = {};
         this.renderTables();
         HeaderComponent.render("gmp-header-wrapper");
     },
@@ -96,9 +173,10 @@ const GMPChecklistScreen = {
                                    placeholder="Remarks (required if Not Okay)" style="display: none; width: 100%;">
                             <div class="gmp-file-wrapper" id="gmp-file-wrapper-${item.id}" style="display: none; margin-top: 6px; text-align: left;">
                                 <label class="form-label" style="font-size: 11px; margin-bottom: 2px; color: #64748b; font-weight: 600; display: block;">
-                                    Proof Image/Doc (Optional):
+                                    Proof Images / Docs (Optional):
                                 </label>
-                                <input type="file" class="form-control gmp-proof-file" id="gmp-proof-${item.id}" accept="image/*,application/pdf" style="font-size: 12px; padding: 4px 8px; height: auto;">
+                                <input type="file" class="form-control gmp-proof-file" id="gmp-proof-${item.id}" accept="image/*,application/pdf" multiple style="font-size: 12px; padding: 4px 8px; height: auto;" onchange="GMPChecklistScreen.onFileSelected(this, ${item.id})">
+                                <div id="gmp-file-status-${item.id}" style="margin-top: 4px;"></div>
                                 <div id="gmp-existing-proof-${item.id}" style="display: none; margin-top: 4px;"></div>
                             </div>
                         </td>
@@ -157,6 +235,9 @@ const GMPChecklistScreen = {
                 remarksInput.value = "";
                 if (fileWrap) fileWrap.style.display = "none";
                 if (fileInp) fileInp.value = "";
+                delete this.uploadedFiles[itemId];
+                const fileStatus = document.getElementById(`gmp-file-status-${itemId}`);
+                if (fileStatus) fileStatus.innerHTML = "";
                 if (existProof) {
                     existProof.style.display = "none";
                     existProof.innerHTML = "";
@@ -200,9 +281,10 @@ const GMPChecklistScreen = {
         document.getElementById("gmp-total-score-display").innerText = gmpScore.toFixed(2) + "%";
         document.getElementById("gmp-packing-score-display").innerText = packingScore.toFixed(2) + "%";
 
+        const isPass = (totalOkay === totalItems && notOkayCount === 0);
         const badge = document.getElementById("gmp-score-badge");
         if (badge) {
-            if (gmpScore >= 80) {
+            if (isPass) {
                 badge.innerText = "Pass";
                 badge.style.backgroundColor = "#dcfce7";
                 badge.style.color = "#15803d";
@@ -258,23 +340,24 @@ const GMPChecklistScreen = {
             if (trNotOkay) trNotOkay.innerText = notOkayCount;
             if (trPending) trPending.innerText = pendingCount;
 
-            const isPass = gmpScore >= 80;
+            const hasNotOkay = notOkayCount > 0;
+            const isPass = !hasNotOkay && (okayCount === 46);
             if (trBadge) {
-                trBadge.innerText = isPass ? "Pass" : "Fail";
-                trBadge.style.backgroundColor = isPass ? "#dcfce7" : "#fee2e2";
-                trBadge.style.color = isPass ? "#15803d" : "#b91c1c";
-                trBadge.style.borderColor = isPass ? "#bbf7d0" : "#fecaca";
+                trBadge.innerText = isPass ? "Pass" : (hasNotOkay ? "Fail" : "Pass");
+                trBadge.style.backgroundColor = !hasNotOkay ? "#dcfce7" : "#fee2e2";
+                trBadge.style.color = !hasNotOkay ? "#15803d" : "#b91c1c";
+                trBadge.style.borderColor = !hasNotOkay ? "#bbf7d0" : "#fecaca";
             }
             
             const estScoreEl = trackerBanner.querySelector(".tracker-estimated-score");
             if (estScoreEl) {
-                estScoreEl.style.color = isPass ? "#15803d" : "#dc2626";
+                estScoreEl.style.color = !hasNotOkay ? "#15803d" : "#dc2626";
             }
             
             const prgBar = trackerBanner.querySelector(".progress-bar");
             if (prgBar) {
                 prgBar.style.width = `${progressPercent}%`;
-                prgBar.style.backgroundColor = isPass ? "#16a34a" : "#dc2626";
+                prgBar.style.backgroundColor = !hasNotOkay ? "#16a34a" : "#dc2626";
             }
         }
     },
@@ -362,7 +445,6 @@ const GMPChecklistScreen = {
                     let cleanRemarks = remarks;
                     let proofUrl = "";
                     if (status === "Not Okay") {
-                        const fileInput = document.getElementById(`gmp-proof-${item.id}`);
                         const existingProofEl = document.getElementById(`gmp-existing-proof-${item.id}`);
                         const existingUrl = existingProofEl ? existingProofEl.getAttribute("data-url") : "";
 
@@ -372,20 +454,31 @@ const GMPChecklistScreen = {
                             : { remarks: remarks.replace(/\|?\s*Proof:\s*.*$/i, "").trim(), proofUrl: "" };
                         cleanRemarks = parsed.remarks;
 
-                        if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                        const files = (this.uploadedFiles && this.uploadedFiles[item.id]) ? this.uploadedFiles[item.id] : [];
+                        let uploadedUrls = [];
+                        if (files.length > 0) {
                             if (typeof ShowProgressLoader === "function") {
-                                ShowProgressLoader(10, `Uploading proof document for ${secName} item ${item.id}...`);
+                                ShowProgressLoader(10, `Uploading ${files.length} proof document(s) for ${secName} item ${item.id}...`);
                             }
-                            try {
-                                proofUrl = await FoodSafety_DAL.uploadAttachmentFile(fileInput.files[0], FoodSafety_Main.state.varTourID, "GMP", `GMP_${item.id}`, cleanRemarks);
-                            } catch (upErr) {
-                                console.warn(`Failed to upload proof for GMP item ${item.id}:`, upErr);
-                            }
-                        } else if (existingUrl) {
-                            proofUrl = existingUrl;
-                        } else if (parsed.proofUrl) {
-                            proofUrl = parsed.proofUrl;
+                            const uploadPromises = files.map((file, fIdx) => 
+                                FoodSafety_DAL.uploadAttachmentFile(file, FoodSafety_Main.state.varTourID, "GMP", `GMP_${item.id}_${fIdx + 1}`, cleanRemarks)
+                                    .catch(upErr => {
+                                        console.warn(`Failed to upload proof ${fIdx + 1} for GMP item ${item.id}:`, upErr);
+                                        return "";
+                                    })
+                            );
+                            const results = await Promise.all(uploadPromises);
+                            uploadedUrls = results.filter(Boolean);
                         }
+
+                        let existingUrls = [];
+                        if (existingUrl) {
+                            existingUrls = existingUrl.split(/[;,]/).map(u => u.trim()).filter(Boolean);
+                        } else if (parsed.proofUrl) {
+                            existingUrls = parsed.proofUrl.split(/[;,]/).map(u => u.trim()).filter(Boolean);
+                        }
+                        const allUrls = [...existingUrls, ...uploadedUrls];
+                        proofUrl = allUrls.join(";");
                     }
 
                     const finalRemarks = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.formatRemarksWithProof)
@@ -413,7 +506,7 @@ const GMPChecklistScreen = {
             }
 
             const gmpScore = (totalOkay / 46) * 100;
-            const resultStatus = gmpScore >= 80 ? "Pass" : "Fail";
+            const resultStatus = (totalOkay === 46) ? "Pass" : "Fail";
 
             ShowLoader();
 
@@ -500,7 +593,6 @@ const GMPChecklistScreen = {
                         let cleanRemarks = remarks;
                         let proofUrl = "";
                         if (status === "Not Okay") {
-                            const fileInput = document.getElementById(`gmp-proof-${item.id}`);
                             const existingProofEl = document.getElementById(`gmp-existing-proof-${item.id}`);
                             const existingUrl = existingProofEl ? existingProofEl.getAttribute("data-url") : "";
 
@@ -510,20 +602,31 @@ const GMPChecklistScreen = {
                                 : { remarks: remarks.replace(/\|?\s*Proof:\s*.*$/i, "").trim(), proofUrl: "" };
                             cleanRemarks = parsed.remarks;
 
-                            if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                            const files = (this.uploadedFiles && this.uploadedFiles[item.id]) ? this.uploadedFiles[item.id] : [];
+                            let uploadedUrls = [];
+                            if (files.length > 0) {
                                 if (typeof ShowProgressLoader === "function") {
-                                    ShowProgressLoader(10, `Uploading proof document for ${secName} item ${item.id}...`);
+                                    ShowProgressLoader(10, `Uploading ${files.length} proof document(s) for ${secName} item ${item.id}...`);
                                 }
-                                try {
-                                    proofUrl = await FoodSafety_DAL.uploadAttachmentFile(fileInput.files[0], FoodSafety_Main.state.varTourID, "GMP", `GMP_${item.id}`, cleanRemarks);
-                                } catch (upErr) {
-                                    console.warn(`Failed to upload proof for GMP item ${item.id}:`, upErr);
-                                }
-                            } else if (existingUrl) {
-                                proofUrl = existingUrl;
-                            } else if (parsed.proofUrl) {
-                                proofUrl = parsed.proofUrl;
+                                const uploadPromises = files.map((file, fIdx) => 
+                                    FoodSafety_DAL.uploadAttachmentFile(file, FoodSafety_Main.state.varTourID, "GMP", `GMP_${item.id}_${fIdx + 1}`, cleanRemarks)
+                                        .catch(upErr => {
+                                            console.warn(`Failed to upload proof ${fIdx + 1} for GMP item ${item.id}:`, upErr);
+                                            return "";
+                                        })
+                                );
+                                const results = await Promise.all(uploadPromises);
+                                uploadedUrls = results.filter(Boolean);
                             }
+
+                            let existingUrls = [];
+                            if (existingUrl) {
+                                existingUrls = existingUrl.split(/[;,]/).map(u => u.trim()).filter(Boolean);
+                            } else if (parsed.proofUrl) {
+                                existingUrls = parsed.proofUrl.split(/[;,]/).map(u => u.trim()).filter(Boolean);
+                            }
+                            const allUrls = [...existingUrls, ...uploadedUrls];
+                            proofUrl = allUrls.join(";");
                         }
 
                         const finalRemarks = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.formatRemarksWithProof)
@@ -552,7 +655,7 @@ const GMPChecklistScreen = {
             }
 
             const gmpScore = (totalOkay / 46) * 100;
-            const resultStatus = gmpScore >= 80 ? "Pass" : "Fail";
+            const resultStatus = (totalOkay === 46) ? "Pass" : "Fail";
 
             if (typeof ShowProgressLoader === "function") {
                 ShowProgressLoader(0, "Cleaning up obsolete checkpoints...");
@@ -648,7 +751,14 @@ const GMPChecklistScreen = {
                                     if (proofUrl && existingProofEl) {
                                         existingProofEl.style.display = "block";
                                         existingProofEl.setAttribute("data-url", proofUrl);
-                                        existingProofEl.innerHTML = `<a href="${proofUrl}" target="_blank" class="badge food-safety-proof-badge" style="background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; text-decoration: none !important; padding: 4px 10px !important; border-radius: 4px !important; display: inline-flex !important; align-items: center !important; gap: 5px !important; font-size: 11px !important; font-weight: 600 !important;"><span style="color: #ffffff !important;">View Attached Proof</span></a>`;
+                                        const urls = proofUrl.split(/[;,]/).map(u => u.trim()).filter(Boolean);
+                                        let linksHtml = `<div class="food-safety-saved-links-container" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">`;
+                                        urls.forEach((u, uIdx) => {
+                                            const docLabel = urls.length > 1 ? `View Proof ${uIdx + 1}` : `View Attached Proof`;
+                                            linksHtml += `<a href="${u}" target="_blank" class="badge food-safety-proof-badge" style="background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; text-decoration: none !important; padding: 4px 10px !important; border-radius: 4px !important; display: inline-flex !important; align-items: center !important; gap: 5px !important; font-size: 11px !important; font-weight: 600 !important;"><span style="color: #ffffff !important;">${docLabel}</span></a>`;
+                                        });
+                                        linksHtml += `</div>`;
+                                        existingProofEl.innerHTML = linksHtml;
                                     }
                                 }
                             }
