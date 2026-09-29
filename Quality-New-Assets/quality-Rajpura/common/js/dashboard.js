@@ -225,13 +225,22 @@ const ALC_Dashboard = {
                 if (categoryDropdown) {
                     $(categoryDropdown).off("change.cat").on("change.cat", () => {
                         console.log("Dashboard category changed to: " + categoryDropdown.value);
-                        ALC_Dashboard.selectedCategory = categoryDropdown.value;
-                        localStorage.setItem("lastVisitedDashboard", categoryDropdown.value);
-                        ALC_Dashboard.applyCategoryFilter();
+                        ALC_Dashboard.handleCategoryChange(categoryDropdown.value);
                     });
                 }
             }
         }, 100);
+    },
+
+    handleCategoryChange: function (category) {
+        const cat = category || (document.getElementById("dashboardCategorySelect") ? document.getElementById("dashboardCategorySelect").value : "ALC");
+        console.log("Handling dashboard category change to: " + cat);
+        this.selectedCategory = cat;
+        try {
+            localStorage.setItem("lastVisitedDashboard", cat);
+        } catch (e) {}
+        this.populateLineDropdown();
+        this.applyCategoryFilter();
     },
 
     evaluateDashboardState: async function () {
@@ -386,14 +395,12 @@ const ALC_Dashboard = {
             const categoryDropdown = document.getElementById("dashboardCategorySelect");
             if (categoryDropdown) {
                 $(categoryDropdown).off("change.cat").on("change.cat", () => {
-                    console.log("Dashboard category changed to: " + categoryDropdown.value);
-                    ALC_Dashboard.selectedCategory = categoryDropdown.value;
-                    localStorage.setItem("lastVisitedDashboard", categoryDropdown.value);
-                    ALC_Dashboard.populateLineDropdown();
-                    ALC_Dashboard.applyCategoryFilter();
+                    ALC_Dashboard.handleCategoryChange(categoryDropdown.value);
                 });
-                // Sync select state with category (triggers Select2 UI update)
-                $(categoryDropdown).val(ALC_Dashboard.selectedCategory).trigger("change");
+                // Sync select state with category
+                if (categoryDropdown.value !== ALC_Dashboard.selectedCategory) {
+                    $(categoryDropdown).val(ALC_Dashboard.selectedCategory);
+                }
             }
 
             // Ensure filter panel is present and events are bound
@@ -631,6 +638,11 @@ const ALC_Dashboard = {
     },
 
     applyCategoryFilter: async function () {
+        // Ensure line dropdown matches the active category
+        if (this._lastPopulatedCategory !== this.selectedCategory) {
+            this.populateLineDropdown();
+        }
+
         const isFS = this.selectedCategory === "FoodSafety";
         const isCCP = this.selectedCategory === "CCP_OPRP_Sieves";
         const isMB = this.selectedCategory === "MixingAndBaking";
@@ -2582,12 +2594,57 @@ const ALC_Dashboard = {
         });
     },
 
+    // Helper to extract individual line numbers or names from single or multi-line strings (e.g. "Line 1,2,3,4,8", "Line 1-4", "Line No. 2 - IMAFORNI")
+    parseLineTokens: function (lineStr) {
+        if (!lineStr) return [];
+        const clean = String(lineStr).trim();
+        if (!clean || clean.toLowerCase() === "all" || clean.toLowerCase() === "n/a" || clean.toLowerCase() === "none" || clean.toLowerCase() === "all lines") {
+            return [];
+        }
+
+        const tokens = new Set();
+
+        // 1. Check for range expressions like "Line 1-5", "1-4", "1 to 5"
+        const rangeMatch = clean.match(/(\d+)\s*(?:-|to)\s*(\d+)/i);
+        if (rangeMatch) {
+            const start = parseInt(rangeMatch[1], 10);
+            const end = parseInt(rangeMatch[2], 10);
+            if (!isNaN(start) && !isNaN(end) && start <= end && end - start <= 30) {
+                for (let i = start; i <= end; i++) {
+                    tokens.add(String(i));
+                }
+            }
+        }
+
+        // 2. Split multi-line strings by comma, semicolon, slash, &, +, or 'and'
+        const parts = clean.split(/[,;\/&+]|\band\b/i);
+        parts.forEach(p => {
+            const pTrim = p.trim();
+            if (!pTrim) return;
+
+            // Extract all distinct numeric digits
+            const digitMatches = pTrim.match(/\d+/g);
+            if (digitMatches) {
+                digitMatches.forEach(d => tokens.add(String(parseInt(d, 10))));
+            }
+
+            // Also keep cleaned textual name if non-numeric
+            const textOnly = pTrim.replace(/^line\s*(no\.?)?\s*/i, "").trim().toLowerCase();
+            if (textOnly && isNaN(textOnly)) {
+                tokens.add(textOnly);
+            }
+        });
+
+        return Array.from(tokens);
+    },
+
     // Populate line dropdown dynamically based strictly on the selected template dashboard
     populateLineDropdown: function () {
         const lineSelect = document.getElementById("dashboardLineSelect");
         if (!lineSelect) return;
 
         const currentCategory = this.selectedCategory || "ALC";
+        this._lastPopulatedCategory = currentCategory;
         const categoryTours = this.getToursForCategory(currentCategory);
         let templateLines = [];
 
@@ -2651,14 +2708,24 @@ const ALC_Dashboard = {
         categoryTours.forEach(t => {
             const rawLine = String(t.cr3ea_lineno || t.cr3ea_lineid || "").trim();
             if (!rawLine || rawLine.toLowerCase() === "all" || rawLine.toLowerCase() === "n/a") return;
-            const digits = rawLine.replace(/\D/g, "");
-            if (digits) {
-                if (!seenDigits.has(digits)) {
-                    seenDigits.add(digits);
-                    extraLines.push(currentCategory === "ALC" ? `Line No. ${digits}` : `Line ${digits}`);
-                }
+
+            // Extract individual line tokens (e.g. "Line 1,2,3,4,8" -> ["1", "2", "3", "4", "8"])
+            const tokens = ALC_Dashboard.parseLineTokens(rawLine);
+            if (tokens.length > 0) {
+                tokens.forEach(tok => {
+                    if (/^\d+$/.test(tok)) {
+                        if (!seenDigits.has(tok)) {
+                            seenDigits.add(tok);
+                            extraLines.push(currentCategory === "ALC" ? `Line No. ${tok}` : `Line ${tok}`);
+                        }
+                    } else {
+                        if (!templateLines.some(l => l.toLowerCase().includes(tok)) && !extraLines.includes(tok)) {
+                            extraLines.push(tok);
+                        }
+                    }
+                });
             } else {
-                if (!templateLines.some(l => l.toLowerCase() === rawLine.toLowerCase()) && !extraLines.includes(rawLine)) {
+                if (!rawLine.includes(",") && !templateLines.some(l => l.toLowerCase() === rawLine.toLowerCase()) && !extraLines.includes(rawLine)) {
                     extraLines.push(rawLine);
                 }
             }
@@ -2697,22 +2764,47 @@ const ALC_Dashboard = {
         });
         lineSelect.innerHTML = optionsHtml;
         lineSelect.value = newSelectedLine;
+
+        // If Select2 is active on the element, trigger update
+        if (typeof jQuery !== "undefined" && $(lineSelect).data("select2")) {
+            $(lineSelect).trigger("change.select2");
+        }
     },
 
-    // Match tour record against selected line
+    // Match tour record against selected line (supports multi-line records like "Line 1,2,3,4,8")
     matchesLine: function (t, selectedLine) {
-        if (!selectedLine || selectedLine === "All") return true;
-        const tourLine = String(t.cr3ea_lineno || "").trim();
+        if (!selectedLine || selectedLine === "All" || selectedLine === "All Lines") return true;
+        const tourLine = String(t.cr3ea_lineno || t.cr3ea_lineid || "").trim();
         if (!tourLine) return false;
 
-        if (tourLine.toLowerCase() === selectedLine.toLowerCase()) return true;
+        const lowerTour = tourLine.toLowerCase();
+        const lowerSel = selectedLine.toLowerCase();
 
+        // 1. Direct exact match
+        if (lowerTour === lowerSel) return true;
+
+        // 2. If tour applies to all lines ("All", "All Lines")
+        if (lowerTour === "all" || lowerTour === "all lines") return true;
+
+        // 3. Extract tokens from selection and tour record
         const selDigits = selectedLine.replace(/\D/g, "");
-        const tourDigits = tourLine.replace(/\D/g, "");
-        if (selDigits && tourDigits && selDigits === tourDigits) return true;
+        const selTokens = this.parseLineTokens(selectedLine);
+        const tourTokens = this.parseLineTokens(tourLine);
 
-        if (tourLine.toLowerCase().includes(selectedLine.toLowerCase()) || 
-            selectedLine.toLowerCase().includes(tourLine.toLowerCase())) {
+        // If target selection has a specific line number (e.g. "Line 2" -> "2" or "Line No. 2 - IMAFORNI" -> "2")
+        if (selDigits && tourTokens.includes(selDigits)) {
+            return true;
+        }
+
+        // If any token in the selection is present in the tour's tokens
+        if (selTokens.length > 0 && tourTokens.length > 0) {
+            if (selTokens.some(st => tourTokens.includes(st))) {
+                return true;
+            }
+        }
+
+        // Fallback: substring matching
+        if (lowerTour.includes(lowerSel) || lowerSel.includes(lowerTour)) {
             return true;
         }
 

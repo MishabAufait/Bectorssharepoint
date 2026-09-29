@@ -30,7 +30,7 @@
             siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/js/custom/shiftpopup.js?v=2.0",
             siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/pkg-products-seed.js?v=5.8",
             siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/mb-recipes-seed.js?v=7.3",
-            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/dashboard.js?v=7.3",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/dashboard.js?v=7.5",
             siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/admin.js?v=9.6"
         ];
 
@@ -381,7 +381,7 @@ html, body {
             <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <label style="font-weight: 600; margin-bottom: 0; color: #475569; font-size: 13px; white-space: nowrap;">Checklist Type:</label>
-                    <select id="dashboardCategorySelect" class="form-select" style="width: 220px; height: 35px; padding: 5px 10px; font-size: 13px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; cursor: pointer; background-color: #ffffff; color: #1e293b;">
+                    <select id="dashboardCategorySelect" class="form-select" onchange="if(typeof ALC_Dashboard !== 'undefined' && typeof ALC_Dashboard.handleCategoryChange === 'function') { ALC_Dashboard.handleCategoryChange(this.value); }" style="width: 220px; height: 35px; padding: 5px 10px; font-size: 13px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; cursor: pointer; background-color: #ffffff; color: #1e293b;">
                         <option value="ALC">Area Line Clearance (ALC)</option>
                         <option value="FoodSafety">Food Safety Checklist</option>
                         <option value="CCP_OPRP_Sieves">CCP, OPRP & Sieves</option>
