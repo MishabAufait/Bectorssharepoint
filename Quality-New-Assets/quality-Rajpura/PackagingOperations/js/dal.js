@@ -861,6 +861,21 @@ const PKGOPS_DAL = {
             }
         });
 
+        // Sort rows by sample number if available
+        if (rows.length > 0 && rows.some(r => r.cr3ea_samplenumber)) {
+            const parseNum = (str) => {
+                if (!str) return 0;
+                const m = String(str).match(/\d+/);
+                return m ? parseInt(m[0], 10) : 0;
+            };
+            rows.sort((a, b) => {
+                const numA = parseNum(a.cr3ea_samplenumber);
+                const numB = parseNum(b.cr3ea_samplenumber);
+                if (numA !== numB) return numA - numB;
+                return (a.cr3ea_samplenumber || "").localeCompare(b.cr3ea_samplenumber || "", undefined, { numeric: true });
+            });
+        }
+
         return rows;
     },
 

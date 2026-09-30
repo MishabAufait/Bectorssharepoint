@@ -2426,6 +2426,7 @@ const PKGOPS_Checklist = {
                 const expiry = document.getElementById("cv-expiry").value;
 
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_CODE_VERIFICATION", this.currentTourId);
+                const cvRecordsToSave = [];
                 for (let i = 0; i < 10; i++) {
                     const status = document.getElementById(`cv-status-${i}`).value;
                     const defect = document.getElementById(`cv-defect-${i}`).value;

@@ -125,7 +125,17 @@ const PKGOPS_CorrectiveAction = {
             } else if (this.pkgopsType === "PAPA") {
                 this.deviatedRows = rows.filter(r => r.cr3ea_defecttype && r.cr3ea_defecttype !== "Overall Summary");
             } else if (this.pkgopsType === "PQI") {
-                this.deviatedRows = rows.filter(r => r.cr3ea_sampleresult === "Not Okay");
+                const parseNum = (str) => {
+                    if (!str) return 0;
+                    const m = String(str).match(/\d+/);
+                    return m ? parseInt(m[0], 10) : 0;
+                };
+                this.deviatedRows = rows.filter(r => r.cr3ea_sampleresult === "Not Okay").sort((a, b) => {
+                    const numA = parseNum(a.cr3ea_samplenumber);
+                    const numB = parseNum(b.cr3ea_samplenumber);
+                    if (numA !== numB) return numA - numB;
+                    return (a.cr3ea_samplenumber || "").localeCompare(b.cr3ea_samplenumber || "", undefined, { numeric: true });
+                });
             } else if (this.pkgopsType === "Seal Integrity") {
                 this.deviatedRows = rows.filter(r => parseInt(r.cr3ea_noofleakage) > 0);
             } else {

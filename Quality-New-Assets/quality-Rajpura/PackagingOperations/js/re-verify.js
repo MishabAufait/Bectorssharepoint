@@ -117,7 +117,17 @@ const PKGOPS_Reverify = {
             } else if (this.pkgopsType === "PAPA") {
                 this.reverifyRows = rows.filter(r => r.cr3ea_actiontaken);
             } else if (this.pkgopsType === "PQI") {
-                this.reverifyRows = rows.filter(r => r.cr3ea_deviationstatus === "Pending Re-Verification" || (r.cr3ea_actiontaken && r.cr3ea_deviationstatus !== "Closed"));
+                const parseNum = (str) => {
+                    if (!str) return 0;
+                    const m = String(str).match(/\d+/);
+                    return m ? parseInt(m[0], 10) : 0;
+                };
+                this.reverifyRows = rows.filter(r => r.cr3ea_deviationstatus === "Pending Re-Verification" || (r.cr3ea_actiontaken && r.cr3ea_deviationstatus !== "Closed")).sort((a, b) => {
+                    const numA = parseNum(a.cr3ea_samplenumber);
+                    const numB = parseNum(b.cr3ea_samplenumber);
+                    if (numA !== numB) return numA - numB;
+                    return (a.cr3ea_samplenumber || "").localeCompare(b.cr3ea_samplenumber || "", undefined, { numeric: true });
+                });
             } else if (this.pkgopsType === "Seal Integrity") {
                 this.reverifyRows = rows.filter(r => r.cr3ea_deviationstatus === "Pending Re-Verification" || (r.cr3ea_actiontaken && r.cr3ea_deviationstatus !== "Closed"));
             }

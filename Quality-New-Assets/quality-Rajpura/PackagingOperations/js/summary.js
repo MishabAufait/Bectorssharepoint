@@ -230,7 +230,18 @@ const PKGOPS_Summary = {
 
             // Separate overall summary row from actual defect rows
             const overallRow = rows.find(r => r.cr3ea_defecttype === "Overall Summary");
-            const defectRows = rows.filter(r => r.cr3ea_defecttype && r.cr3ea_defecttype !== "Overall Summary");
+            const defectRows = rows.filter(r => r.cr3ea_defecttype && r.cr3ea_defecttype !== "Overall Summary").sort((a, b) => {
+                const getCatWeight = (t) => {
+                    if (!t) return 4;
+                    if (t.includes("(A -") || t.includes("(A)") || t.includes("Category A")) return 1;
+                    if (t.includes("(B -") || t.includes("(B)") || t.includes("Category B")) return 2;
+                    if (t.includes("(C -") || t.includes("(C)") || t.includes("Category C")) return 3;
+                    return 4;
+                };
+                const diff = getCatWeight(a.cr3ea_defecttype) - getCatWeight(b.cr3ea_defecttype);
+                if (diff !== 0) return diff;
+                return (a.cr3ea_defecttype || "").localeCompare(b.cr3ea_defecttype || "");
+            });
 
             // Calculate totals
             let totalDefectCount = defectRows.reduce((sum, r) => sum + (parseInt(r.cr3ea_defectcount) || 0), 0);
@@ -493,8 +504,29 @@ const PKGOPS_Summary = {
             const sku = firstRow.cr3ea_sku || "-";
 
             let groupsHtml = "";
-            Object.keys(groups).forEach(evalType => {
-                const groupRows = groups[evalType];
+            const evalOrder = ["Product", "Primary", "Secondary", "CBB"];
+            const groupKeys = Object.keys(groups).sort((a, b) => {
+                const idxA = evalOrder.indexOf(a);
+                const idxB = evalOrder.indexOf(b);
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                return a.localeCompare(b);
+            });
+
+            const parseSampleNum = (str) => {
+                if (!str) return 0;
+                const m = String(str).match(/\d+/);
+                return m ? parseInt(m[0], 10) : 0;
+            };
+
+            groupKeys.forEach(evalType => {
+                const groupRows = (groups[evalType] || []).slice().sort((a, b) => {
+                    const numA = parseSampleNum(a.cr3ea_samplenumber);
+                    const numB = parseSampleNum(b.cr3ea_samplenumber);
+                    if (numA !== numB) return numA - numB;
+                    return (a.cr3ea_samplenumber || "").localeCompare(b.cr3ea_samplenumber || "", undefined, { numeric: true });
+                });
                 const st = catStats[evalType] || { total: groupRows.length, defective: groupRows.filter(r => r.cr3ea_sampleresult === "Not Okay").length, pct: ((groupRows.filter(r => r.cr3ea_sampleresult === "Not Okay").length / (groupRows.length || 1)) * 100).toFixed(2) };
                 const isDefective = st.defective > 0;
                 const badgeCls = isDefective ? 'bg-danger' : 'bg-success';
