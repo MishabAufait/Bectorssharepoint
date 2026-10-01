@@ -103,7 +103,7 @@ const QualityRajpura_Config = {
         PROD: {
             TENANT_URL: "https://bectors.sharepoint.com/sites/PTMS_PRD",
             DATAVERSE_URL: "https://orgea61b289.crm8.dynamics.com",
-            FLOW_URL: "",
+            FLOW_URL: "https://defaultaa44c5c154484e7488d917838a6f9d.5a.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/05/workflows/ebad95e3f75d45ce8ba2c3f1707ad323/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=RatgyLEO5lhV9HBvm7kdxvDBrImekoCq9TA_h2xdw4w",
             PLANT_ID: "2",
             PLANT_NAME: "Rajpura",
             QUALITY_DEPT_IDS: ["39", "81", "135"],
