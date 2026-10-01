@@ -96,13 +96,16 @@ function initSelect2(scope) {
     // avoid double init
     if ($sel.hasClass("select2-hidden-accessible")) return;
 
+    // Skip selects inside #shiftPopup on document ready (tourPopup initializes them cleanly when modal opens)
+    if ($sel.closest("#shiftPopup").length) return;
+
     // If the select is inside #shiftPopup -> force dropdownParent to that popup-body
     const $shiftPopup = $sel.closest("#shiftPopup");
     const $popupBody = $shiftPopup.length ? $shiftPopup.find(".popup-body") : $sel.closest(".popup-body");
 
     $sel.select2({
       minimumResultsForSearch: -1,
-      dropdownAutoWidth: true,
+      dropdownAutoWidth: false,
       width: "100%",
       dropdownParent: $popupBody.length ? $popupBody : $(document.body)
     });
@@ -394,22 +397,62 @@ function tourPopup() {
     $('#shiftSelect').select2('destroy');
   }
 
-  // init after popup is visible so select2 can calculate width correctly
   setTimeout(function () {
-    $('#tourSelect').select2({
-      minimumResultsForSearch: -1,
-      dropdownAutoWidth: true,
-      width: "100%",
-      dropdownParent: $popupBody
+    // Enforce compact modal styling for #shiftPopup
+    $('#shiftPopup .popup-common-box').css({
+      'display': 'flex',
+      'flex-direction': 'column',
+      'width': '440px',
+      'min-width': '0',
+      'max-width': '90vw',
+      'height': 'auto',
+      'min-height': '0',
+      'max-height': '90vh',
+      'flex': '0 0 auto',
+      'padding': '20px',
+      'margin': '0 auto',
+      'border-radius': '12px',
+      'background': '#ffffff',
+      'box-sizing': 'border-box',
+      'overflow': 'visible'
+    });
+    $('#shiftPopup .popup-body').css({
+      'display': 'block',
+      'height': 'auto',
+      'min-height': '0',
+      'flex': '0 0 auto',
+      'overflow': 'visible',
+      'padding': '0',
+      'margin': '0'
+    });
+    $('#shiftPopup .popup-footer').css({
+      'display': 'flex',
+      'align-items': 'center',
+      'justify-content': 'flex-end',
+      'gap': '12px',
+      'margin-top': '16px',
+      'padding': '0',
+      'border-top': 'none',
+      'background': 'transparent',
+      'flex': '0 0 auto'
     });
 
-    if (isRajpuraQuality) {
+    const $tourParent = $('#tourSelect').closest('.select2-parent');
+    $('#tourSelect').select2({
+      minimumResultsForSearch: -1,
+      dropdownAutoWidth: false,
+      width: "100%",
+      dropdownParent: $tourParent.length ? $tourParent : $popupBody
+    });
+
+    const isCurrentRajpuraQuality = isRajpuraQuality || (isQualityDepartment() && isRajpuraPlant()) || ($('#tourSelect option[value="ALC"]').length > 0 && userDepratmentId != 82);
+    if (isCurrentRajpuraQuality) {
       $('#shiftPopup .shift-popup-content-wrapper').hide();
     } else {
       $('#shiftPopup .shift-popup-content-wrapper').show();
       $('#shiftSelect').select2({
         minimumResultsForSearch: -1,
-        dropdownAutoWidth: true,
+        dropdownAutoWidth: false,
         width: "100%",
         dropdownParent: $popupBody
       });

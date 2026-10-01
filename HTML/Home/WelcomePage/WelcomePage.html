@@ -17,16 +17,16 @@
 
         var cssLinks = [
             siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/main.min.css?v=2.0",
-            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/home-page.min.css?v=3.7",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/home-page.min.css?v=4.2",
             siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/style.css?v=2.0",
-            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=5.9",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=6.1",
             siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/admin.css?v=6.0"
         ];
 
         var jsScripts = [
             siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=6.1",
             siteBaseUrl + "/BectorsSourceCode/JS/Home/WelcomeWebPart/WelcomeDAL.js?v=2.0",
-            siteBaseUrl + "/BectorsSourceCode/JS/Home/WelcomeWebPart/WelcomeBAL.js?v=2.1",
+            siteBaseUrl + "/BectorsSourceCode/JS/Home/WelcomeWebPart/WelcomeBAL.js?v=2.7",
             siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/js/custom/shiftpopup.js?v=2.0",
             siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/pkg-products-seed.js?v=5.8",
             siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/mb-recipes-seed.js?v=7.3",
@@ -100,9 +100,9 @@
  
 <div id="shiftPopup" class="main-popup shift-popup">
 <div class="popup-bg"></div>
-<div class="popup-content">
-<div class="popup-common-box">
-<div class="popup-header">
+<div class="popup-content" style="min-height: 100vh !important; height: 100vh !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; overflow: hidden !important;">
+<div class="popup-common-box" style="display: flex !important; flex-direction: column !important; width: 440px !important; min-width: 0 !important; max-width: 90vw !important; height: auto !important; min-height: 0 !important; max-height: 90vh !important; flex: 0 0 auto !important; -ms-flex: 0 0 auto !important; padding: 20px !important; margin: 0 auto !important; border-radius: 12px !important; background: #ffffff !important; box-sizing: border-box !important;">
+<div class="popup-header" style="display: flex !important; align-items: center !important; justify-content: space-between !important; margin-bottom: 12px !important; padding-bottom: 0 !important; background: transparent !important; flex: 0 0 auto !important;">
 <h4 class="popup-header-title">Start Plant Tour</h4>
 <button type="button" class="bs-btn popup-close-btn" onclick="tourPopupclose()">
 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -112,7 +112,7 @@
 </svg>
 </button>
 </div>
-<div class="popup-body">
+<div class="popup-body" style="display: block !important; height: auto !important; min-height: 0 !important; flex: 0 0 auto !important; -ms-flex: 0 0 auto !important; overflow: visible !important; padding: 0 !important; margin: 0 !important;">
 <div class="tour-popup-content-wrapper">
 <label class="form-label">Select Tour</label>
 <div class="select2-parent">
@@ -132,7 +132,7 @@
 </select>
 </div>
 </div>
-<div class="shift-popup-content-wrapper">
+<div class="shift-popup-content-wrapper" style="display: none;">
 <label class="form-label">Select Shift</label>
 <div class="select2-parent">
 <select id="shiftSelect" class="form-select" name="shift-dropdown">
@@ -143,7 +143,7 @@
 </div>
 </div>
 </div>
-<div class="popup-footer">
+<div class="popup-footer" style="display: flex !important; align-items: center !important; justify-content: flex-end !important; gap: 12px !important; margin-top: 16px !important; padding: 0 !important; border-top: none !important; background: transparent !important; flex: 0 0 auto !important;">
 <button type="button" class="bs-btn bs-btn-outline-primary" onclick="tourPopupclose()">Cancel</button>
 <button id="shiftPopupDone" type="button" class="bs-btn bs-btn-primary" onclick="SaveQualityDataItem()">Done</button>
 </div>
@@ -173,6 +173,129 @@ html, body {
     left: 0 !important;
     right: 0 !important;
     bottom: 0 !important;
+}
+
+/* Modal Compact Height & Select2 Arrow styling */
+#shiftPopup .popup-content {
+    min-height: 100vh !important;
+    max-height: 100vh !important;
+    height: 100vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+}
+
+#shiftPopup .popup-common-box {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 440px !important;
+    min-width: 0 !important;
+    max-width: 90vw !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: 90vh !important;
+    flex: 0 0 auto !important;
+    -ms-flex: 0 0 auto !important;
+    padding: 20px !important;
+    margin: 0 auto !important;
+    border-radius: 12px !important;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+    background: #ffffff !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+}
+
+#shiftPopup .popup-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin-bottom: 12px !important;
+    padding-bottom: 0 !important;
+    background: transparent !important;
+    flex: 0 0 auto !important;
+    -ms-flex: 0 0 auto !important;
+}
+
+#shiftPopup .popup-body {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    flex: 0 0 auto !important;
+    -ms-flex: 0 0 auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+#shiftPopup .tour-popup-content-wrapper {
+    margin-bottom: 0 !important;
+}
+
+#shiftPopup .popup-footer {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 12px !important;
+    margin-top: 16px !important;
+    padding: 0 !important;
+    border-top: none !important;
+    background: transparent !important;
+    flex: 0 0 auto !important;
+    -ms-flex: 0 0 auto !important;
+}
+
+#shiftPopup .select2-parent {
+    position: relative !important;
+    width: 100% !important;
+    display: block !important;
+}
+
+#shiftPopup .select2-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+}
+
+#shiftPopup .select2-container .select2-selection--single {
+    height: 42px !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    background-color: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 0 36px 0 12px !important;
+    position: relative !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%2364748b'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 14px center !important;
+    background-size: 12px 10px !important;
+}
+
+#shiftPopup .select2-container--default .select2-selection--single .select2-selection__arrow {
+    display: none !important;
+}
+
+#shiftPopup .select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: #0f172a !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    line-height: 40px !important;
+    padding-left: 0 !important;
+    width: 100% !important;
+    text-align: left !important;
+}
+
+#shiftPopup .select2-dropdown {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+    background: #ffffff !important;
+    z-index: 99999 !important;
 }
 
 #rajpuraQualityDashboard {

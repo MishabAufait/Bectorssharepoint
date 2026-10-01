@@ -21,6 +21,60 @@ html, body {
     bottom: 0 !important;
 }
 
+#shiftPopup .popup-content {
+    min-height: 100vh !important;
+    max-height: 100vh !important;
+    height: 100vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+}
+
+#shiftPopup .popup-common-box {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 440px !important;
+    min-width: 0 !important;
+    max-width: 90vw !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: 90vh !important;
+    flex: 0 0 auto !important;
+    -ms-flex: 0 0 auto !important;
+    padding: 20px !important;
+    margin: 0 auto !important;
+    border-radius: 12px !important;
+    background: #ffffff !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+}
+
+#shiftPopup .popup-body {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    flex: 0 0 auto !important;
+    -ms-flex: 0 0 auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+#shiftPopup .popup-footer {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 12px !important;
+    margin-top: 16px !important;
+    padding: 0 !important;
+    border-top: none !important;
+    background: transparent !important;
+    flex: 0 0 auto !important;
+    -ms-flex: 0 0 auto !important;
+}
+
 #rajpuraQualityDashboard {
     font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     max-width: 100% !important;
