@@ -178,7 +178,7 @@ const accessToken = "PASTE_YOUR_ACCESS_TOKEN_HERE";
         { SchemaName: "cr3ea_machineno", Display: "Machine No", Type: "String", MaxLength: 50 },
         { SchemaName: "cr3ea_samplequantity", Display: "Sample Quantity", Type: "String", MaxLength: 50 },
         { SchemaName: "cr3ea_noofleakage", Display: "No of Leakage", Type: "String", MaxLength: 50 },
-        { SchemaName: "cr3ea_leakagetype", Display: "Leakage Type", Type: "String", MaxLength: 100 },
+        { SchemaName: "cr3ea_leakagetype", Display: "Leakage Type", Type: "String", MaxLength: 500 },
         { SchemaName: "cr3ea_deviationstatus", Display: "Deviation Status", Type: "String", MaxLength: 50 },
         { SchemaName: "cr3ea_actiontaken", Display: "Action Taken", Type: "String", MaxLength: 2000 }
       ]

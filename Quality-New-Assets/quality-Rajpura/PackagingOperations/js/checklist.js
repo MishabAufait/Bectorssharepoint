@@ -198,6 +198,51 @@ PKGOPS_DEFECT_DETAILS_BY_CATEGORY["A"] = PKGOPS_DEFECT_DETAILS_BY_CATEGORY["Cate
 PKGOPS_DEFECT_DETAILS_BY_CATEGORY["B"] = PKGOPS_DEFECT_DETAILS_BY_CATEGORY["Category B"];
 PKGOPS_DEFECT_DETAILS_BY_CATEGORY["C"] = PKGOPS_DEFECT_DETAILS_BY_CATEGORY["Category C"];
 
+const PKGOPS_CV_DEFECT_CATEGORIES = [
+    {
+        group: "Critical / Coding Details",
+        color: "#dc2626",
+        options: [
+            "Wrong PKD",
+            "Wrong Expiry Date",
+            "Wrong MRP",
+            "Wrong Batch No",
+            "Wrong Code",
+            "No Code / Missing Code",
+            "Illegible Code"
+        ]
+    },
+    {
+        group: "Printing & Visual Quality",
+        color: "#d97706",
+        options: [
+            "Smudge Print",
+            "Missing Print",
+            "Faint / Blurred Print",
+            "Coding Out of Position",
+            "Overlapping / Double Print",
+            "Partial / Incomplete Code",
+            "Inverted / Upside Down Code"
+        ]
+    },
+    {
+        group: "Packaging & Substrate",
+        color: "#4f46e5",
+        options: [
+            "Cross Coding",
+            "Wrinkles on Coding Area",
+            "Torn / Damaged Code Area"
+        ]
+    },
+    {
+        group: "Custom / Other",
+        color: "#475569",
+        options: [
+            "Other (Custom)"
+        ]
+    }
+];
+
 const PKGOPS_Validator = {
     highlight: function (element, isInvalid) {
         if (!element) return;
@@ -222,6 +267,7 @@ const PKGOPS_Checklist = {
     pkgopsType: null,
     activeSubChecklistKey: null,
     uploadedFiles: {}, // Maps key (e.g. "cv-0", "pqi-0") to Array of File objects: [File1, File2, ...]
+    cvSelectedDefects: {}, // Maps sample index 0..9 to Array of selected defect names
 
     escapeHtml: function (str) {
         if (!str) return "";
@@ -261,6 +307,14 @@ const PKGOPS_Checklist = {
 
         input.value = "";
         this.renderFileStatus(key);
+    },
+
+    handleFileUpload: function (keyOrInput, inputOrKey) {
+        if (keyOrInput && keyOrInput.files) {
+            return this.onFileSelected(keyOrInput, inputOrKey);
+        } else if (inputOrKey && inputOrKey.files) {
+            return this.onFileSelected(inputOrKey, keyOrInput);
+        }
     },
 
     removeFile: function (key, fileIdx) {
@@ -318,6 +372,20 @@ const PKGOPS_Checklist = {
     init: async function (tourId, pkgopsType) {
         this.currentTourId = tourId;
         this.pkgopsType = pkgopsType;
+        this.cvSelectedDefects = {};
+        for (let i = 0; i < 10; i++) {
+            this.cvSelectedDefects[i] = [];
+        }
+        if (!window._pkgopsOutsideClickListenerAttached) {
+            window._pkgopsOutsideClickListenerAttached = true;
+            document.addEventListener("click", function (e) {
+                if (!e.target.closest(".cv-defect-multiselect-container")) {
+                    document.querySelectorAll(".cv-defect-dropdown-panel").forEach(p => {
+                        p.style.display = "none";
+                    });
+                }
+            });
+        }
         this.pqiSubChecklistsFilled = {
             NetWeight: false,
             Product: false,
@@ -606,6 +674,23 @@ const PKGOPS_Checklist = {
         }
     },
 
+    parseSampleNum: function (row, fallbackIdx) {
+        if (!row) return fallbackIdx !== undefined ? fallbackIdx + 1 : 1;
+        if (typeof row === "string" || typeof row === "number") {
+            const m = String(row).match(/\d+/);
+            return m ? parseInt(m[0], 10) : (fallbackIdx !== undefined ? fallbackIdx + 1 : 1);
+        }
+        if (row.cr3ea_samplenumber) {
+            const m = String(row.cr3ea_samplenumber).match(/\d+/);
+            if (m) return parseInt(m[0], 10);
+        }
+        if (row.cr3ea_name) {
+            const m = String(row.cr3ea_name).match(/Sample[_\s-]*(\d+)/i);
+            if (m) return parseInt(m[1], 10);
+        }
+        return fallbackIdx !== undefined ? fallbackIdx + 1 : 999;
+    },
+
     // Main router rendering the sub-checklist forms
     renderChecklistForm: function () {
         const container = document.getElementById("checklist-form-area");
@@ -699,6 +784,15 @@ const PKGOPS_Checklist = {
 
     // 2. Code Verification Form
     renderCodeVerification: function (container) {
+        if (!this.cvSelectedDefects) {
+            this.cvSelectedDefects = {};
+        }
+        for (let i = 0; i < 10; i++) {
+            if (!this.cvSelectedDefects[i]) {
+                this.cvSelectedDefects[i] = [];
+            }
+        }
+
         container.innerHTML = `
             <div class="row">
                 <div class="col-md-12">
@@ -740,44 +834,55 @@ const PKGOPS_Checklist = {
             <div class="row mt-4">
                 <div class="col-md-12">
                     <h4 class="form-section-title">Sample Evaluation (Ok / Not Ok)</h4>
-                    <table class="table table-bordered mt-2 text-center align-middle">
+                    <table class="table table-bordered mt-2 text-center align-middle" style="table-layout: auto;">
                         <thead class="table-light">
                             <tr>
-                                <th>Sample No</th>
-                                <th>Status</th>
-                                <th>Defect Category</th>
-                                <th>Defect Count</th>
-                                <th>Upload Image</th>
+                                <th style="width: 10%;">Sample No</th>
+                                <th style="width: 14%;">Status</th>
+                                <th style="width: 38%;">Defect Category</th>
+                                <th style="width: 14%;">Defect Count</th>
+                                <th style="width: 24%;">Upload Image</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${Array.from({ length: 10 }).map((_, idx) => `
                                 <tr>
-                                    <td>Sample ${idx + 1}</td>
+                                    <td class="fw-semibold text-secondary">Sample ${idx + 1}</td>
                                     <td>
                                         <select class="form-select cv-sample-status" id="cv-status-${idx}" onchange="PKGOPS_Checklist.toggleCvDefectFields(${idx})">
                                             <option value="Okay">Okay</option>
                                             <option value="Not Okay">Not Okay</option>
                                         </select>
                                     </td>
-                                    <td>
-                                        <select class="form-select cv-defect-category" id="cv-defect-${idx}" disabled>
-                                            <option value="">Select Defect</option>
-                                            <option value="Wrong PKD">Wrong PKD</option>
-                                            <option value="Wrong Expiry">Wrong Expiry</option>
-                                            <option value="Smudge Print">Smudge Print</option>
-                                            <option value="Missing Print">Missing Print</option>
-                                        </select>
+                                    <td style="text-align: left; vertical-align: top; position: relative;">
+                                        <div class="cv-defect-multiselect-container" id="cv-defect-container-${idx}">
+                                            <div class="cv-defect-btn-wrapper">
+                                                <button type="button" class="form-select text-start d-flex justify-content-between align-items-center cv-defect-trigger-btn" id="cv-defect-btn-${idx}" onclick="PKGOPS_Checklist.toggleCvDefectDropdown(${idx}, event)" disabled style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 12px; font-size: 13px; font-weight: 500; cursor: not-allowed; min-height: 38px;">
+                                                    <span id="cv-defect-summary-${idx}" style="color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px;">Select Defect(s)</span>
+                                                    <i class="fa fa-chevron-down" style="font-size: 11px; color: #64748b; margin-left: 6px; flex-shrink: 0;"></i>
+                                                </button>
+
+                                                <div class="cv-defect-dropdown-panel shadow-lg" id="cv-defect-panel-${idx}" style="display: none;" onclick="event.stopPropagation();">
+                                                    ${this.getCvDefectCheckboxesHtml(idx)}
+                                                </div>
+                                            </div>
+
+                                            <div class="cv-selected-chips-wrap d-flex flex-wrap gap-1 mt-1 text-start" id="cv-defect-chips-${idx}"></div>
+
+                                            <input type="text" class="form-control form-control-sm mt-1" id="cv-custom-${idx}" placeholder="Specify custom defect description..." style="display: none; font-size: 12px; border-color: #f59e0b; background-color: #fffbeb;" oninput="PKGOPS_Validator.highlight(this, false);">
+                                        </div>
                                     </td>
                                     <td>
-                                        <input type="number" class="form-control cv-defect-count" id="cv-count-${idx}" placeholder="Count" min="1" disabled>
+                                        <input type="number" class="form-control cv-defect-count" id="cv-count-${idx}" min="1" placeholder="Count" disabled>
                                     </td>
                                     <td>
-                                        <input type="file" class="form-control cv-file-upload" id="cv-file-${idx}" accept="image/*" multiple disabled onchange="PKGOPS_Checklist.onFileSelected(this, 'cv-${idx}')">
-                                        <div id="file-status-cv-${idx}" class="form-text text-muted" style="margin-top: 4px; font-size: 11px;"></div>
+                                        <div class="d-flex flex-column align-items-start gap-1">
+                                            <input type="file" class="form-control form-control-sm cv-sample-file" id="cv-file-${idx}" accept="image/*" multiple onchange="PKGOPS_Checklist.onFileSelected(this, 'cv-${idx}')" disabled>
+                                            <div id="file-status-cv-${idx}" class="w-100"></div>
+                                        </div>
                                     </td>
                                 </tr>
-                            `).join('')}
+                            `).join("")}
                         </tbody>
                     </table>
                 </div>
@@ -785,23 +890,203 @@ const PKGOPS_Checklist = {
         `;
     },
 
+    getCvDefectCheckboxesHtml: function (idx) {
+        let html = `
+            <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
+                <span style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase;">Select Defect Category</span>
+                <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" style="font-size: 11px; color: #dc2626;" onclick="PKGOPS_Checklist.clearAllCvDefects(${idx})">Clear All</button>
+            </div>
+        `;
+
+        PKGOPS_CV_DEFECT_CATEGORIES.forEach((cat, cIdx) => {
+            html += `
+                <div class="cv-defect-group" style="${cIdx > 0 ? 'margin-top: 8px;' : ''}">
+                    <div style="font-size: 10px; font-weight: 700; color: ${cat.color}; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; padding-bottom: 2px; border-bottom: 1px solid #f1f5f9;">
+                        ${cat.group}
+                    </div>
+                    <div class="d-flex flex-column gap-1">
+                        ${cat.options.map((opt, oIdx) => {
+                            const optId = `cv-opt-${idx}-${cIdx}-${oIdx}`;
+                            const escapedOpt = opt.replace(/'/g, "\\'");
+                            return `
+                                <label class="cv-defect-checkbox-label" for="${optId}">
+                                    <input type="checkbox" class="cv-defect-chk-input cv-chk-${idx}" id="${optId}" value="${opt}" onchange="PKGOPS_Checklist.onCvDefectCheckboxChange(${idx}, '${escapedOpt}', this.checked)" style="position: relative !important; float: none !important; margin: 0 !important; width: 16px !important; height: 16px !important; min-width: 16px !important; flex-shrink: 0 !important; cursor: pointer !important; accent-color: #2563eb !important; vertical-align: middle !important; top: 0 !important; left: 0 !important;">
+                                    <span class="cv-defect-chk-text" style="color: #1e293b; font-weight: 500; font-size: 12px; line-height: 1.3; margin-left: 8px;">${opt}</span>
+                                </label>
+                            `;
+                        }).join("")}
+                    </div>
+                </div>
+            `;
+        });
+        return html;
+    },
+
+    clearAllCvDefects: function (idx) {
+        if (!this.cvSelectedDefects) this.cvSelectedDefects = {};
+        this.cvSelectedDefects[idx] = [];
+        const checkboxes = document.querySelectorAll(`.cv-chk-${idx}`);
+        checkboxes.forEach(chk => { chk.checked = false; });
+        this.updateCvDefectDisplay(idx);
+    },
+
+    toggleCvDefectDropdown: function (idx, event) {
+        if (event) {
+            event.stopPropagation();
+            event.preventDefault();
+        }
+        const status = document.getElementById(`cv-status-${idx}`)?.value;
+        if (status !== "Not Okay") return;
+
+        const panel = document.getElementById(`cv-defect-panel-${idx}`);
+        if (!panel) return;
+
+        const isVisible = panel.style.display === "block";
+
+        // Close all other open cv defect panels
+        document.querySelectorAll(".cv-defect-dropdown-panel").forEach(p => {
+            p.style.display = "none";
+        });
+
+        if (!isVisible) {
+            panel.style.display = "block";
+        }
+    },
+
+    onCvDefectCheckboxChange: function (idx, defectName, isChecked) {
+        if (!this.cvSelectedDefects) this.cvSelectedDefects = {};
+        if (!this.cvSelectedDefects[idx]) this.cvSelectedDefects[idx] = [];
+
+        if (isChecked) {
+            if (!this.cvSelectedDefects[idx].includes(defectName)) {
+                this.cvSelectedDefects[idx].push(defectName);
+            }
+        } else {
+            this.cvSelectedDefects[idx] = this.cvSelectedDefects[idx].filter(d => d !== defectName);
+        }
+
+        const triggerBtn = document.getElementById(`cv-defect-btn-${idx}`);
+        if (triggerBtn) PKGOPS_Validator.highlight(triggerBtn, false);
+
+        this.updateCvDefectDisplay(idx);
+    },
+
+    removeCvDefectTag: function (idx, defectName) {
+        if (!this.cvSelectedDefects || !this.cvSelectedDefects[idx]) return;
+        this.cvSelectedDefects[idx] = this.cvSelectedDefects[idx].filter(d => d !== defectName);
+
+        const checkboxes = document.querySelectorAll(`.cv-chk-${idx}`);
+        checkboxes.forEach(chk => {
+            if (chk.value === defectName) {
+                chk.checked = false;
+            }
+        });
+
+        this.updateCvDefectDisplay(idx);
+    },
+
+    updateCvDefectDisplay: function (idx) {
+        const selected = (this.cvSelectedDefects && this.cvSelectedDefects[idx]) || [];
+        const summaryEl = document.getElementById(`cv-defect-summary-${idx}`);
+        const chipsEl = document.getElementById(`cv-defect-chips-${idx}`);
+        const customInput = document.getElementById(`cv-custom-${idx}`);
+
+        if (summaryEl) {
+            if (selected.length === 0) {
+                summaryEl.innerHTML = "Select Defect(s)";
+                summaryEl.style.color = "#64748b";
+                summaryEl.style.fontWeight = "normal";
+            } else if (selected.length === 1) {
+                summaryEl.innerHTML = this.escapeHtml(selected[0]);
+                summaryEl.style.color = "#0f172a";
+                summaryEl.style.fontWeight = "600";
+            } else if (selected.length === 2) {
+                summaryEl.innerHTML = this.escapeHtml(selected.join(", "));
+                summaryEl.style.color = "#0f172a";
+                summaryEl.style.fontWeight = "600";
+            } else {
+                summaryEl.innerHTML = `<span class="badge bg-danger" style="font-size: 10px; margin-right: 4px;">${selected.length} Selected</span> <span style="font-size: 12px;">${this.escapeHtml(selected[0])}, +${selected.length - 1} more</span>`;
+                summaryEl.style.color = "#0f172a";
+                summaryEl.style.fontWeight = "600";
+            }
+        }
+
+        if (chipsEl) {
+            if (selected.length === 0) {
+                chipsEl.innerHTML = "";
+            } else {
+                chipsEl.innerHTML = selected.map(defect => {
+                    const escapedDefect = defect.replace(/'/g, "\\'");
+                    return `
+                        <span class="cv-defect-chip">
+                            <span>${this.escapeHtml(defect)}</span>
+                            <button type="button" class="cv-defect-chip-remove" onclick="PKGOPS_Checklist.removeCvDefectTag(${idx}, '${escapedDefect}')" title="Remove">&times;</button>
+                        </span>
+                    `;
+                }).join("");
+            }
+        }
+
+        if (customInput) {
+            if (selected.includes("Other (Custom)")) {
+                customInput.style.display = "block";
+            } else {
+                customInput.style.display = "none";
+                customInput.value = "";
+            }
+        }
+    },
+
     toggleCvDefectFields: function (idx) {
-        const status = document.getElementById(`cv-status-${idx}`).value;
-        const defectSelect = document.getElementById(`cv-defect-${idx}`);
+        const status = document.getElementById(`cv-status-${idx}`)?.value || "Okay";
+        const triggerBtn = document.getElementById(`cv-defect-btn-${idx}`);
+        const panel = document.getElementById(`cv-defect-panel-${idx}`);
+        const customInput = document.getElementById(`cv-custom-${idx}`);
         const countInput = document.getElementById(`cv-count-${idx}`);
         const fileInput = document.getElementById(`cv-file-${idx}`);
 
         if (status === "Not Okay") {
-            defectSelect.disabled = false;
-            countInput.disabled = false;
-            fileInput.disabled = false;
+            if (triggerBtn) {
+                triggerBtn.disabled = false;
+                triggerBtn.style.backgroundColor = "#ffffff";
+                triggerBtn.style.cursor = "pointer";
+            }
+            if (countInput) countInput.disabled = false;
+            if (fileInput) fileInput.disabled = false;
+            if (this.cvSelectedDefects && this.cvSelectedDefects[idx] && this.cvSelectedDefects[idx].includes("Other (Custom)")) {
+                if (customInput) customInput.style.display = "block";
+            }
         } else {
-            defectSelect.disabled = true;
-            countInput.disabled = true;
-            fileInput.disabled = true;
-            defectSelect.value = "";
-            countInput.value = "";
-            fileInput.value = "";
+            if (triggerBtn) {
+                triggerBtn.disabled = true;
+                triggerBtn.style.backgroundColor = "#f8fafc";
+                triggerBtn.style.cursor = "not-allowed";
+                PKGOPS_Validator.highlight(triggerBtn, false);
+            }
+            if (panel) panel.style.display = "none";
+            if (countInput) {
+                countInput.disabled = true;
+                countInput.value = "";
+                PKGOPS_Validator.highlight(countInput, false);
+            }
+            if (fileInput) {
+                fileInput.disabled = true;
+                fileInput.value = "";
+                PKGOPS_Validator.highlight(fileInput, false);
+            }
+            if (customInput) {
+                customInput.style.display = "none";
+                customInput.value = "";
+                PKGOPS_Validator.highlight(customInput, false);
+            }
+            if (this.cvSelectedDefects) {
+                this.cvSelectedDefects[idx] = [];
+            }
+            const checkboxes = document.querySelectorAll(`.cv-chk-${idx}`);
+            checkboxes.forEach(chk => { chk.checked = false; });
+
+            this.updateCvDefectDisplay(idx);
+
             delete this.uploadedFiles[`cv-${idx}`];
             this.renderFileStatus(`cv-${idx}`);
         }
@@ -1778,21 +2063,22 @@ const PKGOPS_Checklist = {
 
     // 5. Seal Integrity Form
     renderSealIntegrity: function (container) {
+        this.sealDefectCounter = 0;
         container.innerHTML = `
             <div class="row">
                 <div class="col-md-12">
                     <h3 class="form-section-title">Seal Integrity Entry</h3>
                 </div>
             </div>
-            <div class="row g-3 mt-2">
+            <div class="row g-3 mt-1">
                 <div class="col-md-3">
-                    <label class="form-label">Product Category</label>
+                    <label class="form-label fw-semibold">Product Category</label>
                     <select class="form-select" id="seal-category" onchange="PKGOPS_Checklist.onCategoryChange('seal')">
                         ${this.getCategoryOptionsHtml()}
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Product Name</label>
+                    <label class="form-label fw-semibold">Product Name</label>
                     <div class="select2-parent">
                         <select class="form-select" id="seal-product" onchange="PKGOPS_Checklist.onProductChange('seal')">
                             ${this.getProductOptionsHtml()}
@@ -1800,32 +2086,321 @@ const PKGOPS_Checklist = {
                     </div>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">SKU</label>
+                    <label class="form-label fw-semibold">SKU</label>
                     <input type="text" class="form-control" id="seal-sku" placeholder="SKU" readonly style="background-color: #f1f5f9; cursor: not-allowed;">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Machine No</label>
-                    <input type="text" class="form-control" id="seal-machine" placeholder="Machine No">
+                    <label class="form-label fw-semibold">Machine No</label>
+                    <input type="text" class="form-control" id="seal-machine" placeholder="e.g. M/C-01">
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Sample Quantity</label>
-                    <input type="number" class="form-control" id="seal-qty" value="10" min="1">
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Sample Quantity Tested</label>
+                    <input type="number" class="form-control fw-bold" id="seal-qty" value="10" min="1" oninput="PKGOPS_Checklist.calculateSealMetrics()">
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Leakage Count</label>
-                    <input type="number" class="form-control" id="seal-leak-count" value="0" min="0">
+            </div>
+
+            <!-- Real-time Live Pass Test % & Performance KPI Dashboard -->
+            <div class="row mt-3">
+                <div class="col-md-12">
+                    <div class="card border rounded shadow-sm bg-white" style="border: 1px solid #cbd5e1 !important;">
+                        <div class="card-body p-3">
+                            <div class="row align-items-center g-3">
+                                <div class="col-md-7">
+                                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                                        <div>
+                                            <span class="text-muted text-uppercase fw-bold" style="font-size: 11px;">Testing Summary</span>
+                                            <h6 class="mb-0 fw-bold text-dark mt-0.5" style="font-size: 14px;">
+                                                <i class="fa fa-shield-check text-primary me-1"></i> Seal Integrity Pass Rate
+                                            </h6>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2 border-start ps-3">
+                                            <div class="text-center px-2">
+                                                <span class="text-muted d-block" style="font-size: 11px;">Tested</span>
+                                                <span id="seal-metric-qty" class="fw-bold text-dark">10</span>
+                                            </div>
+                                            <div class="text-center px-2">
+                                                <span class="text-muted d-block" style="font-size: 11px;">Passed</span>
+                                                <span id="seal-metric-passed" class="fw-bold text-success">10</span>
+                                            </div>
+                                            <div class="text-center px-2">
+                                                <span class="text-muted d-block" style="font-size: 11px;">Leakages</span>
+                                                <span id="seal-metric-leaks" class="fw-bold text-danger">0</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-5">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span id="seal-metric-status" class="fw-semibold text-success" style="font-size: 12px;">
+                                            <i class="fa fa-check-circle me-1"></i> 100% Passed (Optimal)
+                                        </span>
+                                        <span id="seal-metric-pass-pct" class="badge bg-success" style="font-size: 13px; padding: 4px 10px;">
+                                            100.00% PASS
+                                        </span>
+                                    </div>
+                                    <div class="progress" style="height: 10px; background-color: #e2e8f0; border-radius: 6px; overflow: hidden;">
+                                        <div id="seal-metric-progress" class="progress-bar bg-success" role="progressbar" style="width: 100%; transition: width 0.3s ease;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Leakage Type</label>
-                    <select class="form-select" id="seal-leak-type">
-                        <option value="None">None</option>
-                        <option value="Joint Leakage">Joint Leakage</option>
-                        <option value="Side Sealing Leakage">Side Sealing Leakage</option>
-                        <option value="Puncture">Puncture</option>
-                    </select>
+            </div>
+
+            <!-- Multiple Defects Input & Custom Writing Section -->
+            <div class="row mt-4">
+                <div class="col-md-12">
+                    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                        <div>
+                            <h4 class="form-section-title mb-0" style="border-bottom: none; padding-bottom: 0;">
+                                <i class="fa fa-bug text-danger me-1"></i> Leakage / Defect Observations
+                            </h4>
+                            <p class="text-muted mb-0" style="font-size: 12px;">
+                                Add all defect types and counts observed. If no leakage, leave empty (100% Pass).
+                            </p>
+                        </div>
+                        <button type="button" class="seal-add-defect-btn" onclick="PKGOPS_Checklist.addSealDefectRow()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            Add Defect Observation
+                        </button>
+                    </div>
+
+                    <!-- Defect Rows Table -->
+                    <div class="table-responsive mt-2">
+                        <table class="table table-bordered align-middle text-center" id="seal-defects-table" style="background-color: #ffffff;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 5%;">#</th>
+                                    <th style="width: 25%;">Leakage / Defect Type</th>
+                                    <th style="width: 28%;">Custom Defect Details</th>
+                                    <th style="width: 14%;">Defect Count</th>
+                                    <th style="width: 18%;">Notes / Position (Optional)</th>
+                                    <th style="width: 10%;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="seal-defects-list">
+                                <!-- Dynamic Defect Rows injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Empty state placeholder when 0 defects -->
+                    <div id="seal-defects-empty" class="alert alert-light border text-center py-3 mb-0" style="background-color: #f8fafc; border-radius: 6px;">
+                        <i class="fa fa-shield-alt text-success fs-4 mb-1 d-block"></i>
+                        <span class="text-success fw-bold">No Leakage Defects Added (100.00% Pass Test)</span>
+                        <div class="text-muted small mt-1">If any leakage was found during testing, click <strong>"+ Add Defect Observation"</strong> above.</div>
+                    </div>
                 </div>
             </div>
         `;
+    },
+
+    sealDefectCounter: 0,
+
+    getSealDefectTypeOptionsHtml: function (selectedType) {
+        const standardTypes = [
+            "Joint Leakage",
+            "Side Sealing Leakage",
+            "End Sealing Leakage",
+            "Fin Seal Leakage",
+            "Puncture / Pin Hole",
+            "Channel Leakage",
+            "Wrinkle on Seal",
+            "Weak Seal / Delamination",
+            "Tear / Cut",
+            "Micro Perforation",
+            "Burnt / Melted Seal",
+            "Other (Custom)"
+        ];
+
+        let html = `<option value="">-- Select Defect Type --</option>`;
+        standardTypes.forEach(t => {
+            const isSelected = selectedType && (selectedType === t || (t === "Other (Custom)" && String(selectedType).startsWith("Other")));
+            html += `<option value="${t}" ${isSelected ? "selected" : ""}>${t}</option>`;
+        });
+        return html;
+    },
+
+    addSealDefectRow: function (data = null) {
+        const listBody = document.getElementById("seal-defects-list");
+        const emptyState = document.getElementById("seal-defects-empty");
+        const table = document.getElementById("seal-defects-table");
+        if (!listBody) return;
+
+        this.sealDefectCounter = (this.sealDefectCounter || 0) + 1;
+        const rowId = `seal-defect-row-${this.sealDefectCounter}`;
+
+        const initialType = data ? (data.type || "") : "";
+        const initialCustom = data ? (data.custom || "") : "";
+        const initialCount = data ? (data.count || 1) : 1;
+        const initialNotes = data ? (data.notes || "") : "";
+
+        const isOther = initialType === "Other (Custom)" || String(initialType).startsWith("Other") || (initialType && !this.isStandardSealDefect(initialType));
+
+        const rowHtml = `
+            <tr id="${rowId}" class="seal-defect-row">
+                <td class="fw-bold text-muted seal-row-index"></td>
+                <td>
+                    <select class="form-select seal-defect-type" onchange="PKGOPS_Checklist.onSealDefectTypeChange('${rowId}')">
+                        ${this.getSealDefectTypeOptionsHtml(isOther ? "Other (Custom)" : initialType)}
+                    </select>
+                </td>
+                <td>
+                    <input type="text" class="form-control seal-defect-custom" placeholder="${isOther ? 'Type custom defect description...' : 'Custom note/detail (optional)'}" value="${initialCustom}" oninput="PKGOPS_Checklist.calculateSealMetrics()">
+                </td>
+                <td>
+                    <input type="number" class="form-control seal-defect-count fw-bold text-center" min="1" value="${initialCount}" oninput="PKGOPS_Checklist.calculateSealMetrics()">
+                </td>
+                <td>
+                    <input type="text" class="form-control seal-defect-notes" placeholder="e.g. Bottom fold, Pack 3" value="${initialNotes}">
+                </td>
+                <td>
+                    <button type="button" class="seal-delete-btn" title="Delete Defect" onclick="PKGOPS_Checklist.removeSealDefectRow('${rowId}')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                        </svg>
+                        <span>Delete</span>
+                    </button>
+                </td>
+            </tr>
+        `;
+
+        listBody.insertAdjacentHTML("beforeend", rowHtml);
+
+        if (emptyState) emptyState.style.display = "none";
+        if (table) table.style.display = "table";
+
+        this.updateSealRowIndices();
+        this.calculateSealMetrics();
+    },
+
+    isStandardSealDefect: function (type) {
+        const list = [
+            "Joint Leakage", "Side Sealing Leakage", "End Sealing Leakage", "Fin Seal Leakage",
+            "Puncture / Pin Hole", "Channel Leakage", "Wrinkle on Seal", "Weak Seal / Delamination",
+            "Tear / Cut", "Micro Perforation", "Burnt / Melted Seal"
+        ];
+        return list.includes(type);
+    },
+
+    removeSealDefectRow: function (rowId) {
+        const row = document.getElementById(rowId);
+        if (row) row.remove();
+
+        const remaining = document.querySelectorAll(".seal-defect-row");
+        const emptyState = document.getElementById("seal-defects-empty");
+        if (remaining.length === 0 && emptyState) {
+            emptyState.style.display = "block";
+        }
+
+        this.updateSealRowIndices();
+        this.calculateSealMetrics();
+    },
+
+    updateSealRowIndices: function () {
+        document.querySelectorAll(".seal-defect-row").forEach((row, idx) => {
+            const indexCell = row.querySelector(".seal-row-index");
+            if (indexCell) indexCell.textContent = idx + 1;
+        });
+    },
+
+    onSealDefectTypeChange: function (rowId) {
+        const row = document.getElementById(rowId);
+        if (!row) return;
+
+        const typeSelect = row.querySelector(".seal-defect-type");
+        const customInput = row.querySelector(".seal-defect-custom");
+        if (!typeSelect || !customInput) return;
+
+        PKGOPS_Validator.highlight(typeSelect, false);
+
+        if (typeSelect.value === "Other (Custom)") {
+            customInput.placeholder = "Required: Enter custom defect description...";
+            customInput.focus();
+            customInput.style.borderColor = "#f59e0b";
+        } else {
+            customInput.placeholder = "Custom note/detail (optional)";
+            customInput.style.borderColor = "";
+        }
+
+        this.calculateSealMetrics();
+    },
+
+    calculateSealMetrics: function () {
+        const qtyEl = document.getElementById("seal-qty");
+        const sampleQty = parseInt(qtyEl?.value, 10) || 0;
+
+        let totalLeaks = 0;
+        document.querySelectorAll(".seal-defect-row").forEach(row => {
+            const countInput = row.querySelector(".seal-defect-count");
+            const countVal = countInput ? (parseInt(countInput.value, 10) || 0) : 0;
+            totalLeaks += countVal;
+        });
+
+        const passedCount = Math.max(0, sampleQty - totalLeaks);
+        const passPct = sampleQty > 0 ? ((passedCount / sampleQty) * 100) : 100;
+        const passPctStr = passPct.toFixed(2) + "%";
+
+        const statQty = document.getElementById("seal-metric-qty");
+        const statPassed = document.getElementById("seal-metric-passed");
+        const statLeaks = document.getElementById("seal-metric-leaks");
+        const statPassPct = document.getElementById("seal-metric-pass-pct");
+        const statStatus = document.getElementById("seal-metric-status");
+        const statProgress = document.getElementById("seal-metric-progress");
+
+        if (statQty) statQty.textContent = sampleQty;
+        if (statPassed) statPassed.textContent = passedCount;
+        if (statLeaks) statLeaks.textContent = totalLeaks;
+        if (statPassPct) statPassPct.textContent = `${passPctStr} PASS`;
+
+        if (statProgress) {
+            statProgress.style.width = `${Math.min(100, Math.max(0, passPct))}%`;
+        }
+
+        if (totalLeaks > sampleQty) {
+            if (statPassPct) {
+                statPassPct.className = "badge bg-danger";
+                statPassPct.textContent = `OVER LIMIT`;
+            }
+            if (statStatus) {
+                statStatus.className = "fw-bold text-danger";
+                statStatus.innerHTML = `<i class="fa fa-exclamation-triangle me-1"></i> Defects (${totalLeaks}) exceed Sample Qty (${sampleQty})!`;
+            }
+            if (statProgress) {
+                statProgress.className = "progress-bar bg-danger";
+            }
+        } else if (totalLeaks === 0) {
+            if (statPassPct) statPassPct.className = "badge bg-success";
+            if (statStatus) {
+                statStatus.className = "fw-semibold text-success";
+                statStatus.innerHTML = `<i class="fa fa-check-circle me-1"></i> 100% Passed (Optimal)`;
+            }
+            if (statProgress) {
+                statProgress.className = "progress-bar bg-success";
+            }
+        } else if (passPct >= 80) {
+            if (statPassPct) statPassPct.className = "badge bg-warning text-dark";
+            if (statStatus) {
+                statStatus.className = "fw-semibold text-warning";
+                statStatus.innerHTML = `<i class="fa fa-exclamation-circle me-1"></i> Deviation: ${totalLeaks} Leakage(s) Recorded`;
+            }
+            if (statProgress) {
+                statProgress.className = "progress-bar bg-warning";
+            }
+        } else {
+            if (statPassPct) statPassPct.className = "badge bg-danger";
+            if (statStatus) {
+                statStatus.className = "fw-semibold text-danger";
+                statStatus.innerHTML = `<i class="fa fa-times-circle me-1"></i> High Deviation: ${totalLeaks} Leakage(s) Recorded`;
+            }
+            if (statProgress) {
+                statProgress.className = "progress-bar bg-danger";
+            }
+        }
     },
 
     // 6. Cream Percentage Form
@@ -1896,90 +2471,209 @@ const PKGOPS_Checklist = {
 
     // 7. Quality Wall Records Form
     renderQualityWall: function (container) {
+        const lineVal = (typeof PKGOPS_StateMachine !== "undefined" && PKGOPS_StateMachine.currentSession && PKGOPS_StateMachine.currentSession.cr3ea_lineno) || document.getElementById("setup-line")?.value || "Line 1";
+
         container.innerHTML = `
             <div class="row">
                 <div class="col-md-12">
-                    <h3 class="form-section-title">Quality Wall Evaluation</h3>
+                    <h3 class="form-section-title">Quality Wall Records Evaluation</h3>
                 </div>
             </div>
-            <div class="row g-3 mt-2">
-                <div class="col-md-3">
-                    <label class="form-label">Product Category</label>
-                    <select class="form-select" id="wall-category" onchange="PKGOPS_Checklist.onCategoryChange('wall')">
-                        ${this.getCategoryOptionsHtml()}
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Product Name</label>
-                    <div class="select2-parent">
-                        <select class="form-select" id="wall-product" onchange="PKGOPS_Checklist.onProductChange('wall')">
-                            ${this.getProductOptionsHtml()}
+
+            <!-- Metadata / Header Information -->
+            <div class="card border rounded p-3 mb-4 bg-white shadow-sm" style="border: 1px solid #cbd5e1 !important;">
+                <h6 class="fw-bold text-dark mb-3" style="font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <i class="fa fa-info-circle text-primary me-2"></i>Sensory Activity & Setup Details
+                </h6>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Product Category</label>
+                        <select class="form-select" id="wall-category" onchange="PKGOPS_Checklist.onCategoryChange('wall')">
+                            ${this.getCategoryOptionsHtml()}
                         </select>
                     </div>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">SKU</label>
-                    <input type="text" class="form-control" id="wall-sku" placeholder="SKU" readonly style="background-color: #f1f5f9; cursor: not-allowed;">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Wall Type</label>
-                    <select class="form-select" id="wall-type">
-                        <option value="Main Wall">Main Wall</option>
-                        <option value="Line Wall">Line Wall</option>
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Facilitator</label>
-                    <div class="pkgops-user-picker-container" id="picker-container-wall-facilitator">
-                        <input type="hidden" id="wall-facilitator" value="">
-                        <div class="pkgops-selected-chips-box" id="selected-chips-box-wall-facilitator" onclick="const inp = document.getElementById('picker-input-wall-facilitator'); if(inp) inp.focus();">
-                            <div id="chips-list-wall-facilitator" class="d-inline-flex flex-wrap gap-1 align-items-center"></div>
-                            <input type="text" id="picker-input-wall-facilitator" class="pkgops-picker-search-input" placeholder="Search facilitator..." oninput="PKGOPS_Checklist.onPickerSearch('wall-facilitator', this.value)" autocomplete="off">
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Product Name</label>
+                        <div class="select2-parent">
+                            <select class="form-select" id="wall-product" onchange="PKGOPS_Checklist.onProductChange('wall')">
+                                ${this.getProductOptionsHtml()}
+                            </select>
                         </div>
-                        <div id="dropdown-wall-facilitator" class="pkgops-picker-dropdown" style="display: none;"></div>
                     </div>
-                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Search from employee directory</div>
-                </div>
-                <div class="col-md-8">
-                    <label class="form-label">Members Present</label>
-                    <div class="pkgops-user-picker-container" id="picker-container-wall-members">
-                        <input type="hidden" id="wall-members" value="">
-                        <div class="pkgops-selected-chips-box" id="selected-chips-box-wall-members" onclick="const inp = document.getElementById('picker-input-wall-members'); if(inp) inp.focus();">
-                            <div id="chips-list-wall-members" class="d-inline-flex flex-wrap gap-1 align-items-center"></div>
-                            <input type="text" id="picker-input-wall-members" class="pkgops-picker-search-input" placeholder="Type name or email to add member..." oninput="PKGOPS_Checklist.onPickerSearch('wall-members', this.value)" autocomplete="off">
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">SKU</label>
+                        <input type="text" class="form-control" id="wall-sku" placeholder="SKU" readonly style="background-color: #f1f5f9; cursor: not-allowed;">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Line No</label>
+                        <input type="text" class="form-control" id="wall-line" value="${this.escapeHtml(lineVal)}" readonly style="background-color: #f1f5f9; font-weight: 600;">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">PKD / Batch No</label>
+                        <input type="text" class="form-control" id="wall-pkdbatch" placeholder="e.g. PKD: 24-09-2026 / B-12">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Type of Quality Wall</label>
+                        <select class="form-select" id="wall-type" style="font-weight: 600;">
+                            <option value="Mini Wall">Mini Wall</option>
+                            <option value="Hot Wall">Hot Wall</option>
+                            <option value="Routine Wall">Routine Wall</option>
+                            <option value="Management Wall">Management Wall</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Facilitator</label>
+                        <div class="pkgops-user-picker-container" id="picker-container-wall-facilitator">
+                            <input type="hidden" id="wall-facilitator" value="">
+                            <div class="pkgops-selected-chips-box" id="selected-chips-box-wall-facilitator" onclick="const inp = document.getElementById('picker-input-wall-facilitator'); if(inp) inp.focus();">
+                                <div id="chips-list-wall-facilitator" class="d-inline-flex flex-wrap gap-1 align-items-center"></div>
+                                <input type="text" id="picker-input-wall-facilitator" class="pkgops-picker-search-input" placeholder="Search facilitator..." oninput="PKGOPS_Checklist.onPickerSearch('wall-facilitator', this.value)" autocomplete="off">
+                            </div>
+                            <div id="dropdown-wall-facilitator" class="pkgops-picker-dropdown" style="display: none;"></div>
                         </div>
-                        <div id="dropdown-wall-members" class="pkgops-picker-dropdown" style="display: none;"></div>
+                        <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Search from employee directory</div>
                     </div>
-                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Select multiple team members attending evaluation</div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Members Present (Sensory Team)</label>
+                        <div class="pkgops-user-picker-container" id="picker-container-wall-members">
+                            <input type="hidden" id="wall-members" value="">
+                            <div class="pkgops-selected-chips-box" id="selected-chips-box-wall-members" onclick="const inp = document.getElementById('picker-input-wall-members'); if(inp) inp.focus();">
+                                <div id="chips-list-wall-members" class="d-inline-flex flex-wrap gap-1 align-items-center"></div>
+                                <input type="text" id="picker-input-wall-members" class="pkgops-picker-search-input" placeholder="Add members..." oninput="PKGOPS_Checklist.onPickerSearch('wall-members', this.value)" autocomplete="off">
+                            </div>
+                            <div id="dropdown-wall-members" class="pkgops-picker-dropdown" style="display: none;"></div>
+                        </div>
+                        <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Multiple team members in single activity</div>
+                    </div>
                 </div>
             </div>
+
+            <!-- Sensory & Quality Rating Sections -->
+            <div class="row g-4">
+                <!-- 1. Product Quality Sensory Evaluation (5 parameters) -->
+                <div class="col-md-6">
+                    <div class="card border rounded h-100 bg-white shadow-sm" style="border: 1px solid #bfdbfe !important;">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center py-2 px-3" style="border-bottom: 1px solid #e2e8f0;">
+                            <span class="fw-bold text-dark" style="font-size: 13px;">
+                                <i class="fa fa-cookie-bite text-primary me-1"></i> Product Quality Evaluation
+                            </span>
+                            <span class="badge bg-primary px-2 py-1" id="wall-score-prod" style="font-size: 12px;">Avg: 5.00 / 5</span>
+                        </div>
+                        <div class="card-body p-3">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Appearance (1-5)</label>
+                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-prod-appearance" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Colour (1-5)</label>
+                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-prod-colour" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Texture (1-5)</label>
+                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-prod-texture" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Flavour (1-5)</label>
+                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-prod-flavour" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Taste (1-5)</label>
+                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-prod-taste" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
+                                </div>
+                            </div>
+                            <div class="text-muted small mt-2" style="font-size: 11px;">Score scale: 1 (Poor) to 5 (Optimal / Superior)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Pack Quality Evaluation (3 parameters) -->
+                <div class="col-md-6">
+                    <div class="card border rounded h-100 bg-white shadow-sm" style="border: 1px solid #bbf7d0 !important;">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center py-2 px-3" style="border-bottom: 1px solid #e2e8f0;">
+                            <span class="fw-bold text-dark" style="font-size: 13px;">
+                                <i class="fa fa-box-open text-success me-1"></i> Pack Quality Evaluation
+                            </span>
+                            <span class="badge bg-success px-2 py-1" id="wall-score-pack" style="font-size: 12px;">Avg: 5.00 / 5</span>
+                        </div>
+                        <div class="card-body p-3">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Pack Appearance (1-5)</label>
+                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-pack-appearance" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Sealing Quality (1-5)</label>
+                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-pack-sealing" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Coding (1-5)</label>
+                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-pack-coding" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
+                                </div>
+                            </div>
+                            <div class="text-muted small mt-2" style="font-size: 11px;">Evaluates primary & secondary packaging integrity</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Real-time Overall Score KPI Card -->
             <div class="row mt-4">
-                <div class="col-md-4">
-                    <label class="form-label">Pack Appearance Rating (1-5)</label>
-                    <input type="number" class="form-control star-rating-input" id="wall-rating-appearance" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Sealing Quality Rating (1-5)</label>
-                    <input type="number" class="form-control star-rating-input" id="wall-rating-sealing" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Coding Rating (1-5)</label>
-                    <input type="number" class="form-control star-rating-input" id="wall-rating-coding" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
-                </div>
-            </div>
-            <div class="row mt-4 text-center p-3 border rounded bg-white">
                 <div class="col-md-12">
-                    <h4>Overall Rating Score: <span id="wall-overall-rating" class="text-primary fw-bold">5.00 / 5</span></h4>
+                    <div class="card border rounded bg-white shadow-sm p-3" style="border: 1px solid #cbd5e1 !important;">
+                        <div class="row align-items-center g-3">
+                            <div class="col-md-7">
+                                <div class="d-flex align-items-center gap-3 flex-wrap">
+                                    <div>
+                                        <span class="text-muted text-uppercase fw-bold" style="font-size: 11px;">Overall Quality Score</span>
+                                        <h5 class="mb-0 fw-bold text-dark mt-0.5" style="font-size: 16px;">
+                                            <i class="fa fa-chart-line text-primary me-1"></i> Quality Wall Rating Score
+                                        </h5>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-3 border-start ps-3">
+                                        <div>
+                                            <span class="text-muted d-block" style="font-size: 11px;">Product Avg</span>
+                                            <span id="wall-kpi-prod-score" class="fw-bold text-primary">5.00</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-muted d-block" style="font-size: 11px;">Pack Avg</span>
+                                            <span id="wall-kpi-pack-score" class="fw-bold text-success">5.00</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-muted d-block" style="font-size: 11px;">Combined Total</span>
+                                            <span id="wall-overall-rating" class="fw-bold text-primary fs-5">5.00 / 5</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-5">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span id="wall-metric-status" class="fw-semibold text-success" style="font-size: 12px;">
+                                        <i class="fa fa-check-circle me-1"></i> Superior Quality (5.00)
+                                    </span>
+                                    <span id="wall-metric-badge" class="badge bg-success" style="font-size: 13px; padding: 4px 10px;">
+                                        5.00 / 5.00
+                                    </span>
+                                </div>
+                                <div class="progress" style="height: 10px; background-color: #e2e8f0; border-radius: 6px; overflow: hidden;">
+                                    <div id="wall-metric-progress" class="progress-bar bg-success" role="progressbar" style="width: 100%; transition: width 0.3s ease;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
+
+            <!-- Remarks -->
             <div class="row mt-3">
                 <div class="col-md-12">
-                    <label class="form-label">Remarks</label>
-                    <textarea class="form-control" id="wall-remarks" rows="3" placeholder="Enter remarks"></textarea>
+                    <label class="form-label fw-semibold">Sensory & Evaluation Remarks</label>
+                    <textarea class="form-control" id="wall-remarks" rows="3" placeholder="Enter sensory observations, product notes, or remarks..."></textarea>
                 </div>
             </div>
         `;
         this.initQualityWallPickerState();
+        this.calculateOverallWallRating();
     },
 
     wallPickerState: {
@@ -2218,7 +2912,7 @@ const PKGOPS_Checklist = {
             input.value = "5";
         } else if (num > 5) {
             input.value = "5";
-        } else if (num < 0) {
+        } else if (num < 1) {
             input.value = "1";
         }
         this.calculateOverallWallRating();
@@ -2244,24 +2938,79 @@ const PKGOPS_Checklist = {
             return Math.min(5, Math.max(1, n));
         };
 
-        const appInput = document.getElementById("wall-rating-appearance");
-        const sealInput = document.getElementById("wall-rating-sealing");
-        const codInput = document.getElementById("wall-rating-coding");
+        // Product Quality (5 parameters)
+        const pApp = clamp(document.getElementById("wall-rating-prod-appearance")?.value);
+        const pCol = clamp(document.getElementById("wall-rating-prod-colour")?.value);
+        const pTex = clamp(document.getElementById("wall-rating-prod-texture")?.value);
+        const pFlv = clamp(document.getElementById("wall-rating-prod-flavour")?.value);
+        const pTas = clamp(document.getElementById("wall-rating-prod-taste")?.value);
 
-        const app = appInput ? clamp(appInput.value) : 5;
-        const seal = sealInput ? clamp(sealInput.value) : 5;
-        const cod = codInput ? clamp(codInput.value) : 5;
+        // Pack Quality (3 parameters)
+        const pkApp = clamp(document.getElementById("wall-rating-pack-appearance")?.value);
+        const pkSeal = clamp(document.getElementById("wall-rating-pack-sealing")?.value);
+        const pkCod = clamp(document.getElementById("wall-rating-pack-coding")?.value);
 
-        const avg = (app + seal + cod) / 3;
+        const prodAvg = (pApp + pCol + pTex + pFlv + pTas) / 5;
+        const packAvg = (pkApp + pkSeal + pkCod) / 3;
+        const overallAvg = (pApp + pCol + pTex + pFlv + pTas + pkApp + pkSeal + pkCod) / 8;
+
+        const prodScoreBadge = document.getElementById("wall-score-prod");
+        const packScoreBadge = document.getElementById("wall-score-pack");
+        const kpiProdSpan = document.getElementById("wall-kpi-prod-score");
+        const kpiPackSpan = document.getElementById("wall-kpi-pack-score");
         const ratingSpan = document.getElementById("wall-overall-rating");
+        const metricStatus = document.getElementById("wall-metric-status");
+        const metricBadge = document.getElementById("wall-metric-badge");
+        const metricProgress = document.getElementById("wall-metric-progress");
+
+        if (prodScoreBadge) prodScoreBadge.textContent = `Avg: ${prodAvg.toFixed(2)} / 5`;
+        if (packScoreBadge) packScoreBadge.textContent = `Avg: ${packAvg.toFixed(2)} / 5`;
+        if (kpiProdSpan) kpiProdSpan.textContent = prodAvg.toFixed(2);
+        if (kpiPackSpan) kpiPackSpan.textContent = packAvg.toFixed(2);
+
         if (ratingSpan) {
-            ratingSpan.innerText = `${avg.toFixed(2)} / 5`;
-            if (avg < 3) {
-                ratingSpan.className = "text-danger fw-bold";
-            } else if (avg < 4) {
-                ratingSpan.className = "text-warning fw-bold";
-            } else {
-                ratingSpan.className = "text-primary fw-bold";
+            ratingSpan.innerText = `${overallAvg.toFixed(2)} / 5`;
+        }
+
+        if (metricBadge) {
+            metricBadge.textContent = `${overallAvg.toFixed(2)} / 5.00`;
+        }
+
+        if (metricProgress) {
+            metricProgress.style.width = `${(overallAvg / 5) * 100}%`;
+        }
+
+        if (overallAvg >= 4.5) {
+            if (ratingSpan) ratingSpan.className = "fw-bold text-success fs-5";
+            if (metricBadge) metricBadge.className = "badge bg-success";
+            if (metricProgress) metricProgress.className = "progress-bar bg-success";
+            if (metricStatus) {
+                metricStatus.className = "fw-semibold text-success";
+                metricStatus.innerHTML = `<i class="fa fa-check-circle me-1"></i> Superior Quality (${overallAvg.toFixed(2)})`;
+            }
+        } else if (overallAvg >= 3.5) {
+            if (ratingSpan) ratingSpan.className = "fw-bold text-primary fs-5";
+            if (metricBadge) metricBadge.className = "badge bg-primary";
+            if (metricProgress) metricProgress.className = "progress-bar bg-primary";
+            if (metricStatus) {
+                metricStatus.className = "fw-semibold text-primary";
+                metricStatus.innerHTML = `<i class="fa fa-check me-1"></i> Good / Optimal (${overallAvg.toFixed(2)})`;
+            }
+        } else if (overallAvg >= 2.5) {
+            if (ratingSpan) ratingSpan.className = "fw-bold text-warning fs-5";
+            if (metricBadge) metricBadge.className = "badge bg-warning text-dark";
+            if (metricProgress) metricProgress.className = "progress-bar bg-warning";
+            if (metricStatus) {
+                metricStatus.className = "fw-semibold text-warning";
+                metricStatus.innerHTML = `<i class="fa fa-exclamation-circle me-1"></i> Needs Improvement (${overallAvg.toFixed(2)})`;
+            }
+        } else {
+            if (ratingSpan) ratingSpan.className = "fw-bold text-danger fs-5";
+            if (metricBadge) metricBadge.className = "badge bg-danger";
+            if (metricProgress) metricProgress.className = "progress-bar bg-danger";
+            if (metricStatus) {
+                metricStatus.className = "fw-bold text-danger";
+                metricStatus.innerHTML = `<i class="fa fa-times-circle me-1"></i> Below Standard (${overallAvg.toFixed(2)})`;
             }
         }
     },
@@ -2384,15 +3133,27 @@ const PKGOPS_Checklist = {
                     const statusEl = document.getElementById(`cv-status-${i}`);
                     if (!statusEl) continue;
                     if (statusEl.value === "Not Okay") {
-                        const defectEl = document.getElementById(`cv-defect-${i}`);
+                        const triggerBtn = document.getElementById(`cv-defect-btn-${i}`);
+                        const customEl = document.getElementById(`cv-custom-${i}`);
                         const countEl = document.getElementById(`cv-count-${i}`);
                         const fileInput = document.getElementById(`cv-file-${i}`);
 
-                        if (!defectEl || !defectEl.value) {
-                            if (defectEl) PKGOPS_Validator.highlight(defectEl, true);
+                        const selectedDefects = (this.cvSelectedDefects && this.cvSelectedDefects[i]) || [];
+                        const customVal = customEl ? customEl.value.trim() : "";
+
+                        if (selectedDefects.length === 0) {
+                            if (triggerBtn) PKGOPS_Validator.highlight(triggerBtn, true);
                             if (typeof HideLoader === "function") HideLoader();
-                            alert(`Please select a defect category for Sample ${i + 1}.`);
-                            if (defectEl) defectEl.focus();
+                            alert(`Please select at least one defect category for Sample ${i + 1}.`);
+                            if (triggerBtn) triggerBtn.focus();
+                            return;
+                        }
+
+                        if (selectedDefects.includes("Other (Custom)") && !customVal) {
+                            if (customEl) PKGOPS_Validator.highlight(customEl, true);
+                            if (typeof HideLoader === "function") HideLoader();
+                            alert(`Please enter the custom defect description for Sample ${i + 1}.`);
+                            if (customEl) customEl.focus();
                             return;
                         }
 
@@ -2406,7 +3167,7 @@ const PKGOPS_Checklist = {
                         }
 
                         const files = this.uploadedFiles[`cv-${i}`] || (fileInput && fileInput.files && fileInput.files.length ? Array.from(fileInput.files) : []);
-                        const existingPrev = (this.savedCodeVerificationRows || []).find(r => r.cr3ea_samplenumber === `Sample ${i + 1}`);
+                        const existingPrev = (this.savedCodeVerificationRows || []).find(r => PKGOPS_Checklist.parseSampleNum(r) === (i + 1));
                         const hasOldPhoto = existingPrev && existingPrev.cr3ea_codepictureurl;
 
                         if (files.length === 0 && !hasOldPhoto) {
@@ -2428,29 +3189,42 @@ const PKGOPS_Checklist = {
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_CODE_VERIFICATION", this.currentTourId);
                 const cvRecordsToSave = [];
                 for (let i = 0; i < 10; i++) {
+                    const sampleNo = i + 1;
                     const status = document.getElementById(`cv-status-${i}`).value;
-                    const defect = document.getElementById(`cv-defect-${i}`).value;
+                    const customEl = document.getElementById(`cv-custom-${i}`);
                     const count = parseInt(document.getElementById(`cv-count-${i}`).value) || 0;
                     const fileInput = document.getElementById(`cv-file-${i}`);
 
+                    const selectedDefects = (this.cvSelectedDefects && this.cvSelectedDefects[i]) || [];
+                    const customVal = customEl ? customEl.value.trim() : "";
+                    let finalDefectName = "None";
+
+                    if (status === "Not Okay") {
+                        const defectParts = selectedDefects.map(d => {
+                            if (d === "Other (Custom)") {
+                                return customVal ? `Other (${customVal})` : "Other";
+                            }
+                            return d;
+                        });
+                        finalDefectName = defectParts.length > 0 ? defectParts.join(", ") : "Not Okay";
+                    }
+
                     let pictureUrl = "";
                     const files = this.uploadedFiles[`cv-${i}`] || (fileInput && fileInput.files && fileInput.files.length ? Array.from(fileInput.files) : []);
+                    const existingPrev = (this.savedCodeVerificationRows || []).find(r => PKGOPS_Checklist.parseSampleNum(r) === sampleNo);
+
                     if (files.length > 0) {
-                        const uploadPromises = files.map(file => PKGOPS_DAL.uploadAttachmentFile(file, this.currentTourId, "Code Verification", `Sample-${i}`, defect));
+                        const uploadPromises = files.map(file => PKGOPS_DAL.uploadAttachmentFile(file, this.currentTourId, "Code Verification", `Sample-${sampleNo}`, finalDefectName));
                         const urls = await Promise.all(uploadPromises);
                         const validUrls = urls.filter(Boolean);
-                        const existingPrev = (this.savedCodeVerificationRows || []).find(r => r.cr3ea_samplenumber === `Sample ${i + 1}`);
                         const existingUrl = (existingPrev && existingPrev.cr3ea_codepictureurl) ? existingPrev.cr3ea_codepictureurl.trim() : "";
                         if (existingUrl) {
                             pictureUrl = existingUrl + ", " + validUrls.join(", ");
                         } else {
                             pictureUrl = validUrls.join(", ");
                         }
-                    } else {
-                        const existingPrev = (this.savedCodeVerificationRows || []).find(r => r.cr3ea_samplenumber === `Sample ${i + 1}`);
-                        if (existingPrev && existingPrev.cr3ea_codepictureurl) {
-                            pictureUrl = existingPrev.cr3ea_codepictureurl;
-                        }
+                    } else if (existingPrev && existingPrev.cr3ea_codepictureurl) {
+                        pictureUrl = existingPrev.cr3ea_codepictureurl;
                     }
 
                     if (status === "Not Okay") {
@@ -2458,14 +3232,14 @@ const PKGOPS_Checklist = {
                     }
 
                     const cvRecord = {
-                        cr3ea_name: `CodeVerification_${sku}`,
+                        cr3ea_name: `CodeVerification_${sku}_Sample_${sampleNo}`,
                         cr3ea_productname: product,
                         cr3ea_sku: sku,
                         cr3ea_batchno: batch,
                         cr3ea_pkd: pkd,
                         cr3ea_expirydate: expiry,
                         cr3ea_noofsamples: "10",
-                        cr3ea_defecttype: status === "Not Okay" ? defect : "None",
+                        cr3ea_defecttype: finalDefectName,
                         cr3ea_defectcount: String(count),
                         cr3ea_codepictureurl: pictureUrl,
                         cr3ea_deviationstatus: status === "Not Okay" ? "Open" : "None",
@@ -2638,8 +3412,7 @@ const PKGOPS_Checklist = {
                     { id: "seal-product", name: "Product Name" },
                     { id: "seal-sku", name: "SKU" },
                     { id: "seal-machine", name: "Machine No" },
-                    { id: "seal-qty", name: "Sample Quantity" },
-                    { id: "seal-leak-count", name: "Leakage Count" }
+                    { id: "seal-qty", name: "Sample Quantity" }
                 ];
                 for (let h of headers) {
                     const el = document.getElementById(h.id);
@@ -2653,11 +3426,7 @@ const PKGOPS_Checklist = {
                 }
 
                 const qtyEl = document.getElementById("seal-qty");
-                const leakEl = document.getElementById("seal-leak-count");
                 const qtyVal = parseInt(qtyEl.value) || 0;
-                const leakVal = parseInt(leakEl.value) || 0;
-                const typeEl = document.getElementById("seal-leak-type");
-                const typeVal = typeEl.value;
 
                 if (qtyVal < 1) {
                     PKGOPS_Validator.highlight(qtyEl, true);
@@ -2667,46 +3436,84 @@ const PKGOPS_Checklist = {
                     return;
                 }
 
-                if (leakVal < 0) {
-                    PKGOPS_Validator.highlight(leakEl, true);
+                // Gather and validate all defect rows
+                const defectRows = [];
+                const rowEls = document.querySelectorAll(".seal-defect-row");
+                let hasValidationError = false;
+                let totalLeakage = 0;
+
+                rowEls.forEach((row, i) => {
+                    if (hasValidationError) return;
+                    const typeEl = row.querySelector(".seal-defect-type");
+                    const customEl = row.querySelector(".seal-defect-custom");
+                    const countEl = row.querySelector(".seal-defect-count");
+                    const notesEl = row.querySelector(".seal-defect-notes");
+
+                    const typeVal = typeEl ? typeEl.value.trim() : "";
+                    const customVal = customEl ? customEl.value.trim() : "";
+                    const countVal = countEl ? (parseInt(countEl.value, 10) || 0) : 0;
+                    const notesVal = notesEl ? notesEl.value.trim() : "";
+
+                    if (!typeVal) {
+                        PKGOPS_Validator.highlight(typeEl, true);
+                        alert(`Please select a defect type for Defect Row #${i + 1}.`);
+                        typeEl.focus();
+                        hasValidationError = true;
+                        return;
+                    }
+
+                    if (typeVal === "Other (Custom)" && !customVal) {
+                        PKGOPS_Validator.highlight(customEl, true);
+                        alert(`Please enter the custom defect description for Defect Row #${i + 1}.`);
+                        customEl.focus();
+                        hasValidationError = true;
+                        return;
+                    }
+
+                    if (countVal < 1) {
+                        PKGOPS_Validator.highlight(countEl, true);
+                        alert(`Defect count must be at least 1 for Defect Row #${i + 1}.`);
+                        countEl.focus();
+                        hasValidationError = true;
+                        return;
+                    }
+
+                    totalLeakage += countVal;
+                    defectRows.push({
+                        type: typeVal,
+                        custom: customVal,
+                        count: countVal,
+                        notes: notesVal
+                    });
+                });
+
+                if (hasValidationError) {
                     if (typeof HideLoader === "function") HideLoader();
-                    alert("Leakage Count cannot be negative.");
-                    leakEl.focus();
                     return;
                 }
 
-                if (leakVal > qtyVal) {
-                    PKGOPS_Validator.highlight(leakEl, true);
+                if (totalLeakage > qtyVal) {
                     if (typeof HideLoader === "function") HideLoader();
-                    alert("Leakage Count cannot exceed Sample Quantity.");
-                    leakEl.focus();
-                    return;
-                }
-
-                if (leakVal > 0 && typeVal === "None") {
-                    PKGOPS_Validator.highlight(typeEl, true);
-                    if (typeof HideLoader === "function") HideLoader();
-                    alert("Please select a valid Leakage Type when Leakage Count is greater than 0.");
-                    typeEl.focus();
-                    return;
-                }
-
-                if (leakVal === 0 && typeVal !== "None") {
-                    PKGOPS_Validator.highlight(typeEl, true);
-                    if (typeof HideLoader === "function") HideLoader();
-                    alert("Leakage Type must be 'None' when Leakage Count is 0.");
-                    typeEl.focus();
+                    alert(`Total defect count (${totalLeakage}) cannot exceed Sample Quantity (${qtyVal}).`);
                     return;
                 }
 
                 const product = document.getElementById("seal-product").value;
                 const sku = document.getElementById("seal-sku").value;
                 const machine = document.getElementById("seal-machine").value;
-                const qty = document.getElementById("seal-qty").value;
-                const leakage = parseInt(document.getElementById("seal-leak-count").value) || 0;
-                const type = document.getElementById("seal-leak-type").value;
 
-                if (leakage > 0) {
+                let formattedLeakageType = "None";
+                if (defectRows.length > 0) {
+                    formattedLeakageType = defectRows.map(r => {
+                        let label = (r.type === "Other (Custom)" || r.type === "Other") 
+                            ? (r.custom ? `Other (${r.custom})` : "Other") 
+                            : (r.custom ? `${r.type} (${r.custom})` : r.type);
+                        if (r.notes) label += ` [${r.notes}]`;
+                        return `${label}: ${r.count}`;
+                    }).join(", ");
+                }
+
+                if (totalLeakage > 0) {
                     hasDeviation = true;
                 }
 
@@ -2715,10 +3522,10 @@ const PKGOPS_Checklist = {
                     cr3ea_productname: product,
                     cr3ea_sku: sku,
                     cr3ea_machineno: machine,
-                    cr3ea_samplequantity: qty,
-                    cr3ea_noofleakage: String(leakage),
-                    cr3ea_leakagetype: type,
-                    cr3ea_deviationstatus: leakage > 0 ? "Open" : "None",
+                    cr3ea_samplequantity: String(qtyVal),
+                    cr3ea_noofleakage: String(totalLeakage),
+                    cr3ea_leakagetype: formattedLeakageType,
+                    cr3ea_deviationstatus: totalLeakage > 0 ? "Open" : "None",
                     "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
                 };
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_SEAL_INTEGRITY", this.currentTourId);
@@ -2740,12 +3547,9 @@ const PKGOPS_Checklist = {
                 const headers = [
                     { id: "wall-product", name: "Product Name" },
                     { id: "wall-sku", name: "SKU" },
-                    { id: "wall-facilitator", name: "Facilitator" },
                     { id: "wall-type", name: "Type of Quality Wall" },
-                    { id: "wall-members", name: "Members Present" },
-                    { id: "wall-rating-appearance", name: "Appearance Rating" },
-                    { id: "wall-rating-sealing", name: "Sealing Quality Rating" },
-                    { id: "wall-rating-coding", name: "Coding Rating" }
+                    { id: "wall-facilitator", name: "Facilitator" },
+                    { id: "wall-members", name: "Members Present" }
                 ];
                 for (let h of headers) {
                     const el = document.getElementById(h.id);
@@ -2765,49 +3569,74 @@ const PKGOPS_Checklist = {
                     }
                 }
 
-                const ratings = [
-                    { id: "wall-rating-appearance", name: "Pack Appearance Rating" },
-                    { id: "wall-rating-sealing", name: "Sealing Quality Rating" },
-                    { id: "wall-rating-coding", name: "Coding Rating" }
+                const ratingFields = [
+                    // Product Quality (5 items)
+                    { id: "wall-rating-prod-appearance", name: "Product Appearance" },
+                    { id: "wall-rating-prod-colour", name: "Product Colour" },
+                    { id: "wall-rating-prod-texture", name: "Product Texture" },
+                    { id: "wall-rating-prod-flavour", name: "Product Flavour" },
+                    { id: "wall-rating-prod-taste", name: "Product Taste" },
+                    // Pack Quality (3 items)
+                    { id: "wall-rating-pack-appearance", name: "Pack Appearance" },
+                    { id: "wall-rating-pack-sealing", name: "Sealing Quality" },
+                    { id: "wall-rating-pack-coding", name: "Coding Quality" }
                 ];
-                for (let r of ratings) {
+
+                for (let r of ratingFields) {
                     const el = document.getElementById(r.id);
-                    const val = parseFloat(el.value);
-                    if (isNaN(val) || val < 1 || val > 5) {
-                        PKGOPS_Validator.highlight(el, true);
+                    const val = parseFloat(el ? el.value : "");
+                    if (!el || isNaN(val) || val < 1 || val > 5) {
+                        if (el) PKGOPS_Validator.highlight(el, true);
                         if (typeof HideLoader === "function") HideLoader();
-                        alert(`${r.name} score must be between 1 and 5.`);
-                        el.focus();
+                        alert(`${r.name} rating must be a valid number between 1 and 5.`);
+                        if (el) el.focus();
                         return;
                     }
                 }
 
                 const product = document.getElementById("wall-product").value;
                 const sku = document.getElementById("wall-sku").value;
+                const line = document.getElementById("wall-line")?.value || (PKGOPS_StateMachine.currentSession && PKGOPS_StateMachine.currentSession.cr3ea_lineno) || "";
+                const pkdBatch = document.getElementById("wall-pkdbatch")?.value || "";
                 const facilitator = document.getElementById("wall-facilitator").value;
                 const type = document.getElementById("wall-type").value;
                 const members = document.getElementById("wall-members").value;
-                const clamp = (v) => Math.min(5, Math.max(1, parseFloat(v) || 5));
-                const app = clamp(document.getElementById("wall-rating-appearance").value);
-                const seal = clamp(document.getElementById("wall-rating-sealing").value);
-                const cod = clamp(document.getElementById("wall-rating-coding").value);
-                const remarks = document.getElementById("wall-remarks").value;
 
-                const ratingVal = ((app + seal + cod) / 3).toFixed(2);
+                const clamp = (v) => Math.min(5, Math.max(1, parseFloat(v) || 5));
+                const pApp = clamp(document.getElementById("wall-rating-prod-appearance")?.value);
+                const pCol = clamp(document.getElementById("wall-rating-prod-colour")?.value);
+                const pTex = clamp(document.getElementById("wall-rating-prod-texture")?.value);
+                const pFlv = clamp(document.getElementById("wall-rating-prod-flavour")?.value);
+                const pTas = clamp(document.getElementById("wall-rating-prod-taste")?.value);
+
+                const pkApp = clamp(document.getElementById("wall-rating-pack-appearance")?.value);
+                const pkSeal = clamp(document.getElementById("wall-rating-pack-sealing")?.value);
+                const pkCod = clamp(document.getElementById("wall-rating-pack-coding")?.value);
+
+                const userRemarks = document.getElementById("wall-remarks")?.value.trim() || "";
+                const sum8 = pApp + pCol + pTex + pFlv + pTas + pkApp + pkSeal + pkCod;
+                const overallAvg = (sum8 / 8).toFixed(2);
+
+                const prodQualityHeader = `[Product Quality | Appearance: ${pApp}, Colour: ${pCol}, Texture: ${pTex}, Flavour: ${pFlv}, Taste: ${pTas}]`;
+                const fullRemarks = userRemarks ? `${prodQualityHeader} ${userRemarks}` : prodQualityHeader;
+
+                const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
 
                 const wallRecord = {
                     cr3ea_name: `QualityWall_${sku}`,
                     cr3ea_productname: product,
                     cr3ea_sku: sku,
+                    cr3ea_lineno: line,
+                    cr3ea_pkdbatchno: pkdBatch,
                     cr3ea_facilitator: facilitator,
                     cr3ea_typeofqualitywall: type,
                     cr3ea_memberspresent: members,
-                    cr3ea_packappearancerating: String(app),
-                    cr3ea_sealingqualityrating: String(seal),
-                    cr3ea_codingrating: String(cod),
-                    cr3ea_overallrating: String(ratingVal),
-                    cr3ea_remarks: remarks,
-                    "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`
+                    cr3ea_packappearancerating: String(pkApp),
+                    cr3ea_sealingqualityrating: String(pkSeal),
+                    cr3ea_codingrating: String(pkCod),
+                    cr3ea_overallrating: String(overallAvg),
+                    cr3ea_remarks: fullRemarks,
+                    "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
                 };
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_QUALITY_WALL", this.currentTourId);
                 await PKGOPS_DAL.saveSubChecklistRow("CHILD_QUALITY_WALL", wallRecord);
@@ -2934,38 +3763,51 @@ const PKGOPS_Checklist = {
                 const cvRecordsToSave = [];
 
                 for (let i = 0; i < 10; i++) {
+                    const sampleNo = i + 1;
                     const status = document.getElementById(`cv-status-${i}`)?.value || "Okay";
-                    const defect = document.getElementById(`cv-defect-${i}`)?.value || "";
+                    const customEl = document.getElementById(`cv-custom-${i}`);
                     const count = parseInt(document.getElementById(`cv-count-${i}`)?.value) || 0;
                     const fileInput = document.getElementById(`cv-file-${i}`);
 
+                    const selectedDefects = (this.cvSelectedDefects && this.cvSelectedDefects[i]) || [];
+                    const customVal = customEl ? customEl.value.trim() : "";
+                    let finalDefectName = "None";
+
+                    if (status === "Not Okay") {
+                        const defectParts = selectedDefects.map(d => {
+                            if (d === "Other (Custom)") {
+                                return customVal ? `Other (${customVal})` : "Other";
+                            }
+                            return d;
+                        });
+                        finalDefectName = defectParts.length > 0 ? defectParts.join(", ") : "Not Okay";
+                    }
+
                     let pictureUrl = "";
                     const files = this.uploadedFiles[`cv-${i}`] || (fileInput && fileInput.files && fileInput.files.length ? Array.from(fileInput.files) : []);
+                    const existingPrev = (this.savedCodeVerificationRows || []).find(r => PKGOPS_Checklist.parseSampleNum(r) === sampleNo);
+
                     if (files.length > 0) {
-                        const uploadPromises = files.map(file => PKGOPS_DAL.uploadAttachmentFile(file, this.currentTourId, "Code Verification", `Sample-${i}`, defect));
+                        const uploadPromises = files.map(file => PKGOPS_DAL.uploadAttachmentFile(file, this.currentTourId, "Code Verification", `Sample-${sampleNo}`, finalDefectName));
                         const urls = await Promise.all(uploadPromises);
                         const validUrls = urls.filter(Boolean);
-                        const existingPrev = (this.savedCodeVerificationRows || []).find(r => r.cr3ea_samplenumber === `Sample ${i + 1}`);
                         const existingUrl = (existingPrev && existingPrev.cr3ea_codepictureurl) ? existingPrev.cr3ea_codepictureurl.trim() : "";
                         if (existingUrl) {
                             pictureUrl = existingUrl + ", " + validUrls.join(", ");
                         } else {
                             pictureUrl = validUrls.join(", ");
                         }
-                    } else {
-                        const existingPrev = (this.savedCodeVerificationRows || []).find(r => r.cr3ea_samplenumber === `Sample ${i + 1}`);
-                        if (existingPrev && existingPrev.cr3ea_codepictureurl) {
-                            pictureUrl = existingPrev.cr3ea_codepictureurl;
-                        }
+                    } else if (existingPrev && existingPrev.cr3ea_codepictureurl) {
+                        pictureUrl = existingPrev.cr3ea_codepictureurl;
                     }
 
                     const cvRecord = {
-                        cr3ea_name: `CodeVerification_${sku}`,
+                        cr3ea_name: `CodeVerification_${sku}_Sample_${sampleNo}`,
                         cr3ea_productname: product,
                         cr3ea_sku: sku,
                         cr3ea_batchno: batch,
                         cr3ea_noofsamples: "10",
-                        cr3ea_defecttype: status === "Not Okay" ? defect : "None",
+                        cr3ea_defecttype: status === "Not Okay" ? finalDefectName : "None",
                         cr3ea_defectcount: String(count),
                         cr3ea_codepictureurl: pictureUrl,
                         cr3ea_deviationstatus: status === "Not Okay" ? "Open" : "None",
@@ -3162,9 +4004,38 @@ const PKGOPS_Checklist = {
                 const product = document.getElementById("seal-product")?.value || "";
                 const sku = document.getElementById("seal-sku")?.value || "";
                 const machine = document.getElementById("seal-machine")?.value || "";
-                const qty = document.getElementById("seal-qty")?.value || "";
-                const leakage = parseInt(document.getElementById("seal-leak-count")?.value) || 0;
-                const type = document.getElementById("seal-leak-type")?.value || "None";
+                const qty = document.getElementById("seal-qty")?.value || "10";
+                
+                const defectRows = [];
+                let totalLeakage = 0;
+                document.querySelectorAll(".seal-defect-row").forEach(row => {
+                    const typeEl = row.querySelector(".seal-defect-type");
+                    const customEl = row.querySelector(".seal-defect-custom");
+                    const countEl = row.querySelector(".seal-defect-count");
+                    const notesEl = row.querySelector(".seal-defect-notes");
+
+                    const typeVal = typeEl ? typeEl.value.trim() : "";
+                    const customVal = customEl ? customEl.value.trim() : "";
+                    const countVal = countEl ? (parseInt(countEl.value, 10) || 0) : 0;
+                    const notesVal = notesEl ? notesEl.value.trim() : "";
+
+                    if (typeVal || countVal > 0) {
+                        totalLeakage += countVal;
+                        defectRows.push({ type: typeVal, custom: customVal, count: countVal, notes: notesVal });
+                    }
+                });
+
+                let formattedLeakageType = "None";
+                if (defectRows.length > 0) {
+                    formattedLeakageType = defectRows.map(r => {
+                        let label = (r.type === "Other (Custom)" || r.type === "Other") 
+                            ? (r.custom ? `Other (${r.custom})` : "Other") 
+                            : (r.custom ? `${r.type} (${r.custom})` : r.type);
+                        if (r.notes) label += ` [${r.notes}]`;
+                        return `${label}: ${r.count}`;
+                    }).join(", ");
+                }
+
                 const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
 
                 const sealRecord = {
@@ -3172,10 +4043,10 @@ const PKGOPS_Checklist = {
                     cr3ea_productname: product,
                     cr3ea_sku: sku,
                     cr3ea_machineno: machine,
-                    cr3ea_samplequantity: qty,
-                    cr3ea_noofleakage: String(leakage),
-                    cr3ea_leakagetype: type,
-                    cr3ea_deviationstatus: leakage > 0 ? "Open" : "None",
+                    cr3ea_samplequantity: String(qty),
+                    cr3ea_noofleakage: String(totalLeakage),
+                    cr3ea_leakagetype: formattedLeakageType,
+                    cr3ea_deviationstatus: totalLeakage > 0 ? "Open" : "None",
                     "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
                 };
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_SEAL_INTEGRITY", this.currentTourId);
@@ -3184,30 +4055,46 @@ const PKGOPS_Checklist = {
             else if (this.pkgopsType === "Quality Wall Records") {
                 const product = document.getElementById("wall-product")?.value || "";
                 const sku = document.getElementById("wall-sku")?.value || "";
+                const line = document.getElementById("wall-line")?.value || (PKGOPS_StateMachine.currentSession && PKGOPS_StateMachine.currentSession.cr3ea_lineno) || "";
+                const pkdBatch = document.getElementById("wall-pkdbatch")?.value || "";
                 const facilitator = document.getElementById("wall-facilitator")?.value || "";
-                const type = document.getElementById("wall-type")?.value || "";
+                const type = document.getElementById("wall-type")?.value || "Routine Wall";
                 const members = document.getElementById("wall-members")?.value || "";
-                const clamp = (v) => Math.min(5, Math.max(1, parseFloat(v) || 5));
-                const app = clamp(document.getElementById("wall-rating-appearance")?.value);
-                const seal = clamp(document.getElementById("wall-rating-sealing")?.value);
-                const cod = clamp(document.getElementById("wall-rating-coding")?.value);
-                const remarks = document.getElementById("wall-remarks")?.value || "";
-                const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
 
-                const ratingVal = ((app + seal + cod) / 3).toFixed(2);
+                const clamp = (v) => Math.min(5, Math.max(1, parseFloat(v) || 5));
+                const pApp = clamp(document.getElementById("wall-rating-prod-appearance")?.value);
+                const pCol = clamp(document.getElementById("wall-rating-prod-colour")?.value);
+                const pTex = clamp(document.getElementById("wall-rating-prod-texture")?.value);
+                const pFlv = clamp(document.getElementById("wall-rating-prod-flavour")?.value);
+                const pTas = clamp(document.getElementById("wall-rating-prod-taste")?.value);
+
+                const pkApp = clamp(document.getElementById("wall-rating-pack-appearance")?.value);
+                const pkSeal = clamp(document.getElementById("wall-rating-pack-sealing")?.value);
+                const pkCod = clamp(document.getElementById("wall-rating-pack-coding")?.value);
+
+                const userRemarks = document.getElementById("wall-remarks")?.value.trim() || "";
+                const sum8 = pApp + pCol + pTex + pFlv + pTas + pkApp + pkSeal + pkCod;
+                const overallAvg = (sum8 / 8).toFixed(2);
+
+                const prodQualityHeader = `[Product Quality | Appearance: ${pApp}, Colour: ${pCol}, Texture: ${pTex}, Flavour: ${pFlv}, Taste: ${pTas}]`;
+                const fullRemarks = userRemarks ? `${prodQualityHeader} ${userRemarks}` : prodQualityHeader;
+
+                const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
 
                 const wallRecord = {
                     cr3ea_name: `QualityWall_${sku}`,
                     cr3ea_productname: product,
                     cr3ea_sku: sku,
+                    cr3ea_lineno: line,
+                    cr3ea_pkdbatchno: pkdBatch,
                     cr3ea_facilitator: facilitator,
                     cr3ea_typeofqualitywall: type,
                     cr3ea_memberspresent: members,
-                    cr3ea_packappearancerating: String(app),
-                    cr3ea_sealingqualityrating: String(seal),
-                    cr3ea_codingrating: String(cod),
-                    cr3ea_overallrating: String(ratingVal),
-                    cr3ea_remarks: remarks,
+                    cr3ea_packappearancerating: String(pkApp),
+                    cr3ea_sealingqualityrating: String(pkSeal),
+                    cr3ea_codingrating: String(pkCod),
+                    cr3ea_overallrating: String(overallAvg),
+                    cr3ea_remarks: fullRemarks,
                     "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
                 };
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_QUALITY_WALL", this.currentTourId);
@@ -3267,8 +4154,9 @@ const PKGOPS_Checklist = {
             else if (this.pkgopsType === "Code Verification") {
                 const rows = await PKGOPS_DAL.getSubChecklistRows("CHILD_CODE_VERIFICATION", this.currentTourId);
                 if (rows && rows.length > 0) {
-                    this.savedCodeVerificationRows = rows;
-                    const firstRow = rows[0];
+                    const sortedCvRows = rows.slice().sort((a, b) => PKGOPS_Checklist.parseSampleNum(a) - PKGOPS_Checklist.parseSampleNum(b));
+                    this.savedCodeVerificationRows = sortedCvRows;
+                    const firstRow = sortedCvRows[0];
                     if (document.getElementById("cv-product")) this.setProductWithCategory("cv", firstRow.cr3ea_productname);
                     if (document.getElementById("cv-sku")) this.setSelectValueSafely("cv-sku", firstRow.cr3ea_sku);
                     if (document.getElementById("cv-batch")) document.getElementById("cv-batch").value = firstRow.cr3ea_batchno || "";
@@ -3279,8 +4167,11 @@ const PKGOPS_Checklist = {
                         document.getElementById("cv-expiry").value = moment(firstRow.cr3ea_expirydate).format("YYYY-MM-DD");
                     }
 
-                    rows.forEach((row, i) => {
-                        if (i < 10) {
+                    if (!this.cvSelectedDefects) this.cvSelectedDefects = {};
+
+                    sortedCvRows.forEach((row, rowIdx) => {
+                        const i = PKGOPS_Checklist.parseSampleNum(row, rowIdx) - 1;
+                        if (i >= 0 && i < 10) {
                             const status = row.cr3ea_defecttype && row.cr3ea_defecttype !== "None" ? "Not Okay" : "Okay";
                             const statusSelect = document.getElementById(`cv-status-${i}`);
                             if (statusSelect) {
@@ -3288,12 +4179,48 @@ const PKGOPS_Checklist = {
                                 PKGOPS_Checklist.toggleCvDefectFields(i);
                             }
                             if (status === "Not Okay") {
-                                const defectSelect = document.getElementById(`cv-defect-${i}`);
-                                if (defectSelect) defectSelect.value = row.cr3ea_defecttype || "";
+                                const customInput = document.getElementById(`cv-custom-${i}`);
                                 const countInput = document.getElementById(`cv-count-${i}`);
+
+                                const rawDefect = (row.cr3ea_defecttype || "").trim();
+                                this.cvSelectedDefects[i] = [];
+
+                                // Split by comma outside parentheses
+                                const defectTokens = rawDefect.split(/,\s*(?![^()]*\))/).map(t => t.trim()).filter(Boolean);
+
+                                defectTokens.forEach(token => {
+                                    const customMatch = token.match(/^Other\s*\((.*?)\)$/i);
+                                    if (customMatch) {
+                                        if (!this.cvSelectedDefects[i].includes("Other (Custom)")) {
+                                            this.cvSelectedDefects[i].push("Other (Custom)");
+                                        }
+                                        if (customInput) {
+                                            customInput.value = customMatch[1].trim();
+                                        }
+                                    } else if (token.toLowerCase() === "other") {
+                                        if (!this.cvSelectedDefects[i].includes("Other (Custom)")) {
+                                            this.cvSelectedDefects[i].push("Other (Custom)");
+                                        }
+                                    } else {
+                                        if (!this.cvSelectedDefects[i].includes(token)) {
+                                            this.cvSelectedDefects[i].push(token);
+                                        }
+                                    }
+                                });
+
+                                // Check the corresponding checkboxes in the panel
+                                const checkboxes = document.querySelectorAll(`.cv-chk-${i}`);
+                                checkboxes.forEach(chk => {
+                                    if (this.cvSelectedDefects[i].includes(chk.value)) {
+                                        chk.checked = true;
+                                    }
+                                });
+
+                                this.updateCvDefectDisplay(i);
+
                                 if (countInput) countInput.value = row.cr3ea_defectcount || "";
 
-                                const savedUrls = (row.cr3ea_codepictureurl || "").split(",").map(u => u.trim()).filter(Boolean);
+                                const savedUrls = Array.from(new Set((row.cr3ea_codepictureurl || "").split(",").map(u => u.trim()).filter(Boolean)));
                                 if (savedUrls.length > 0) {
                                     const fileStatus = document.getElementById(`file-status-cv-${i}`);
                                     const fileInput = document.getElementById(`cv-file-${i}`);
@@ -3389,8 +4316,65 @@ const PKGOPS_Checklist = {
                     if (document.getElementById("seal-sku")) this.setSelectValueSafely("seal-sku", row.cr3ea_sku);
                     if (document.getElementById("seal-machine")) document.getElementById("seal-machine").value = row.cr3ea_machineno || "";
                     if (document.getElementById("seal-qty")) document.getElementById("seal-qty").value = row.cr3ea_samplequantity || "10";
-                    if (document.getElementById("seal-leak-count")) document.getElementById("seal-leak-count").value = row.cr3ea_noofleakage || "0";
-                    if (document.getElementById("seal-leak-type")) document.getElementById("seal-leak-type").value = row.cr3ea_leakagetype || "None";
+
+                    // Clear previous rows
+                    const listContainer = document.getElementById("seal-defects-list");
+                    if (listContainer) listContainer.innerHTML = "";
+
+                    const rawType = (row.cr3ea_leakagetype || "").trim();
+                    const totalLeaks = parseInt(row.cr3ea_noofleakage, 10) || 0;
+
+                    if (rawType && rawType !== "None" && totalLeaks > 0) {
+                        // Parse multiple defects, e.g. "Joint Leakage: 2, Other (Weak corner): 1 [Near seam]" or legacy "Joint Leakage"
+                        const items = rawType.split(",").map(s => s.trim()).filter(Boolean);
+                        items.forEach(rawItem => {
+                            let item = rawItem;
+                            let type = item;
+                            let custom = "";
+                            let count = 1;
+                            let notes = "";
+
+                            // Extract notes in brackets [notes]
+                            const notesMatch = item.match(/\[(.*?)\]/);
+                            if (notesMatch) {
+                                notes = notesMatch[1];
+                                item = item.replace(/\[(.*?)\]/, "").trim();
+                            }
+
+                            // Extract count suffix e.g. ": 2"
+                            const countMatch = item.match(/:\s*(\d+)$/);
+                            if (countMatch) {
+                                count = parseInt(countMatch[1], 10) || 1;
+                                item = item.replace(/:\s*\d+$/, "").trim();
+                            } else if (items.length === 1 && totalLeaks > 0) {
+                                count = totalLeaks;
+                            }
+
+                            // Extract custom in parentheses e.g. "Other (Weak corner)" or "Joint Leakage (Top)"
+                            const customMatch = item.match(/^(.*?)\s*\((.*?)\)$/);
+                            if (customMatch) {
+                                const baseType = customMatch[1].trim();
+                                const customText = customMatch[2].trim();
+                                if (baseType.toLowerCase() === "other") {
+                                    type = "Other (Custom)";
+                                    custom = customText;
+                                } else {
+                                    type = baseType;
+                                    custom = customText;
+                                }
+                            } else {
+                                if (item.toLowerCase() === "other") {
+                                    type = "Other (Custom)";
+                                } else {
+                                    type = item;
+                                }
+                            }
+
+                            this.addSealDefectRow({ type, custom, count, notes });
+                        });
+                    }
+
+                    this.calculateSealMetrics();
                 }
             } 
             else if (this.pkgopsType === "Quality Wall Records") {
@@ -3399,15 +4383,41 @@ const PKGOPS_Checklist = {
                     const row = rows[0];
                     if (document.getElementById("wall-product")) this.setProductWithCategory("wall", row.cr3ea_productname);
                     if (document.getElementById("wall-sku")) this.setSelectValueSafely("wall-sku", row.cr3ea_sku);
+                    if (document.getElementById("wall-line") && row.cr3ea_lineno) document.getElementById("wall-line").value = row.cr3ea_lineno;
+                    if (document.getElementById("wall-pkdbatch") && row.cr3ea_pkdbatchno) document.getElementById("wall-pkdbatch").value = row.cr3ea_pkdbatchno;
+                    if (document.getElementById("wall-type") && row.cr3ea_typeofqualitywall) document.getElementById("wall-type").value = row.cr3ea_typeofqualitywall;
+
                     await Promise.all([
                         row.cr3ea_facilitator ? this.populatePickerFromSavedValue("wall-facilitator", row.cr3ea_facilitator) : Promise.resolve(),
                         row.cr3ea_memberspresent ? this.populatePickerFromSavedValue("wall-members", row.cr3ea_memberspresent) : Promise.resolve()
                     ]);
-                    if (document.getElementById("wall-type")) document.getElementById("wall-type").value = row.cr3ea_typeofqualitywall || "";
-                    if (document.getElementById("wall-rating-appearance")) document.getElementById("wall-rating-appearance").value = row.cr3ea_packappearancerating || "5";
-                    if (document.getElementById("wall-rating-sealing")) document.getElementById("wall-rating-sealing").value = row.cr3ea_sealingqualityrating || "5";
-                    if (document.getElementById("wall-rating-coding")) document.getElementById("wall-rating-coding").value = row.cr3ea_codingrating || "5";
-                    if (document.getElementById("wall-remarks")) document.getElementById("wall-remarks").value = row.cr3ea_remarks || "";
+
+                    // Pack Quality (3 parameters)
+                    if (document.getElementById("wall-rating-pack-appearance")) document.getElementById("wall-rating-pack-appearance").value = row.cr3ea_packappearancerating || "5";
+                    if (document.getElementById("wall-rating-pack-sealing")) document.getElementById("wall-rating-pack-sealing").value = row.cr3ea_sealingqualityrating || "5";
+                    if (document.getElementById("wall-rating-pack-coding")) document.getElementById("wall-rating-pack-coding").value = row.cr3ea_codingrating || "5";
+
+                    let rawRemarks = row.cr3ea_remarks || "";
+                    let prodRatings = { appearance: 5, colour: 5, texture: 5, flavour: 5, taste: 5 };
+
+                    // Parse Product Quality header e.g. [Product Quality | Appearance: 5, Colour: 5, Texture: 5, Flavour: 5, Taste: 5]
+                    const prodMatch = rawRemarks.match(/\[Product Quality\s*\|\s*Appearance:\s*(\d+(?:\.\d+)?),\s*Colour:\s*(\d+(?:\.\d+)?),\s*Texture:\s*(\d+(?:\.\d+)?),\s*Flavour:\s*(\d+(?:\.\d+)?),\s*Taste:\s*(\d+(?:\.\d+)?)\]/i);
+                    if (prodMatch) {
+                        prodRatings.appearance = prodMatch[1];
+                        prodRatings.colour = prodMatch[2];
+                        prodRatings.texture = prodMatch[3];
+                        prodRatings.flavour = prodMatch[4];
+                        prodRatings.taste = prodMatch[5];
+                        rawRemarks = rawRemarks.replace(prodMatch[0], "").trim();
+                    }
+
+                    if (document.getElementById("wall-rating-prod-appearance")) document.getElementById("wall-rating-prod-appearance").value = prodRatings.appearance;
+                    if (document.getElementById("wall-rating-prod-colour")) document.getElementById("wall-rating-prod-colour").value = prodRatings.colour;
+                    if (document.getElementById("wall-rating-prod-texture")) document.getElementById("wall-rating-prod-texture").value = prodRatings.texture;
+                    if (document.getElementById("wall-rating-prod-flavour")) document.getElementById("wall-rating-prod-flavour").value = prodRatings.flavour;
+                    if (document.getElementById("wall-rating-prod-taste")) document.getElementById("wall-rating-prod-taste").value = prodRatings.taste;
+
+                    if (document.getElementById("wall-remarks")) document.getElementById("wall-remarks").value = rawRemarks;
                     PKGOPS_Checklist.calculateOverallWallRating();
                 }
             }
@@ -3476,10 +4486,11 @@ const PKGOPS_Checklist = {
         } else {
             const rows = this.savedPqiEvaluations;
             if (rows && rows.length > 0) {
-                const subRows = rows.filter(r => r.cr3ea_evaluationtype === val);
+                const subRows = rows.filter(r => r.cr3ea_evaluationtype === val).sort((a, b) => PKGOPS_Checklist.parseSampleNum(a) - PKGOPS_Checklist.parseSampleNum(b));
                 if (subRows.length > 0) {
-                    subRows.forEach((row, i) => {
-                        if (i < 10) {
+                    subRows.forEach((row, rowIdx) => {
+                        const i = PKGOPS_Checklist.parseSampleNum(row, rowIdx) - 1;
+                        if (i >= 0 && i < 10) {
                             const statusSelect = document.getElementById(`pqi-eval-status-${i}`);
                             if (statusSelect) {
                                 statusSelect.value = row.cr3ea_sampleresult || "Okay";

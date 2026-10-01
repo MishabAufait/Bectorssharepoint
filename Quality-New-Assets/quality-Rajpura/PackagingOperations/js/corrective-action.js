@@ -105,6 +105,23 @@ const PKGOPS_CorrectiveAction = {
         }
     },
 
+    parseSampleNum: function (row, fallbackIdx) {
+        if (!row) return fallbackIdx !== undefined ? fallbackIdx + 1 : 1;
+        if (typeof row === "string" || typeof row === "number") {
+            const m = String(row).match(/\d+/);
+            return m ? parseInt(m[0], 10) : (fallbackIdx !== undefined ? fallbackIdx + 1 : 1);
+        }
+        if (row.cr3ea_samplenumber) {
+            const m = String(row.cr3ea_samplenumber).match(/\d+/);
+            if (m) return parseInt(m[0], 10);
+        }
+        if (row.cr3ea_name) {
+            const m = String(row.cr3ea_name).match(/Sample[_\s-]*(\d+)/i);
+            if (m) return parseInt(m[1], 10);
+        }
+        return fallbackIdx !== undefined ? fallbackIdx + 1 : 999;
+    },
+
     loadDeviatedRows: async function () {
         const container = document.getElementById("corrective-action-form-area");
         if (!container) return;
@@ -121,21 +138,20 @@ const PKGOPS_CorrectiveAction = {
             
             // Filter only rows that have deviations
             if (this.pkgopsType === "Code Verification") {
-                this.deviatedRows = rows.filter(r => r.cr3ea_defecttype && r.cr3ea_defecttype !== "None" && r.cr3ea_defecttype !== "Okay");
+                this.deviatedRows = rows
+                    .filter(r => r.cr3ea_defecttype && r.cr3ea_defecttype !== "None" && r.cr3ea_defecttype !== "Okay")
+                    .sort((a, b) => this.parseSampleNum(a) - this.parseSampleNum(b));
             } else if (this.pkgopsType === "PAPA") {
                 this.deviatedRows = rows.filter(r => r.cr3ea_defecttype && r.cr3ea_defecttype !== "Overall Summary");
             } else if (this.pkgopsType === "PQI") {
-                const parseNum = (str) => {
-                    if (!str) return 0;
-                    const m = String(str).match(/\d+/);
-                    return m ? parseInt(m[0], 10) : 0;
-                };
-                this.deviatedRows = rows.filter(r => r.cr3ea_sampleresult === "Not Okay").sort((a, b) => {
-                    const numA = parseNum(a.cr3ea_samplenumber);
-                    const numB = parseNum(b.cr3ea_samplenumber);
-                    if (numA !== numB) return numA - numB;
-                    return (a.cr3ea_samplenumber || "").localeCompare(b.cr3ea_samplenumber || "", undefined, { numeric: true });
-                });
+                this.deviatedRows = rows
+                    .filter(r => r.cr3ea_sampleresult === "Not Okay")
+                    .sort((a, b) => {
+                        const numA = this.parseSampleNum(a);
+                        const numB = this.parseSampleNum(b);
+                        if (numA !== numB) return numA - numB;
+                        return (a.cr3ea_samplenumber || "").localeCompare(b.cr3ea_samplenumber || "", undefined, { numeric: true });
+                    });
             } else if (this.pkgopsType === "Seal Integrity") {
                 this.deviatedRows = rows.filter(r => parseInt(r.cr3ea_noofleakage) > 0);
             } else {
@@ -180,7 +196,13 @@ const PKGOPS_CorrectiveAction = {
                                 let rowId = "";
 
                                 if (this.pkgopsType === "Code Verification") {
-                                    defectDesc = row.cr3ea_defecttype || "Code Defect";
+                                    const sampleNo = this.parseSampleNum(row, idx);
+                                    defectDesc = `
+                                        <div class="d-flex flex-column align-items-start gap-1">
+                                            <span class="badge bg-primary" style="font-size: 12px; padding: 4px 8px;">Sample ${sampleNo}</span>
+                                            <span class="fw-bold text-danger" style="font-size: 13px;">${row.cr3ea_defecttype || "Code Defect"}</span>
+                                        </div>
+                                    `;
                                     obsDetails = `Batch: ${row.cr3ea_batchno || "-"} | PKD: ${row.cr3ea_pkd || "-"} | Defect Count: ${row.cr3ea_defectcount || "1"}`;
                                     rowId = row.cr3ea_rajpura_pkgops_codeverificationid || row.cr3ea_prod_rajpura_pkgops_codeverificationid || row.id;
                                 } else if (this.pkgopsType === "PAPA") {
@@ -188,12 +210,32 @@ const PKGOPS_CorrectiveAction = {
                                     obsDetails = `Defect Count: ${row.cr3ea_defectcount || "1"} | Percentage: ${row.cr3ea_defectwisepercentage || "1%"}`;
                                     rowId = row.cr3ea_rajpura_pkgops_papaid || row.cr3ea_prod_rajpura_pkgops_papaid || row.id;
                                 } else if (this.pkgopsType === "PQI") {
-                                    defectDesc = `${row.cr3ea_evaluationtype} Pack Defect`;
-                                    obsDetails = `${row.cr3ea_samplenumber} - Category: ${row.cr3ea_defectcategory || "-"} | Details: ${row.cr3ea_defectdetail || "-"}`;
+                                    defectDesc = `
+                                        <div class="d-flex flex-column align-items-start gap-1">
+                                            <span class="badge bg-primary" style="font-size: 12px; padding: 4px 8px;">${row.cr3ea_samplenumber || `Sample ${idx + 1}`}</span>
+                                            <span class="fw-bold text-danger" style="font-size: 13px;">${row.cr3ea_evaluationtype} Pack Defect</span>
+                                        </div>
+                                    `;
+                                    obsDetails = `Category: ${row.cr3ea_defectcategory || "-"} | Details: ${row.cr3ea_defectdetail || "-"}`;
                                     rowId = row.cr3ea_rajpura_pkgops_pqi_evaluationid || row.cr3ea_prod_rajpura_pkgops_pqi_evaluationid || row.id;
                                 } else if (this.pkgopsType === "Seal Integrity") {
-                                    defectDesc = "Leakage Detected";
-                                    obsDetails = `Leakages: ${row.cr3ea_noofleakage || "1"} | Type: ${row.cr3ea_leakagetype || "-"}`;
+                                    const qty = parseInt(row.cr3ea_samplequantity, 10) || 0;
+                                    const leaks = parseInt(row.cr3ea_noofleakage, 10) || 0;
+                                    const passPctVal = qty > 0 ? (((Math.max(0, qty - leaks)) / qty) * 100) : 0;
+                                    const passPct = passPctVal.toFixed(2) + "%";
+                                    const passBadgeClass = passPctVal >= 80 ? "bg-warning text-dark" : "bg-danger";
+
+                                    defectDesc = `
+                                        <div class="d-flex flex-column align-items-center justify-content-center gap-1.5 p-1">
+                                            <span class="fw-bold text-danger" style="font-size: 13px;">
+                                                <i class="fa fa-exclamation-triangle text-danger me-1"></i>Seal Integrity Deviation
+                                            </span>
+                                            <span class="badge ${passBadgeClass}" style="font-size: 11px; padding: 4px 8px; border-radius: 4px;">
+                                                ${passPct} Pass Rate
+                                            </span>
+                                        </div>
+                                    `;
+                                    obsDetails = this.formatSealIntegrityObsHtml(row);
                                     rowId = row.cr3ea_rajpura_pkgops_sealintegrityid || row.cr3ea_prod_rajpura_pkgops_sealintegrityid || row.id;
                                 }
 
@@ -236,13 +278,13 @@ const PKGOPS_CorrectiveAction = {
 
                                 return `
                                     <tr data-rowid="${rowId}">
-                                        <td><strong>${defectDesc}</strong></td>
-                                        <td>
+                                        <td style="width: 25%;">${defectDesc}</td>
+                                        <td style="width: 35%;">
                                             <div>${obsDetails}</div>
                                             ${defectPhotosHtml}
                                             ${qaReverifyHtml}
                                         </td>
-                                        <td>
+                                        <td style="width: 20%;">
                                             <textarea class="form-control action-taken-input" id="act-remarks-${idx}" rows="2" placeholder="Describe actions taken...">${actionRemarksOnly}</textarea>
                                         </td>
                                         <td>
@@ -297,7 +339,8 @@ const PKGOPS_CorrectiveAction = {
                 const files = this.uploadedFiles[idx] || (fileInput && fileInput.files && fileInput.files.length ? Array.from(fileInput.files) : []);
                 let proofUrl = "";
                 if (files.length > 0) {
-                    const uploadPromises = files.map(file => PKGOPS_DAL.uploadAttachmentFile(file, this.currentTourId, `Corrective_${this.pkgopsType}`, `CA-${idx}`, remarksVal));
+                    const sampleNo = this.parseSampleNum(row, idx);
+                    const uploadPromises = files.map(file => PKGOPS_DAL.uploadAttachmentFile(file, this.currentTourId, `Corrective_${this.pkgopsType}`, `Sample-${sampleNo}`, remarksVal));
                     const urls = await Promise.all(uploadPromises);
                     const validUrls = urls.filter(Boolean);
                     if (existingActionProof) {
@@ -378,5 +421,91 @@ const PKGOPS_CorrectiveAction = {
                 : ("Submission failed: " + (error.message || "Please check connection and files, and try again."));
             alert(msg);
         }
+    },
+
+    formatSealIntegrityObsHtml: function (row) {
+        const qty = parseInt(row.cr3ea_samplequantity, 10) || 0;
+        const leaks = parseInt(row.cr3ea_noofleakage, 10) || 0;
+        const passCount = Math.max(0, qty - leaks);
+        const passPctVal = qty > 0 ? ((passCount / qty) * 100) : 100;
+        const passPctStr = passPctVal.toFixed(2) + "%";
+        const machine = row.cr3ea_machineno || "-";
+        const rawDefects = (row.cr3ea_leakagetype || "").trim();
+
+        const defectItems = [];
+        if (rawDefects && rawDefects !== "None") {
+            const parts = rawDefects.split(",").map(p => p.trim()).filter(Boolean);
+            parts.forEach(p => {
+                let text = p;
+                let count = 1;
+                let notes = "";
+                let custom = "";
+
+                // Check for notes [notes]
+                const notesMatch = text.match(/\[(.*?)\]/);
+                if (notesMatch) {
+                    notes = notesMatch[1];
+                    text = text.replace(/\[(.*?)\]/, "").trim();
+                }
+
+                // Check for count : 2
+                const countMatch = text.match(/:\s*(\d+)$/);
+                if (countMatch) {
+                    count = parseInt(countMatch[1], 10) || 1;
+                    text = text.replace(/:\s*\d+$/, "").trim();
+                }
+
+                // Check for custom (detail)
+                const customMatch = text.match(/^(.*?)\s*\((.*?)\)$/);
+                if (customMatch) {
+                    text = customMatch[1].trim();
+                    custom = customMatch[2].trim();
+                }
+
+                defectItems.push({
+                    type: text,
+                    custom: custom,
+                    notes: notes,
+                    count: count
+                });
+            });
+        }
+
+        const passBadgeClass = passPctVal === 100 ? "bg-success" : (passPctVal >= 80 ? "bg-warning text-dark" : "bg-danger");
+
+        return `
+            <div class="text-start" style="font-size: 12px;">
+                <!-- Key Metric Badges -->
+                <div class="d-flex flex-wrap gap-1 mb-2">
+                    <span class="badge bg-secondary" style="font-size: 11px; padding: 4px 8px;">M/C: <strong>${machine}</strong></span>
+                    <span class="badge bg-light text-dark border" style="font-size: 11px; padding: 4px 8px;">Tested: <strong>${qty}</strong></span>
+                    <span class="badge bg-danger text-white" style="font-size: 11px; padding: 4px 8px;">Leaks: <strong>${leaks}</strong></span>
+                    <span class="badge ${passBadgeClass}" style="font-size: 11px; padding: 4px 8px;">Pass: <strong>${passPctStr}</strong></span>
+                </div>
+
+                <!-- Defect Breakdown Cards -->
+                ${defectItems.length > 0 ? `
+                    <div class="p-2 border rounded" style="border: 1px solid #fed7aa !important; background-color: #fffaf0 !important;">
+                        <div class="fw-bold mb-1" style="font-size: 11px; text-transform: uppercase; color: #9a3412;">
+                            Observed Defects (${defectItems.length} Type${defectItems.length > 1 ? 's' : ''}):
+                        </div>
+                        <div class="d-flex flex-column gap-1">
+                            ${defectItems.map(d => `
+                                <div class="d-flex align-items-center justify-content-between p-1 px-2 rounded bg-white" style="border: 1px solid #fee2e2;">
+                                    <div>
+                                        <strong class="text-danger">${d.type}</strong>
+                                        ${d.custom ? `<span class="text-dark"> &bull; <em>${d.custom}</em></span>` : ''}
+                                        ${d.notes ? `<span class="text-muted ms-1" style="font-size: 11px;">[${d.notes}]</span>` : ''}
+                                    </div>
+                                    <span class="badge bg-danger" style="font-size: 11px; font-weight: 700;">${d.count} ${d.count > 1 ? 'packs' : 'pack'}</span>
+                                </div>
+                            `).join("")}
+                        </div>
+                    </div>
+                ` : `
+                    <div class="text-muted small">No specific defect breakdown recorded.</div>
+                `}
+            </div>
+        `;
     }
 };

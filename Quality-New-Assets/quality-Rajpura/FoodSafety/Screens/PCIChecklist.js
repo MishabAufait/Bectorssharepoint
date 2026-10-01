@@ -219,6 +219,29 @@ const PCIChecklistScreen = {
         this.calculateScores();
     },
 
+    handleObsTypeChange: function (locIndex, obsIndex) {
+        const typeSelect = document.getElementById(`pci-obs-type-${locIndex}-${obsIndex}`);
+        const otherWrap = document.getElementById(`pci-obs-other-wrap-${locIndex}-${obsIndex}`);
+        const otherInput = document.getElementById(`pci-obs-other-${locIndex}-${obsIndex}`);
+        if (!typeSelect || !otherWrap) return;
+
+        const val = (typeSelect.value || "").trim().toLowerCase();
+        if (val === "others" || val === "other") {
+            otherWrap.style.display = "block";
+            if (otherInput) {
+                otherInput.focus();
+            }
+        } else {
+            otherWrap.style.display = "none";
+            if (otherInput) {
+                otherInput.value = "";
+                if (typeof FoodSafety_Validator !== "undefined") {
+                    FoodSafety_Validator.highlight(otherInput, false);
+                }
+            }
+        }
+    },
+
     // Add repeatable observation sub-form
     addObservation: function (locIndex) {
         const list = document.getElementById(`pci-observations-list-${locIndex}`);
@@ -226,10 +249,11 @@ const PCIChecklistScreen = {
 
         const obsIndex = list.children.length;
         const row = document.createElement("div");
-        row.className = "d-flex align-items-center pci-obs-row mb-2";
+        row.className = "pci-obs-row mb-2";
         row.id = `pci-obs-row-${locIndex}-${obsIndex}`;
         row.style.display = "flex";
-        row.style.gap = "10px";
+        row.style.flexDirection = "column";
+        row.style.gap = "6px";
         row.style.marginBottom = "10px";
 
         // Generate type and count options
@@ -237,20 +261,25 @@ const PCIChecklistScreen = {
         const countOptions = Array.from({ length: 20 }, (_, i) => `<option value="${i + 1}" ${i === 0 ? 'selected' : ''}>${i + 1}</option>`).join("");
 
         row.innerHTML = `
-            <div class="select2-parent" style="flex: 2; min-width: 150px;">
-                <select class="form-select pci-obs-type" id="pci-obs-type-${locIndex}-${obsIndex}">
-                    ${typeOptions}
-                </select>
+            <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+                <div class="select2-parent" style="flex: 2; min-width: 150px;">
+                    <select class="form-select pci-obs-type" id="pci-obs-type-${locIndex}-${obsIndex}">
+                        ${typeOptions}
+                    </select>
+                </div>
+                <div class="select2-parent" style="flex: 1; min-width: 80px;">
+                    <select class="form-select pci-obs-count" id="pci-obs-count-${locIndex}-${obsIndex}">
+                        ${countOptions}
+                    </select>
+                </div>
+                <div style="width: 45px; display: flex; align-items: center; justify-content: center;">
+                    <button type="button" style="background: transparent; border: none; padding: 0; width: 42px; height: 42px; font-size: 22px; font-weight: bold; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;" onclick="PCIChecklistScreen.removeObservation(${locIndex}, ${obsIndex})" title="Remove observation">
+                        &times;
+                    </button>
+                </div>
             </div>
-            <div class="select2-parent" style="flex: 1; min-width: 80px;">
-                <select class="form-select pci-obs-count" id="pci-obs-count-${locIndex}-${obsIndex}">
-                    ${countOptions}
-                </select>
-            </div>
-            <div style="width: 45px; display: flex; align-items: center; justify-content: center;">
-                <button type="button" style="background: transparent; border: none; padding: 0; width: 42px; height: 42px; font-size: 22px; font-weight: bold; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;" onclick="PCIChecklistScreen.removeObservation(${locIndex}, ${obsIndex})" title="Remove observation">
-                    &times;
-                </button>
+            <div class="pci-obs-other-wrap" id="pci-obs-other-wrap-${locIndex}-${obsIndex}" style="display: none; padding-right: 55px;">
+                <input type="text" class="form-control form-control-sm pci-obs-other-input" id="pci-obs-other-${locIndex}-${obsIndex}" placeholder="Please specify details for Others..." style="font-size: 12px; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px 10px; width: 100%;" oninput="if(typeof FoodSafety_Validator !== 'undefined') FoodSafety_Validator.highlight(this, false);">
             </div>
         `;
 
@@ -264,12 +293,15 @@ const PCIChecklistScreen = {
             if (typeof FoodSafety_Validator !== "undefined") {
                 FoodSafety_Validator.highlight(this, false);
             }
+            PCIChecklistScreen.handleObsTypeChange(locIndex, obsIndex);
         });
         $(`#pci-obs-count-${locIndex}-${obsIndex}`).on("change", function () {
             if (typeof FoodSafety_Validator !== "undefined") {
                 FoodSafety_Validator.highlight(this, false);
             }
         });
+
+        this.handleObsTypeChange(locIndex, obsIndex);
     },
 
     // Remove repeatable observation sub-form row
@@ -306,6 +338,7 @@ const PCIChecklistScreen = {
             // 1. Pre-validation checks
             let unansweredCount = 0;
             let missingObsCount = 0;
+            let missingOtherDetails = 0;
             let invalidCountVal = false;
             let firstInvalidEl = null;
 
@@ -333,12 +366,25 @@ const PCIChecklistScreen = {
                         rows.forEach(row => {
                             const typeSelect = row.querySelector(".pci-obs-type");
                             const countInput = row.querySelector(".pci-obs-count");
+                            const otherInput = row.querySelector(".pci-obs-other-input");
                             const count = parseInt(countInput ? countInput.value : 0) || 0;
-                            if (typeSelect && !typeSelect.value) {
+                            const typeVal = typeSelect ? typeSelect.value : "";
+
+                            if (typeSelect && !typeVal) {
                                 if (typeof FoodSafety_Validator !== "undefined") {
                                     FoodSafety_Validator.highlight(typeSelect, true);
                                 }
                                 if (!firstInvalidEl) firstInvalidEl = typeSelect;
+                            }
+                            if (typeVal && (typeVal.toLowerCase() === "others" || typeVal.toLowerCase() === "other")) {
+                                const otherText = otherInput ? otherInput.value.trim() : "";
+                                if (!otherText) {
+                                    missingOtherDetails++;
+                                    if (typeof FoodSafety_Validator !== "undefined" && otherInput) {
+                                        FoodSafety_Validator.highlight(otherInput, true);
+                                    }
+                                    if (!firstInvalidEl) firstInvalidEl = otherInput;
+                                }
                             }
                             if (count <= 0) {
                                 invalidCountVal = true;
@@ -352,13 +398,16 @@ const PCIChecklistScreen = {
                 }
             });
 
-            if (unansweredCount > 0 || missingObsCount > 0 || invalidCountVal) {
+            if (unansweredCount > 0 || missingObsCount > 0 || missingOtherDetails > 0 || invalidCountVal) {
                 const missingList = [];
                 if (unansweredCount > 0) {
                     missingList.push(`Status selection for ${unansweredCount} location(s)`);
                 }
                 if (missingObsCount > 0) {
                     missingList.push(`At least one observation for ${missingObsCount} location(s) marked as "Not Okay"`);
+                }
+                if (missingOtherDetails > 0) {
+                    missingList.push(`Specific description / details for ${missingOtherDetails} observation(s) marked as 'Others'`);
                 }
                 if (invalidCountVal) {
                     missingList.push("Observation count for all entries must be at least 1");
@@ -442,9 +491,17 @@ const PCIChecklistScreen = {
                     rows.forEach(row => {
                         const typeSelect = row.querySelector(".pci-obs-type");
                         const countInput = row.querySelector(".pci-obs-count");
+                        const otherInput = row.querySelector(".pci-obs-other-input");
 
-                        const type = typeSelect ? typeSelect.value : "Others";
+                        let type = typeSelect ? typeSelect.value : "Others";
                         const count = parseInt(countInput ? countInput.value : 1) || 1;
+
+                        if (type && (type.toLowerCase() === "others" || type.toLowerCase() === "other")) {
+                            const otherDetail = otherInput ? otherInput.value.trim() : "";
+                            if (otherDetail) {
+                                type = `Others (${otherDetail})`;
+                            }
+                        }
 
                         childRecords.push({
                             cr3ea_food_safety_title: `PCI_${FoodSafety_Main.state.selectedSite}_${FoodSafety_Main.state.selectedLine}_${dateStr}`,
@@ -677,9 +734,17 @@ const PCIChecklistScreen = {
                         rows.forEach(row => {
                             const typeSelect = row.querySelector(".pci-obs-type");
                             const countInput = row.querySelector(".pci-obs-count");
+                            const otherInput = row.querySelector(".pci-obs-other-input");
 
-                            const type = typeSelect ? typeSelect.value : "Others";
+                            let type = typeSelect ? typeSelect.value : "Others";
                             const count = parseInt(countInput ? countInput.value : 1) || 1;
+
+                            if (type && (type.toLowerCase() === "others" || type.toLowerCase() === "other")) {
+                                const otherDetail = otherInput ? otherInput.value.trim() : "";
+                                if (otherDetail) {
+                                    type = `Others (${otherDetail})`;
+                                }
+                            }
 
                             childRecords.push({
                                 cr3ea_food_safety_title: `PCI_${FoodSafety_Main.state.selectedSite}_${FoodSafety_Main.state.selectedLine}_${dateStr}`,
@@ -803,15 +868,31 @@ const PCIChecklistScreen = {
                                 matches.forEach((match, obsIdx) => {
                                     // Re-add observation row
                                     const row = document.createElement("div");
-                                    row.className = "d-flex align-items-center pci-obs-row mb-2";
+                                    row.className = "pci-obs-row mb-2";
                                     row.id = `pci-obs-row-${idx}-${obsIdx}`;
-                                    row.style.display = "flex";
-                                    row.style.gap = "10px";
                                     row.style.marginBottom = "10px";
+                                    row.style.display = "flex";
+                                    row.style.flexDirection = "column";
+                                    row.style.gap = "6px";
 
-                                    const obsType = match.cr3ea_food_safety_observationtype || match.cr953_food_safety_observationtype;
+                                    const rawObsType = match.cr3ea_food_safety_observationtype || match.cr953_food_safety_observationtype || "";
+                                    let selectedType = rawObsType;
+                                    let otherDetail = "";
+
+                                    const otherMatch = rawObsType.match(/^Others?\s*\((.*)\)$/i);
+                                    if (otherMatch) {
+                                        selectedType = "Others";
+                                        otherDetail = otherMatch[1];
+                                    } else if (rawObsType.toLowerCase() === "others" || rawObsType.toLowerCase() === "other") {
+                                        selectedType = "Others";
+                                        otherDetail = "";
+                                    } else if (rawObsType && !this.observationTypes.includes(rawObsType)) {
+                                        selectedType = "Others";
+                                        otherDetail = rawObsType;
+                                    }
+
                                     const typeOptions = this.observationTypes.map(t => 
-                                        `<option value="${t}" ${t === obsType ? 'selected' : ''}>${t}</option>`
+                                        `<option value="${t}" ${t === selectedType ? 'selected' : ''}>${t}</option>`
                                     ).join("");
 
                                     const obsCount = parseInt(match.cr3ea_food_safety_defectcount || match.cr953_food_safety_defectcount || 1);
@@ -819,26 +900,45 @@ const PCIChecklistScreen = {
                                         `<option value="${i + 1}" ${(i + 1) === obsCount ? 'selected' : ''}>${i + 1}</option>`
                                     ).join("");
 
+                                    const isOther = (selectedType === "Others");
+
                                     row.innerHTML = `
-                                        <div class="select2-parent" style="flex: 2; min-width: 150px;">
-                                             <select class="form-select pci-obs-type" id="pci-obs-type-${idx}-${obsIdx}">
-                                                 ${typeOptions}
-                                             </select>
+                                        <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+                                            <div class="select2-parent" style="flex: 2; min-width: 150px;">
+                                                 <select class="form-select pci-obs-type" id="pci-obs-type-${idx}-${obsIdx}">
+                                                     ${typeOptions}
+                                                 </select>
+                                            </div>
+                                            <div class="select2-parent" style="flex: 1; min-width: 80px;">
+                                                 <select class="form-select pci-obs-count" id="pci-obs-count-${idx}-${obsIdx}">
+                                                     ${countOptions}
+                                                 </select>
+                                            </div>
+                                            <div style="width: 45px; display: flex; align-items: center; justify-content: center;">
+                                                 <button type="button" style="background: transparent; border: none; padding: 0; width: 42px; height: 42px; font-size: 22px; font-weight: bold; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;" onclick="PCIChecklistScreen.removeObservation(${idx}, ${obsIdx})" title="Remove observation">
+                                                     &times;
+                                                 </button>
+                                            </div>
                                         </div>
-                                        <div class="select2-parent" style="flex: 1; min-width: 80px;">
-                                             <select class="form-select pci-obs-count" id="pci-obs-count-${idx}-${obsIdx}">
-                                                 ${countOptions}
-                                             </select>
-                                        </div>
-                                        <div style="width: 45px; display: flex; align-items: center; justify-content: center;">
-                                             <button type="button" style="background: transparent; border: none; padding: 0; width: 42px; height: 42px; font-size: 22px; font-weight: bold; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;" onclick="PCIChecklistScreen.removeObservation(${idx}, ${obsIdx})" title="Remove observation">
-                                                 &times;
-                                             </button>
+                                        <div class="pci-obs-other-wrap" id="pci-obs-other-wrap-${idx}-${obsIdx}" style="display: ${isOther ? 'block' : 'none'}; padding-right: 55px;">
+                                            <input type="text" class="form-control form-control-sm pci-obs-other-input" id="pci-obs-other-${idx}-${obsIdx}" value="${this.escapeHtml(otherDetail)}" placeholder="Please specify details for Others..." style="font-size: 12px; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px 10px; width: 100%;" oninput="if(typeof FoodSafety_Validator !== 'undefined') FoodSafety_Validator.highlight(this, false);">
                                         </div>
                                     `;
                                     list.appendChild(row);
                                     DropdownComponent.init(`pci-obs-type-${idx}-${obsIdx}`);
                                     DropdownComponent.init(`pci-obs-count-${idx}-${obsIdx}`);
+
+                                    $(`#pci-obs-type-${idx}-${obsIdx}`).on("change", function () {
+                                        if (typeof FoodSafety_Validator !== "undefined") {
+                                            FoodSafety_Validator.highlight(this, false);
+                                        }
+                                        PCIChecklistScreen.handleObsTypeChange(idx, obsIdx);
+                                    });
+                                    $(`#pci-obs-count-${idx}-${obsIdx}`).on("change", function () {
+                                        if (typeof FoodSafety_Validator !== "undefined") {
+                                            FoodSafety_Validator.highlight(this, false);
+                                        }
+                                    });
                                 });
 
                                 // Check for proof URL in any match

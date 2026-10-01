@@ -22,6 +22,23 @@ const PKGOPS_Summary = {
         return num.toFixed(2);
     },
 
+    parseSampleNum: function (row, fallbackIdx) {
+        if (!row) return fallbackIdx !== undefined ? fallbackIdx + 1 : 1;
+        if (typeof row === "string" || typeof row === "number") {
+            const m = String(row).match(/\d+/);
+            return m ? parseInt(m[0], 10) : (fallbackIdx !== undefined ? fallbackIdx + 1 : 1);
+        }
+        if (row.cr3ea_samplenumber) {
+            const m = String(row.cr3ea_samplenumber).match(/\d+/);
+            if (m) return parseInt(m[0], 10);
+        }
+        if (row.cr3ea_name) {
+            const m = String(row.cr3ea_name).match(/Sample[_\s-]*(\d+)/i);
+            if (m) return parseInt(m[1], 10);
+        }
+        return fallbackIdx !== undefined ? fallbackIdx + 1 : 999;
+    },
+
     formatProofLinks: function (proofString, label = "Proof") {
         if (!proofString) return "";
         const urls = Array.from(new Set(String(proofString).split(",").map(u => u.trim()).filter(Boolean)));
@@ -159,6 +176,7 @@ const PKGOPS_Summary = {
             `;
         } 
         else if (this.pkgopsType === "Code Verification") {
+            const sortedCvRows = rows.slice().sort((a, b) => PKGOPS_Summary.parseSampleNum(a) - PKGOPS_Summary.parseSampleNum(b));
             html = `
                 <div class="row mt-3">
                     <div class="col-md-12">
@@ -176,7 +194,8 @@ const PKGOPS_Summary = {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${rows.map((row, idx) => {
+                                    ${sortedCvRows.map((row, idx) => {
+                                         const sampleNo = PKGOPS_Summary.parseSampleNum(row, idx);
                                          const hasDefect = row.cr3ea_defecttype && row.cr3ea_defecttype !== "None" && row.cr3ea_defecttype !== "Okay";
                                          const isResolved = row.cr3ea_deviationstatus === "Closed";
                                          const badge = (hasDefect && !isResolved)
@@ -203,11 +222,18 @@ const PKGOPS_Summary = {
                                              rowStyle = `background-color: #fef2f2; color: #b91c1c;`; // soft red for pending defect
                                          }
 
+                                         const defectTokens = hasDefect ? (row.cr3ea_defecttype || "").split(/,\s*(?![^()]*\))/).map(t => t.trim()).filter(Boolean) : [];
+                                         const defectDisplay = hasDefect
+                                             ? (defectTokens.length > 1
+                                                 ? `<div class="d-flex flex-wrap gap-1">${defectTokens.map(d => `<span class="badge" style="background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; font-size: 11px; font-weight: 600; white-space: normal; text-align: left;">${d}</span>`).join("")}</div>`
+                                                 : `<span class="text-danger" style="font-weight: 700;">${row.cr3ea_defecttype || "-"}</span>`)
+                                             : `<span class="text-secondary">-</span>`;
+
                                          return `
                                              <tr style="${rowStyle} border-bottom: 1px solid #e2e8f0;">
-                                                 <td style="padding: 12px 16px; font-weight: 600;">Sample ${idx + 1}</td>
+                                                 <td style="padding: 12px 16px; font-weight: 600;"><span class="badge bg-light text-primary border" style="font-size: 12px; padding: 4px 8px;">Sample ${sampleNo}</span></td>
                                                  <td style="padding: 12px 16px;">Batch: ${row.cr3ea_batchno || "-"} <br> <small class="text-secondary">PKD: ${row.cr3ea_pkd || "-"}</small></td>
-                                                 <td style="padding: 12px 16px; font-weight: 700;" class="${hasDefect ? 'text-danger' : ''}">${row.cr3ea_defecttype || "-"}${defectLinkHtml}</td>
+                                                 <td style="padding: 12px 16px;">${defectDisplay}${defectLinkHtml}</td>
                                                  <td style="padding: 12px 16px; font-weight: 600;">${row.cr3ea_defectcount || "0"}</td>
                                                  <td style="padding: 12px 16px; text-align: left; font-size: 13px; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${prodRemarks}${prodLinkHtml}</td>
                                                  <td style="padding: 12px 16px; text-align: left; font-size: 13px; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${qaRemarks}${qaLinkHtml}</td>
@@ -514,16 +540,10 @@ const PKGOPS_Summary = {
                 return a.localeCompare(b);
             });
 
-            const parseSampleNum = (str) => {
-                if (!str) return 0;
-                const m = String(str).match(/\d+/);
-                return m ? parseInt(m[0], 10) : 0;
-            };
-
             groupKeys.forEach(evalType => {
                 const groupRows = (groups[evalType] || []).slice().sort((a, b) => {
-                    const numA = parseSampleNum(a.cr3ea_samplenumber);
-                    const numB = parseSampleNum(b.cr3ea_samplenumber);
+                    const numA = PKGOPS_Summary.parseSampleNum(a);
+                    const numB = PKGOPS_Summary.parseSampleNum(b);
                     if (numA !== numB) return numA - numB;
                     return (a.cr3ea_samplenumber || "").localeCompare(b.cr3ea_samplenumber || "", undefined, { numeric: true });
                 });
@@ -668,13 +688,88 @@ const PKGOPS_Summary = {
         } 
         else if (this.pkgopsType === "Seal Integrity") {
             const r = rows[0] || {};
-            const hasLeak = parseInt(r.cr3ea_noofleakage) > 0;
+            const qty = parseInt(r.cr3ea_samplequantity, 10) || 0;
+            const leakCount = parseInt(r.cr3ea_noofleakage, 10) || 0;
+            const hasLeak = leakCount > 0;
+            const passCount = Math.max(0, qty - leakCount);
+            const passPctVal = qty > 0 ? ((passCount / qty) * 100) : 100;
+            const passPctStr = passPctVal.toFixed(2) + "%";
+
+            const passBadgeClass = passPctVal === 100 ? "text-success" : (passPctVal >= 80 ? "text-warning" : "text-danger");
+            const passCardContent = `
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="${passBadgeClass} fw-bold" style="font-size: 1.25rem;">${passPctStr}</span>
+                    <span class="badge ${passPctVal === 100 ? 'bg-success' : (passPctVal >= 80 ? 'bg-warning text-dark' : 'bg-danger')}" style="font-size: 11px;">
+                        ${passCount}/${qty} Passed
+                    </span>
+                </div>
+            `;
+
+            const rawDefects = (r.cr3ea_leakagetype || "None").trim();
+            const parsedDefects = [];
+            if (hasLeak && rawDefects && rawDefects !== "None") {
+                const parts = rawDefects.split(",").map(p => p.trim()).filter(Boolean);
+                parts.forEach(p => {
+                    let text = p;
+                    let count = 1;
+                    let notes = "";
+                    let custom = "";
+
+                    const notesMatch = text.match(/\[(.*?)\]/);
+                    if (notesMatch) {
+                        notes = notesMatch[1];
+                        text = text.replace(/\[(.*?)\]/, "").trim();
+                    }
+
+                    const countMatch = text.match(/:\s*(\d+)$/);
+                    if (countMatch) {
+                        count = parseInt(countMatch[1], 10) || 1;
+                        text = text.replace(/:\s*\d+$/, "").trim();
+                    }
+
+                    const customMatch = text.match(/^(.*?)\s*\((.*?)\)$/);
+                    if (customMatch) {
+                        text = customMatch[1].trim();
+                        custom = customMatch[2].trim();
+                    }
+
+                    parsedDefects.push({ type: text, custom, notes, count });
+                });
+            }
+
             html = `
                 <div class="row mt-3 g-3">
                     ${this.createSummaryCard("seal-machine", "Machine Number", r.cr3ea_machineno || "-")}
                     ${this.createSummaryCard("seal-qty", "Sample Quantity", r.cr3ea_samplequantity || "-")}
-                    ${this.createSummaryCard("seal-leaks", "Leakage Count", r.cr3ea_noofleakage || "-")}
-                    ${this.createSummaryCard("seal-type", "Leakage Type", r.cr3ea_leakagetype || "-")}
+                    ${this.createSummaryCard("seal-leaks", "Total Leakage Count", r.cr3ea_noofleakage || "0")}
+                    ${this.createSummaryCard("seal-pass-pct", "Pass Test %", passCardContent)}
+                </div>
+                <div class="row mt-3 g-3">
+                    <div class="col-md-12">
+                        <div class="card border rounded p-3 bg-white shadow-sm">
+                            <h6 class="fw-bold text-dark mb-2" style="font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                <i class="fa fa-list-check text-primary me-2"></i>Leakage Defect Breakdown
+                            </h6>
+                            ${hasLeak && parsedDefects.length > 0 ? `
+                                <div class="d-flex flex-column gap-2 p-2 rounded bg-light border">
+                                    ${parsedDefects.map(d => `
+                                        <div class="d-flex align-items-center justify-content-between p-2 px-3 rounded bg-white border" style="border: 1px solid #fee2e2 !important;">
+                                            <div>
+                                                <strong class="text-danger" style="font-size: 13px;">${d.type}</strong>
+                                                ${d.custom ? `<span class="text-dark ms-1">&bull; <em>${d.custom}</em></span>` : ''}
+                                                ${d.notes ? `<span class="text-muted ms-2" style="font-size: 11px;">[Location/Note: ${d.notes}]</span>` : ''}
+                                            </div>
+                                            <span class="badge bg-danger" style="font-size: 12px; font-weight: 700; padding: 4px 10px;">${d.count} ${d.count > 1 ? 'packs' : 'pack'}</span>
+                                        </div>
+                                    `).join("")}
+                                </div>
+                            ` : `
+                                <div class="alert alert-success mb-0 py-2" style="font-size: 13px;">
+                                    <i class="fa fa-check-circle me-1"></i> 100% Passed - No leakage defects observed.
+                                </div>
+                            `}
+                        </div>
+                    </div>
                 </div>
                 ${hasLeak ? (() => {
                     const actionRaw = r.cr3ea_actiontaken || "";
@@ -708,27 +803,159 @@ const PKGOPS_Summary = {
             const facDisplayName = await PKGOPS_DAL.resolveUserDisplayNames(r.cr3ea_facilitator);
             const membersDisplayName = await PKGOPS_DAL.resolveUserDisplayNames(r.cr3ea_memberspresent);
 
+            let rawRemarks = r.cr3ea_remarks || "";
+            let prodRatings = { appearance: 5, colour: 5, texture: 5, flavour: 5, taste: 5 };
+
+            // Parse Product Quality header e.g. [Product Quality | Appearance: 5, Colour: 5, Texture: 5, Flavour: 5, Taste: 5]
+            const prodMatch = rawRemarks.match(/\[Product Quality\s*\|\s*Appearance:\s*(\d+(?:\.\d+)?),\s*Colour:\s*(\d+(?:\.\d+)?),\s*Texture:\s*(\d+(?:\.\d+)?),\s*Flavour:\s*(\d+(?:\.\d+)?),\s*Taste:\s*(\d+(?:\.\d+)?)\]/i);
+            if (prodMatch) {
+                prodRatings.appearance = parseFloat(prodMatch[1]) || 5;
+                prodRatings.colour = parseFloat(prodMatch[2]) || 5;
+                prodRatings.texture = parseFloat(prodMatch[3]) || 5;
+                prodRatings.flavour = parseFloat(prodMatch[4]) || 5;
+                prodRatings.taste = parseFloat(prodMatch[5]) || 5;
+                rawRemarks = rawRemarks.replace(prodMatch[0], "").trim();
+            }
+
+            const pApp = parseFloat(prodRatings.appearance) || 5;
+            const pCol = parseFloat(prodRatings.colour) || 5;
+            const pTex = parseFloat(prodRatings.texture) || 5;
+            const pFlv = parseFloat(prodRatings.flavour) || 5;
+            const pTas = parseFloat(prodRatings.taste) || 5;
+
+            const pkApp = parseFloat(r.cr3ea_packappearancerating) || 5;
+            const pkSeal = parseFloat(r.cr3ea_sealingqualityrating) || 5;
+            const pkCod = parseFloat(r.cr3ea_codingrating) || 5;
+
+            const prodAvg = (pApp + pCol + pTex + pFlv + pTas) / 5;
+            const packAvg = (pkApp + pkSeal + pkCod) / 3;
+            const overallScore = parseFloat(r.cr3ea_overallrating) || ((pApp + pCol + pTex + pFlv + pTas + pkApp + pkSeal + pkCod) / 8);
+
+            const wallType = r.cr3ea_typeofqualitywall || "Routine Wall";
+            let wallBadgeClass = "bg-primary";
+            if (wallType === "Hot Wall") wallBadgeClass = "bg-danger";
+            else if (wallType === "Mini Wall") wallBadgeClass = "bg-info text-dark";
+            else if (wallType === "Management Wall") wallBadgeClass = "bg-warning text-dark";
+
             html = `
+                <!-- 1. Sensory Setup & Header Info Card -->
                 <div class="row mt-3 g-3">
-                    ${this.createSummaryCard("wall-fac", "Facilitator", facDisplayName)}
-                    ${this.createSummaryCard("wall-type", "Wall Type", r.cr3ea_typeofqualitywall || "-")}
-                    ${this.createSummaryCard("wall-members", "Members Present", membersDisplayName)}
+                    ${this.createSummaryCard("wall-product", "Product Name & SKU", `${r.cr3ea_productname || "-"} <br><span class="text-muted fw-normal" style="font-size: 11px;">SKU: ${r.cr3ea_sku || "-"}</span>`)}
+                    ${this.createSummaryCard("wall-type", "Type of Quality Wall", `<span class="badge ${wallBadgeClass} px-2 py-1" style="font-size: 12px;">${wallType}</span>`)}
+                    ${this.createSummaryCard("wall-line-pkd", "Line No & PKD/Batch", `${r.cr3ea_lineno || "-"} <br><span class="text-muted fw-normal" style="font-size: 11px;">${r.cr3ea_pkdbatchno || "Batch: -"}</span>`)}
+                    ${this.createSummaryCard("wall-fac", "Facilitator", facDisplayName || "-")}
                 </div>
-                <div class="row mt-3 g-3">
-                    ${this.createSummaryCard("wall-rating-app", "Pack Appearance Score", `${r.cr3ea_packappearancerating || "5"} / 5`)}
-                    ${this.createSummaryCard("wall-rating-seal", "Sealing Quality Score", `${r.cr3ea_sealingqualityrating || "5"} / 5`)}
-                    ${this.createSummaryCard("wall-rating-cod", "Coding Score", `${r.cr3ea_codingrating || "5"} / 5`)}
-                </div>
-                <div class="row mt-3 p-3 border rounded bg-white text-center">
-                    <div class="col-md-12">
-                        <h4>Overall Quality Wall Rating Score: <strong class="text-primary">${r.cr3ea_overallrating || "5.00"} / 5</strong></h4>
-                    </div>
-                </div>
+
+                <!-- 2. Sensory Team / Members Present -->
                 <div class="row mt-3">
                     <div class="col-md-12">
-                        <div class="p-3 border rounded bg-light">
-                            <h5>Evaluation Remarks</h5>
-                            <p class="mb-0 text-secondary" style="font-style: italic; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${r.cr3ea_remarks || "No remarks entered"}</p>
+                        <div class="card border rounded p-3 bg-white shadow-sm" style="border: 1px solid #cbd5e1 !important;">
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                <div>
+                                    <span class="text-secondary fw-bold" style="font-size: 11px; text-transform: uppercase;">Members Involved in Sensory Activity</span>
+                                    <div class="mt-1 fw-semibold text-dark" style="font-size: 13.5px;">
+                                        <i class="fa fa-users text-primary me-1"></i> ${membersDisplayName || "No additional members listed"}
+                                    </div>
+                                </div>
+                                <div>
+                                    <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 11.5px;">Sensory Panel</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Product Quality Sensory Evaluation Card -->
+                <div class="row mt-3 g-3">
+                    <div class="col-md-6">
+                        <div class="card border rounded h-100 bg-white shadow-sm" style="border: 1px solid #bfdbfe !important;">
+                            <div class="card-header bg-light d-flex justify-content-between align-items-center py-2 px-3">
+                                <span class="fw-bold text-dark" style="font-size: 13px;">
+                                    <i class="fa fa-cookie-bite text-primary me-1"></i> Product Quality Sensory Ratings
+                                </span>
+                                <span class="badge bg-primary px-2 py-1" style="font-size: 12px;">Avg: ${prodAvg.toFixed(2)} / 5</span>
+                            </div>
+                            <div class="card-body p-3">
+                                <div class="d-flex flex-column gap-2">
+                                    <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
+                                        <span class="text-muted" style="font-size: 12.5px;">Appearance</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pApp.toFixed(1)} / 5</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
+                                        <span class="text-muted" style="font-size: 12.5px;">Colour</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pCol.toFixed(1)} / 5</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
+                                        <span class="text-muted" style="font-size: 12.5px;">Texture</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pTex.toFixed(1)} / 5</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
+                                        <span class="text-muted" style="font-size: 12.5px;">Flavour</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pFlv.toFixed(1)} / 5</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="text-muted" style="font-size: 12.5px;">Taste</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pTas.toFixed(1)} / 5</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. Pack Quality Evaluation Card -->
+                    <div class="col-md-6">
+                        <div class="card border rounded h-100 bg-white shadow-sm" style="border: 1px solid #bbf7d0 !important;">
+                            <div class="card-header bg-light d-flex justify-content-between align-items-center py-2 px-3">
+                                <span class="fw-bold text-dark" style="font-size: 13px;">
+                                    <i class="fa fa-box-open text-success me-1"></i> Pack Quality Ratings
+                                </span>
+                                <span class="badge bg-success px-2 py-1" style="font-size: 12px;">Avg: ${packAvg.toFixed(2)} / 5</span>
+                            </div>
+                            <div class="card-body p-3">
+                                <div class="d-flex flex-column gap-2">
+                                    <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
+                                        <span class="text-muted" style="font-size: 12.5px;">Pack Appearance</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pkApp.toFixed(1)} / 5</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
+                                        <span class="text-muted" style="font-size: 12.5px;">Sealing Quality</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pkSeal.toFixed(1)} / 5</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="text-muted" style="font-size: 12.5px;">Coding Quality</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pkCod.toFixed(1)} / 5</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. Overall Score Card -->
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="card border rounded p-3 bg-white shadow-sm text-center" style="border: 1px solid #cbd5e1 !important;">
+                            <span class="text-secondary fw-bold" style="font-size: 11px; text-transform: uppercase;">Overall Quality Wall Score</span>
+                            <h3 class="mt-1 mb-1 fw-bold ${overallScore >= 4.5 ? 'text-success' : (overallScore >= 3.5 ? 'text-primary' : (overallScore >= 2.5 ? 'text-warning' : 'text-danger'))}">
+                                ${overallScore.toFixed(2)} / 5.00
+                            </h3>
+                            <div class="d-flex justify-content-center gap-3 mt-1" style="font-size: 12px;">
+                                <span class="text-muted">Product Quality: <strong>${prodAvg.toFixed(2)}</strong></span>
+                                <span class="text-muted">&bull;</span>
+                                <span class="text-muted">Pack Quality: <strong>${packAvg.toFixed(2)}</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. Evaluation Remarks Card -->
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="card border rounded p-3 bg-light shadow-sm">
+                            <h6 class="fw-bold text-dark mb-1" style="font-size: 13px;">Evaluation & Sensory Remarks</h6>
+                            <p class="mb-0 text-secondary" style="font-style: italic; word-break: break-word; overflow-wrap: break-word; white-space: normal; font-size: 13px;">
+                                ${rawRemarks || "No remarks entered"}
+                            </p>
                         </div>
                     </div>
                 </div>

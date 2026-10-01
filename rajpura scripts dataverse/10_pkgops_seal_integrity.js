@@ -69,7 +69,7 @@ const columns = [
     "SchemaName": "cr3ea_leakagetype",
     "DisplayName": { "LocalizedLabels": [{ "Label": "Leakage Type", "LanguageCode": 1033 }] },
     "RequiredLevel": { "Value": "None" },
-    "MaxLength": 100
+    "MaxLength": 500
   },
   {
     "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
