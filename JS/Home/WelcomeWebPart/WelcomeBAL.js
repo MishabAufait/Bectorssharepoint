@@ -56,9 +56,11 @@ function isRajpuraPlant() {
 }
 
 function isQualityDepartment() {
+  if (userDepratmentId == 79 || userDepratmentId == 82) return false;
   if (typeof $ !== 'undefined') {
     var selectedDept = $('#DepartmentDropDownId').val();
     if (selectedDept && selectedDept !== 'All') {
+      if (selectedDept == 79 || selectedDept == 82) return false;
       if (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.QUALITY_DEPT_IDS) {
         if (QualityRajpura_Config.QUALITY_DEPT_IDS.indexOf(String(selectedDept)) !== -1) return true;
       }
@@ -297,11 +299,11 @@ function AddDepartmentTourOnClick() {
   ShowLoader();
 
   if (userRoleSequence == 20) {
-    if (isQualityDepartment()) {
-      tourPopup();
-    }
-    else if (userDepratmentId == 79) {
+    if (userDepratmentId == 79 || SelectedDepartmentValue == 79) {
       SaveWarehouseItem();
+    }
+    else if (isQualityDepartment()) {
+      tourPopup();
     }
     else if (userDepratmentId == 82) {
       tourPopup();
@@ -516,11 +518,13 @@ function BindUrlforDepartmentTour() {
         isWelcomeTourInitiated = true;
         $('#LinkPlantTour').css('opacity', '.5');
         $('#LinkPlantTour').removeAttr('onclick');
-        if (Plantid == '11') {
-          window.location.href = WebAbsoluteUrl + "/Pages/WCMS.aspx?TourId=" + departmentTourId;
+        var siteBase = getWelcomePageBaseUrl();
+        var targetBase = (typeof WebAbsoluteUrl !== 'undefined' && WebAbsoluteUrl) ? WebAbsoluteUrl : siteBase;
+        if (Plantid == '11' || userDepratmentId == 79 || SelectedDepartmentValue == 79) {
+          window.location.href = targetBase + "/Pages/WCMS.aspx?TourId=" + departmentTourId;
         }
         else {
-          window.location.href = WebAbsoluteUrl + "/Pages/DepartmentTour.aspx?TourId=" + departmentTourId;
+          window.location.href = targetBase + "/Pages/DepartmentTour.aspx?TourId=" + departmentTourId;
         }
         $('#LinkPlantTour').removeAttr('href');
       }
@@ -531,7 +535,11 @@ function BindUrlforDepartmentTour() {
         isWelcomeTourInitiated = true;
         $('#LinkPlantTour').removeAttr('onclick');
         $('#LinkPlantTour').css('opacity', '.5');
-        SaveDepartmentTItem();
+        if (userDepratmentId == 79) {
+          SaveWarehouseItem();
+        } else {
+          SaveDepartmentTItem();
+        }
       }
     }
   }
@@ -816,7 +824,7 @@ async function SaveBakeryDataItem() {
 function SaveDTourItemSuccess(ID) {
   var DepartTourId = ID;
   var siteBase = getWelcomePageBaseUrl();
-  if (Plantid == '11') {
+  if (Plantid == '11' || userDepratmentId == 79 || SelectedDepartmentValue == 79) {
     newUrl = siteBase + "/Pages/WCMS.aspx?TourId=" + DepartTourId;
   } else {
     newUrl = siteBase + "/Pages/DepartmentTour.aspx?TourId=" + DepartTourId;
@@ -1175,9 +1183,13 @@ async function SaveWarehouseItem() {
       { method: "GET", headers }
     );
 
+    if (!isPlantTourExist.ok) {
+      throw new Error(`Fetch existing warehouse tour failed: ${isPlantTourExist.status} ${isPlantTourExist.statusText}`);
+    }
+
     const plant_tour_res = await isPlantTourExist.json();
 
-    if (plant_tour_res.value.length === 0) {
+    if (!plant_tour_res.value || plant_tour_res.value.length === 0) {
       const response = await fetch(apiUrl, {
         method: "POST",
         headers,
@@ -1192,7 +1204,9 @@ async function SaveWarehouseItem() {
       SaveDTourItemSuccess(plant_tour_res.value[0].cr3ea_prod_warehousetourid);
     }
   } catch (error) {
+    if (typeof HideLoader === 'function') HideLoader();
     console.error("WarehouseItem failed:", error);
+    alert("Failed to start Warehouse Tour: " + (error.message || "Please check network connection."));
   }
 }
 
