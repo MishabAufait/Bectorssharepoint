@@ -3561,6 +3561,8 @@ const PKGOPS_Checklist = {
                 }
 
                 const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
+                const existingRowId = (this.savedCreamRow && (this.savedCreamRow.id || this.savedCreamRow.cr3ea_rajpura_pkgops_creampercentagesid || this.savedCreamRow.cr3ea_prod_rajpura_pkgops_creampercentagesid)) || null;
+
                 const creamRecord = {
                     cr3ea_name: `CreamPct_${sku || moment().format("DD-MM-YYYY_HHmm")}`,
                     cr3ea_productcategory: document.getElementById("cream-category")?.value || "Cream",
@@ -3575,8 +3577,14 @@ const PKGOPS_Checklist = {
                     "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
                 };
 
-                await PKGOPS_DAL.cleanSubChecklistRows("CHILD_CREAM_PERCENTAGE", this.currentTourId);
-                await PKGOPS_DAL.saveSubChecklistRow("CHILD_CREAM_PERCENTAGE", creamRecord);
+                if (existingRowId) {
+                    creamRecord.id = existingRowId;
+                    await PKGOPS_DAL.saveSubChecklistRow("CHILD_CREAM_PERCENTAGE", creamRecord);
+                } else {
+                    await PKGOPS_DAL.cleanSubChecklistRows("CHILD_CREAM_PERCENTAGE", this.currentTourId);
+                    const saved = await PKGOPS_DAL.saveSubChecklistRow("CHILD_CREAM_PERCENTAGE", creamRecord);
+                    this.savedCreamRow = saved;
+                }
             } 
             else if (this.pkgopsType === "Quality Wall Records") {
                 PKGOPS_Validator.clearAll("checklist-container");
@@ -3688,7 +3696,7 @@ const PKGOPS_Checklist = {
             console.log("Updating parent tour with final checklist state: ", targetTourRecord);
             await PKGOPS_DAL.saveTour(targetTourRecord);
 
-            // Trigger notification
+            // Trigger notification asynchronously in background
             if (typeof ALC_Notification !== "undefined") {
                 try {
                     const score = hasDeviation ? 0 : 100;
@@ -3704,18 +3712,15 @@ const PKGOPS_Checklist = {
                         cr3ea_pkgops_type: this.pkgopsType || (PKGOPS_StateMachine.currentSession && PKGOPS_StateMachine.currentSession.cr3ea_pkgops_type) || "Packaging Operations"
                     };
 
-                    await ALC_Notification.sendVerificationComplete(
+                    ALC_Notification.sendVerificationComplete(
                         mergedSession,
                         score,
                         result,
                         isPass,
                         activeConfigs
-                    );
-
-                    // Send detailed Category A critical defect notification to Top Management (General)
-                    if (categoryADefects.length > 0) {
-                        try {
-                            await ALC_Notification.sendCategoryAFailureNotification(
+                    ).then(() => {
+                        if (categoryADefects && categoryADefects.length > 0) {
+                            return ALC_Notification.sendCategoryAFailureNotification(
                                 mergedSession,
                                 categoryADefects,
                                 {
@@ -3725,10 +3730,10 @@ const PKGOPS_Checklist = {
                                 },
                                 activeConfigs
                             );
-                        } catch (catAErr) {
-                            console.warn("Failed to dispatch Category A critical defect notification:", catAErr);
                         }
-                    }
+                    }).catch(notifErr => {
+                        console.warn("ALC_Notification background failure:", notifErr);
+                    });
                 } catch (notifErr) {
                     console.warn("ALC_Notification trigger failed (non-blocking):", notifErr);
                 }
@@ -4098,6 +4103,8 @@ const PKGOPS_Checklist = {
                 const status = document.getElementById("cream-status")?.value || "Pass";
 
                 const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
+                const existingRowId = (this.savedCreamRow && (this.savedCreamRow.id || this.savedCreamRow.cr3ea_rajpura_pkgops_creampercentagesid || this.savedCreamRow.cr3ea_prod_rajpura_pkgops_creampercentagesid)) || null;
+
                 const creamRecord = {
                     cr3ea_name: `CreamPct_${sku || moment().format("DD-MM-YYYY_HHmm")}`,
                     cr3ea_productcategory: document.getElementById("cream-category")?.value || "Cream",
@@ -4112,8 +4119,14 @@ const PKGOPS_Checklist = {
                     "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
                 };
 
-                await PKGOPS_DAL.cleanSubChecklistRows("CHILD_CREAM_PERCENTAGE", this.currentTourId);
-                await PKGOPS_DAL.saveSubChecklistRow("CHILD_CREAM_PERCENTAGE", creamRecord);
+                if (existingRowId) {
+                    creamRecord.id = existingRowId;
+                    await PKGOPS_DAL.saveSubChecklistRow("CHILD_CREAM_PERCENTAGE", creamRecord);
+                } else {
+                    await PKGOPS_DAL.cleanSubChecklistRows("CHILD_CREAM_PERCENTAGE", this.currentTourId);
+                    const saved = await PKGOPS_DAL.saveSubChecklistRow("CHILD_CREAM_PERCENTAGE", creamRecord);
+                    this.savedCreamRow = saved;
+                }
             }
             else if (this.pkgopsType === "Quality Wall Records") {
                 const product = document.getElementById("wall-product")?.value || "";
@@ -4489,6 +4502,7 @@ const PKGOPS_Checklist = {
                 const rows = await PKGOPS_DAL.getSubChecklistRows("CHILD_CREAM_PERCENTAGE", this.currentTourId);
                 if (rows && rows.length > 0) {
                     const row = rows[0];
+                    this.savedCreamRow = row;
                     if (document.getElementById("cream-product")) this.setProductWithCategory("cream", row.cr3ea_productname);
                     if (document.getElementById("cream-sku")) document.getElementById("cream-sku").value = row.cr3ea_sku || "";
                     if (document.getElementById("cream-sample-size")) document.getElementById("cream-sample-size").value = row.cr3ea_samplesize || "10";

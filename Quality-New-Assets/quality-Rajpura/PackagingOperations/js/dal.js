@@ -686,6 +686,48 @@ const PKGOPS_DAL = {
         return normalizeTourRecord(data);
     },
 
+    // Cache of verified working table names per sub-checklist key to avoid redundant candidate 404 lookups
+    _resolvedTableMap: {},
+
+    getWorkingTableName: function (subChecklistKey) {
+        if (this._resolvedTableMap && this._resolvedTableMap[subChecklistKey]) {
+            return this._resolvedTableMap[subChecklistKey];
+        }
+        return (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.DATAVERSE_TABLES?.PACKAGING_OPERATIONS?.[subChecklistKey]) || "";
+    },
+
+    setWorkingTableName: function (subChecklistKey, tableName) {
+        if (!this._resolvedTableMap) this._resolvedTableMap = {};
+        if (tableName) {
+            this._resolvedTableMap[subChecklistKey] = tableName;
+            if (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.DATAVERSE_TABLES?.PACKAGING_OPERATIONS) {
+                QualityRajpura_Config.DATAVERSE_TABLES.PACKAGING_OPERATIONS[subChecklistKey] = tableName;
+            }
+        }
+    },
+
+    getCandidateTables: function (subChecklistKey) {
+        const candidateTables = [];
+        const resolved = this.getWorkingTableName(subChecklistKey);
+        if (resolved) candidateTables.push(resolved);
+
+        const primaryTableName = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.DATAVERSE_TABLES?.PACKAGING_OPERATIONS?.[subChecklistKey]) || "";
+        if (primaryTableName && !candidateTables.includes(primaryTableName)) {
+            candidateTables.push(primaryTableName);
+        }
+
+        if (subChecklistKey === "CHILD_CREAM_PERCENTAGE") {
+            const isProd = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.CURRENT_ENV === "PROD") || (primaryTableName && primaryTableName.includes("_prod_"));
+            const candidates = isProd
+                ? ["cr3ea_prod_rajpura_pkgops_creampercentageses", "cr3ea_prod_rajpura_pkgops_creampercentages", "cr3ea_prod_rajpura_pkgops_creampercentagees", "cr3ea_rajpura_pkgops_creampercentageses"]
+                : ["cr3ea_rajpura_pkgops_creampercentageses", "cr3ea_rajpura_pkgops_creampercentages", "cr3ea_rajpura_pkgops_creampercentagees", "cr3ea_prod_rajpura_pkgops_creampercentageses"];
+            candidates.forEach(t => {
+                if (!candidateTables.includes(t)) candidateTables.push(t);
+            });
+        }
+        return candidateTables;
+    },
+
     // 7. Generic Child Sub-Checklist CRUD Operations
     // 7.a Save / Update Sub-checklist Row
     saveSubChecklistRow: async function (subChecklistKey, record) {
@@ -701,18 +743,12 @@ const PKGOPS_DAL = {
         }
 
         const apiVersion = "9.2";
-        const primaryTableName = QualityRajpura_Config.DATAVERSE_TABLES.PACKAGING_OPERATIONS[subChecklistKey];
-        if (!primaryTableName) {
+        const candidateTables = this.getCandidateTables(subChecklistKey);
+        if (!candidateTables || candidateTables.length === 0) {
             throw new Error(`Invalid subChecklistKey provided: ${subChecklistKey}`);
         }
 
-        const candidateTables = [primaryTableName];
-        if (subChecklistKey === "CHILD_CREAM_PERCENTAGE") {
-            ["cr3ea_rajpura_pkgops_creampercentageses", "cr3ea_rajpura_pkgops_creampercentages", "cr3ea_rajpura_pkgops_creampercentagees", "cr3ea_prod_rajpura_pkgops_creampercentageses", "cr3ea_prod_rajpura_pkgops_creampercentages", "cr3ea_prod_rajpura_pkgops_creampercentagees"].forEach(t => {
-                if (!candidateTables.includes(t)) candidateTables.push(t);
-            });
-        }
-
+        const primaryTableName = candidateTables[0];
         const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
         const headers = {
             "Accept": "application/json",
@@ -893,6 +929,7 @@ const PKGOPS_DAL = {
             }
 
             if (response.ok || response.status === 204) {
+                this.setWorkingTableName(subChecklistKey, tbl);
                 lastResponse = response;
                 break;
             } else {
@@ -965,16 +1002,9 @@ const PKGOPS_DAL = {
         }
 
         const apiVersion = "9.2";
-        const primaryTableName = QualityRajpura_Config.DATAVERSE_TABLES.PACKAGING_OPERATIONS[subChecklistKey];
-        if (!primaryTableName) {
+        const candidateTables = this.getCandidateTables(subChecklistKey);
+        if (!candidateTables || candidateTables.length === 0) {
             return [];
-        }
-
-        const candidateTables = [primaryTableName];
-        if (subChecklistKey === "CHILD_CREAM_PERCENTAGE") {
-            ["cr3ea_rajpura_pkgops_creampercentageses", "cr3ea_rajpura_pkgops_creampercentages", "cr3ea_rajpura_pkgops_creampercentagees", "cr3ea_prod_rajpura_pkgops_creampercentageses", "cr3ea_prod_rajpura_pkgops_creampercentages", "cr3ea_prod_rajpura_pkgops_creampercentagees"].forEach(t => {
-                if (!candidateTables.includes(t)) candidateTables.push(t);
-            });
         }
 
         const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
@@ -998,6 +1028,7 @@ const PKGOPS_DAL = {
             });
 
             if (response.ok) {
+                this.setWorkingTableName(subChecklistKey, tbl);
                 const data = await response.json();
                 rows = data.value || [];
                 fetched = true;
@@ -1072,15 +1103,8 @@ const PKGOPS_DAL = {
         }
 
         const apiVersion = "9.2";
-        const primaryTableName = QualityRajpura_Config.DATAVERSE_TABLES.PACKAGING_OPERATIONS[subChecklistKey];
-        if (!primaryTableName) return false;
-
-        const candidateTables = [primaryTableName];
-        if (subChecklistKey === "CHILD_CREAM_PERCENTAGE") {
-            ["cr3ea_rajpura_pkgops_creampercentageses", "cr3ea_rajpura_pkgops_creampercentages", "cr3ea_rajpura_pkgops_creampercentagees", "cr3ea_prod_rajpura_pkgops_creampercentageses", "cr3ea_prod_rajpura_pkgops_creampercentages", "cr3ea_prod_rajpura_pkgops_creampercentagees"].forEach(t => {
-                if (!candidateTables.includes(t)) candidateTables.push(t);
-            });
-        }
+        const candidateTables = this.getCandidateTables(subChecklistKey);
+        if (!candidateTables || candidateTables.length === 0) return false;
 
         const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
         const headers = {
@@ -1095,8 +1119,12 @@ const PKGOPS_DAL = {
             const url = `${baseApiUrl}/api/data/v${apiVersion}/${tbl}(${cleanGuid})`;
             const response = await this.fetchWithToken(url, { method: "DELETE", headers });
 
-            if (response.ok || response.status === 204 || response.status === 404) {
+            if (response.ok || response.status === 204) {
+                this.setWorkingTableName(subChecklistKey, tbl);
                 return true;
+            } else if (response.status === 404) {
+                // Table or record not found, try next candidate
+                continue;
             }
         }
         return true;
@@ -1107,7 +1135,7 @@ const PKGOPS_DAL = {
         try {
             const existing = await this.getSubChecklistRows(subChecklistKey, tourId);
             if (existing && existing.length > 0) {
-                const tableName = QualityRajpura_Config.DATAVERSE_TABLES.PACKAGING_OPERATIONS[subChecklistKey] || "";
+                const tableName = this.getWorkingTableName(subChecklistKey);
                 const isProd = tableName.includes("_prod_");
                 const p = isProd ? "cr3ea_prod_rajpura_pkgops_" : "cr3ea_rajpura_pkgops_";
 
@@ -1140,11 +1168,7 @@ const PKGOPS_DAL = {
                 }
 
                 if (guidsToDelete.length > 0) {
-                    const CHUNK_SIZE = 6;
-                    for (let i = 0; i < guidsToDelete.length; i += CHUNK_SIZE) {
-                        const chunk = guidsToDelete.slice(i, i + CHUNK_SIZE);
-                        await Promise.all(chunk.map(g => this.deleteSubChecklistRow(subChecklistKey, g)));
-                    }
+                    await Promise.all(guidsToDelete.map(g => this.deleteSubChecklistRow(subChecklistKey, g)));
                 }
             }
         } catch (e) {
