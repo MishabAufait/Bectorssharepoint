@@ -76,33 +76,49 @@ const ALC_QARequest = {
             shiftSelect.innerHTML = shiftOptions;
         }
 
-        // Populate Product dropdowns (Previous Variety & New Variety)
-        const prevSelect = document.getElementById("header-prev-product");
-        const newSelect = document.getElementById("header-new-product");
-        const productOptions = [`<option value="">Select Product</option>`].concat(
-            this.products.map(p => {
-                const codeSuffix = p.ProductCode ? ` (${p.ProductCode})` : "";
-                return `<option value="${p.Title}">${p.Title}${codeSuffix}</option>`;
-            })
-        ).join("");
-
-        if (prevSelect) prevSelect.innerHTML = productOptions;
-        if (newSelect) newSelect.innerHTML = productOptions;
+        // Populate Product dropdowns (Previous Variety & New Variety) dynamically filtered by selected Line
+        this.populateProductSelection();
 
         // Restore values if current session exists
         const currentSession = ALC_StateMachine.currentSession;
         if (currentSession) {
             if (lineSelect && currentSession.cr3ea_lineno) {
-                lineSelect.value = currentSession.cr3ea_lineno;
+                const sessionLineNum = this.extractLineNumber(currentSession.cr3ea_lineno);
+                let matchedIndex = -1;
+                for (let i = 0; i < lineSelect.options.length; i++) {
+                    const opt = lineSelect.options[i];
+                    if (opt.value === currentSession.cr3ea_lineno || opt.text === currentSession.cr3ea_lineno) {
+                        matchedIndex = i;
+                        break;
+                    }
+                    if (sessionLineNum !== null && this.extractLineNumber(opt.value || opt.text) === sessionLineNum) {
+                        matchedIndex = i;
+                        break;
+                    }
+                }
+                if (matchedIndex >= 0) {
+                    lineSelect.selectedIndex = matchedIndex;
+                } else {
+                    lineSelect.value = currentSession.cr3ea_lineno;
+                }
+                this.populateProductSelection();
             }
             if (shiftSelect && currentSession.cr3ea_shift) {
                 shiftSelect.value = currentSession.cr3ea_shift;
             }
+            const prevSelect = document.getElementById("header-prev-product");
+            const newSelect = document.getElementById("header-new-product");
             if (prevSelect && currentSession.cr3ea_previousrunningvariety) {
                 prevSelect.value = currentSession.cr3ea_previousrunningvariety;
+                if (window.jQuery && $.fn.select2 && $(prevSelect).hasClass("select2-hidden-accessible")) {
+                    $(prevSelect).val(currentSession.cr3ea_previousrunningvariety).trigger("change.select2");
+                }
             }
             if (newSelect && currentSession.cr3ea_runningvariety) {
                 newSelect.value = currentSession.cr3ea_runningvariety;
+                if (window.jQuery && $.fn.select2 && $(newSelect).hasClass("select2-hidden-accessible")) {
+                    $(newSelect).val(currentSession.cr3ea_runningvariety).trigger("change.select2");
+                }
             }
         } else {
             // Load pre-selected shift value from Welcome page popup storage
@@ -123,9 +139,14 @@ const ALC_QARequest = {
             if (shiftBadgeEl) shiftBadgeEl.innerText = shiftSelect.value || "Shift 1";
         }
 
-        // Dynamically update QA Executive dropdown when Line or Shift changes
+        // Dynamically update Product & QA Executive dropdown when Line or Shift changes
         if (lineSelect) {
-            $(lineSelect).on('change', () => {
+            $(lineSelect).off('change.alc').on('change.alc', () => {
+                this.populateProductSelection();
+                this.populateQASelection();
+            });
+            lineSelect.addEventListener('change', () => {
+                this.populateProductSelection();
                 this.populateQASelection();
             });
         }
@@ -144,6 +165,98 @@ const ALC_QARequest = {
         }
 
         this.populateQASelection();
+    },
+
+    // Helper: Normalize and extract Line Number from any string / format
+    extractLineNumber: function (str) {
+        if (!str) return null;
+        const s = String(str).trim();
+        // Match expressions like "Line 2", "Line No. 2", "Line No 2", "Line-2", "Line_2", "Line#2", "L2", "L-2", "Line 02", "Line No: 2"
+        const m = s.match(/(?:line|ln|l)?\s*(?:no\.?|num\.?|#|-|_|:)?\s*0*(\d+)/i);
+        if (m && m[1]) return parseInt(m[1], 10);
+        const digitMatch = s.match(/\b\d+\b/);
+        return digitMatch ? parseInt(digitMatch[0], 10) : null;
+    },
+
+    // Populate Product dropdowns (Previous Variety & New Variety) dynamically filtered strictly by selected Line Number
+    populateProductSelection: function () {
+        const prevSelect = document.getElementById("header-prev-product");
+        const newSelect = document.getElementById("header-new-product");
+        if (!prevSelect && !newSelect) return;
+
+        const lineSelect = document.getElementById("header-line");
+        const selectedLineVal = lineSelect ? lineSelect.value : "";
+        const selectedLineOpt = lineSelect && lineSelect.selectedIndex >= 0 ? lineSelect.options[lineSelect.selectedIndex] : null;
+        const selectedLineTitle = selectedLineOpt ? (selectedLineOpt.getAttribute("data-title") || selectedLineOpt.text || selectedLineVal) : selectedLineVal;
+
+        const selectedLineNum = this.extractLineNumber(selectedLineTitle) || this.extractLineNumber(selectedLineVal);
+
+        let filteredProducts = this.products;
+        if (selectedLineVal && selectedLineVal.trim() && selectedLineVal.toLowerCase() !== "select line") {
+            filteredProducts = this.products.filter(p => {
+                const pLineRaw = String(
+                    p.LineName ||
+                    p.lineName ||
+                    p.Line ||
+                    p.line ||
+                    p.AssociatedLine ||
+                    p.associatedLine ||
+                    p.Line_x0020_Name ||
+                    p.cr3ea_linename ||
+                    p.cr3ea_line ||
+                    ""
+                ).trim();
+
+                // 1. Products with empty line or "All Lines", "Default", "General" match all lines
+                if (!pLineRaw || /^(all(\s*lines)?|default|general)$/i.test(pLineRaw)) {
+                    return true;
+                }
+
+                // 2. Strict Line Number matching (e.g. Line 2, Line No. 2, Line-2 -> matches selected line number 2)
+                const pLineNum = this.extractLineNumber(pLineRaw);
+                if (selectedLineNum !== null && pLineNum !== null) {
+                    return selectedLineNum === pLineNum;
+                }
+
+                return false;
+            });
+        }
+
+        const currentPrevVal = prevSelect ? prevSelect.value : "";
+        const currentNewVal = newSelect ? newSelect.value : "";
+
+        const productOptions = [`<option value="">Select Product</option>`].concat(
+            filteredProducts.map(p => {
+                const title = (p.Title || p.title || "").trim();
+                const code = (p.ProductCode || p.productCode || p.SKU || p.sku || "").trim();
+                const codeSuffix = code ? ` (${code})` : "";
+                return `<option value="${title}">${title}${codeSuffix}</option>`;
+            })
+        ).join("");
+
+        const applyOptionsToSelect = (selectEl, targetVal) => {
+            if (!selectEl) return;
+            const hadSelect2 = window.jQuery && $.fn.select2 && $(selectEl).hasClass("select2-hidden-accessible");
+            if (hadSelect2) {
+                try { $(selectEl).select2('destroy'); } catch (e) {}
+            }
+            selectEl.innerHTML = productOptions;
+            if (targetVal && filteredProducts.some(p => (p.Title || p.title || "").trim() === targetVal.trim())) {
+                selectEl.value = targetVal;
+            } else {
+                selectEl.value = "";
+            }
+            if (window.jQuery && $.fn.select2) {
+                $(selectEl).select2({
+                    dropdownParent: $(document.body),
+                    width: "100%"
+                });
+                $(selectEl).trigger("change.select2");
+            }
+        };
+
+        applyOptionsToSelect(prevSelect, currentPrevVal);
+        applyOptionsToSelect(newSelect, currentNewVal);
     },
 
     // Populate dropdown with QA Executives dynamically filtered by selected Line & Shift
