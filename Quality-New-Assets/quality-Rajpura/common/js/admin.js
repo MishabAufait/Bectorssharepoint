@@ -2095,7 +2095,7 @@ const Rajpura_Admin = {
                         <h3 class="admin-panel-title"> Changeover Product Catalogue <span class="admin-badge" id="alc-product-counter-badge" style="font-size: 13px; font-weight: 600; color: #0284c7; background: #f0f9ff; padding: 2px 10px; border-radius: 12px; border: 1px solid #bae6fd; margin-left: 8px;">${allProducts.length} items</span></h3>
                     </div>
                     <div class="admin-panel-actions" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                        <button type="button" id="admin-btn-sync-alc-products" class="admin-btn-secondary" style="font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 8px; border-color: #38bdf8; color: #0369a1; background: #f0f9ff; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s;" onclick="Rajpura_Admin.confirmSyncAlcProducts()" title="Delete all current ALC products and sync with Packaging Operations Master (1,105 products)">
+                        <button type="button" id="admin-btn-sync-alc-products" class="admin-btn-secondary" style="font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 8px; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none; display: inline-flex; align-items: center; gap: 6px;" disabled title="Syncing master products is disabled">
                             <span>&#8635;</span>
                             <span>Sync from Packaging Ops (1,105)</span>
                         </button>
