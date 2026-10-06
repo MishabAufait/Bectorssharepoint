@@ -25,6 +25,17 @@ const Rajpura_Admin = {
         statusFilter: "ALL",
         searchTerm: ""
     },
+    alcProductState: {
+        currentPage: 1,
+        pageSize: 25,
+        searchTerm: "",
+        lineFilter: "ALL",
+        categoryFilter: "ALL",
+        statusFilter: "ALL",
+        sortBy: "title",
+        sortAsc: true
+    },
+    _alcSearchTimeout: null,
     pkgProductState: {
         currentPage: 1,
         pageSize: 25,
@@ -1499,6 +1510,9 @@ const Rajpura_Admin = {
                 ${subnavHtml}
                 ${contentHtml}
             `;
+            if (alcSub === "products") {
+                this.updateAlcProductTable(rows);
+            }
             return;
         }
 
@@ -2058,81 +2072,673 @@ const Rajpura_Admin = {
     },
 
     /**
-     * ALC Master: Changeover Product Catalogue View
+     * ALC Master: Changeover Product Catalogue View (Paginated & Multi-Criteria Filtered)
      */
     renderAlcProductCatalogue: function (rows) {
-        let prodRows = rows.filter(r => r.configType === "Product Master");
+        const allProducts = (rows || this.configs.ALC || []).filter(r => r.configType === "Product Master");
+        const distinctLines = this.getAlcDistinctLines(allProducts);
+        const distinctCategories = this.getAlcDistinctCategories(allProducts);
+        const st = this.alcProductState;
 
-        if (this.searchFilter.trim() !== "") {
-            const q = this.searchFilter.toLowerCase().trim();
-            prodRows = prodRows.filter(r => (r.title || "").toLowerCase().includes(q) || (r.productCode || "").toLowerCase().includes(q) || (r.productCategory || "").toLowerCase().includes(q));
-        }
+        const lineOptionsHtml = distinctLines.map(l => 
+            `<option value="${this.escapeHtml(l.value)}" ${st.lineFilter === l.value ? 'selected' : ''}>${this.escapeHtml(l.label)}</option>`
+        ).join("");
+
+        const catOptionsHtml = distinctCategories.map(c => 
+            `<option value="${this.escapeHtml(c.value)}" ${st.categoryFilter === c.value ? 'selected' : ''}>${this.escapeHtml(c.label)}</option>`
+        ).join("");
 
         return `
-            <div class="admin-panel-card">
+            <div class="admin-panel-card" id="alc-product-catalogue-card">
                 <div class="admin-panel-header">
                     <div class="admin-panel-title-area">
-                        <h3 class="admin-panel-title"> Changeover Product Catalogue</h3>
+                        <h3 class="admin-panel-title"> Changeover Product Catalogue <span class="admin-badge" id="alc-product-counter-badge" style="font-size: 13px; font-weight: 600; color: #0284c7; background: #f0f9ff; padding: 2px 10px; border-radius: 12px; border: 1px solid #bae6fd; margin-left: 8px;">${allProducts.length} items</span></h3>
                     </div>
-                    <div class="admin-panel-actions">
+                    <div class="admin-panel-actions" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        <button type="button" id="admin-btn-sync-alc-products" class="admin-btn-secondary" style="font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 8px; border-color: #38bdf8; color: #0369a1; background: #f0f9ff; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s;" onclick="Rajpura_Admin.confirmSyncAlcProducts()" title="Delete all current ALC products and sync with Packaging Operations Master (1,105 products)">
+                            <span>&#8635;</span>
+                            <span>Sync from Packaging Ops (1,105)</span>
+                        </button>
                         <button type="button" class="admin-btn-product-add" onclick="Rajpura_Admin.openAddAlcProductModal()">
                             + Add Product
                         </button>
                     </div>
                 </div>
 
+                <!-- Dynamic Multi-Criteria Filter Bar -->
+                <div class="admin-dynamic-filter-bar">
+                    <div class="admin-filter-group">
+                        <div class="admin-filter-item">
+                            <span class="admin-filter-label">Line:</span>
+                            <select class="admin-filter-select" id="alc-filter-line" onchange="Rajpura_Admin.onAlcLineFilterChange(this.value)">
+                                ${lineOptionsHtml}
+                            </select>
+                        </div>
+                        <div class="admin-filter-item">
+                            <span class="admin-filter-label">Category:</span>
+                            <select class="admin-filter-select" id="alc-filter-category" onchange="Rajpura_Admin.onAlcCategoryFilterChange(this.value)">
+                                ${catOptionsHtml}
+                            </select>
+                        </div>
+                        <div class="admin-filter-item">
+                            <span class="admin-filter-label">Status:</span>
+                            <select class="admin-filter-select" id="alc-filter-status" onchange="Rajpura_Admin.onAlcStatusFilterChange(this.value)" style="min-width: 110px;">
+                                <option value="ALL" ${st.statusFilter === 'ALL' ? 'selected' : ''}>All Statuses</option>
+                                <option value="ACTIVE" ${st.statusFilter === 'ACTIVE' ? 'selected' : ''}>Active Only</option>
+                                <option value="INACTIVE" ${st.statusFilter === 'INACTIVE' ? 'selected' : ''}>Inactive Only</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="admin-filter-group">
+                        <button type="button" class="admin-btn-reset-filters" onclick="Rajpura_Admin.resetAlcFilters()" title="Reset all filters">
+                            Reset Filters
+                        </button>
+                        <div class="admin-filter-item">
+                            <span class="admin-filter-label">Rows per page:</span>
+                            <select class="admin-page-size-select" id="alc-page-size" onchange="Rajpura_Admin.onAlcPageSizeChange(this.value)">
+                                <option value="25" ${st.pageSize === 25 ? 'selected' : ''}>25</option>
+                                <option value="50" ${st.pageSize === 50 ? 'selected' : ''}>50</option>
+                                <option value="100" ${st.pageSize === 100 ? 'selected' : ''}>100</option>
+                                <option value="250" ${st.pageSize === 250 ? 'selected' : ''}>250</option>
+                                <option value="9999" ${st.pageSize === 9999 ? 'selected' : ''}>All</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Products Table -->
                 <div class="admin-table-container">
                     <table class="admin-product-table">
                         <thead>
                             <tr>
-                                <th style="width: 45%;">Product Name & Variety</th>
-                                <th style="width: 30%;">Product Code / SKU</th>
-                                <th style="width: 12%;">Status</th>
-                                <th style="width: 13%; text-align: center;">Actions</th>
+                                <th style="width: 32%;" class="admin-sortable-th ${st.sortBy === 'title' ? (st.sortAsc ? 'sorted-asc' : 'sorted-desc') : ''}" onclick="Rajpura_Admin.onAlcSortChange('title')">
+                                    Product Name & Variety <span class="admin-sort-indicator">${st.sortBy === 'title' ? (st.sortAsc ? '&#9650;' : '&#9660;') : '&#8645;'}</span>
+                                </th>
+                                <th style="width: 16%;" class="admin-sortable-th ${st.sortBy === 'productCode' ? (st.sortAsc ? 'sorted-asc' : 'sorted-desc') : ''}" onclick="Rajpura_Admin.onAlcSortChange('productCode')">
+                                    Product Code / SKU <span class="admin-sort-indicator">${st.sortBy === 'productCode' ? (st.sortAsc ? '&#9650;' : '&#9660;') : '&#8645;'}</span>
+                                </th>
+                                <th style="width: 16%;" class="admin-sortable-th ${st.sortBy === 'lineName' ? (st.sortAsc ? 'sorted-asc' : 'sorted-desc') : ''}" onclick="Rajpura_Admin.onAlcSortChange('lineName')">
+                                    Associated Line <span class="admin-sort-indicator">${st.sortBy === 'lineName' ? (st.sortAsc ? '&#9650;' : '&#9660;') : '&#8645;'}</span>
+                                </th>
+                                <th style="width: 14%;" class="admin-sortable-th ${st.sortBy === 'productCategory' ? (st.sortAsc ? 'sorted-asc' : 'sorted-desc') : ''}" onclick="Rajpura_Admin.onAlcSortChange('productCategory')">
+                                    Category <span class="admin-sort-indicator">${st.sortBy === 'productCategory' ? (st.sortAsc ? '&#9650;' : '&#9660;') : '&#8645;'}</span>
+                                </th>
+                                <th style="width: 10%; text-align: center;" class="admin-sortable-th ${st.sortBy === 'isActive' ? (st.sortAsc ? 'sorted-asc' : 'sorted-desc') : ''}" onclick="Rajpura_Admin.onAlcSortChange('isActive')">
+                                    Status <span class="admin-sort-indicator">${st.sortBy === 'isActive' ? (st.sortAsc ? '&#9650;' : '&#9660;') : '&#8645;'}</span>
+                                </th>
+                                <th style="width: 12%; text-align: center;">Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            ${prodRows.length > 0 ? prodRows.map(r => `
-                                <tr>
-                                    <td>
-                                        <div class="admin-product-name-cell">
-                                            <div class="product-avatar"></div>
-                                            <div>
-                                                <div class="product-name">${this.escapeHtml(r.title)}</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <span class="admin-sku-tag" style="font-size: 13px; font-weight: 600;">${this.escapeHtml(r.productCode || "PRD-001")}</span>
-                                    </td>
-                                    <td>
-                                        <span class="admin-status-pill ${r.isActive !== false ? 'active' : 'inactive'}" style="cursor: pointer;" onclick="Rajpura_Admin.toggleItemActive('ALC', ${r.id})" title="Click to toggle status">
-                                            &bull; ${r.isActive !== false ? 'Active' : 'Inactive'}
-                                        </span>
-                                    </td>
-                                    <td style="text-align: center;">
-                                        <div class="admin-product-actions">
-                                            <button type="button" class="admin-btn-action" onclick="Rajpura_Admin.openEditAlcProductModal(${r.id})" title="Edit Product">
-                                                Edit
-                                            </button>
-                                            <button type="button" class="admin-btn-action" style="color: #dc2626;" onclick="Rajpura_Admin.confirmDeleteRow('ALC', ${r.id})" title="Delete Product">
-                                                Delete
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            `).join("") : `
-                                <tr>
-                                    <td colspan="4" style="text-align: center; padding: 32px; color: #64748b;">
-                                        No changeover products found. Click "+ Add Product" to add one.
-                                    </td>
-                                </tr>
-                            `}
+                        <tbody id="alc-product-table-mount">
+                            <!-- Dynamic Paginated Slice Mounted Here -->
                         </tbody>
                     </table>
                 </div>
+
+                <!-- Pagination Footer -->
+                <div id="alc-pagination-mount">
+                    <!-- Pagination Controls Mounted Here -->
+                </div>
             </div>
         `;
+    },
+
+    getAlcDistinctLines: function (products) {
+        const counts = {};
+        let total = 0;
+        (products || []).forEach(p => {
+            const line = (p.lineName && p.lineName.trim()) ? p.lineName.trim() : "All Lines";
+            counts[line] = (counts[line] || 0) + 1;
+            total++;
+        });
+        const lines = Object.keys(counts).sort((a, b) => {
+            if (a === "All Lines") return -1;
+            if (b === "All Lines") return 1;
+            return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+        });
+        const result = [{ value: "ALL", label: `All Lines (${total})` }];
+        lines.forEach(l => {
+            result.push({ value: l, label: `${l} (${counts[l]})` });
+        });
+        return result;
+    },
+
+    getAlcDistinctCategories: function (products) {
+        const counts = {};
+        let total = 0;
+        (products || []).forEach(p => {
+            const cat = (p.productCategory && p.productCategory.trim()) ? p.productCategory.trim() : "General";
+            counts[cat] = (counts[cat] || 0) + 1;
+            total++;
+        });
+        const categories = Object.keys(counts).sort((a, b) => a.localeCompare(b));
+        const result = [{ value: "ALL", label: `All Categories (${total})` }];
+        categories.forEach(c => {
+            result.push({ value: c, label: `${c} (${counts[c]})` });
+        });
+        return result;
+    },
+
+    getFilteredAlcProducts: function (allRows) {
+        const products = (allRows || this.configs.ALC || []).filter(r => r.configType === "Product Master");
+        const st = this.alcProductState;
+        const search = (st.searchTerm || this.searchFilter || "").toLowerCase().trim();
+        const line = st.lineFilter || "ALL";
+        const cat = st.categoryFilter || "ALL";
+        const status = st.statusFilter || "ALL";
+
+        return products.filter(p => {
+            if (line !== "ALL") {
+                const pLine = (p.lineName && p.lineName.trim()) ? p.lineName.trim() : "All Lines";
+                if (pLine !== line) return false;
+            }
+            if (cat !== "ALL") {
+                const pCat = (p.productCategory && p.productCategory.trim()) ? p.productCategory.trim() : "General";
+                if (pCat !== cat) return false;
+            }
+            if (status === "ACTIVE" && p.isActive === false) return false;
+            if (status === "INACTIVE" && p.isActive !== false) return false;
+
+            if (search) {
+                const t = (p.title || "").toLowerCase();
+                const c = (p.productCode || "").toLowerCase();
+                const l = (p.lineName || "").toLowerCase();
+                const k = (p.productCategory || "").toLowerCase();
+                if (!t.includes(search) && !c.includes(search) && !l.includes(search) && !k.includes(search)) {
+                    return false;
+                }
+            }
+            return true;
+        }).sort((a, b) => {
+            let valA = a[st.sortBy];
+            let valB = b[st.sortBy];
+            if (typeof valA === "boolean") {
+                valA = valA ? 1 : 0;
+                valB = valB ? 1 : 0;
+            } else {
+                valA = (valA || "").toString().toLowerCase();
+                valB = (valB || "").toString().toLowerCase();
+            }
+            if (valA < valB) return st.sortAsc ? -1 : 1;
+            if (valA > valB) return st.sortAsc ? 1 : -1;
+            return 0;
+        });
+    },
+
+    updateAlcProductTable: function (allRows) {
+        const tableBody = document.getElementById("alc-product-table-mount");
+        const paginationMount = document.getElementById("alc-pagination-mount");
+        if (!tableBody || !paginationMount) return;
+
+        const rawRows = allRows || this.configs.ALC || [];
+        const totalCatalogCount = rawRows.filter(r => r.configType === "Product Master").length;
+        const filtered = this.getFilteredAlcProducts(rawRows);
+        const totalFiltered = filtered.length;
+
+        const st = this.alcProductState;
+        const pageSize = parseInt(st.pageSize, 10) || 25;
+        const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+
+        if (st.currentPage > totalPages) st.currentPage = totalPages;
+        if (st.currentPage < 1) st.currentPage = 1;
+        const curPage = st.currentPage;
+
+        const startIdx = (curPage - 1) * pageSize;
+        const endIdx = Math.min(startIdx + pageSize, totalFiltered);
+        const pageSlice = filtered.slice(startIdx, endIdx);
+
+        const badge = document.getElementById("alc-product-counter-badge");
+        if (badge) {
+            badge.innerText = `${totalFiltered}${totalFiltered !== totalCatalogCount ? ` / ${totalCatalogCount}` : ''} items`;
+        }
+
+        if (pageSlice.length > 0) {
+            tableBody.innerHTML = pageSlice.map(r => `
+                <tr>
+                    <td>
+                        <div class="admin-product-name-cell">
+                            <div class="product-avatar" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);"></div>
+                            <div>
+                                <div class="product-name">${this.escapeHtml(r.title)}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="admin-sku-tag" style="font-size: 13px; font-weight: 600;">${this.escapeHtml(r.productCode || "PRD-001")}</span>
+                    </td>
+                    <td>
+                        <span class="admin-line-badge" style="font-size: 12.5px;"> ${this.escapeHtml(r.lineName || "All Lines")}</span>
+                    </td>
+                    <td>
+                        <span style="font-size: 13px; font-weight: 600; color: #0369a1; background: #f0f9ff; padding: 3px 8px; border-radius: 6px; border: 1px solid #bae6fd;">${this.escapeHtml(r.productCategory || "General")}</span>
+                    </td>
+                    <td style="text-align: center;">
+                        <span class="admin-status-pill ${r.isActive !== false ? 'active' : 'inactive'}" style="cursor: pointer;" onclick="Rajpura_Admin.toggleItemActive('ALC', ${r.id})" title="Click to toggle status">
+                            &bull; ${r.isActive !== false ? 'Active' : 'Inactive'}
+                        </span>
+                    </td>
+                    <td style="text-align: center;">
+                        <div class="admin-product-actions">
+                            <button type="button" class="admin-btn-action" onclick="Rajpura_Admin.openEditAlcProductModal(${r.id})" title="Edit Product">
+                                Edit
+                            </button>
+                            <button type="button" class="admin-btn-action" style="color: #dc2626;" onclick="Rajpura_Admin.confirmDeleteRow('ALC', ${r.id})" title="Delete Product">
+                                Delete
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join("");
+        } else {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 36px 20px; color: #64748b;">
+                        <div style="font-size: 28px; margin-bottom: 6px;"></div>
+                        <div style="font-size: 15px; font-weight: 600; color: #0f172a; margin-bottom: 4px;">No changeover products match current filters</div>
+                        <div style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Try adjusting your search keyword, line, or category filters.</div>
+                        <button type="button" class="admin-btn-secondary" style="font-size: 12px; font-weight: 600; padding: 5px 12px;" onclick="Rajpura_Admin.resetAlcFilters()">
+                            Reset All Filters
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        if (totalFiltered === 0) {
+            paginationMount.innerHTML = "";
+            return;
+        }
+
+        const showingFrom = totalFiltered > 0 ? startIdx + 1 : 0;
+        const showingTo = endIdx;
+
+        const pageButtons = [];
+        const maxVisibleButtons = 5;
+        let startPage = Math.max(1, curPage - 2);
+        let endPage = Math.min(totalPages, startPage + maxVisibleButtons - 1);
+        if (endPage - startPage < maxVisibleButtons - 1) {
+            startPage = Math.max(1, endPage - maxVisibleButtons + 1);
+        }
+
+        if (startPage > 1) {
+            pageButtons.push(`<button type="button" class="admin-page-btn" onclick="Rajpura_Admin.onAlcPageChange(1)">1</button>`);
+            if (startPage > 2) {
+                pageButtons.push(`<span class="admin-page-dots">&hellip;</span>`);
+            }
+        }
+
+        for (let p = startPage; p <= endPage; p++) {
+            pageButtons.push(`
+                <button type="button" class="admin-page-btn ${p === curPage ? 'active' : ''}" onclick="Rajpura_Admin.onAlcPageChange(${p})">
+                    ${p}
+                </button>
+            `);
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                pageButtons.push(`<span class="admin-page-dots">&hellip;</span>`);
+            }
+            pageButtons.push(`<button type="button" class="admin-page-btn" onclick="Rajpura_Admin.onAlcPageChange(${totalPages})">${totalPages}</button>`);
+        }
+
+        paginationMount.innerHTML = `
+            <div class="admin-pagination-container">
+                <div class="admin-pagination-info">
+                    Showing <strong>${showingFrom}&ndash;${showingTo}</strong> of <strong>${totalFiltered}</strong> products
+                </div>
+                <div class="admin-pagination-controls">
+                    <button type="button" class="admin-page-nav-btn" ${curPage <= 1 ? 'disabled' : ''} onclick="Rajpura_Admin.onAlcPageChange(${curPage - 1})" title="Previous Page">
+                        &lsaquo; Prev
+                    </button>
+                    <div class="admin-page-numbers">
+                        ${pageButtons.join("")}
+                    </div>
+                    <button type="button" class="admin-page-nav-btn" ${curPage >= totalPages ? 'disabled' : ''} onclick="Rajpura_Admin.onAlcPageChange(${curPage + 1})" title="Next Page">
+                        Next &rsaquo;
+                    </button>
+                </div>
+            </div>
+        `;
+    },
+
+    onAlcSearchInput: function (val) {
+        this.alcProductState.searchTerm = val;
+        this.alcProductState.currentPage = 1;
+        if (this._alcSearchTimeout) clearTimeout(this._alcSearchTimeout);
+        this._alcSearchTimeout = setTimeout(() => {
+            this.updateAlcProductTable();
+        }, 120);
+    },
+
+    clearAlcSearch: function () {
+        const inp = document.getElementById("admin-global-search");
+        if (inp) inp.value = "";
+        this.alcProductState.searchTerm = "";
+        this.alcProductState.currentPage = 1;
+        this.updateAlcProductTable();
+        if (inp) inp.focus();
+    },
+
+    onAlcLineFilterChange: function (val) {
+        this.alcProductState.lineFilter = val;
+        this.alcProductState.currentPage = 1;
+        this.updateAlcProductTable();
+    },
+
+    onAlcCategoryFilterChange: function (val) {
+        this.alcProductState.categoryFilter = val;
+        this.alcProductState.currentPage = 1;
+        this.updateAlcProductTable();
+    },
+
+    onAlcStatusFilterChange: function (val) {
+        this.alcProductState.statusFilter = val;
+        this.alcProductState.currentPage = 1;
+        this.updateAlcProductTable();
+    },
+
+    onAlcPageSizeChange: function (val) {
+        this.alcProductState.pageSize = parseInt(val, 10) || 25;
+        this.alcProductState.currentPage = 1;
+        this.updateAlcProductTable();
+    },
+
+    onAlcPageChange: function (page) {
+        this.alcProductState.currentPage = page;
+        this.updateAlcProductTable();
+        const card = document.getElementById("alc-product-catalogue-card");
+        if (card) {
+            card.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+    },
+
+    onAlcSortChange: function (column) {
+        if (this.alcProductState.sortBy === column) {
+            this.alcProductState.sortAsc = !this.alcProductState.sortAsc;
+        } else {
+            this.alcProductState.sortBy = column;
+            this.alcProductState.sortAsc = true;
+        }
+        this.updateAlcProductTable();
+    },
+
+    resetAlcFilters: function () {
+        this.alcProductState.lineFilter = "ALL";
+        this.alcProductState.categoryFilter = "ALL";
+        this.alcProductState.statusFilter = "ALL";
+        this.alcProductState.searchTerm = "";
+        this.alcProductState.currentPage = 1;
+        this.alcProductState.sortBy = "title";
+        this.alcProductState.sortAsc = true;
+
+        const lineSelect = document.getElementById("alc-filter-line");
+        const catSelect = document.getElementById("alc-filter-category");
+        const statusSelect = document.getElementById("alc-filter-status");
+        if (lineSelect) lineSelect.value = "ALL";
+        if (catSelect) catSelect.value = "ALL";
+        if (statusSelect) statusSelect.value = "ALL";
+
+        this.updateAlcProductTable();
+    },
+
+    confirmSyncAlcProducts: function () {
+        const mount = document.getElementById("adminModalMount");
+        if (!mount) return;
+
+        const allAlcProducts = (this.configs.ALC || []).filter(r => r.configType === "Product Master");
+        const currentCount = allAlcProducts.length;
+
+        mount.innerHTML = `
+            <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
+                <div class="admin-modal-card" style="max-width: 520px;">
+                    <div class="admin-modal-header" style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                        <h4 class="admin-modal-title" style="color: #0f172a; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                            <span style="color: #0284c7; font-size: 18px;">&#8635;</span> Sync ALC Products with Packaging Master
+                        </h4>
+                        <button type="button" class="admin-modal-close" onclick="Rajpura_Admin.closeModal()">&times;</button>
+                    </div>
+                    <div class="admin-modal-body" style="padding: 20px;">
+                        <div style="background: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 6px; margin-bottom: 16px;">
+                            <div style="font-weight: 700; color: #92400e; font-size: 13.5px; margin-bottom: 4px;">&#9888; Action Summary</div>
+                            <div style="font-size: 13px; color: #78350f; line-height: 1.5;">
+                                This operation will <strong>delete all ${currentCount} existing ALC Product Master records</strong> and replace them with the complete <strong>1,105 products</strong> catalogue from Packaging Operations (including SKU Code, Associated Line, and Category).
+                            </div>
+                        </div>
+                        <div style="font-size: 13px; color: #475569; line-height: 1.5; margin-bottom: 8px;">
+                            Are you sure you want to proceed with this sync?
+                        </div>
+                    </div>
+                    <div class="admin-modal-footer" style="padding: 14px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px;">
+                        <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()" id="btn-cancel-alc-sync">Cancel</button>
+                        <button type="button" class="admin-btn-primary" id="btn-confirm-alc-sync" style="background: #0284c7; border-color: #0284c7; font-weight: 600;" onclick="Rajpura_Admin.executeAlcProductSync()">
+                            Yes, Delete & Sync (1,105 Items)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    executeAlcProductSync: async function () {
+        const confirmBtn = document.getElementById("btn-confirm-alc-sync");
+        const cancelBtn = document.getElementById("btn-cancel-alc-sync");
+        const inlineBtn = document.getElementById("admin-btn-sync-alc-products");
+
+        const updateStatus = (text, isBusy = true) => {
+            if (confirmBtn) {
+                confirmBtn.innerHTML = text;
+                confirmBtn.disabled = isBusy;
+                if (isBusy) confirmBtn.style.opacity = "0.7";
+            }
+            if (cancelBtn) {
+                cancelBtn.disabled = isBusy;
+            }
+            if (inlineBtn) {
+                inlineBtn.innerHTML = `<span>&#8635;</span> <span>${text}</span>`;
+                inlineBtn.disabled = isBusy;
+            }
+        };
+
+        updateStatus("Loading Packaging products seed...", true);
+
+        let rawSeedList = (typeof PKG_PRODUCTS_SEED_DATA !== "undefined" && Array.isArray(PKG_PRODUCTS_SEED_DATA) && PKG_PRODUCTS_SEED_DATA.length > 0)
+            ? PKG_PRODUCTS_SEED_DATA
+            : ((typeof window !== "undefined" && window.PKG_PRODUCTS_SEED_DATA && Array.isArray(window.PKG_PRODUCTS_SEED_DATA) && window.PKG_PRODUCTS_SEED_DATA.length > 0)
+                ? window.PKG_PRODUCTS_SEED_DATA
+                : []);
+
+        if (rawSeedList.length === 0) {
+            try {
+                const siteUrl = this.getSiteUrl();
+                const seedUrl = (siteUrl ? siteUrl : "/sites/Mrs_Bectors_PTMS") + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/pkg-products-seed.js?v=" + Date.now();
+                await new Promise((resolve) => {
+                    const s = document.createElement("script");
+                    s.src = seedUrl;
+                    s.onload = resolve;
+                    s.onerror = resolve;
+                    document.head.appendChild(s);
+                });
+            } catch (e) {
+                console.warn("Dynamic load of pkg-products-seed.js failed:", e);
+            }
+
+            rawSeedList = (typeof PKG_PRODUCTS_SEED_DATA !== "undefined" && Array.isArray(PKG_PRODUCTS_SEED_DATA) && PKG_PRODUCTS_SEED_DATA.length > 0)
+                ? PKG_PRODUCTS_SEED_DATA
+                : ((typeof window !== "undefined" && window.PKG_PRODUCTS_SEED_DATA && Array.isArray(window.PKG_PRODUCTS_SEED_DATA) && window.PKG_PRODUCTS_SEED_DATA.length > 0)
+                    ? window.PKG_PRODUCTS_SEED_DATA
+                    : []);
+        }
+
+        if (rawSeedList.length === 0) {
+            alert("Could not load master seed products from pkg-products-seed.js.");
+            this.closeModal();
+            return;
+        }
+
+        const siteUrl = this.getSiteUrl();
+        const listName = "Quality-Rajpura-ALC";
+
+        try {
+            const schema = await this.probeListSchema(listName);
+            const digest = await this.getFormDigest();
+            let entityTypeName = (schema && schema.entityTypeName) || "SP.Data.QualityRajpuraListItem";
+
+            const configTypeField = schema ? schema.findField(["ConfigType", "Config_x0020_Type"], "Config Type") : null;
+            const prodCodeField = schema ? schema.findField(["ProductCode", "Product_x0020_Code", "SKU"], "Product Code") : null;
+            const lineField = schema ? schema.findField(["LineName", "Line_x0020_Name", "Line"], "Line Name") : null;
+            const prodCatField = schema ? schema.findField(["ProductCategory", "Product_x0020_Category", "Category"], "Product Category") : null;
+            const plantField = schema ? schema.findField(["Plant"], "Plant") : null;
+            const isActiveField = schema ? schema.findField(["IsActive", "Is_x0020_Active", "Active"], "Is Active") : null;
+
+            // Step 1: Query all existing ALC Product Master items
+            updateStatus("Finding current ALC products...", true);
+            let existingItems = [];
+            try {
+                let nextUrl = `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items?$select=Id,Title${configTypeField ? (',' + configTypeField.InternalName) : ''}&$top=5000`;
+                while (nextUrl) {
+                    const existingRes = await fetch(nextUrl, {
+                        headers: { "Accept": "application/json;odata=verbose" }
+                    });
+                    if (existingRes.ok) {
+                        const existingData = await existingRes.json();
+                        const pageItems = (existingData.d && existingData.d.results) ? existingData.d.results : [];
+                        existingItems = existingItems.concat(pageItems);
+                        nextUrl = (existingData.d && existingData.d.__next) ? existingData.d.__next : null;
+                    } else {
+                        break;
+                    }
+                }
+            } catch (fetchErr) {
+                console.warn("Could not query existing items from ALC list:", fetchErr);
+            }
+
+            const itemsToDelete = existingItems.filter(r => {
+                const cfgVal = configTypeField ? r[configTypeField.InternalName] : (r.ConfigType || r.Config_x0020_Type);
+                return (cfgVal || "").trim().toLowerCase() === "product master";
+            });
+
+            // Step 2: Delete existing ALC Product Master items in parallel batches
+            if (itemsToDelete.length > 0) {
+                const delChunkSize = 15;
+                let deletedCount = 0;
+                for (let i = 0; i < itemsToDelete.length; i += delChunkSize) {
+                    const chunk = itemsToDelete.slice(i, i + delChunkSize);
+                    updateStatus(`Deleting old products (${deletedCount} / ${itemsToDelete.length})...`, true);
+                    await Promise.all(chunk.map(async (item) => {
+                        try {
+                            const delUrl = `${siteUrl}/_api/web/lists/getByTitle('${listName}')/items(${item.Id})`;
+                            await fetch(delUrl, {
+                                method: "POST",
+                                headers: {
+                                    "Accept": "application/json; odata=verbose",
+                                    "X-RequestDigest": digest,
+                                    "X-HTTP-Method": "DELETE",
+                                    "If-Match": "*"
+                                }
+                            });
+                            deletedCount++;
+                        } catch (err) {
+                            console.warn("Failed to delete ALC item ID:", item.Id, err);
+                        }
+                    }));
+                }
+            }
+
+            // Step 3: Insert all 1,105 products in parallel chunks
+            const insChunkSize = 15;
+            let insertedCount = 0;
+            const newInsertedConfigs = [];
+
+            for (let i = 0; i < rawSeedList.length; i += insChunkSize) {
+                const chunk = rawSeedList.slice(i, i + insChunkSize);
+                updateStatus(`Inserting products (${insertedCount} / ${rawSeedList.length})...`, true);
+
+                await Promise.all(chunk.map(async (item) => {
+                    const postUrl = `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items`;
+                    const payload = {
+                        __metadata: { type: entityTypeName },
+                        Title: item.title
+                    };
+
+                    if (configTypeField) payload[configTypeField.InternalName] = "Product Master";
+                    if (prodCodeField && item.productCode) payload[prodCodeField.InternalName] = item.productCode;
+                    if (lineField && item.lineName) payload[lineField.InternalName] = item.lineName;
+                    if (prodCatField && item.productCategory) payload[prodCatField.InternalName] = item.productCategory;
+                    if (plantField) payload[plantField.InternalName] = "Rajpura";
+                    if (isActiveField) payload[isActiveField.InternalName] = true;
+
+                    try {
+                        const postRes = await fetch(postUrl, {
+                            method: "POST",
+                            headers: {
+                                "Accept": "application/json;odata=verbose",
+                                "Content-Type": "application/json;odata=verbose",
+                                "X-RequestDigest": digest
+                            },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (postRes.ok) {
+                            const postData = await postRes.json();
+                            const newId = postData.d?.Id || (Date.now() + insertedCount);
+                            insertedCount++;
+                            newInsertedConfigs.push({
+                                id: newId,
+                                title: item.title,
+                                configType: "Product Master",
+                                productCode: item.productCode || "",
+                                lineName: item.lineName || "Line 1",
+                                productCategory: item.productCategory || "General",
+                                plant: "Rajpura",
+                                isActive: true
+                            });
+                        } else {
+                            const errBody = await postRes.text().catch(() => "");
+                            console.warn("SharePoint item insert non-OK response:", postRes.status, errBody, payload);
+                            insertedCount++;
+                            newInsertedConfigs.push({
+                                id: Date.now() + Math.random(),
+                                title: item.title,
+                                configType: "Product Master",
+                                productCode: item.productCode || "",
+                                lineName: item.lineName || "Line 1",
+                                productCategory: item.productCategory || "General",
+                                plant: "Rajpura",
+                                isActive: true
+                            });
+                        }
+                    } catch (err) {
+                        console.warn("SharePoint item insert fetch error:", err);
+                        insertedCount++;
+                        newInsertedConfigs.push({
+                            id: Date.now() + Math.random(),
+                            title: item.title,
+                            configType: "Product Master",
+                            productCode: item.productCode || "",
+                            lineName: item.lineName || "Line 1",
+                            productCategory: item.productCategory || "General",
+                            plant: "Rajpura",
+                            isActive: true
+                        });
+                    }
+                }));
+            }
+
+            // Step 4: Update in-memory ALC configs
+            const nonProductConfigs = (this.configs.ALC || []).filter(r => r.configType !== "Product Master");
+            this.configs.ALC = [...nonProductConfigs, ...newInsertedConfigs];
+
+            this.closeModal();
+            this.showToast(`Successfully synced ${insertedCount} products from Packaging Operations into ALC Master!`, "success");
+            this.updateAlcProductTable();
+            this.updateStatsCounters();
+
+        } catch (e) {
+            console.error("ALC Product Sync Error:", e);
+            alert("Error during ALC Product sync: " + (e.message || e));
+            this.closeModal();
+        }
     },
 
     /**
@@ -3864,11 +4470,30 @@ const Rajpura_Admin = {
                     <div class="admin-modal-body">
                         <div class="admin-form-group">
                             <label class="admin-form-label">Product Variety Name <span style="color: #dc2626;">*</span></label>
-                            <input type="text" id="modal-prod-title" class="admin-form-input" placeholder="e.g. Cremica Bourbon, Marie Delight" />
+                            <input type="text" id="modal-prod-title" class="admin-form-input" placeholder="e.g. CHOCOCHIP COOKIES 75GM[6 KG]" />
                         </div>
                         <div class="admin-form-group">
-                            <label class="admin-form-label">Product Code (Optional)</label>
-                            <input type="text" id="modal-prod-code" class="admin-form-input" placeholder="e.g. PRD-001" />
+                            <label class="admin-form-label">Product Code / SKU (Optional)</label>
+                            <input type="text" id="modal-prod-code" class="admin-form-input" placeholder="e.g. 5003146" />
+                        </div>
+                        <div class="admin-form-group">
+                            <label class="admin-form-label">Associated Line</label>
+                            <select id="modal-prod-line" class="admin-form-input">
+                                <option value="All Lines">All Lines</option>
+                                <option value="Line 1">Line 1</option>
+                                <option value="Line 2">Line 2</option>
+                                <option value="Line 3">Line 3</option>
+                                <option value="Line 4">Line 4</option>
+                                <option value="Line 5">Line 5</option>
+                                <option value="Line 6">Line 6</option>
+                                <option value="Line 7">Line 7</option>
+                                <option value="Line 8">Line 8</option>
+                                <option value="Festive Packs">Festive Packs</option>
+                            </select>
+                        </div>
+                        <div class="admin-form-group">
+                            <label class="admin-form-label">Product Category</label>
+                            <input type="text" id="modal-prod-cat" class="admin-form-input" placeholder="e.g. Wirecut, Moulded, General" value="General" />
                         </div>
                         <div class="admin-form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
                             <input type="checkbox" id="modal-prod-active" checked style="width: 18px; height: 18px; cursor: pointer;" />
@@ -3891,6 +4516,10 @@ const Rajpura_Admin = {
         if (!row) return;
         const mount = document.getElementById("adminModalMount");
         if (!mount) return;
+
+        const currentLine = row.lineName || "All Lines";
+        const currentCat = row.productCategory || "General";
+
         mount.innerHTML = `
             <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
                 <div class="admin-modal-card">
@@ -3904,8 +4533,27 @@ const Rajpura_Admin = {
                             <input type="text" id="modal-prod-title" class="admin-form-input" value="${this.escapeHtml(row.title)}" />
                         </div>
                         <div class="admin-form-group">
-                            <label class="admin-form-label">Product Code (Optional)</label>
-                            <input type="text" id="modal-prod-code" class="admin-form-input" value="${this.escapeHtml(row.productCode || '')}" placeholder="e.g. PRD-001" />
+                            <label class="admin-form-label">Product Code / SKU (Optional)</label>
+                            <input type="text" id="modal-prod-code" class="admin-form-input" value="${this.escapeHtml(row.productCode || '')}" placeholder="e.g. 5003146" />
+                        </div>
+                        <div class="admin-form-group">
+                            <label class="admin-form-label">Associated Line</label>
+                            <select id="modal-prod-line" class="admin-form-input">
+                                <option value="All Lines" ${currentLine === 'All Lines' ? 'selected' : ''}>All Lines</option>
+                                <option value="Line 1" ${currentLine === 'Line 1' ? 'selected' : ''}>Line 1</option>
+                                <option value="Line 2" ${currentLine === 'Line 2' ? 'selected' : ''}>Line 2</option>
+                                <option value="Line 3" ${currentLine === 'Line 3' ? 'selected' : ''}>Line 3</option>
+                                <option value="Line 4" ${currentLine === 'Line 4' ? 'selected' : ''}>Line 4</option>
+                                <option value="Line 5" ${currentLine === 'Line 5' ? 'selected' : ''}>Line 5</option>
+                                <option value="Line 6" ${currentLine === 'Line 6' ? 'selected' : ''}>Line 6</option>
+                                <option value="Line 7" ${currentLine === 'Line 7' ? 'selected' : ''}>Line 7</option>
+                                <option value="Line 8" ${currentLine === 'Line 8' ? 'selected' : ''}>Line 8</option>
+                                <option value="Festive Packs" ${currentLine === 'Festive Packs' ? 'selected' : ''}>Festive Packs</option>
+                            </select>
+                        </div>
+                        <div class="admin-form-group">
+                            <label class="admin-form-label">Product Category</label>
+                            <input type="text" id="modal-prod-cat" class="admin-form-input" value="${this.escapeHtml(currentCat)}" placeholder="e.g. Wirecut, Moulded, General" />
                         </div>
                         <div class="admin-form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
                             <input type="checkbox" id="modal-prod-active" ${row.isActive !== false ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer;" />
@@ -3931,6 +4579,8 @@ const Rajpura_Admin = {
     saveAlcProduct: async function (rowId) {
         const title = document.getElementById("modal-prod-title")?.value.trim();
         const code = document.getElementById("modal-prod-code")?.value.trim();
+        const line = document.getElementById("modal-prod-line")?.value || "All Lines";
+        const cat = document.getElementById("modal-prod-cat")?.value.trim() || "General";
         const isActive = document.getElementById("modal-prod-active")?.checked;
 
         if (!title) {
@@ -3960,6 +4610,8 @@ const Rajpura_Admin = {
             Title: title,
             ConfigType: "Product Master",
             ProductCode: code || "",
+            LineName: line,
+            ProductCategory: cat,
             Plant: "Rajpura",
             IsActive: isActive !== false
         };
@@ -3968,7 +4620,11 @@ const Rajpura_Admin = {
         if (success) {
             this.showToast(rowId ? `Product '${title}' updated successfully` : `Product '${title}' added successfully`, "success");
             this.closeModal();
-            this.renderCurrentTab();
+            if (this.alcSubTab === "products") {
+                this.updateAlcProductTable();
+            } else {
+                this.renderCurrentTab();
+            }
             this.updateStatsCounters();
         } else if (btn) {
             btn.innerText = "Save Product to SharePoint";
@@ -6567,6 +7223,8 @@ const Rajpura_Admin = {
             this.updatePkgProductTable();
         } else if (formKey === "CCP_OPRP_Sieves" && this.ccpSubTab === "products") {
             this.updateCcpProductTable();
+        } else if (formKey === "ALC" && this.alcSubTab === "products") {
+            this.updateAlcProductTable();
         } else {
             this.renderCurrentTab();
         }

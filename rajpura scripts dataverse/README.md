@@ -41,11 +41,11 @@ This folder contains 13 standalone JavaScript scripts designed to automatically 
 
 ---
 
-## Switching Environment in the Script
+## Bulk Data Deletion Script
 
-Near the top of each script, you can change the target environment if needed:
+[`delete_table_data.js`](file:///c:/Users/Mishab/OneDrive%20-%20Aufait%20Technologies%20Pvt%20Ltd/Shortcuts/Mrs_Bectors_PTMS%20-%20BectorsSourceCode/rajpura%20scripts%20dataverse/delete_table_data.js) allows you to quickly wipe all records from any specified Dataverse table (PROD or UAT) in parallel batches directly from the browser console.
+
 ```javascript
-const ENVIRONMENT = "DEV"; // Options: "DEV", "UAT", "PROD"
+// Once pasted into console:
+clearDataverseTable("cr3ea_prod_rajpura_alcs");
 ```
-- When set to `"DEV"` or `"UAT"`, it creates the non-`prod_` columns and connects to that instance.
-- When set to `"PROD"`, it targets the `prod_` table name.

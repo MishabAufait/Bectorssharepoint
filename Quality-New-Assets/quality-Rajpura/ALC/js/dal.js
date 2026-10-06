@@ -295,10 +295,23 @@ const ALC_DAL = {
                 }
             },
 
-            // 5. Product Master
-            { Id: 501, Title: "Cremica Bourbon", ConfigType: "Product Master", ProductCode: "PRD-001", Plant: "Rajpura", IsActive: true },
-            { Id: 502, Title: "Marie Delight", ConfigType: "Product Master", ProductCode: "PRD-002", Plant: "Rajpura", IsActive: true },
-            { Id: 503, Title: "Digestive Crackers", ConfigType: "Product Master", ProductCode: "PRD-003", Plant: "Rajpura", IsActive: true },
+            // 5. Product Master (Synchronized with Packaging Operations Master)
+            ...((typeof PKG_PRODUCTS_SEED_DATA !== "undefined" && Array.isArray(PKG_PRODUCTS_SEED_DATA) && PKG_PRODUCTS_SEED_DATA.length > 0)
+                ? PKG_PRODUCTS_SEED_DATA.map((p, idx) => ({
+                    Id: 5000 + idx + 1,
+                    Title: p.title,
+                    ConfigType: "Product Master",
+                    ProductCode: p.productCode || "",
+                    LineName: p.lineName || "Line 1",
+                    ProductCategory: p.productCategory || "General",
+                    Plant: "Rajpura",
+                    IsActive: true
+                }))
+                : [
+                    { Id: 501, Title: "Cremica Bourbon", ConfigType: "Product Master", ProductCode: "PRD-001", Plant: "Rajpura", IsActive: true },
+                    { Id: 502, Title: "Marie Delight", ConfigType: "Product Master", ProductCode: "PRD-002", Plant: "Rajpura", IsActive: true },
+                    { Id: 503, Title: "Digestive Crackers", ConfigType: "Product Master", ProductCode: "PRD-003", Plant: "Rajpura", IsActive: true }
+                ]),
 
             // 6. Checklist Questions (46 Questions)
             ...seedQuestions

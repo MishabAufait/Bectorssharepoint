@@ -136,6 +136,15 @@ const columns = [
     },
     "RequiredLevel": { "Value": "None" },
     "MaxLength": 150
+  },
+  {
+    "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
+    "SchemaName": "cr3ea_productionremarks",
+    "DisplayName": {
+      "LocalizedLabels": [{ "Label": "Production Remarks", "LanguageCode": 1033 }]
+    },
+    "RequiredLevel": { "Value": "None" },
+    "MaxLength": 4000
   }
 ];
 
