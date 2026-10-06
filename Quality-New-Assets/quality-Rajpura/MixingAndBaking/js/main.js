@@ -117,7 +117,14 @@ const MixingBaking_Main = {
                 this.state.site = (rawPlant === "14" || rawPlant === "2" || rawPlant === "Rajpura" || !rawPlant) ? "Rajpura" : rawPlant;
                 this.state.qaExecutive = this.state.tourData.cr3ea_assigned_qa || "";
                 this.state.productionIncharge = this.state.tourData.cr3ea_shiftexecutiveproduction || "";
-                this.state.shift = this.state.tourData.cr3ea_shift || sessionStorage.getItem("shiftValue") || "Shift-1";
+                const getAutoShift = () => {
+                    const now = new Date();
+                    const totalMinutes = now.getHours() * 60 + now.getMinutes();
+                    if (totalMinutes >= 420 && totalMinutes < 900) return "Shift 1";
+                    if (totalMinutes >= 900 && totalMinutes < 1380) return "Shift 2";
+                    return "Shift 3";
+                };
+                this.state.shift = (this.state.tourData.cr3ea_shift || sessionStorage.getItem("shiftValue") || localStorage.getItem("shiftValue") || getAutoShift()).replace("-", " ");
                 this.state.observedBy = typeof UserName !== 'undefined' ? UserName : "Unknown User";
                 if (this.state.tourData.cr3ea_runningvariety) {
                     this.state.product = this.state.tourData.cr3ea_runningvariety;
@@ -396,7 +403,7 @@ const MixingBaking_Main = {
             if (firstCycle.cr3ea_plantid) this.state.site = firstCycle.cr3ea_plantid;
             if (firstCycle.cr3ea_observedby) this.state.qaExecutive = firstCycle.cr3ea_observedby;
             if (firstCycle.cr3ea_productionincharge) this.state.productionIncharge = firstCycle.cr3ea_productionincharge;
-            if (firstCycle.cr3ea_shift) this.state.shift = firstCycle.cr3ea_shift;
+            if (firstCycle.cr3ea_shift) this.state.shift = firstCycle.cr3ea_shift.replace("-", " ");
 
             completedCycles.forEach(cycleRecord => {
                 const cycleNum = getCycleNum(cycleRecord.cr3ea_cycle) || 1;

@@ -36,108 +36,141 @@ if (typeof QualityRajpura_Config !== 'undefined') {
 }
 
 const ALC_DAL = {
-    getConfig: async function () {
-        const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-        const listName = QualityRajpura_Config.SHAREPOINT_LISTS.ALC;
+    configCache: null,
+    _configPromise: null,
 
-        if (!webUrl) {
-            console.warn("No SharePoint context detected in ALC_DAL.getConfig. Returning master seed defaults.");
-            return this.getMasterSeedDefaults();
+    getConfig: async function (forceRefresh) {
+        if (this.configCache && !forceRefresh) {
+            return this.configCache;
         }
 
-        try {
-            // Dynamic schema probing to prevent 400 Bad Request if fields or expansion differ
-            const fieldsUrl = `${webUrl}/_api/web/lists/getByTitle('${listName}')/Fields?$select=InternalName,Title,TypeAsString`;
-            console.log("ALC_DAL: Probing SharePoint fields from:", fieldsUrl);
-            const fieldsResponse = await fetch(fieldsUrl, { headers: { "Accept": "application/json; odata=verbose" } });
+        if (this._configPromise && !forceRefresh) {
+            return this._configPromise;
+        }
 
-            if (!fieldsResponse.ok) {
-                throw new Error(`Failed to probe ALC schema fields: ${fieldsResponse.statusText}`);
+        // Try reading from sessionStorage cache for instant 0ms load
+        const CACHE_KEY = "QualityRajpura_ALC_ConfigCache";
+        const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+        if (!forceRefresh && typeof sessionStorage !== "undefined") {
+            try {
+                const cachedStr = sessionStorage.getItem(CACHE_KEY);
+                if (cachedStr) {
+                    const parsedCache = JSON.parse(cachedStr);
+                    if (parsedCache && parsedCache.timestamp && (Date.now() - parsedCache.timestamp < CACHE_TTL) && Array.isArray(parsedCache.data) && parsedCache.data.length > 0) {
+                        this.configCache = parsedCache.data;
+                        return this.configCache;
+                    }
+                }
+            } catch (e) {
+                console.warn("ALC_DAL: Session cache read failed:", e);
+            }
+        }
+
+        this._configPromise = (async () => {
+            const webUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getSiteBaseUrl)
+                ? QualityRajpura_Config.getSiteBaseUrl()
+                : (typeof _spPageContextInfo !== 'undefined' ? (_spPageContextInfo.webAbsoluteUrl || _spPageContextInfo.webServerRelativeUrl) : "");
+            const listName = (QualityRajpura_Config && QualityRajpura_Config.SHAREPOINT_LISTS && QualityRajpura_Config.SHAREPOINT_LISTS.ALC) || "Quality-Rajpura-ALC";
+
+            if (!webUrl) {
+                console.warn("No SharePoint context detected in ALC_DAL.getConfig. Returning master seed defaults.");
+                this.configCache = this.getMasterSeedDefaults();
+                return this.configCache;
             }
 
-            const fieldsData = await fieldsResponse.json();
-            const listFields = fieldsData.d?.results || [];
+            try {
+                // Primary high-speed direct query (skips separate /Fields roundtrip)
+                let allFetchedItems = [];
+                const primaryQuery = "?$select=Id,Title,ConfigType,Plant,Area,Region,LineName,ShiftCode,ShiftName,ShiftStart,ShiftEnd,ProductCode,ProductCategory,IsCritical,Remarks,IsActive,AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id,EscalationManager/Title,EscalationManager/EMail,EscalationManager/Id,QAShiftExecutive/Title,QAShiftExecutive/EMail,QAShiftExecutive/Id&$expand=AssignedUser,EscalationManager,QAShiftExecutive&$top=5000";
+                let fetchUrl = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${primaryQuery}`;
+                
+                try {
+                    const res = await fetch(fetchUrl, { headers: { "Accept": "application/json; odata=verbose" } });
+                    if (res.ok) {
+                        const data = await res.json();
+                        allFetchedItems = (data && data.d && data.d.results) ? data.d.results : [];
+                    } else {
+                        throw new Error(`Direct query returned status ${res.status}`);
+                    }
+                } catch (errDirect) {
+                    console.warn("ALC_DAL: Direct fast query failed, falling back to dynamic schema probe:", errDirect);
+                    allFetchedItems = [];
+                    // Fallback to dynamic schema probing
+                    const fieldsUrl = `${webUrl}/_api/web/lists/getByTitle('${listName}')/Fields?$select=InternalName,Title,TypeAsString`;
+                    const fieldsResponse = await fetch(fieldsUrl, { headers: { "Accept": "application/json; odata=verbose" } });
+                    if (fieldsResponse.ok) {
+                        const fieldsData = await fieldsResponse.json();
+                        const listFields = fieldsData.d?.results || [];
+                        const findField = (possibleNames, displayName) => {
+                            let match = listFields.find(f => possibleNames.includes(f.InternalName));
+                            if (match) return match;
+                            match = listFields.find(f => f.Title === displayName);
+                            return match;
+                        };
 
-            const findField = (possibleNames, displayName) => {
-                let match = listFields.find(f => possibleNames.includes(f.InternalName));
-                if (match) return match;
-                match = listFields.find(f => f.Title === displayName);
-                return match;
-            };
+                        const configTypeField = findField(["ConfigType", "Config_x0020_Type"], "Config Type");
+                        const plantField = findField(["Plant"], "Plant");
+                        const areaField = findField(["Area"], "Area");
+                        const regionField = findField(["Region"], "Region");
+                        const lineNameField = findField(["LineName", "Line_x0020_Name", "Line"], "Line Name");
+                        const shiftCodeField = findField(["ShiftCode", "Shift_x0020_Code", "Shift"], "Shift Code");
+                        const shiftNameField = findField(["ShiftName", "Shift_x0020_Name"], "Shift Name");
+                        const shiftStartField = findField(["ShiftStart", "Shift_x0020_Start"], "Shift Start");
+                        const shiftEndField = findField(["ShiftEnd", "Shift_x0020_End"], "Shift End");
+                        const productCodeField = findField(["ProductCode", "Product_x0020_Code", "SKU"], "Product Code");
+                        const productCategoryField = findField(["ProductCategory", "Product_x0020_Category"], "Product Category");
+                        const isCriticalField = findField(["IsCritical", "Is_x0020_Critical", "Critical"], "Is Critical");
+                        const remarksField = findField(["Remarks", "Remarks_x0020_Text"], "Remarks");
+                        const isActiveField = findField(["IsActive", "Is_x0020_Active", "Active"], "Is Active");
+                        const assignedUserField = findField(["AssignedUser", "Assigned_x0020_User", "AssignedQA", "Assigned_x0020_QA", "QAExecutive", "QA_x0020_Executive"], "Assigned User");
+                        const escalationManagerField = findField(["EscalationManager", "Escalation_x0020_Manager", "ProductionIncharge", "Production_x0020_Incharge"], "Escalation Manager");
+                        const qaShiftField = findField(["QAShiftExecutive", "QAShift_x0020_Executive", "QAShiftExec", "QAShift_x0020_Exec"], "QA Shift Executive");
 
-            const configTypeField = findField(["ConfigType", "Config_x0020_Type"], "Config Type");
-            const plantField = findField(["Plant"], "Plant");
-            const areaField = findField(["Area"], "Area");
-            const regionField = findField(["Region"], "Region");
-            const lineNameField = findField(["LineName", "Line_x0020_Name", "Line"], "Line Name");
-            const shiftCodeField = findField(["ShiftCode", "Shift_x0020_Code", "Shift"], "Shift Code");
-            const shiftNameField = findField(["ShiftName", "Shift_x0020_Name"], "Shift Name");
-            const shiftStartField = findField(["ShiftStart", "Shift_x0020_Start"], "Shift Start");
-            const shiftEndField = findField(["ShiftEnd", "Shift_x0020_End"], "Shift End");
-            const productCodeField = findField(["ProductCode", "Product_x0020_Code", "SKU"], "Product Code");
-            const productCategoryField = findField(["ProductCategory", "Product_x0020_Category"], "Product Category");
-            const isCriticalField = findField(["IsCritical", "Is_x0020_Critical", "Critical"], "Is Critical");
-            const remarksField = findField(["Remarks", "Remarks_x0020_Text"], "Remarks");
-            const isActiveField = findField(["IsActive", "Is_x0020_Active", "Active"], "Is Active");
+                        const selectParts = ["Id", "Title"];
+                        const expandParts = [];
+                        if (plantField) selectParts.push(plantField.InternalName);
+                        if (configTypeField) selectParts.push(configTypeField.InternalName);
+                        if (areaField) selectParts.push(areaField.InternalName);
+                        if (regionField) selectParts.push(regionField.InternalName);
+                        if (lineNameField) selectParts.push(lineNameField.InternalName);
+                        if (shiftCodeField) selectParts.push(shiftCodeField.InternalName);
+                        if (shiftNameField) selectParts.push(shiftNameField.InternalName);
+                        if (shiftStartField) selectParts.push(shiftStartField.InternalName);
+                        if (shiftEndField) selectParts.push(shiftEndField.InternalName);
+                        if (productCodeField) selectParts.push(productCodeField.InternalName);
+                        if (productCategoryField) selectParts.push(productCategoryField.InternalName);
+                        if (isCriticalField) selectParts.push(isCriticalField.InternalName);
+                        if (remarksField) selectParts.push(remarksField.InternalName);
+                        if (isActiveField) selectParts.push(isActiveField.InternalName);
 
-            const assignedUserField = findField(["AssignedUser", "Assigned_x0020_User", "AssignedQA", "Assigned_x0020_QA", "QAExecutive", "QA_x0020_Executive"], "Assigned User");
-            const escalationManagerField = findField(["EscalationManager", "Escalation_x0020_Manager", "ProductionIncharge", "Production_x0020_Incharge"], "Escalation Manager");
-            const qaShiftField = findField(["QAShiftExecutive", "QAShift_x0020_Executive", "QAShiftExec", "QAShift_x0020_Exec"], "QA Shift Executive");
+                        if (assignedUserField) {
+                            selectParts.push(`${assignedUserField.InternalName}/Title`, `${assignedUserField.InternalName}/EMail`, `${assignedUserField.InternalName}/Id`);
+                            expandParts.push(assignedUserField.InternalName);
+                        }
+                        if (escalationManagerField) {
+                            selectParts.push(`${escalationManagerField.InternalName}/Title`, `${escalationManagerField.InternalName}/EMail`, `${escalationManagerField.InternalName}/Id`);
+                            expandParts.push(escalationManagerField.InternalName);
+                        }
+                        if (qaShiftField) {
+                            selectParts.push(`${qaShiftField.InternalName}/Title`, `${qaShiftField.InternalName}/EMail`, `${qaShiftField.InternalName}/Id`);
+                            expandParts.push(qaShiftField.InternalName);
+                        }
 
-            const selectParts = ["Id", "Title"];
-            const expandParts = [];
+                        let q = `?$select=${selectParts.join(",")}&$top=5000`;
+                        if (expandParts.length > 0) q += `&$expand=${expandParts.join(",")}`;
+                        const fbRes = await fetch(`${webUrl}/_api/web/lists/getByTitle('${listName}')/items${q}`, { headers: { "Accept": "application/json; odata=verbose" } });
+                        if (fbRes.ok) {
+                            const fbData = await fbRes.json();
+                            allFetchedItems = fbData.d?.results || [];
+                        }
+                    }
+                }
 
-            if (plantField) selectParts.push(plantField.InternalName);
-            if (configTypeField) selectParts.push(configTypeField.InternalName);
-            if (areaField) selectParts.push(areaField.InternalName);
-            if (regionField) selectParts.push(regionField.InternalName);
-            if (lineNameField) selectParts.push(lineNameField.InternalName);
-            if (shiftCodeField) selectParts.push(shiftCodeField.InternalName);
-            if (shiftNameField) selectParts.push(shiftNameField.InternalName);
-            if (shiftStartField) selectParts.push(shiftStartField.InternalName);
-            if (shiftEndField) selectParts.push(shiftEndField.InternalName);
-            if (productCodeField) selectParts.push(productCodeField.InternalName);
-            if (productCategoryField) selectParts.push(productCategoryField.InternalName);
-            if (isCriticalField) selectParts.push(isCriticalField.InternalName);
-            if (remarksField) selectParts.push(remarksField.InternalName);
-            if (isActiveField) selectParts.push(isActiveField.InternalName);
+                if (allFetchedItems.length === 0) {
+                    this.configCache = this.getMasterSeedDefaults();
+                    return this.configCache;
+                }
 
-            if (assignedUserField) {
-                const name = assignedUserField.InternalName;
-                selectParts.push(`${name}/Title`, `${name}/EMail`, `${name}/Id`);
-                expandParts.push(name);
-            }
-            if (escalationManagerField) {
-                const name = escalationManagerField.InternalName;
-                selectParts.push(`${name}/Title`, `${name}/EMail`, `${name}/Id`);
-                expandParts.push(name);
-            }
-            if (qaShiftField) {
-                const name = qaShiftField.InternalName;
-                selectParts.push(`${name}/Title`, `${name}/EMail`, `${name}/Id`);
-                expandParts.push(name);
-            }
-
-            let query = `?$select=${selectParts.join(",")}&$top=5000`;
-            if (expandParts.length > 0) {
-                query += `&$expand=${expandParts.join(",")}`;
-            }
-            if (plantField) {
-                query += `&$filter=${plantField.InternalName} eq '${QualityRajpura_Config.PLANT_NAME}'`;
-            }
-
-            const url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
-            console.log("ALC_DAL: Fetching configuration items from:", url);
-            const response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
-
-            if (!response.ok) {
-                throw new Error(`Failed to fetch ALC config items: ${response.statusText}`);
-            }
-
-            const data = await response.json();
-            const results = data.d?.results || [];
-
-            const mapped = results.map(item => {
                 const extractUserEmail = (u) => {
                     if (!u) return "";
                     let em = u.EMail || u.email || u.Email || "";
@@ -162,62 +195,79 @@ const ALC_DAL = {
                     return { results: [] };
                 };
 
-                const assignedUserNormalized = normalizeUsers(assignedUserField ? item[assignedUserField.InternalName] : (item.AssignedUser || item.Assigned_x0020_User));
-                const escalationManagerNormalized = normalizeUsers(escalationManagerField ? item[escalationManagerField.InternalName] : (item.EscalationManager || item.Escalation_x0020_Manager));
-                const qaShiftNormalized = normalizeUsers(qaShiftField ? item[qaShiftField.InternalName] : (item.QAShiftExecutive || item.QAShift_x0020_Executive));
+                const mapped = allFetchedItems.map(item => {
+                    const assignedUserNormalized = normalizeUsers(item.AssignedUser || item.Assigned_x0020_User || item.QAExecutive || item.QA_x0020_Executive || item.AssignedQA);
+                    const escalationManagerNormalized = normalizeUsers(item.EscalationManager || item.Escalation_x0020_Manager || item.ProductionIncharge || item.Production_x0020_Incharge);
+                    const qaShiftNormalized = normalizeUsers(item.QAShiftExecutive || item.QAShift_x0020_Executive || item.QAShiftExec);
 
-                let finalTitle = (item.Title && item.Title.trim() !== "" && item.Title.trim() !== "N/A") ? item.Title.trim() : "";
-                let extractedSeq = 0;
-                let extractedCrit = false;
-                const seqMatch = finalTitle.match(/^(\d+)[\.\:\-\s]+/);
-                if (seqMatch) {
-                    extractedSeq = parseInt(seqMatch[1], 10);
-                    finalTitle = finalTitle.substring(seqMatch[0].length).trim();
+                    let finalTitle = (item.Title && item.Title.trim() !== "" && item.Title.trim() !== "N/A") ? item.Title.trim() : "";
+                    let extractedSeq = 0;
+                    let extractedCrit = false;
+                    const seqMatch = finalTitle.match(/^(\d+)[\.\:\-\s]+/);
+                    if (seqMatch) {
+                        extractedSeq = parseInt(seqMatch[1], 10);
+                        finalTitle = finalTitle.substring(seqMatch[0].length).trim();
+                    }
+                    if (/\[critical(?:\s*gate)?\]/i.test(finalTitle)) {
+                        extractedCrit = true;
+                        finalTitle = finalTitle.replace(/\[critical(?:\s*gate)?\]\s*/i, "").trim();
+                    }
+
+                    const rawIsCritical = item.IsCritical || item.Is_x0020_Critical;
+                    const rawCat = item.ProductCategory || item.Product_x0020_Category;
+                    const rawRemarks = item.Remarks || item.Remarks_x0020_Text;
+                    const rawSeq = item.ShiftCode || item.Shift_x0020_Code || item.ProductCode || item.Product_x0020_Code || item.Sequence || extractedSeq || 0;
+
+                    const isCriticalBool = extractedCrit || (rawIsCritical === true || rawIsCritical === "Yes" || rawIsCritical === 1 ||
+                        String(rawCat).toLowerCase() === "critical" || String(rawCat).toLowerCase() === "yes" ||
+                        String(rawRemarks).toLowerCase() === "critical");
+
+                    return {
+                        Id: item.Id,
+                        Title: finalTitle,
+                        ConfigType: item.ConfigType || item.Config_x0020_Type || "",
+                        Region: item.Region || "",
+                        Plant: item.Plant || "Rajpura",
+                        Area: item.Area || "",
+                        LineName: item.LineName || item.Line_x0020_Name || item.Line || "",
+                        ShiftCode: item.ShiftCode || item.Shift_x0020_Code || (extractedSeq ? String(extractedSeq) : ""),
+                        ShiftName: item.ShiftName || item.Shift_x0020_Name || "",
+                        ShiftStart: item.ShiftStart || item.Shift_x0020_Start || "",
+                        ShiftEnd: item.ShiftEnd || item.Shift_x0020_End || "",
+                        ProductCode: item.ProductCode || item.Product_x0020_Code || item.SKU || (extractedSeq ? String(extractedSeq) : ""),
+                        ProductCategory: rawCat || (isCriticalBool ? "Critical" : "Standard"),
+                        IsCritical: isCriticalBool,
+                        Sequence: parseInt(rawSeq, 10) || extractedSeq || 0,
+                        IsActive: item.IsActive !== false,
+                        AssignedUser: assignedUserNormalized,
+                        EscalationManager: escalationManagerNormalized,
+                        QAShiftExecutive: qaShiftNormalized
+                    };
+                });
+
+                const finalData = mapped.length > 0 ? mapped : this.getMasterSeedDefaults();
+                this.configCache = finalData;
+
+                if (typeof sessionStorage !== "undefined") {
+                    try {
+                        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data: finalData }));
+                    } catch (e) {
+                        console.warn("ALC_DAL: Session cache write failed:", e);
+                    }
                 }
-                if (/\[critical(?:\s*gate)?\]/i.test(finalTitle)) {
-                    extractedCrit = true;
-                    finalTitle = finalTitle.replace(/\[critical(?:\s*gate)?\]\s*/i, "").trim();
-                }
 
-                const rawIsCritical = isCriticalField ? item[isCriticalField.InternalName] : item.IsCritical;
-                const rawCat = productCategoryField ? item[productCategoryField.InternalName] : item.ProductCategory;
-                const rawRemarks = remarksField ? item[remarksField.InternalName] : item.Remarks;
-                const rawSeq = shiftCodeField ? item[shiftCodeField.InternalName] : (productCodeField ? item[productCodeField.InternalName] : (item.Sequence || extractedSeq || 0));
+                console.log(`ALC_DAL: Successfully loaded & cached ${finalData.length} config items.`);
+                return finalData;
+            } catch (e) {
+                console.warn(`ALC_DAL: Error querying list (${listName}). Using master seed defaults:`, e);
+                this.configCache = this.getMasterSeedDefaults();
+                return this.configCache;
+            } finally {
+                this._configPromise = null;
+            }
+        })();
 
-                const isCriticalBool = extractedCrit || (rawIsCritical === true || rawIsCritical === "Yes" || rawIsCritical === 1 ||
-                    String(rawCat).toLowerCase() === "critical" || String(rawCat).toLowerCase() === "yes" ||
-                    String(rawRemarks).toLowerCase() === "critical");
-
-                return {
-                    Id: item.Id,
-                    Title: finalTitle,
-                    ConfigType: configTypeField ? item[configTypeField.InternalName] : (item.ConfigType || item.Config_x0020_Type || ""),
-                    Region: regionField ? item[regionField.InternalName] : (item.Region || ""),
-                    Plant: plantField ? item[plantField.InternalName] : (item.Plant || "Rajpura"),
-                    Area: areaField ? item[areaField.InternalName] : (item.Area || ""),
-                    LineName: lineNameField ? item[lineNameField.InternalName] : (item.LineName || item.Line_x0020_Name || ""),
-                    ShiftCode: shiftCodeField ? item[shiftCodeField.InternalName] : (extractedSeq ? String(extractedSeq) : (item.ShiftCode || "")),
-                    ShiftName: shiftNameField ? item[shiftNameField.InternalName] : (item.ShiftName || item.Shift_x0020_Name || ""),
-                    ShiftStart: shiftStartField ? item[shiftStartField.InternalName] : (item.ShiftStart || item.Shift_x0020_Start || ""),
-                    ShiftEnd: shiftEndField ? item[shiftEndField.InternalName] : (item.ShiftEnd || item.Shift_x0020_End || ""),
-                    ProductCode: productCodeField ? item[productCodeField.InternalName] : (extractedSeq ? String(extractedSeq) : (item.ProductCode || "")),
-                    ProductCategory: rawCat || (isCriticalBool ? "Critical" : "Standard"),
-                    IsCritical: isCriticalBool,
-                    Sequence: parseInt(rawSeq, 10) || extractedSeq || 0,
-                    IsActive: isActiveField ? (item[isActiveField.InternalName] !== false) : (item.IsActive !== false),
-                    AssignedUser: assignedUserNormalized,
-                    EscalationManager: escalationManagerNormalized,
-                    QAShiftExecutive: qaShiftNormalized
-                };
-            });
-
-            console.log(`ALC_DAL: Loaded ${mapped.length} config items from live SharePoint.`);
-            return mapped.length > 0 ? mapped : this.getMasterSeedDefaults();
-
-        } catch (e) {
-            console.warn(`ALC_DAL: Error querying live list (${listName}). Falling back to master seed defaults:`, e);
-            return this.getMasterSeedDefaults();
-        }
+        return this._configPromise;
     },
 
     /**

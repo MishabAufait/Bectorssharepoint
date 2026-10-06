@@ -18,6 +18,23 @@ const PKGOPS_Reverify = {
             .replace(/'/g, "&#039;");
     },
 
+    getRowId: function (row) {
+        if (!row || typeof row !== "object") return "";
+        if (row.id) return String(row.id).replace(/[{}]/g, "").trim().toLowerCase();
+        for (let k in row) {
+            if (k.endsWith("id") && typeof row[k] === "string" && /^[0-9a-fA-F-]{36}$/.test(row[k])) {
+                if (!k.includes("qualitytourid") && !k.includes("plantid") && !k.includes("modifiedby") && !k.includes("createdby") && !k.includes("bind")) {
+                    return String(row[k]).replace(/[{}]/g, "").trim().toLowerCase();
+                }
+            }
+        }
+        if (row["@odata.id"]) {
+            const m = row["@odata.id"].match(/\(([0-9a-fA-F-]{36})\)/);
+            if (m) return m[1].toLowerCase();
+        }
+        return "";
+    },
+
     onFileSelected: async function (input, idx) {
         if (!input.files || input.files.length === 0) return;
 
@@ -91,6 +108,7 @@ const PKGOPS_Reverify = {
             case "PAPA": this.activeSubChecklistKey = "CHILD_PAPA"; break;
             case "PQI": this.activeSubChecklistKey = "CHILD_PQI_EVALUATION"; break;
             case "Seal Integrity": this.activeSubChecklistKey = "CHILD_SEAL_INTEGRITY"; break;
+            case "Cream Percentage": this.activeSubChecklistKey = "CHILD_CREAM_PERCENTAGE"; break;
         }
 
         console.log(`Initializing Re-verify: Key=${this.activeSubChecklistKey}`);
@@ -128,16 +146,16 @@ const PKGOPS_Reverify = {
         try {
             const rows = await PKGOPS_DAL.getSubChecklistRows(this.activeSubChecklistKey, this.currentTourId);
             
-            // Filter only rows that had deviations and now have corrective actions
+            // Filter only rows that had deviations and now have corrective actions (or need QA verification)
             if (this.pkgopsType === "Code Verification") {
                 this.reverifyRows = rows
-                    .filter(r => r.cr3ea_deviationstatus === "Pending Re-Verification" || (r.cr3ea_actiontaken && r.cr3ea_deviationstatus !== "Closed") || (r.cr3ea_defecttype && r.cr3ea_defecttype !== "None" && r.cr3ea_defecttype !== "Okay" && r.cr3ea_deviationstatus !== "None"))
+                    .filter(r => r.cr3ea_deviationstatus === "Pending Re-Verification" || (r.cr3ea_actiontaken && r.cr3ea_deviationstatus !== "Closed") || (r.cr3ea_defecttype && r.cr3ea_defecttype !== "None" && r.cr3ea_defecttype !== "Okay" && r.cr3ea_deviationstatus !== "Closed"))
                     .sort((a, b) => this.parseSampleNum(a) - this.parseSampleNum(b));
             } else if (this.pkgopsType === "PAPA") {
-                this.reverifyRows = rows.filter(r => r.cr3ea_actiontaken);
+                this.reverifyRows = rows.filter(r => r.cr3ea_deviationstatus === "Pending Re-Verification" || (r.cr3ea_actiontaken && r.cr3ea_deviationstatus !== "Closed") || (r.cr3ea_defecttype && r.cr3ea_defecttype !== "Overall Summary" && r.cr3ea_deviationstatus !== "Closed"));
             } else if (this.pkgopsType === "PQI") {
                 this.reverifyRows = rows
-                    .filter(r => r.cr3ea_deviationstatus === "Pending Re-Verification" || (r.cr3ea_actiontaken && r.cr3ea_deviationstatus !== "Closed") || (r.cr3ea_sampleresult === "Not Okay" && r.cr3ea_deviationstatus !== "None"))
+                    .filter(r => r.cr3ea_deviationstatus === "Pending Re-Verification" || (r.cr3ea_actiontaken && r.cr3ea_deviationstatus !== "Closed") || (r.cr3ea_sampleresult === "Not Okay" && r.cr3ea_deviationstatus !== "Closed"))
                     .sort((a, b) => {
                         const numA = this.parseSampleNum(a);
                         const numB = this.parseSampleNum(b);
@@ -145,7 +163,9 @@ const PKGOPS_Reverify = {
                         return (a.cr3ea_samplenumber || "").localeCompare(b.cr3ea_samplenumber || "", undefined, { numeric: true });
                     });
             } else if (this.pkgopsType === "Seal Integrity") {
-                this.reverifyRows = rows.filter(r => r.cr3ea_deviationstatus === "Pending Re-Verification" || (r.cr3ea_actiontaken && r.cr3ea_deviationstatus !== "Closed"));
+                this.reverifyRows = rows.filter(r => r.cr3ea_deviationstatus === "Pending Re-Verification" || (r.cr3ea_actiontaken && r.cr3ea_deviationstatus !== "Closed") || (parseInt(r.cr3ea_noofleakage) > 0 && r.cr3ea_deviationstatus !== "Closed"));
+            } else if (this.pkgopsType === "Cream Percentage") {
+                this.reverifyRows = rows.filter(r => r.cr3ea_deviationstatus === "Pending Re-Verification" || (r.cr3ea_actiontaken && r.cr3ea_deviationstatus !== "Closed") || (r.cr3ea_status === "Fail" && r.cr3ea_deviationstatus !== "Closed") || r.cr3ea_deviationstatus === "Open");
             }
 
             if (this.reverifyRows.length === 0) {
@@ -184,7 +204,7 @@ const PKGOPS_Reverify = {
                         <tbody>
                             ${this.reverifyRows.map((row, idx) => {
                                 let defectDesc = "";
-                                let rowId = "";
+                                let rowId = this.getRowId(row);
 
                                 const actionRaw = row.cr3ea_actiontaken || "";
                                 const actionTaken = actionRaw.split(" | QA: ")[0].split(" | Proof: ")[0] || "-";
@@ -199,10 +219,8 @@ const PKGOPS_Reverify = {
                                             <small class="text-secondary">Batch: ${row.cr3ea_batchno || "-"} | PKD: ${row.cr3ea_pkd || "-"}</small>
                                         </div>
                                     `;
-                                    rowId = row.cr3ea_rajpura_pkgops_codeverificationid || row.cr3ea_prod_rajpura_pkgops_codeverificationid || row.id;
                                 } else if (this.pkgopsType === "PAPA") {
                                     defectDesc = row.cr3ea_defecttype || "Appearance Defect";
-                                    rowId = row.cr3ea_rajpura_pkgops_papaid || row.cr3ea_prod_rajpura_pkgops_papaid || row.id;
                                 } else if (this.pkgopsType === "PQI") {
                                     defectDesc = `
                                         <div class="d-flex flex-column align-items-start gap-1">
@@ -210,7 +228,6 @@ const PKGOPS_Reverify = {
                                             <span class="fw-bold text-danger" style="font-size: 13px;">${row.cr3ea_evaluationtype} Pack Defect</span>
                                         </div>
                                     `;
-                                    rowId = row.cr3ea_rajpura_pkgops_pqi_evaluationid || row.cr3ea_prod_rajpura_pkgops_pqi_evaluationid || row.id;
                                 } else if (this.pkgopsType === "Seal Integrity") {
                                     const qty = parseInt(row.cr3ea_samplequantity, 10) || 0;
                                     const leaks = parseInt(row.cr3ea_noofleakage, 10) || 0;
@@ -231,7 +248,14 @@ const PKGOPS_Reverify = {
                                             ${this.formatSealIntegrityObsHtml(row)}
                                         </div>
                                     `;
-                                    rowId = row.cr3ea_rajpura_pkgops_sealintegrityid || row.cr3ea_prod_rajpura_pkgops_sealintegrityid || row.id;
+                                } else if (this.pkgopsType === "Cream Percentage") {
+                                    defectDesc = `
+                                        <div class="d-flex flex-column align-items-start gap-1">
+                                            <span class="badge bg-danger" style="font-size: 11px;">Cream % Out of Spec</span>
+                                            <span class="fw-bold text-dark" style="font-size: 13px;">${row.cr3ea_productname || "-"}</span>
+                                            <small class="text-muted">Observed: ${row.cr3ea_creamreading || "-"}% (Min ${row.cr3ea_standardmin || "-"}% - Max ${row.cr3ea_standardmax || "-"}%)</small>
+                                        </div>
+                                    `;
                                 }
 
                                 const defectPhotos = Array.from(new Set((row.cr3ea_codepictureurl || row.cr3ea_batchcodepictureurl || "").split(",").map(u => u.trim()).filter(Boolean)));
@@ -324,15 +348,11 @@ const PKGOPS_Reverify = {
                     }
                 }
 
-                const childId = row.cr3ea_rajpura_pkgops_sealintegrityid ||
-                                row.cr3ea_prod_rajpura_pkgops_sealintegrityid ||
-                                row.cr3ea_rajpura_pkgops_codeverificationid ||
-                                row.cr3ea_prod_rajpura_pkgops_codeverificationid ||
-                                row.cr3ea_rajpura_pkgops_papaid ||
-                                row.cr3ea_prod_rajpura_pkgops_papaid ||
-                                row.cr3ea_rajpura_pkgops_pqi_evaluationid ||
-                                row.cr3ea_prod_rajpura_pkgops_pqi_evaluationid ||
-                                row.id;
+                const childId = this.getRowId(row);
+                if (!childId) {
+                    console.error("Could not find record ID for row:", row);
+                    throw new Error("Unable to identify child record ID for re-verification. Please refresh the page and try again.");
+                }
 
                 // Update child record deviation status
                 let updatePayload = {

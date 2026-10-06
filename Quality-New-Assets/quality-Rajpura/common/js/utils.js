@@ -53,7 +53,8 @@ const QualityRajpura_Config = {
                     CHILD_PQI_NET_WEIGHT: "cr3ea_rajpura_pkgops_pqi_netweights",
                     CHILD_PQI_EVALUATION: "cr3ea_rajpura_pkgops_pqi_evaluations",
                     CHILD_SEAL_INTEGRITY: "cr3ea_rajpura_pkgops_sealintegrities",
-                    CHILD_QUALITY_WALL: "cr3ea_rajpura_pkgops_qualitywalls"
+                    CHILD_QUALITY_WALL: "cr3ea_rajpura_pkgops_qualitywalls",
+                    CHILD_CREAM_PERCENTAGE: "cr3ea_rajpura_pkgops_creampercentageses"
                 },
                 CCP_OPRP_SIEVES_MAGNETS: {
                     PARENT: "cr3ea_rajpura_quality_tours",
@@ -91,7 +92,8 @@ const QualityRajpura_Config = {
                     CHILD_PQI_NET_WEIGHT: "cr3ea_rajpura_pkgops_pqi_netweights",
                     CHILD_PQI_EVALUATION: "cr3ea_rajpura_pkgops_pqi_evaluations",
                     CHILD_SEAL_INTEGRITY: "cr3ea_rajpura_pkgops_sealintegrities",
-                    CHILD_QUALITY_WALL: "cr3ea_rajpura_pkgops_qualitywalls"
+                    CHILD_QUALITY_WALL: "cr3ea_rajpura_pkgops_qualitywalls",
+                    CHILD_CREAM_PERCENTAGE: "cr3ea_rajpura_pkgops_creampercentageses"
                 },
                 CCP_OPRP_SIEVES_MAGNETS: {
                     PARENT: "cr3ea_rajpura_quality_tours",
@@ -129,7 +131,8 @@ const QualityRajpura_Config = {
                     CHILD_PQI_NET_WEIGHT: "cr3ea_prod_rajpura_pkgops_pqi_netweights",
                     CHILD_PQI_EVALUATION: "cr3ea_prod_rajpura_pkgops_pqi_evaluations",
                     CHILD_SEAL_INTEGRITY: "cr3ea_prod_rajpura_pkgops_sealintegrities",
-                    CHILD_QUALITY_WALL: "cr3ea_prod_rajpura_pkgops_qualitywalls"
+                    CHILD_QUALITY_WALL: "cr3ea_prod_rajpura_pkgops_qualitywalls",
+                    CHILD_CREAM_PERCENTAGE: "cr3ea_prod_rajpura_pkgops_creampercentageses"
                 },
                 CCP_OPRP_SIEVES_MAGNETS: {
                     PARENT: "cr3ea_prod_rajpura_quality_tours",

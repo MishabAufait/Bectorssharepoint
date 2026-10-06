@@ -230,7 +230,7 @@ const FoodSafety_Main = {
             }
 
             this.state.selectedChecklistType = checklistType;
-            this.state.selectedShift = tour.cr3ea_shift || "Shift 1";
+            this.state.selectedShift = (tour.cr3ea_shift || "Shift 1").replace("-", " ");
             this.state.selectedSite = tour.cr3ea_plantid || "Rajpura";
             this.state.selectedLine = tour.cr3ea_lineno || "Line 1";
             this.state.qaExecutive = tour.cr3ea_assigned_qa || "";

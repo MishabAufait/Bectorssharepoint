@@ -61,6 +61,7 @@ const PKGOPS_Summary = {
             case "PQI": this.activeSubChecklistKey = "CHILD_PQI_EVALUATION"; break;
             case "Seal Integrity": this.activeSubChecklistKey = "CHILD_SEAL_INTEGRITY"; break;
             case "Quality Wall Records": this.activeSubChecklistKey = "CHILD_QUALITY_WALL"; break;
+            case "Cream Percentage": this.activeSubChecklistKey = "CHILD_CREAM_PERCENTAGE"; break;
         }
 
         console.log(`Initializing Summary: Key=${this.activeSubChecklistKey}`);
@@ -94,33 +95,6 @@ const PKGOPS_Summary = {
                 } else {
                     detailHtml = await this.buildChecklistSummaryHtml(rows);
                 }
-            } else if (this.pkgopsType === "Cream Percentage") {
-                // Simulated Cream Percentage summary
-                detailHtml = `
-                    <div class="row mt-3">
-                        <div class="col-md-12">
-                            <h4 class="form-section-title">Cream Percentage Summary</h4>
-                            <table class="table table-bordered text-center align-middle bg-white">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th>Cream Reading %</th>
-                                        <th>Target Standard Min</th>
-                                        <th>Target Standard Max</th>
-                                        <th>Check Outcome</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>24.50%</td>
-                                        <td>20.00%</td>
-                                        <td>30.00%</td>
-                                        <td><span class="badge bg-success">PASS</span></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                `;
             }
 
             let badgeColor = isExpired ? "bg-danger" : "bg-success";
@@ -959,6 +933,83 @@ const PKGOPS_Summary = {
                         </div>
                     </div>
                 </div>
+            `;
+        }
+        else if (this.pkgopsType === "Cream Percentage") {
+            const r = rows[0] || {};
+            const reading = parseFloat(r.cr3ea_creamreading) || 0;
+            const min = parseFloat(r.cr3ea_standardmin) || 0;
+            const max = parseFloat(r.cr3ea_standardmax) || 0;
+            const status = r.cr3ea_status || (reading >= min && reading <= max ? "Pass" : "Fail");
+            const isPass = status === "Pass";
+
+            html = `
+                <div class="row mt-3 g-3">
+                    ${this.createSummaryCard("cream-sum-prod", "Product Name", `${r.cr3ea_productname || "-"} <br><span class="text-muted fw-normal" style="font-size: 11px;">SKU: ${r.cr3ea_sku || "-"}</span>`)}
+                    ${this.createSummaryCard("cream-sum-sample", "Sample Size", r.cr3ea_samplesize || "10")}
+                    ${this.createSummaryCard("cream-sum-specs", "Standard Specs", `Min: <strong>${r.cr3ea_standardmin || "-"}%</strong> &bull; Max: <strong>${r.cr3ea_standardmax || "-"}%</strong>`)}
+                    ${this.createSummaryCard("cream-sum-reading", "Cream Reading", `<span class="fw-bold ${isPass ? 'text-success' : 'text-danger'}" style="font-size: 1.25rem;">${r.cr3ea_creamreading || "-"}%</span>`)}
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="card border rounded p-3 bg-white shadow-sm">
+                            <h6 class="fw-bold text-dark mb-2" style="font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                <i class="fa fa-percent text-primary me-2"></i>Cream Percentage Result
+                            </h6>
+                            <div class="table-responsive">
+                                <table class="table table-bordered text-center align-middle bg-white mb-0">
+                                    <thead style="background-color: #1e3a8a; color: #ffffff;">
+                                        <tr>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Product Category</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Product Name & SKU</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Sample Size</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Standard Min (%)</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Standard Max (%)</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Observed Reading (%)</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Result Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>${r.cr3ea_productcategory || "Cream"}</td>
+                                            <td class="fw-semibold text-start">${r.cr3ea_productname || "-"} <span class="text-muted">(${r.cr3ea_sku || "-"})</span></td>
+                                            <td>${r.cr3ea_samplesize || "-"}</td>
+                                            <td>${r.cr3ea_standardmin || "-"}%</td>
+                                            <td>${r.cr3ea_standardmax || "-"}%</td>
+                                            <td class="fw-bold ${isPass ? 'text-success' : 'text-danger'}">${r.cr3ea_creamreading || "-"}%</td>
+                                            <td><span class="badge ${isPass ? 'bg-success' : 'bg-danger'} px-3 py-1" style="font-size: 12px;">${status.toUpperCase()}</span></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                ${!isPass ? (() => {
+                    const actionRaw = r.cr3ea_actiontaken || "";
+                    const prodPart = actionRaw.split(" | QA: ")[0] || "";
+                    const qaPart = actionRaw.split(" | QA: ")[1] || "";
+
+                    const prodRemarks = prodPart.split(" | Proof: ")[0] || "-";
+                    const prodProof = prodPart.split(" | Proof: ")[1] || "";
+                    const qaRemarks = qaPart.split(" | Proof: ")[0] || "-";
+                    const qaProof = qaPart.split(" | Proof: ")[1] || "";
+
+                    const prodLinkHtml = prodProof ? PKGOPS_Summary.formatProofLinks(prodProof, "Proof") : "";
+                    const qaLinkHtml = qaProof ? PKGOPS_Summary.formatProofLinks(qaProof, "QA Proof") : "";
+
+                    return `
+                        <div class="row mt-3">
+                            <div class="col-md-12">
+                                <div class="p-3 border rounded bg-white">
+                                    <h5 class="text-danger fw-bold">Deviation Summary</h5>
+                                    <p style="word-break: break-word; overflow-wrap: break-word; white-space: normal;"><strong>Corrective Action Taken:</strong> ${prodRemarks}${prodLinkHtml}</p>
+                                    <p style="word-break: break-word; overflow-wrap: break-word; white-space: normal;"><strong>Re-verification Remarks:</strong> ${qaRemarks}${qaLinkHtml}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                })() : ''}
             `;
         }
 

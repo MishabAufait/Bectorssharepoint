@@ -5,8 +5,21 @@ const ChecklistInformationScreen = {
     init: async function () {
         console.log("Initializing Checklist Info Screen...");
         
-        // Retrieve shift value from Welcome page popup localStorage cache
-        const cachedShift = localStorage.getItem("shiftValue") || "Shift 1";
+        // Helper to determine current shift by time if not already stored
+        const getAutoShift = () => {
+            const now = new Date();
+            const totalMinutes = now.getHours() * 60 + now.getMinutes();
+            if (totalMinutes >= 420 && totalMinutes < 900) return "Shift 1";
+            if (totalMinutes >= 900 && totalMinutes < 1380) return "Shift 2";
+            return "Shift 3";
+        };
+
+        // Retrieve shift value from active session, storage or current time
+        const cachedShift = (FoodSafety_Main.state.currentTourRecord?.cr3ea_shift || 
+                             sessionStorage.getItem("shiftValue") || 
+                             FoodSafety_Main.state.selectedShift || 
+                             localStorage.getItem("shiftValue") || 
+                             getAutoShift()).replace("-", " ");
         FoodSafety_Main.state.selectedShift = cachedShift;
         
         // 1. Populate current date & time
@@ -33,10 +46,28 @@ const ChecklistInformationScreen = {
             $(typeSelect).off("change.type").on("change.type", () => this.handleTypeChange());
         }
 
-        // 3. Initialize Site Dropdown & Hook Change listener for Line Dropdown dependency
+        // 3. Initialize Site, Line, Shift & Cycle Dropdowns
         DropdownComponent.init("infoSiteSelect");
         DropdownComponent.init("infoLineSelect");
+        DropdownComponent.init("infoShiftSelect");
         DropdownComponent.init("infoCycleSelect");
+
+        const shiftSelect = document.getElementById("infoShiftSelect");
+        if (shiftSelect) {
+            shiftSelect.value = cachedShift;
+            $(shiftSelect).val(cachedShift).trigger("change");
+            $(shiftSelect).off("change.shift").on("change.shift", function () {
+                const newShift = (this.value || "Shift 1").replace("-", " ");
+                FoodSafety_Main.state.selectedShift = newShift;
+                sessionStorage.setItem("shiftValue", newShift);
+                localStorage.setItem("shiftValue", newShift);
+                const shiftBadges = document.querySelectorAll("#shiftBadge");
+                shiftBadges.forEach(b => b.innerText = newShift);
+                if (typeof HeaderComponent !== 'undefined' && HeaderComponent.render) {
+                    HeaderComponent.render();
+                }
+            });
+        }
 
         const siteSelect = document.getElementById("infoSiteSelect");
         if (siteSelect) {
@@ -59,7 +90,7 @@ const ChecklistInformationScreen = {
                 }
             };
 
-            $("#infoSiteSelect, #infoLineSelect, #infoCycleSelect, #infoChecklistTypeSelect, #infoPCIAreaSelect").off("change.validation").on("change.validation", function() {
+            $("#infoSiteSelect, #infoLineSelect, #infoShiftSelect, #infoCycleSelect, #infoChecklistTypeSelect, #infoPCIAreaSelect").off("change.validation").on("change.validation", function() {
                 clearInputHighlight(this);
             });
 
@@ -206,8 +237,16 @@ const ChecklistInformationScreen = {
             const qaExec = qaExecEl ? qaExecEl.value : "";
             const prodInchargeEl = document.getElementById("info-prod-incharge-select");
             const prodIncharge = prodInchargeEl ? prodInchargeEl.value : "";
-            const shiftEl = document.getElementById("info-shift-exec");
-            const shiftExec = shiftEl?.value?.trim() || ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? _spPageContextInfo.userDisplayName : (typeof currentUser !== "undefined" ? currentUser : "Shift Executive"));
+            const shiftExecEl = document.getElementById("info-shift-exec");
+            const shiftExec = shiftExecEl?.value?.trim() || ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? _spPageContextInfo.userDisplayName : (typeof currentUser !== "undefined" ? currentUser : "Shift Executive"));
+            const shiftEl = document.getElementById("infoShiftSelect");
+            const shift = shiftEl ? shiftEl.value : (FoodSafety_Main.state.selectedShift || "Shift 1");
+            FoodSafety_Main.state.selectedShift = shift;
+            try {
+                localStorage.setItem("shiftValue", shift);
+                sessionStorage.setItem("shiftValue", shift);
+            } catch (e) {}
+
             const cycleEl = document.getElementById("infoCycleSelect");
             const cycle = cycleEl ? cycleEl.value : "";
             
@@ -247,6 +286,11 @@ const ChecklistInformationScreen = {
                 missingFields.push("Production Executive");
                 if (typeof FoodSafety_Validator !== 'undefined') FoodSafety_Validator.highlight(prodInchargeEl, true);
                 if (!firstInvalidEl) firstInvalidEl = prodInchargeEl;
+            }
+            if (!shift) {
+                missingFields.push("Shift");
+                if (typeof FoodSafety_Validator !== 'undefined') FoodSafety_Validator.highlight(shiftEl, true);
+                if (!firstInvalidEl) firstInvalidEl = shiftEl;
             }
             if (checklistType === "PCI Checklist" && !selectedArea) {
                 missingFields.push("Inspection Block/Area");

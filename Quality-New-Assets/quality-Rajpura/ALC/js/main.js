@@ -871,23 +871,27 @@ const ALC_Main = {
             qaDisplayWrapper.style.display = "none";
         }
 
-        // Restore QA Shift Executive dropdown selections
+        // Restore QA Shift Executive selections
         const qaShiftSelect = document.getElementById("header-qa-shift-exec");
         if (qaShiftExec && qaShiftSelect) {
-            const selectedNames = qaShiftExec.split(",").map(s => s.trim()).filter(Boolean);
-            selectedNames.forEach(name => {
-                let exists = false;
-                for (let i = 0; i < qaShiftSelect.options.length; i++) {
-                    if (qaShiftSelect.options[i].value === name || qaShiftSelect.options[i].text === name) {
-                        exists = true;
-                        break;
+            if (qaShiftSelect.tagName === "INPUT") {
+                qaShiftSelect.value = qaShiftExec;
+            } else {
+                const selectedNames = qaShiftExec.split(",").map(s => s.trim()).filter(Boolean);
+                selectedNames.forEach(name => {
+                    let exists = false;
+                    for (let i = 0; i < qaShiftSelect.options.length; i++) {
+                        if (qaShiftSelect.options[i].value === name || qaShiftSelect.options[i].text === name) {
+                            exists = true;
+                            break;
+                        }
                     }
-                }
-                if (!exists) {
-                    qaShiftSelect.innerHTML += `<option value="${name}" selected>${name}</option>`;
-                }
-            });
-            $(qaShiftSelect).val(selectedNames);
+                    if (!exists) {
+                        qaShiftSelect.innerHTML += `<option value="${name}" selected>${name}</option>`;
+                    }
+                });
+                $(qaShiftSelect).val(selectedNames);
+            }
         }
 
         // Trigger Select2 updates so dropdown selections render correctly
@@ -896,7 +900,7 @@ const ALC_Main = {
             $("#header-shift").trigger("change");
             $("#header-prev-product").trigger("change");
             $("#header-new-product").trigger("change");
-            if (qaShiftSelect) $(qaShiftSelect).trigger("change");
+            if (qaShiftSelect && qaShiftSelect.tagName === "SELECT") $(qaShiftSelect).trigger("change");
         }
     },
 

@@ -101,6 +101,9 @@ const CCP_OPRP_Main = {
                     this.state.qaExecutive = this.state.tourData.cr3ea_assigned_qa || "";
                     this.state.productionIncharge = this.state.tourData.cr3ea_shiftexecutiveproduction || "";
                     this.state.site = this.state.tourData.cr3ea_plantid || "Rajpura";
+                    this.state.shift = (this.state.tourData.cr3ea_shift || sessionStorage.getItem("shiftValue") || localStorage.getItem("shiftValue") || "Shift 1").replace("-", " ");
+                    const shiftBadgeEl = document.getElementById("shiftBadge");
+                    if (shiftBadgeEl) shiftBadgeEl.innerText = this.state.shift;
                 }
             }
 
@@ -402,11 +405,38 @@ const CCP_OPRP_Main = {
             shiftExecInput.value = shiftExecName;
         }
 
+        const getAutoShift = () => {
+            const now = new Date();
+            const totalMinutes = now.getHours() * 60 + now.getMinutes();
+            if (totalMinutes >= 420 && totalMinutes < 900) return "Shift 1";
+            if (totalMinutes >= 900 && totalMinutes < 1380) return "Shift 2";
+            return "Shift 3";
+        };
+
+        const storedShift = (this.state.shift || sessionStorage.getItem("shiftValue") || localStorage.getItem("shiftValue") || getAutoShift()).replace("-", " ");
+        this.state.shift = storedShift;
+        const shiftBadgeEl = document.getElementById("shiftBadge");
+        if (shiftBadgeEl) shiftBadgeEl.innerText = storedShift;
+
+        const shiftSelect = document.getElementById("setup-shift");
+        if (shiftSelect) {
+            shiftSelect.value = storedShift;
+            $(shiftSelect).val(storedShift).trigger('change');
+            $(shiftSelect).off('change.shift').on('change.shift', function () {
+                const newShift = ($(this).val() || "Shift 1").replace("-", " ");
+                CCP_OPRP_Main.state.shift = newShift;
+                sessionStorage.setItem("shiftValue", newShift);
+                localStorage.setItem("shiftValue", newShift);
+                const badge = document.getElementById("shiftBadge");
+                if (badge) badge.innerText = newShift;
+            });
+        }
+
         // Ensure all setup inputs and selects are explicitly enabled for interactive setup
-        $('#setup-type, #setup-site, #setup-line, #setup-product, #setup-freq, #setup-qa, #setup-prod').prop('disabled', false);
+        $('#setup-type, #setup-site, #setup-line, #setup-product, #setup-freq, #setup-shift, #setup-qa, #setup-prod').prop('disabled', false);
 
         // Initialize / refresh select2 on static setup dropdowns
-        $('#setup-type, #setup-site, #setup-line, #setup-freq').select2({
+        $('#setup-type, #setup-site, #setup-line, #setup-freq, #setup-shift').select2({
             minimumResultsForSearch: -1,
             dropdownAutoWidth: false,
             width: '100%'
@@ -633,8 +663,17 @@ const CCP_OPRP_Main = {
         const lineVal = $('#setup-line').val() || document.getElementById("setup-line")?.value || "";
         const productVal = $('#setup-product').val() || document.getElementById("setup-product")?.value || "";
         const freqVal = $('#setup-freq').val() || document.getElementById("setup-freq")?.value || "4hrs";
+        const shiftVal = ($('#setup-shift').val() || document.getElementById("setup-shift")?.value || sessionStorage.getItem("shiftValue") || localStorage.getItem("shiftValue") || "Shift 1").replace("-", " ");
         const prodVal = $('#setup-prod').val() || document.getElementById("setup-prod")?.value || "";
         const qaVal = $('#setup-qa').val() || document.getElementById("setup-qa")?.value || "";
+
+        try {
+            sessionStorage.setItem("shiftValue", shiftVal);
+            localStorage.setItem("shiftValue", shiftVal);
+        } catch (e) {}
+        this.state.shift = shiftVal;
+        const shiftBadgeEl = document.getElementById("shiftBadge");
+        if (shiftBadgeEl) shiftBadgeEl.innerText = shiftVal;
 
         if (!prodVal || !qaVal) {
             alert("Please select both Production Executive and QA Executive.");
@@ -693,7 +732,7 @@ const CCP_OPRP_Main = {
             cr3ea_shiftexecutive: shiftExecEmail || shiftExecName,
             cr3ea_status: "In Progress",
             cr3ea_processstatus: "In Progress",
-            cr3ea_shift: sessionStorage.getItem("shiftValue") || "Shift-1",
+            cr3ea_shift: shiftVal,
             cr3ea_tourstartdate: now.toISOString(),
             cr3ea_title: `${titlePrefix}_${siteVal}_${lineStr}_${dateStr}`
         };

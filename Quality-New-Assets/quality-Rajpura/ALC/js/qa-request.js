@@ -54,36 +54,40 @@ const ALC_QARequest = {
         // Populate Line dropdown with format: ${Title} - ${LineName} (e.g. Line No. 1 - HAAS)
         const lineSelect = document.getElementById("header-line");
         if (lineSelect) {
-            lineSelect.innerHTML = `<option value="">Select Line</option>`;
-            this.lines.forEach(l => {
-                const lineFormatted = (l.LineName && l.LineName.trim()) ? `${l.Title} - ${l.LineName}` : l.Title;
-                lineSelect.innerHTML += `<option value="${lineFormatted}" data-title="${l.Title}" data-linename="${l.LineName || ''}">${lineFormatted}</option>`;
-            });
+            const lineOptions = [`<option value="">Select Line</option>`].concat(
+                this.lines.map(l => {
+                    const lineFormatted = (l.LineName && l.LineName.trim()) ? `${l.Title} - ${l.LineName}` : l.Title;
+                    return `<option value="${lineFormatted}" data-title="${l.Title}" data-linename="${l.LineName || ''}">${lineFormatted}</option>`;
+                })
+            ).join("");
+            lineSelect.innerHTML = lineOptions;
         }
 
         // Populate Shift dropdown with format: Shift ${ShiftCode} - ${ShiftName} (${ShiftStart} - ${ShiftEnd})
         const shiftSelect = document.getElementById("header-shift");
         if (shiftSelect) {
-            shiftSelect.innerHTML = `<option value="">Select Shift</option>`;
-            this.shifts.forEach(s => {
-                const timeStr = (s.ShiftStart && s.ShiftEnd) ? ` (${s.ShiftStart} - ${s.ShiftEnd})` : "";
-                const shiftFormatted = `Shift ${s.ShiftCode} - ${s.ShiftName}${timeStr}`;
-                shiftSelect.innerHTML += `<option value="${shiftFormatted}" data-code="${s.ShiftCode}">${shiftFormatted}</option>`;
-            });
+            const shiftOptions = [`<option value="">Select Shift</option>`].concat(
+                this.shifts.map(s => {
+                    const timeStr = (s.ShiftStart && s.ShiftEnd) ? ` (${s.ShiftStart} - ${s.ShiftEnd})` : "";
+                    const shiftFormatted = `Shift ${s.ShiftCode} - ${s.ShiftName}${timeStr}`;
+                    return `<option value="${shiftFormatted}" data-code="${s.ShiftCode}">${shiftFormatted}</option>`;
+                })
+            ).join("");
+            shiftSelect.innerHTML = shiftOptions;
         }
 
         // Populate Product dropdowns (Previous Variety & New Variety)
         const prevSelect = document.getElementById("header-prev-product");
         const newSelect = document.getElementById("header-new-product");
-        [prevSelect, newSelect].forEach(sel => {
-            if (sel) {
-                sel.innerHTML = `<option value="">Select Product</option>`;
-                this.products.forEach(p => {
-                    const codeSuffix = p.ProductCode ? ` (${p.ProductCode})` : "";
-                    sel.innerHTML += `<option value="${p.Title}">${p.Title}${codeSuffix}</option>`;
-                });
-            }
-        });
+        const productOptions = [`<option value="">Select Product</option>`].concat(
+            this.products.map(p => {
+                const codeSuffix = p.ProductCode ? ` (${p.ProductCode})` : "";
+                return `<option value="${p.Title}">${p.Title}${codeSuffix}</option>`;
+            })
+        ).join("");
+
+        if (prevSelect) prevSelect.innerHTML = productOptions;
+        if (newSelect) newSelect.innerHTML = productOptions;
 
         // Restore values if current session exists
         const currentSession = ALC_StateMachine.currentSession;
@@ -291,17 +295,17 @@ const ALC_QARequest = {
             });
         }
 
-        // Populate QA Shift Executive Normal Single-Select Dropdown
-        const qaShiftSelect = document.getElementById("header-qa-shift-exec");
-        if (qaShiftSelect) {
-            qaShiftSelect.innerHTML = '<option value="">Select QA Shift Executive</option>';
+        // Populate QA Shift Executive Dropdown (if configured as select) or preserve manual text input
+        const qaShiftEl = document.getElementById("header-qa-shift-exec");
+        if (qaShiftEl && qaShiftEl.tagName === "SELECT") {
+            qaShiftEl.innerHTML = '<option value="">Select QA Shift Executive</option>';
             const shiftSourceMap = qaShiftUsersMap.size > 0 ? qaShiftUsersMap : qaUsersMap;
             shiftSourceMap.forEach(user => {
-                qaShiftSelect.innerHTML += `<option value="${user.Title}" data-email="${user.EMail || ''}">${user.Title}</option>`;
+                qaShiftEl.innerHTML += `<option value="${user.Title}" data-email="${user.EMail || ''}">${user.Title}</option>`;
             });
             if (shiftSourceMap.size === 1) {
                 const firstUser = shiftSourceMap.values().next().value;
-                qaShiftSelect.value = firstUser.Title;
+                qaShiftEl.value = firstUser.Title;
             }
         }
 
@@ -347,23 +351,27 @@ const ALC_QARequest = {
                 }
             }
 
-            // Restore QA Shift Executive selection (Single Select)
+            // Restore QA Shift Executive selection (Manual input or Select dropdown)
             const savedQaShift = currentSession.cr3ea_executivename || currentSession.cr3ea_shiftexecutivequality || "";
-            if (savedQaShift && qaShiftSelect) {
-                const firstSaved = savedQaShift.split(",")[0].trim();
-                let exists = false;
-                for (let i = 0; i < qaShiftSelect.options.length; i++) {
-                    if (qaShiftSelect.options[i].value === firstSaved || qaShiftSelect.options[i].text === firstSaved) {
-                        qaShiftSelect.value = qaShiftSelect.options[i].value;
-                        exists = true;
-                        break;
+            if (savedQaShift && qaShiftEl) {
+                if (qaShiftEl.tagName === "INPUT") {
+                    qaShiftEl.value = savedQaShift;
+                } else {
+                    const firstSaved = savedQaShift.split(",")[0].trim();
+                    let exists = false;
+                    for (let i = 0; i < qaShiftEl.options.length; i++) {
+                        if (qaShiftEl.options[i].value === firstSaved || qaShiftEl.options[i].text === firstSaved) {
+                            qaShiftEl.value = qaShiftEl.options[i].value;
+                            exists = true;
+                            break;
+                        }
                     }
+                    if (!exists && firstSaved) {
+                        qaShiftEl.innerHTML += `<option value="${firstSaved}" selected>${firstSaved}</option>`;
+                        qaShiftEl.value = firstSaved;
+                    }
+                    $(qaShiftEl).trigger("change");
                 }
-                if (!exists && firstSaved) {
-                    qaShiftSelect.innerHTML += `<option value="${firstSaved}" selected>${firstSaved}</option>`;
-                    qaShiftSelect.value = firstSaved;
-                }
-                $(qaShiftSelect).trigger("change");
             }
         }
 
@@ -378,7 +386,7 @@ const ALC_QARequest = {
                 }
             });
             $(qaSelect).trigger('change.select2');
-            if (qaShiftSelect) $(qaShiftSelect).trigger('change.select2');
+            if (qaShiftEl && qaShiftEl.tagName === "SELECT") $(qaShiftEl).trigger('change.select2');
         }
     },
 
@@ -403,18 +411,26 @@ const ALC_QARequest = {
             assignedQaEmail = ALC_Notification.extractEmail(assignedQaEmail) || assignedQaEmail;
         }
 
-        // Resolve QA Shift Executive (Normal Dropdown)
-        const qaShiftSelect = document.getElementById("header-qa-shift-exec");
+        // Resolve QA Shift Executive (Manual Input or Dropdown)
+        const qaShiftEl = document.getElementById("header-qa-shift-exec");
         let qaShiftExecsVal = "";
-        if (qaShiftSelect && qaShiftSelect.value) {
-            const opt = (qaShiftSelect.selectedIndex >= 0) ? qaShiftSelect.options[qaShiftSelect.selectedIndex] : null;
-            const optEm = opt ? (opt.getAttribute("data-email") || "").trim() : "";
-            qaShiftExecsVal = optEm || qaShiftSelect.value.trim();
-            if (typeof ALC_Notification !== "undefined" && (!qaShiftExecsVal || !qaShiftExecsVal.includes("@"))) {
-                const resQaShift = await ALC_Notification.resolveUserEmailAsync((opt ? opt.text : "") || qaShiftExecsVal, this.qaMatrix, ALC_StateMachine.currentSession);
-                if (resQaShift) qaShiftExecsVal = resQaShift;
+        if (qaShiftEl) {
+            if (qaShiftEl.tagName === "SELECT") {
+                const opt = (qaShiftEl.selectedIndex >= 0) ? qaShiftEl.options[qaShiftEl.selectedIndex] : null;
+                const optEm = opt ? (opt.getAttribute("data-email") || "").trim() : "";
+                qaShiftExecsVal = optEm || qaShiftEl.value.trim();
+                if (typeof ALC_Notification !== "undefined" && (!qaShiftExecsVal || !qaShiftExecsVal.includes("@"))) {
+                    const resQaShift = await ALC_Notification.resolveUserEmailAsync((opt ? opt.text : "") || qaShiftExecsVal, this.qaMatrix, ALC_StateMachine.currentSession);
+                    if (resQaShift) qaShiftExecsVal = resQaShift;
+                }
+            } else {
+                qaShiftExecsVal = (qaShiftEl.value || "").trim();
+                if (typeof ALC_Notification !== "undefined" && qaShiftExecsVal && !qaShiftExecsVal.includes("@")) {
+                    const resQaShift = await ALC_Notification.resolveUserEmailAsync(qaShiftExecsVal, this.qaMatrix, ALC_StateMachine.currentSession);
+                    if (resQaShift) qaShiftExecsVal = resQaShift;
+                }
             }
-            if (typeof ALC_Notification !== "undefined") {
+            if (typeof ALC_Notification !== "undefined" && qaShiftExecsVal) {
                 qaShiftExecsVal = ALC_Notification.extractEmail(qaShiftExecsVal) || qaShiftExecsVal;
             }
         }

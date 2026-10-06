@@ -32,6 +32,7 @@
  *   • Pkg Ops - PQI Evaluation       : "cr3ea_prod_rajpura_pkgops_pqi_evaluations"
  *   • Pkg Ops - Seal Integrity       : "cr3ea_prod_rajpura_pkgops_sealintegrities"
  *   • Pkg Ops - Quality Wall         : "cr3ea_prod_rajpura_pkgops_qualitywalls"
+ *   • Pkg Ops - Cream Percentage     : "cr3ea_prod_rajpura_pkgops_creampercentages"
  *   • CCP / OPRP                     : "cr3ea_prod_rajpura_ccpoprps"
  *   • Sieves & Magnets               : "cr3ea_prod_rajpura_sievesmagnets"
  * 
@@ -40,6 +41,7 @@
  *   • ALC                            : "cr3ea_rajpura_alcs"
  *   • Food Safety                    : "cr3ea_foodsafetychecklistforrajpuras"
  *   • Mixing & Baking                : "cr3ea_rajpura_mixingandbakings"
+ *   • Pkg Ops - Cream Percentage     : "cr3ea_rajpura_pkgops_creampercentages"
  *   • CCP / OPRP                     : "cr3ea_rajpura_ccpoprps"
  *   • Sieves & Magnets               : "cr3ea_rajpura_sievesmagnets"
  * =========================================================================

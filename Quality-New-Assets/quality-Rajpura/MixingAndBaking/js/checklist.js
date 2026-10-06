@@ -149,6 +149,30 @@ const MixingBaking_Checklist = {
             shiftExecInput.value = this.resolveUserName(shiftExec);
         }
 
+        // Shift dropdown
+        const shiftSelect = $("#info-shift-select");
+        if (shiftSelect.length) {
+            const getAutoShift = () => {
+                const now = new Date();
+                const totalMinutes = now.getHours() * 60 + now.getMinutes();
+                if (totalMinutes >= 420 && totalMinutes < 900) return "Shift 1";
+                if (totalMinutes >= 900 && totalMinutes < 1380) return "Shift 2";
+                return "Shift 3";
+            };
+            const currShift = (state.shift || sessionStorage.getItem("shiftValue") || localStorage.getItem("shiftValue") || getAutoShift()).replace("-", " ");
+            shiftSelect.val(currShift);
+            shiftSelect.off("change.shift").on("change.shift", function () {
+                const newShift = ($(this).val() || "Shift 1").replace("-", " ");
+                MixingBaking_Main.state.shift = newShift;
+                sessionStorage.setItem("shiftValue", newShift);
+                localStorage.setItem("shiftValue", newShift);
+                const shiftBadgeEl = document.getElementById("shiftBadge");
+                if (shiftBadgeEl) shiftBadgeEl.innerText = newShift;
+                const hdrShiftEl = document.getElementById("hdr-shift");
+                if (hdrShiftEl) hdrShiftEl.innerText = newShift;
+            });
+        }
+
         // Batch input
         const batchInput = document.getElementById("info-batch-input");
         if (batchInput) {
@@ -157,7 +181,7 @@ const MixingBaking_Checklist = {
 
         // Initialize Select2 on dropdowns safely if library is available
         if (typeof $ !== "undefined" && $.fn && $.fn.select2) {
-            $("#info-site-select, #info-line-select, #info-qa-select, #info-prod-select").select2({
+            $("#info-site-select, #info-line-select, #info-qa-select, #info-prod-select, #info-shift-select").select2({
                 minimumResultsForSearch: -1,
                 dropdownAutoWidth: false,
                 width: '100%'
@@ -171,7 +195,7 @@ const MixingBaking_Checklist = {
 
         // Enforce read-only if not QA
         if (!state.canEditChecklist) {
-            $("#info-site-select, #info-line-select, #info-product-select, #info-qa-select, #info-prod-select").prop('disabled', true);
+            $("#info-site-select, #info-line-select, #info-product-select, #info-qa-select, #info-prod-select, #info-shift-select").prop('disabled', true);
             if (batchInput) batchInput.disabled = true;
         }
     },
@@ -217,7 +241,8 @@ const MixingBaking_Checklist = {
         const productEl = document.getElementById("info-product-select");
         const qaEl = document.getElementById("info-qa-select");
         const prodEl = document.getElementById("info-prod-select");
-        const shiftEl = document.getElementById("info-shift-exec");
+        const shiftExecEl = document.getElementById("info-shift-exec");
+        const shiftEl = document.getElementById("info-shift-select");
         const batchEl = document.getElementById("info-batch-input");
 
         const site = $("#info-site-select").val() || siteEl?.value || "Rajpura";
@@ -225,20 +250,27 @@ const MixingBaking_Checklist = {
         const product = $("#info-product-select").val() || productEl?.value || "";
         const qa = $("#info-qa-select").val() || qaEl?.value || "";
         const prod = $("#info-prod-select").val() || prodEl?.value || "";
-        const shiftExec = shiftEl?.value?.trim() || ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? _spPageContextInfo.userDisplayName : (typeof currentUser !== "undefined" ? currentUser : "Shift Executive"));
+        const shiftExec = shiftExecEl?.value?.trim() || ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? _spPageContextInfo.userDisplayName : (typeof currentUser !== "undefined" ? currentUser : "Shift Executive"));
+        const shift = ($("#info-shift-select").val() || shiftEl?.value || MixingBaking_Main.state.shift || "Shift 1").replace("-", " ");
+        MixingBaking_Main.state.shift = shift;
+        try {
+            sessionStorage.setItem("shiftValue", shift);
+            localStorage.setItem("shiftValue", shift);
+        } catch (e) {}
         const batchNo = batchEl?.value?.trim() || "";
 
         // Clear previous highlights
-        [siteEl, lineEl, productEl, qaEl, prodEl, batchEl].forEach(el => MixingBaking_Validator.highlight(el, false));
+        [siteEl, lineEl, productEl, qaEl, prodEl, shiftEl, batchEl].forEach(el => MixingBaking_Validator.highlight(el, false));
 
-        if (!site || !line || !product || !qa || !prod || !batchNo) {
+        if (!site || !line || !product || !qa || !prod || !shift || !batchNo) {
             if (!site && siteEl) MixingBaking_Validator.highlight(siteEl, true);
             if (!line && lineEl) MixingBaking_Validator.highlight(lineEl, true);
             if (!product && productEl) MixingBaking_Validator.highlight(productEl, true);
             if (!qa && qaEl) MixingBaking_Validator.highlight(qaEl, true);
             if (!prod && prodEl) MixingBaking_Validator.highlight(prodEl, true);
+            if (!shift && shiftEl) MixingBaking_Validator.highlight(shiftEl, true);
             if (!batchNo && batchEl) MixingBaking_Validator.highlight(batchEl, true);
-            alert("Please fill in all required fields:\n- Manufacturing Site\n- Line No\n- Product Name\n- QA Executive\n- Production Executive\n- Batch No");
+            alert("Please fill in all required fields:\n- Manufacturing Site\n- Line No\n- Product Name\n- QA Executive\n- Production Executive\n- Shift\n- Batch No");
             return;
         }
 
@@ -275,7 +307,7 @@ const MixingBaking_Checklist = {
                 cr3ea_shiftexecutiveproduction: resolvedProd,
                 cr3ea_observedby: shiftExecEmail || shiftExec,
                 cr3ea_status: "In Progress",
-                cr3ea_shift: MixingBaking_Main.state.shift || sessionStorage.getItem("shiftValue") || "Shift-1",
+                cr3ea_shift: shift,
                 cr3ea_lineno: line,
                 cr3ea_plantid: plantId,
                 cr3ea_title: `MixingBaking_${lineLabel}_Tour_${moment().format('DD-MM-YYYY')}`,

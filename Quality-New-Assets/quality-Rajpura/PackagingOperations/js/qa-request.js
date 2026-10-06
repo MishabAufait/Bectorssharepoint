@@ -59,10 +59,24 @@ const PKGOPS_QARequest = {
         }
 
         // Set Shift
-        const storedShift = localStorage.getItem("shiftValue") || sessionStorage.getItem("shiftValue");
+        const getAutoShift = () => {
+            const now = new Date();
+            const totalMinutes = now.getHours() * 60 + now.getMinutes();
+            if (totalMinutes >= 420 && totalMinutes < 900) return "Shift 1";
+            if (totalMinutes >= 900 && totalMinutes < 1380) return "Shift 2";
+            return "Shift 3";
+        };
+        const storedShift = (sessionStorage.getItem("shiftValue") || localStorage.getItem("shiftValue") || getAutoShift()).replace("-", " ");
         const shiftSelect = document.getElementById("setup-shift");
-        if (shiftSelect && storedShift) {
+        if (shiftSelect) {
             shiftSelect.value = storedShift;
+            $(shiftSelect).off("change.shift").on("change.shift", function () {
+                const newShift = ($(this).val() || "Shift 1").replace("-", " ");
+                sessionStorage.setItem("shiftValue", newShift);
+                localStorage.setItem("shiftValue", newShift);
+                const shiftBadgeEl = document.getElementById("shiftBadge");
+                if (shiftBadgeEl) shiftBadgeEl.innerText = newShift;
+            });
         }
 
         this.populateQASelection();

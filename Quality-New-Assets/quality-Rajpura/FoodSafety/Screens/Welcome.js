@@ -5,16 +5,37 @@ const WelcomeScreen = {
     init: function () {
         console.log("Initializing Welcome Screen...");
         
-        // 1. Pre-populate Shift dropdown using stored localStorage value from welcome page
-        const cachedShift = localStorage.getItem("shiftValue") || sessionStorage.getItem("shiftValue");
-        if (cachedShift) {
-            console.log(`Resolved pre-selected shift from welcome flow: ${cachedShift}`);
-            document.getElementById("welcomeShiftSelect").value = cachedShift;
+        // Helper to determine current shift by time if not already stored
+        const getAutoShift = () => {
+            const now = new Date();
+            const totalMinutes = now.getHours() * 60 + now.getMinutes();
+            if (totalMinutes >= 420 && totalMinutes < 900) return "Shift 1";
+            if (totalMinutes >= 900 && totalMinutes < 1380) return "Shift 2";
+            return "Shift 3";
+        };
+
+        // 1. Pre-populate Shift dropdown using stored localStorage value from welcome page or time
+        const cachedShift = (sessionStorage.getItem("shiftValue") || localStorage.getItem("shiftValue") || getAutoShift()).replace("-", " ");
+        FoodSafety_Main.state.selectedShift = cachedShift;
+        const shiftEl = document.getElementById("welcomeShiftSelect");
+        if (shiftEl) {
+            shiftEl.value = cachedShift;
         }
 
         // 2. Initialize JQuery Select2 UI elements
         DropdownComponent.init("welcomeFoodSafetySelect");
         DropdownComponent.init("welcomeShiftSelect");
+
+        if (shiftEl) {
+            $(shiftEl).off("change.shift").on("change.shift", function () {
+                const newShift = (this.value || "Shift 1").replace("-", " ");
+                FoodSafety_Main.state.selectedShift = newShift;
+                sessionStorage.setItem("shiftValue", newShift);
+                localStorage.setItem("shiftValue", newShift);
+                const shiftBadges = document.querySelectorAll("#shiftBadge");
+                shiftBadges.forEach(b => b.innerText = newShift);
+            });
+        }
 
         // 3. Render Component Header
         HeaderComponent.render("welcome-header-wrapper");

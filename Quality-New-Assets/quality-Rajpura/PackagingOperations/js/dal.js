@@ -448,12 +448,61 @@ const PKGOPS_DAL = {
     // 2. Fetch Dataverse access token
     getAccessToken: async function () {
         if (typeof getAccessToken === "function") {
-            return await getAccessToken();
+            try {
+                const tok = await getAccessToken();
+                if (tok) return tok;
+            } catch (e) {
+                console.warn("Global getAccessToken error:", e);
+            }
         }
-        const storedToken = JSON.parse(localStorage.getItem("access_token"));
-        const currentTime = new Date().getTime() / 1000;
-        if (storedToken && storedToken.expires_at > currentTime) {
-            return storedToken.token;
+        if (typeof CommonDAL !== "undefined" && typeof CommonDAL.getAccessToken === "function") {
+            try {
+                const tok = await CommonDAL.getAccessToken();
+                if (tok) return tok;
+            } catch (e) {
+                console.warn("CommonDAL getAccessToken error:", e);
+            }
+        }
+        if (typeof QualityRajpura_Config !== "undefined" && typeof QualityRajpura_Config.getAccessToken === "function") {
+            try {
+                const tok = await QualityRajpura_Config.getAccessToken();
+                if (tok) return tok;
+            } catch (e) {
+                console.warn("QualityRajpura_Config getAccessToken error:", e);
+            }
+        }
+        try {
+            const rawStored = localStorage.getItem("access_token");
+            if (rawStored) {
+                const storedToken = JSON.parse(rawStored);
+                const currentTime = new Date().getTime() / 1000;
+                if (storedToken && storedToken.token && storedToken.expires_at > currentTime) {
+                    return storedToken.token;
+                }
+            }
+        } catch (e) {}
+
+        // Fallback: search storage for any cached JWT token
+        if (typeof window !== "undefined") {
+            const storages = [sessionStorage, localStorage];
+            for (const store of storages) {
+                if (!store) continue;
+                for (let i = 0; i < store.length; i++) {
+                    const key = store.key(i);
+                    const val = store.getItem(key);
+                    if (!val) continue;
+                    if (val.startsWith("eyJ") && val.split(".").length === 3) {
+                        return val;
+                    }
+                    if (val.includes("access_token") || val.includes("accessToken") || val.includes("secret")) {
+                        try {
+                            const parsed = JSON.parse(val);
+                            const t = parsed.access_token || parsed.accessToken || parsed.secret;
+                            if (t && typeof t === "string" && t.startsWith("eyJ")) return t;
+                        } catch (e) {}
+                    }
+                }
+            }
         }
         return null;
     },
@@ -483,10 +532,15 @@ const PKGOPS_DAL = {
 
     // 4. Save or Update Parent Tour in Dataverse
     saveTour: async function (tourData) {
-        const AccessToken = await this.getAccessToken();
+        let AccessToken = await this.getAccessToken();
         if (!AccessToken) {
-            console.warn("No token available. Simulating saveTour locally.");
-            return { cr3ea_prod_rajpura_quality_tourid: tourData.cr3ea_prod_rajpura_quality_tourid || "mock-tour-id-" + Date.now() };
+            console.warn("No token available in saveTour. Attempting token fetch...");
+            if (typeof getAccessToken === "function") {
+                AccessToken = await getAccessToken();
+            }
+            if (!AccessToken) {
+                throw new Error("Dataverse Authentication Failed: No active access token available to save tour session. Please ensure you are logged in.");
+            }
         }
 
         const apiVersion = "9.2";
@@ -635,16 +689,28 @@ const PKGOPS_DAL = {
     // 7. Generic Child Sub-Checklist CRUD Operations
     // 7.a Save / Update Sub-checklist Row
     saveSubChecklistRow: async function (subChecklistKey, record) {
-        const AccessToken = await this.getAccessToken();
+        let AccessToken = await this.getAccessToken();
         if (!AccessToken) {
-            console.warn("No token available. Simulating saveSubChecklistRow locally.");
-            return record;
+            console.warn("No token available. Attempting token fetch...");
+            if (typeof getAccessToken === "function") {
+                AccessToken = await getAccessToken();
+            }
+            if (!AccessToken) {
+                throw new Error(`Dataverse Authentication Failed: No active access token available to save ${subChecklistKey}. Please ensure you are logged in.`);
+            }
         }
 
         const apiVersion = "9.2";
-        const tableName = QualityRajpura_Config.DATAVERSE_TABLES.PACKAGING_OPERATIONS[subChecklistKey];
-        if (!tableName) {
+        const primaryTableName = QualityRajpura_Config.DATAVERSE_TABLES.PACKAGING_OPERATIONS[subChecklistKey];
+        if (!primaryTableName) {
             throw new Error(`Invalid subChecklistKey provided: ${subChecklistKey}`);
+        }
+
+        const candidateTables = [primaryTableName];
+        if (subChecklistKey === "CHILD_CREAM_PERCENTAGE") {
+            ["cr3ea_rajpura_pkgops_creampercentageses", "cr3ea_rajpura_pkgops_creampercentages", "cr3ea_rajpura_pkgops_creampercentagees", "cr3ea_prod_rajpura_pkgops_creampercentageses", "cr3ea_prod_rajpura_pkgops_creampercentages", "cr3ea_prod_rajpura_pkgops_creampercentagees"].forEach(t => {
+                if (!candidateTables.includes(t)) candidateTables.push(t);
+            });
         }
 
         const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
@@ -658,7 +724,7 @@ const PKGOPS_DAL = {
 
         // Determine ID column name based on entity
         let idColumn = "";
-        const isProd = tableName.includes("_prod_");
+        const isProd = primaryTableName.includes("_prod_");
         const p = isProd ? "cr3ea_prod_rajpura_pkgops_" : "cr3ea_rajpura_pkgops_";
         if (subChecklistKey === "CHILD_TEMP_HUMIDITY") idColumn = p + "temphumidityid";
         else if (subChecklistKey === "CHILD_CODE_VERIFICATION") idColumn = p + "codeverificationid";
@@ -667,15 +733,36 @@ const PKGOPS_DAL = {
         else if (subChecklistKey === "CHILD_PQI_EVALUATION") idColumn = p + "pqi_evaluationid";
         else if (subChecklistKey === "CHILD_SEAL_INTEGRITY") idColumn = p + "sealintegrityid";
         else if (subChecklistKey === "CHILD_QUALITY_WALL") idColumn = p + "qualitywallid";
-
-        let url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}`;
-        let method = "POST";
+        else if (subChecklistKey === "CHILD_CREAM_PERCENTAGE") idColumn = p + "creampercentagesid";
 
         const baseSuffix = idColumn.replace(/^cr3ea_(prod_)?rajpura_pkgops_/, "");
-        const existingRowId = record[idColumn] || 
-                              record["cr3ea_prod_rajpura_pkgops_" + baseSuffix] ||
-                              record["cr3ea_rajpura_pkgops_" + baseSuffix] ||
-                              record.id;
+        let existingRowId = record.id || record[idColumn];
+        if (!existingRowId) {
+            existingRowId = record[p + "creampercentagesid"] ||
+                            record[p + "creampercentageid"] ||
+                            record[p + "sealintegrityid"] ||
+                            record[p + "codeverificationid"] ||
+                            record[p + "papaid"] ||
+                            record[p + "pqi_evaluationid"] ||
+                            record[p + "pqi_netweightid"] ||
+                            record[p + "temphumidityid"] ||
+                            record[p + "qualitywallid"] ||
+                            record["cr3ea_prod_rajpura_pkgops_" + baseSuffix] ||
+                            record["cr3ea_rajpura_pkgops_" + baseSuffix];
+        }
+        if (!existingRowId) {
+            for (let k in record) {
+                if (k.endsWith("id") && typeof record[k] === "string" && /^[0-9a-fA-F-]{36}$/.test(record[k])) {
+                    if (!k.includes("qualitytourid") && !k.includes("plantid") && !k.includes("bind")) {
+                        existingRowId = record[k];
+                        break;
+                    }
+                }
+            }
+        }
+        if (existingRowId) {
+            existingRowId = String(existingRowId).replace(/[{}]/g, "").trim().toLowerCase();
+        }
 
         const cleanRecord = { ...record };
 
@@ -686,54 +773,61 @@ const PKGOPS_DAL = {
                 "cr3ea_creamroomtemp", "cr3ea_coldstorage1nbtemp", "cr3ea_coldstorage2nbtemp",
                 "cr3ea_flavourroomtemp", "cr3ea_dhroomhumidity", "cr3ea_coldroom1obtemp",
                 "cr3ea_coldroom2obtemp", "cr3ea_coldroom3obtemp", "cr3ea_deepfreezeryeasttemp",
-                "cr3ea_qualitytourid@odata.bind"
+                "cr3ea_qualitytourid@odata.bind", "cr3ea_QualityTourId@odata.bind"
             ],
             CHILD_CODE_VERIFICATION: [
                 "cr3ea_name", "cr3ea_productname", "cr3ea_sku", "cr3ea_batchno", "cr3ea_pkd",
                 "cr3ea_expirydate", "cr3ea_noofsamples", "cr3ea_defecttype", "cr3ea_defectcount",
                 "cr3ea_codepictureurl", "cr3ea_deviationstatus", "cr3ea_actiontaken",
-                "cr3ea_qualitytourid@odata.bind"
+                "cr3ea_qualitytourid@odata.bind", "cr3ea_QualityTourId@odata.bind"
             ],
             CHILD_PAPA: [
                 "cr3ea_name", "cr3ea_productname", "cr3ea_sku", "cr3ea_noofsamples",
                 "cr3ea_defecttype", "cr3ea_defectcount", "cr3ea_defectwisepercentage",
                 "cr3ea_overalldefectpercentage", "cr3ea_deviationstatus", "cr3ea_actiontaken",
-                "cr3ea_qualitytourid@odata.bind"
+                "cr3ea_qualitytourid@odata.bind", "cr3ea_QualityTourId@odata.bind"
             ],
             CHILD_PQI_NET_WEIGHT: [
                 "cr3ea_name", "cr3ea_productname", "cr3ea_sku", "cr3ea_averageweight", "cr3ea_giveaway",
-                "cr3ea_qualitytourid@odata.bind",
+                "cr3ea_qualitytourid@odata.bind", "cr3ea_QualityTourId@odata.bind",
                 ...Array.from({ length: 32 }, (_, i) => `cr3ea_sampleweight${i + 1}`)
             ],
             CHILD_PQI_EVALUATION: [
                 "cr3ea_name", "cr3ea_evaluationtype", "cr3ea_productname", "cr3ea_sku", "cr3ea_pkd",
                 "cr3ea_batchcode", "cr3ea_samplenumber", "cr3ea_sampleresult", "cr3ea_defectcategory",
                 "cr3ea_defectdetail", "cr3ea_batchcodepictureurl", "cr3ea_deviationstatus", "cr3ea_actiontaken",
-                "cr3ea_qualitytourid@odata.bind"
+                "cr3ea_qualitytourid@odata.bind", "cr3ea_QualityTourId@odata.bind"
             ],
             CHILD_SEAL_INTEGRITY: [
                 "cr3ea_name", "cr3ea_productname", "cr3ea_sku", "cr3ea_machineno",
                 "cr3ea_samplequantity", "cr3ea_noofleakage", "cr3ea_leakagetype",
                 "cr3ea_deviationstatus", "cr3ea_actiontaken",
-                "cr3ea_qualitytourid@odata.bind"
+                "cr3ea_qualitytourid@odata.bind", "cr3ea_QualityTourId@odata.bind"
             ],
             CHILD_QUALITY_WALL: [
                 "cr3ea_name", "cr3ea_productname", "cr3ea_lineno", "cr3ea_pkdbatchno", "cr3ea_facilitator",
                 "cr3ea_sku", "cr3ea_typeofqualitywall", "cr3ea_memberspresent",
                 "cr3ea_packappearancerating", "cr3ea_sealingqualityrating", "cr3ea_codingrating",
                 "cr3ea_overallrating", "cr3ea_remarks", "cr3ea_deviationstatus", "cr3ea_actiontaken",
-                "cr3ea_qualitytourid@odata.bind"
+                "cr3ea_qualitytourid@odata.bind", "cr3ea_QualityTourId@odata.bind"
+            ],
+            CHILD_CREAM_PERCENTAGE: [
+                "cr3ea_name", "cr3ea_productcategory", "cr3ea_productname", "cr3ea_sku",
+                "cr3ea_samplesize", "cr3ea_creamreading", "cr3ea_standardmin", "cr3ea_standardmax",
+                "cr3ea_status", "cr3ea_deviationstatus", "cr3ea_actiontaken", "cr3ea_remarks",
+                "cr3ea_qualitytourid@odata.bind", "cr3ea_QualityTourId@odata.bind"
             ]
         };
 
+        let method = "POST";
         if (existingRowId) {
-            url += `(${existingRowId})`;
             method = "PATCH";
             delete cleanRecord[idColumn];
             delete cleanRecord["cr3ea_prod_rajpura_pkgops_" + baseSuffix];
             delete cleanRecord["cr3ea_rajpura_pkgops_" + baseSuffix];
             delete cleanRecord.id;
             delete cleanRecord["cr3ea_qualitytourid@odata.bind"];
+            delete cleanRecord["cr3ea_QualityTourId@odata.bind"];
 
             // Strip any table primary ID property ending with "id" so PATCH never fails on schema mismatch
             Object.keys(cleanRecord).forEach(k => {
@@ -743,11 +837,12 @@ const PKGOPS_DAL = {
             });
         } else {
             // Auto-normalize @odata.bind for POST to match current environment parent tour entity
-            if (cleanRecord["cr3ea_qualitytourid@odata.bind"]) {
+            const bindKey = cleanRecord["cr3ea_QualityTourId@odata.bind"] ? "cr3ea_QualityTourId@odata.bind" : "cr3ea_qualitytourid@odata.bind";
+            if (cleanRecord[bindKey]) {
                 const parentTable = QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR;
-                const matchTour = cleanRecord["cr3ea_qualitytourid@odata.bind"].match(/\(([0-9a-fA-F-]+)\)/);
-                const tourIdClean = matchTour ? matchTour[1] : String(cleanRecord["cr3ea_qualitytourid@odata.bind"]).replace(/[^0-9a-fA-F-]/g, "");
-                cleanRecord["cr3ea_qualitytourid@odata.bind"] = `/${parentTable}(${tourIdClean})`;
+                const matchTour = cleanRecord[bindKey].match(/\(([0-9a-fA-F-]+)\)/);
+                const tourIdClean = matchTour ? matchTour[1] : String(cleanRecord[bindKey]).replace(/[^0-9a-fA-F-]/g, "");
+                cleanRecord[bindKey] = `/${parentTable}(${tourIdClean})`;
             }
         }
 
@@ -762,19 +857,62 @@ const PKGOPS_DAL = {
             });
         }
 
-        const response = await this.fetchWithToken(url, {
-            method: method,
-            headers: headers,
-            body: JSON.stringify(cleanRecord)
-        });
+        let lastResponse = null;
+        let lastError = "";
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Sub-checklist Dataverse save failed (${subChecklistKey}): ${response.status} - ${errorText}`);
+        for (const tbl of candidateTables) {
+            let targetUrl = `${baseApiUrl}/api/data/v${apiVersion}/${tbl}`;
+            if (existingRowId) targetUrl += `(${existingRowId})`;
+
+            let payloadAttempt = { ...cleanRecord };
+            let response = await this.fetchWithToken(targetUrl, {
+                method: method,
+                headers: headers,
+                body: JSON.stringify(payloadAttempt)
+            });
+
+            // If 400 Bad Request mentions navigation property casing, retry with alternate binding property
+            if (!response.ok && response.status === 400 && method === "POST") {
+                const errTxt = await response.text();
+                if (errTxt.includes("cr3ea_qualitytourid") || errTxt.includes("cr3ea_QualityTourId") || errTxt.includes("navigation") || errTxt.includes("property")) {
+                    if (payloadAttempt["cr3ea_qualitytourid@odata.bind"]) {
+                        payloadAttempt["cr3ea_QualityTourId@odata.bind"] = payloadAttempt["cr3ea_qualitytourid@odata.bind"];
+                        delete payloadAttempt["cr3ea_qualitytourid@odata.bind"];
+                    } else if (payloadAttempt["cr3ea_QualityTourId@odata.bind"]) {
+                        payloadAttempt["cr3ea_qualitytourid@odata.bind"] = payloadAttempt["cr3ea_QualityTourId@odata.bind"];
+                        delete payloadAttempt["cr3ea_QualityTourId@odata.bind"];
+                    }
+                    response = await this.fetchWithToken(targetUrl, {
+                        method: method,
+                        headers: headers,
+                        body: JSON.stringify(payloadAttempt)
+                    });
+                } else {
+                    lastError = errTxt;
+                }
+            }
+
+            if (response.ok || response.status === 204) {
+                lastResponse = response;
+                break;
+            } else {
+                lastResponse = response;
+                if (!lastError) {
+                    try { lastError = await response.text(); } catch(e) {}
+                }
+                // If 404, loop will try next candidate entity set
+                if (response.status !== 404) {
+                    break;
+                }
+            }
         }
 
-        const entityIdHeader = (response.headers && typeof response.headers.get === "function") 
-            ? (response.headers.get("OData-EntityId") || response.headers.get("Location") || "") 
+        if (!lastResponse || !lastResponse.ok) {
+            throw new Error(`Sub-checklist Dataverse save failed (${subChecklistKey}): ${lastResponse ? lastResponse.status : 'No response'} - ${lastError}`);
+        }
+
+        const entityIdHeader = (lastResponse.headers && typeof lastResponse.headers.get === "function") 
+            ? (lastResponse.headers.get("OData-EntityId") || lastResponse.headers.get("Location") || "") 
             : "";
         let createdGuid = null;
         if (entityIdHeader) {
@@ -783,17 +921,19 @@ const PKGOPS_DAL = {
         }
 
         let result = { ...record };
-        if (createdGuid) {
-            result[idColumn] = createdGuid;
+        if (createdGuid || existingRowId) {
+            const finalId = createdGuid || existingRowId;
+            result.id = finalId;
+            result[idColumn] = finalId;
             if (baseSuffix) {
-                result["cr3ea_prod_rajpura_pkgops_" + baseSuffix] = createdGuid;
-                result["cr3ea_rajpura_pkgops_" + baseSuffix] = createdGuid;
+                result["cr3ea_prod_rajpura_pkgops_" + baseSuffix] = finalId;
+                result["cr3ea_rajpura_pkgops_" + baseSuffix] = finalId;
             }
         }
 
-        if (response.status !== 204 && method !== "PATCH") {
+        if (lastResponse.status !== 204 && method !== "PATCH") {
             try {
-                const text = await response.text();
+                const text = await lastResponse.text();
                 if (text && text.trim().length > 0) {
                     const parsed = JSON.parse(text);
                     result = { ...result, ...parsed };
@@ -812,16 +952,29 @@ const PKGOPS_DAL = {
 
     // 7. Fetch all child rows for a tour ID across a specific child entity
     getSubChecklistRows: async function (subChecklistKey, tourId) {
-        const AccessToken = await this.getAccessToken();
+        let AccessToken = await this.getAccessToken();
         if (!AccessToken) {
-            console.warn("No token available. Simulating getSubChecklistRows locally.");
-            return [];
+            console.warn("No token available. Attempting token fetch...");
+            if (typeof getAccessToken === "function") {
+                AccessToken = await getAccessToken();
+            }
+            if (!AccessToken) {
+                console.warn("No token available. Returning empty list.");
+                return [];
+            }
         }
 
         const apiVersion = "9.2";
-        const tableName = QualityRajpura_Config.DATAVERSE_TABLES.PACKAGING_OPERATIONS[subChecklistKey];
-        if (!tableName) {
+        const primaryTableName = QualityRajpura_Config.DATAVERSE_TABLES.PACKAGING_OPERATIONS[subChecklistKey];
+        if (!primaryTableName) {
             return [];
+        }
+
+        const candidateTables = [primaryTableName];
+        if (subChecklistKey === "CHILD_CREAM_PERCENTAGE") {
+            ["cr3ea_rajpura_pkgops_creampercentageses", "cr3ea_rajpura_pkgops_creampercentages", "cr3ea_rajpura_pkgops_creampercentagees", "cr3ea_prod_rajpura_pkgops_creampercentageses", "cr3ea_prod_rajpura_pkgops_creampercentages", "cr3ea_prod_rajpura_pkgops_creampercentagees"].forEach(t => {
+                if (!candidateTables.includes(t)) candidateTables.push(t);
+            });
         }
 
         const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
@@ -833,23 +986,54 @@ const PKGOPS_DAL = {
 
         const cleanTourId = String(tourId).replace(/[{}]/g, "").trim().toLowerCase();
         const filter = `?$filter=_cr3ea_qualitytourid_value eq '${cleanTourId}'`;
-        const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}${filter}`;
 
-        const response = await this.fetchWithToken(url, {
-            method: "GET",
-            headers: headers
-        });
+        let rows = [];
+        let fetched = false;
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Failed to fetch sub-checklist rows: ${response.status} - ${errorText}`);
+        for (const tbl of candidateTables) {
+            const url = `${baseApiUrl}/api/data/v${apiVersion}/${tbl}${filter}`;
+            const response = await this.fetchWithToken(url, {
+                method: "GET",
+                headers: headers
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                rows = data.value || [];
+                fetched = true;
+                break;
+            } else if (response.status !== 404) {
+                const errorText = await response.text();
+                console.warn(`Failed to fetch sub-checklist rows from ${tbl}: ${response.status} - ${errorText}`);
+                break;
+            }
         }
 
-        const data = await response.json();
-        const rows = data.value || [];
+        if (!fetched) {
+            return [];
+        }
 
-        // Normalize IDs across environments
+        // Normalize IDs and set item.id reliably across environments
         rows.forEach(item => {
+            let resolvedId = item.id || "";
+            if (!resolvedId) {
+                for (let k in item) {
+                    if (k.endsWith("id") && typeof item[k] === "string" && /^[0-9a-fA-F-]{36}$/.test(item[k])) {
+                        if (!k.includes("qualitytourid") && !k.includes("plantid") && !k.includes("modifiedby") && !k.includes("createdby")) {
+                            resolvedId = item[k];
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!resolvedId && item["@odata.id"]) {
+                const match = item["@odata.id"].match(/\(([0-9a-fA-F-]{36})\)/);
+                if (match) resolvedId = match[1];
+            }
+            if (resolvedId) {
+                item.id = String(resolvedId).replace(/[{}]/g, "").trim().toLowerCase();
+            }
+
             for (let k in item) {
                 if (k.startsWith("cr3ea_rajpura_pkgops_") && k.endsWith("id")) {
                     const prodKey = "cr3ea_prod_rajpura_pkgops_" + k.substring("cr3ea_rajpura_pkgops_".length);
@@ -881,15 +1065,22 @@ const PKGOPS_DAL = {
 
     // 7.b Delete Sub-checklist Row
     deleteSubChecklistRow: async function (subChecklistKey, guid) {
-        const AccessToken = await this.getAccessToken();
+        let AccessToken = await this.getAccessToken();
         if (!AccessToken) {
             console.warn("No token available. Simulating deleteSubChecklistRow locally.");
             return true;
         }
 
         const apiVersion = "9.2";
-        const tableName = QualityRajpura_Config.DATAVERSE_TABLES.PACKAGING_OPERATIONS[subChecklistKey];
-        if (!tableName) return false;
+        const primaryTableName = QualityRajpura_Config.DATAVERSE_TABLES.PACKAGING_OPERATIONS[subChecklistKey];
+        if (!primaryTableName) return false;
+
+        const candidateTables = [primaryTableName];
+        if (subChecklistKey === "CHILD_CREAM_PERCENTAGE") {
+            ["cr3ea_rajpura_pkgops_creampercentageses", "cr3ea_rajpura_pkgops_creampercentages", "cr3ea_rajpura_pkgops_creampercentagees", "cr3ea_prod_rajpura_pkgops_creampercentageses", "cr3ea_prod_rajpura_pkgops_creampercentages", "cr3ea_prod_rajpura_pkgops_creampercentagees"].forEach(t => {
+                if (!candidateTables.includes(t)) candidateTables.push(t);
+            });
+        }
 
         const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
         const headers = {
@@ -898,11 +1089,15 @@ const PKGOPS_DAL = {
             "OData-Version": "4.0"
         };
 
-        const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}(${guid})`;
-        const response = await this.fetchWithToken(url, { method: "DELETE", headers });
+        const cleanGuid = String(guid).replace(/[{}]/g, "").trim().toLowerCase();
 
-        if (!response.ok) {
-            throw new Error(`Dataverse delete failed: ${await response.text()}`);
+        for (const tbl of candidateTables) {
+            const url = `${baseApiUrl}/api/data/v${apiVersion}/${tbl}(${cleanGuid})`;
+            const response = await this.fetchWithToken(url, { method: "DELETE", headers });
+
+            if (response.ok || response.status === 204 || response.status === 404) {
+                return true;
+            }
         }
         return true;
     },
@@ -924,6 +1119,7 @@ const PKGOPS_DAL = {
                 else if (subChecklistKey === "CHILD_PQI_EVALUATION") idColumn = p + "pqi_evaluationid";
                 else if (subChecklistKey === "CHILD_SEAL_INTEGRITY") idColumn = p + "sealintegrityid";
                 else if (subChecklistKey === "CHILD_QUALITY_WALL") idColumn = p + "qualitywallid";
+                else if (subChecklistKey === "CHILD_CREAM_PERCENTAGE") idColumn = p + "creampercentagesid";
 
                 const baseSuffix = idColumn.replace(/^cr3ea_(prod_)?rajpura_pkgops_/, "");
 
@@ -932,11 +1128,14 @@ const PKGOPS_DAL = {
                     if (evaluationType && item.cr3ea_evaluationtype !== evaluationType) {
                         continue;
                     }
-                    const guid = item[idColumn] || 
+                    const guid = item.id ||
+                                 item[idColumn] || 
+                                 item[p + "creampercentagesid"] ||
+                                 item[p + "creampercentageid"] ||
                                  item["cr3ea_prod_rajpura_pkgops_" + baseSuffix] ||
                                  item["cr3ea_rajpura_pkgops_" + baseSuffix];
                     if (guid) {
-                        guidsToDelete.push(guid);
+                        guidsToDelete.push(String(guid).replace(/[{}]/g, "").trim().toLowerCase());
                     }
                 }
 

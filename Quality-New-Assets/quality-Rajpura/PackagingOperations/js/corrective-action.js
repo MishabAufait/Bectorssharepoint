@@ -18,6 +18,23 @@ const PKGOPS_CorrectiveAction = {
             .replace(/'/g, "&#039;");
     },
 
+    getRowId: function (row) {
+        if (!row || typeof row !== "object") return "";
+        if (row.id) return String(row.id).replace(/[{}]/g, "").trim().toLowerCase();
+        for (let k in row) {
+            if (k.endsWith("id") && typeof row[k] === "string" && /^[0-9a-fA-F-]{36}$/.test(row[k])) {
+                if (!k.includes("qualitytourid") && !k.includes("plantid") && !k.includes("modifiedby") && !k.includes("createdby") && !k.includes("bind")) {
+                    return String(row[k]).replace(/[{}]/g, "").trim().toLowerCase();
+                }
+            }
+        }
+        if (row["@odata.id"]) {
+            const m = row["@odata.id"].match(/\(([0-9a-fA-F-]{36})\)/);
+            if (m) return m[1].toLowerCase();
+        }
+        return "";
+    },
+
     onFileSelected: async function (input, idx) {
         if (!input.files || input.files.length === 0) return;
 
@@ -92,7 +109,7 @@ const PKGOPS_CorrectiveAction = {
             case "PAPA": this.activeSubChecklistKey = "CHILD_PAPA"; break;
             case "PQI": this.activeSubChecklistKey = "CHILD_PQI_EVALUATION"; break;
             case "Seal Integrity": this.activeSubChecklistKey = "CHILD_SEAL_INTEGRITY"; break;
-            case "Cream Percentage": this.activeSubChecklistKey = "CHILD_PQI_EVALUATION"; break; // Cream simulated/default
+            case "Cream Percentage": this.activeSubChecklistKey = "CHILD_CREAM_PERCENTAGE"; break;
         }
 
         console.log(`Initializing Corrective Action: Key=${this.activeSubChecklistKey}`);
@@ -154,6 +171,8 @@ const PKGOPS_CorrectiveAction = {
                     });
             } else if (this.pkgopsType === "Seal Integrity") {
                 this.deviatedRows = rows.filter(r => parseInt(r.cr3ea_noofleakage) > 0);
+            } else if (this.pkgopsType === "Cream Percentage") {
+                this.deviatedRows = rows.filter(r => r.cr3ea_status === "Fail" || r.cr3ea_deviationstatus === "Open" || r.cr3ea_deviationstatus === "Pending Re-Verification" || (r.cr3ea_deviationstatus && r.cr3ea_deviationstatus.includes("Pending Production")));
             } else {
                 this.deviatedRows = [];
             }
@@ -193,7 +212,7 @@ const PKGOPS_CorrectiveAction = {
                             ${this.deviatedRows.map((row, idx) => {
                                 let defectDesc = "";
                                 let obsDetails = "";
-                                let rowId = "";
+                                let rowId = this.getRowId(row);
 
                                 if (this.pkgopsType === "Code Verification") {
                                     const sampleNo = this.parseSampleNum(row, idx);
@@ -204,11 +223,9 @@ const PKGOPS_CorrectiveAction = {
                                         </div>
                                     `;
                                     obsDetails = `Batch: ${row.cr3ea_batchno || "-"} | PKD: ${row.cr3ea_pkd || "-"} | Defect Count: ${row.cr3ea_defectcount || "1"}`;
-                                    rowId = row.cr3ea_rajpura_pkgops_codeverificationid || row.cr3ea_prod_rajpura_pkgops_codeverificationid || row.id;
                                 } else if (this.pkgopsType === "PAPA") {
                                     defectDesc = row.cr3ea_defecttype || "Appearance Defect";
                                     obsDetails = `Defect Count: ${row.cr3ea_defectcount || "1"} | Percentage: ${row.cr3ea_defectwisepercentage || "1%"}`;
-                                    rowId = row.cr3ea_rajpura_pkgops_papaid || row.cr3ea_prod_rajpura_pkgops_papaid || row.id;
                                 } else if (this.pkgopsType === "PQI") {
                                     defectDesc = `
                                         <div class="d-flex flex-column align-items-start gap-1">
@@ -217,7 +234,6 @@ const PKGOPS_CorrectiveAction = {
                                         </div>
                                     `;
                                     obsDetails = `Category: ${row.cr3ea_defectcategory || "-"} | Details: ${row.cr3ea_defectdetail || "-"}`;
-                                    rowId = row.cr3ea_rajpura_pkgops_pqi_evaluationid || row.cr3ea_prod_rajpura_pkgops_pqi_evaluationid || row.id;
                                 } else if (this.pkgopsType === "Seal Integrity") {
                                     const qty = parseInt(row.cr3ea_samplequantity, 10) || 0;
                                     const leaks = parseInt(row.cr3ea_noofleakage, 10) || 0;
@@ -236,7 +252,25 @@ const PKGOPS_CorrectiveAction = {
                                         </div>
                                     `;
                                     obsDetails = this.formatSealIntegrityObsHtml(row);
-                                    rowId = row.cr3ea_rajpura_pkgops_sealintegrityid || row.cr3ea_prod_rajpura_pkgops_sealintegrityid || row.id;
+                                } else if (this.pkgopsType === "Cream Percentage") {
+                                    defectDesc = `
+                                        <div class="d-flex flex-column align-items-center justify-content-center gap-1.5 p-1">
+                                            <span class="fw-bold text-danger" style="font-size: 13px;">
+                                                <i class="fa fa-exclamation-triangle text-danger me-1"></i>Cream % Out of Spec
+                                            </span>
+                                            <span class="badge bg-danger" style="font-size: 11px; padding: 4px 8px; border-radius: 4px;">
+                                                Observed: ${row.cr3ea_creamreading || "-"}%
+                                            </span>
+                                        </div>
+                                    `;
+                                    obsDetails = `
+                                        <div class="text-start" style="font-size: 12px;">
+                                            <div><strong>Product:</strong> ${row.cr3ea_productname || "-"} (${row.cr3ea_sku || "-"})</div>
+                                            <div><strong>Sample Size:</strong> ${row.cr3ea_samplesize || "10"}</div>
+                                            <div><strong>Standard Limits:</strong> Min ${row.cr3ea_standardmin || "-"}% - Max ${row.cr3ea_standardmax || "-"}%</div>
+                                            <div class="text-danger mt-1"><strong>Status:</strong> ${row.cr3ea_status || "Fail"}</div>
+                                        </div>
+                                    `;
                                 }
 
                                 const defectPhotos = Array.from(new Set((row.cr3ea_codepictureurl || row.cr3ea_batchcodepictureurl || "").split(",").map(u => u.trim()).filter(Boolean)));
@@ -357,15 +391,11 @@ const PKGOPS_CorrectiveAction = {
                     actionValue += " | Proof: " + proofUrl;
                 }
 
-                const childId = row.cr3ea_rajpura_pkgops_sealintegrityid ||
-                                row.cr3ea_prod_rajpura_pkgops_sealintegrityid ||
-                                row.cr3ea_rajpura_pkgops_codeverificationid ||
-                                row.cr3ea_prod_rajpura_pkgops_codeverificationid ||
-                                row.cr3ea_rajpura_pkgops_papaid ||
-                                row.cr3ea_prod_rajpura_pkgops_papaid ||
-                                row.cr3ea_rajpura_pkgops_pqi_evaluationid ||
-                                row.cr3ea_prod_rajpura_pkgops_pqi_evaluationid ||
-                                row.id;
+                const childId = this.getRowId(row);
+                if (!childId) {
+                    console.error("Could not find record ID for row:", row);
+                    throw new Error("Unable to identify child record ID for corrective action. Please refresh the page and try again.");
+                }
 
                 // Update child record
                 let updatePayload = {

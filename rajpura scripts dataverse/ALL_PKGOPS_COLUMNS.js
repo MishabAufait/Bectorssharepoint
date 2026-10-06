@@ -206,6 +206,29 @@ const accessToken = "PASTE_YOUR_ACCESS_TOKEN_HERE";
         { SchemaName: "cr3ea_overallrating", Display: "Overall Rating", Type: "String", MaxLength: 70 },
         { SchemaName: "cr3ea_remarks", Display: "Remarks", Type: "String", MaxLength: 1000 }
       ]
+    },
+
+    // -------------------------------------------------------------
+    // 8. CREAM PERCENTAGE
+    // -------------------------------------------------------------
+    {
+      tableName: "cr3ea_rajpura_pkgops_creampercentage",
+      displayName: "14_PKGOPS_CREAM_PERCENTAGE",
+      previousColumnsToDelete: [],
+      newColumns: [
+        { SchemaName: "cr3ea_name", Display: "Name", Type: "String", MaxLength: 250 },
+        { SchemaName: "cr3ea_productcategory", Display: "Product Category", Type: "String", MaxLength: 100 },
+        { SchemaName: "cr3ea_productname", Display: "Product Name", Type: "String", MaxLength: 150 },
+        { SchemaName: "cr3ea_sku", Display: "SKU", Type: "String", MaxLength: 100 },
+        { SchemaName: "cr3ea_samplesize", Display: "Sample Size", Type: "String", MaxLength: 50 },
+        { SchemaName: "cr3ea_creamreading", Display: "Cream Percentage Reading", Type: "String", MaxLength: 50 },
+        { SchemaName: "cr3ea_standardmin", Display: "Standard Min", Type: "String", MaxLength: 50 },
+        { SchemaName: "cr3ea_standardmax", Display: "Standard Max", Type: "String", MaxLength: 50 },
+        { SchemaName: "cr3ea_status", Display: "Status", Type: "String", MaxLength: 50 },
+        { SchemaName: "cr3ea_deviationstatus", Display: "Deviation Status", Type: "String", MaxLength: 50 },
+        { SchemaName: "cr3ea_actiontaken", Display: "Action Taken", Type: "String", MaxLength: 2000 },
+        { SchemaName: "cr3ea_remarks", Display: "Remarks", Type: "String", MaxLength: 1000 }
+      ]
     }
   ];
 

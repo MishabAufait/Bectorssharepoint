@@ -126,6 +126,17 @@
                 </div>
 
                 <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Shift</label>
+                    <div class="select2-parent">
+                        <select id="setup-shift" class="form-select">
+                            <option value="Shift 1">Shift 1</option>
+                            <option value="Shift 2">Shift 2</option>
+                            <option value="Shift 3">Shift 3</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 15px;">
                     <label class="form-label">Production Executive</label>
                     <div class="select2-parent">
                         <select id="setup-prod" class="form-select"></select>
@@ -275,7 +286,7 @@
                 return;
             }
             jQuery(function ($) {
-                $('#setup-type, #setup-site, #setup-line, #setup-product, #setup-freq, #shiftSelect').select2({
+                $('#setup-type, #setup-site, #setup-line, #setup-product, #setup-freq, #setup-shift, #shiftSelect').select2({
                     minimumResultsForSearch: -1,
                     dropdownAutoWidth: false,
                     width: '100%'
@@ -284,13 +295,18 @@
                 if (dayEl) dayEl.innerText = moment().format("DD/MM/YYYY");
                 
                 // Shift persistence
-                const activeShift = sessionStorage.getItem("shiftValue") || "Shift-1";
+                const activeShift = (sessionStorage.getItem("shiftValue") || localStorage.getItem("shiftValue") || "Shift 1").replace("-", " ");
                 var shiftBadge = document.getElementById("shiftBadge");
-                if (shiftBadge) shiftBadge.innerText = activeShift.replace("-", " ");
+                if (shiftBadge) shiftBadge.innerText = activeShift;
                 var shiftSelect = document.getElementById("shiftSelect");
                 if (shiftSelect) {
                     shiftSelect.value = activeShift;
-                    $('#shiftSelect').trigger('change');
+                    $('#shiftSelect').val(activeShift).trigger('change');
+                }
+                var setupShift = document.getElementById("setup-shift");
+                if (setupShift) {
+                    setupShift.value = activeShift;
+                    $('#setup-shift').val(activeShift).trigger('change');
                 }
             });
         }

@@ -719,6 +719,7 @@ const PKGOPS_Checklist = {
                 this.renderSealIntegrity(container);
                 break;
             case "Cream Percentage":
+                this.activeSubChecklistKey = "CHILD_CREAM_PERCENTAGE";
                 this.renderCreamPercentage(container);
                 break;
             case "Quality Wall Records":
@@ -3032,6 +3033,7 @@ const PKGOPS_Checklist = {
             let categoryADefects = [];
             let targetTourRecord = {
                 cr3ea_prod_rajpura_quality_tourid: this.currentTourId,
+                cr3ea_rajpura_quality_tourid: this.currentTourId,
                 cr3ea_islineclear: true,
                 cr3ea_status: "Completed",
                 cr3ea_processstatus: "Completed"
@@ -3532,15 +3534,49 @@ const PKGOPS_Checklist = {
                 await PKGOPS_DAL.saveSubChecklistRow("CHILD_SEAL_INTEGRITY", sealRecord);
             } 
             else if (this.pkgopsType === "Cream Percentage") {
-                // No table defined, we simulate it or save placeholders dynamically if they exist
-                const product = document.getElementById("cream-product").value;
-                const sku = document.getElementById("cream-sku").value;
-                const reading = parseFloat(document.getElementById("cream-reading").value) || 0;
-                const status = document.getElementById("cream-status").value;
+                PKGOPS_Validator.clearAll("checklist-container");
+                const product = document.getElementById("cream-product")?.value || "";
+                const sku = document.getElementById("cream-sku")?.value || "";
+                const sampleSize = document.getElementById("cream-sample-size")?.value || "10";
+                const reading = document.getElementById("cream-reading")?.value !== undefined ? document.getElementById("cream-reading").value.trim() : "";
+                const min = document.getElementById("cream-min")?.value || "20";
+                const max = document.getElementById("cream-max")?.value || "30";
+                const status = document.getElementById("cream-status")?.value || "Pass";
+
+                if (!product || product === "Select Product") {
+                    if (typeof HideLoader === "function") HideLoader();
+                    alert("Please select a Product Name.");
+                    document.getElementById("cream-product")?.focus();
+                    return;
+                }
+                if (reading === "") {
+                    if (typeof HideLoader === "function") HideLoader();
+                    alert("Please enter the Cream Percentage Reading (%).");
+                    document.getElementById("cream-reading")?.focus();
+                    return;
+                }
 
                 if (status === "Fail") {
                     hasDeviation = true;
                 }
+
+                const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
+                const creamRecord = {
+                    cr3ea_name: `CreamPct_${sku || moment().format("DD-MM-YYYY_HHmm")}`,
+                    cr3ea_productcategory: document.getElementById("cream-category")?.value || "Cream",
+                    cr3ea_productname: product,
+                    cr3ea_sku: sku,
+                    cr3ea_samplesize: String(sampleSize),
+                    cr3ea_creamreading: String(reading),
+                    cr3ea_standardmin: String(min),
+                    cr3ea_standardmax: String(max),
+                    cr3ea_status: status,
+                    cr3ea_deviationstatus: status === "Fail" ? "Open" : "None",
+                    "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
+                };
+
+                await PKGOPS_DAL.cleanSubChecklistRows("CHILD_CREAM_PERCENTAGE", this.currentTourId);
+                await PKGOPS_DAL.saveSubChecklistRow("CHILD_CREAM_PERCENTAGE", creamRecord);
             } 
             else if (this.pkgopsType === "Quality Wall Records") {
                 PKGOPS_Validator.clearAll("checklist-container");
@@ -4052,6 +4088,33 @@ const PKGOPS_Checklist = {
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_SEAL_INTEGRITY", this.currentTourId);
                 await PKGOPS_DAL.saveSubChecklistRow("CHILD_SEAL_INTEGRITY", sealRecord);
             } 
+            else if (this.pkgopsType === "Cream Percentage") {
+                const product = document.getElementById("cream-product")?.value || "";
+                const sku = document.getElementById("cream-sku")?.value || "";
+                const sampleSize = document.getElementById("cream-sample-size")?.value || "10";
+                const reading = document.getElementById("cream-reading")?.value !== undefined ? document.getElementById("cream-reading").value.trim() : "";
+                const min = document.getElementById("cream-min")?.value || "20";
+                const max = document.getElementById("cream-max")?.value || "30";
+                const status = document.getElementById("cream-status")?.value || "Pass";
+
+                const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
+                const creamRecord = {
+                    cr3ea_name: `CreamPct_${sku || moment().format("DD-MM-YYYY_HHmm")}`,
+                    cr3ea_productcategory: document.getElementById("cream-category")?.value || "Cream",
+                    cr3ea_productname: product,
+                    cr3ea_sku: sku,
+                    cr3ea_samplesize: String(sampleSize),
+                    cr3ea_creamreading: String(reading),
+                    cr3ea_standardmin: String(min),
+                    cr3ea_standardmax: String(max),
+                    cr3ea_status: status,
+                    cr3ea_deviationstatus: status === "Fail" ? "Open" : "None",
+                    "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
+                };
+
+                await PKGOPS_DAL.cleanSubChecklistRows("CHILD_CREAM_PERCENTAGE", this.currentTourId);
+                await PKGOPS_DAL.saveSubChecklistRow("CHILD_CREAM_PERCENTAGE", creamRecord);
+            }
             else if (this.pkgopsType === "Quality Wall Records") {
                 const product = document.getElementById("wall-product")?.value || "";
                 const sku = document.getElementById("wall-sku")?.value || "";
@@ -4104,6 +4167,7 @@ const PKGOPS_Checklist = {
             // Save parent status to QA In Progress to keep it active
             let targetTourRecord = {
                 cr3ea_prod_rajpura_quality_tourid: this.currentTourId,
+                cr3ea_rajpura_quality_tourid: this.currentTourId,
                 cr3ea_status: "QA In Progress",
                 cr3ea_processstatus: "QA In Progress"
             };
@@ -4419,6 +4483,22 @@ const PKGOPS_Checklist = {
 
                     if (document.getElementById("wall-remarks")) document.getElementById("wall-remarks").value = rawRemarks;
                     PKGOPS_Checklist.calculateOverallWallRating();
+                }
+            }
+            else if (this.pkgopsType === "Cream Percentage") {
+                const rows = await PKGOPS_DAL.getSubChecklistRows("CHILD_CREAM_PERCENTAGE", this.currentTourId);
+                if (rows && rows.length > 0) {
+                    const row = rows[0];
+                    if (document.getElementById("cream-product")) this.setProductWithCategory("cream", row.cr3ea_productname);
+                    if (document.getElementById("cream-sku")) document.getElementById("cream-sku").value = row.cr3ea_sku || "";
+                    if (document.getElementById("cream-sample-size")) document.getElementById("cream-sample-size").value = row.cr3ea_samplesize || "10";
+                    if (document.getElementById("cream-reading")) document.getElementById("cream-reading").value = row.cr3ea_creamreading || "";
+                    if (document.getElementById("cream-min")) document.getElementById("cream-min").value = row.cr3ea_standardmin || "20";
+                    if (document.getElementById("cream-max")) document.getElementById("cream-max").value = row.cr3ea_standardmax || "30";
+                    if (document.getElementById("cream-status")) {
+                        document.getElementById("cream-status").value = row.cr3ea_status || "Pass";
+                        this.checkCreamStatus();
+                    }
                 }
             }
         } catch (e) {

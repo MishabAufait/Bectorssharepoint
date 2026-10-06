@@ -17,7 +17,18 @@ const HeaderComponent = {
             ? moment(FoodSafety_Main.state.tourStartDate).format("DD-MM-YYYY")
             : moment().format("DD-MM-YYYY");
             
-        const shiftText = FoodSafety_Main.state.selectedShift || "Shift 1";
+        const getAutoShift = () => {
+            const now = new Date();
+            const totalMinutes = now.getHours() * 60 + now.getMinutes();
+            if (totalMinutes >= 420 && totalMinutes < 900) return "Shift 1";
+            if (totalMinutes >= 900 && totalMinutes < 1380) return "Shift 2";
+            return "Shift 3";
+        };
+            
+        const shiftText = (FoodSafety_Main.state.selectedShift || 
+                           sessionStorage.getItem("shiftValue") || 
+                           localStorage.getItem("shiftValue") || 
+                           getAutoShift()).replace("-", " ");
         const titleText = FoodSafety_Main.state.varTourID 
             ? `${FoodSafety_Main.state.selectedChecklistType.toUpperCase()} (RAJPURA)`
             : "FOOD SAFETY CHECKLIST (RAJPURA)";
