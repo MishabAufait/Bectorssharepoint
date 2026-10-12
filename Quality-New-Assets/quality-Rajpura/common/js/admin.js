@@ -463,7 +463,7 @@ const Rajpura_Admin = {
                 : (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webServerRelativeUrl
                     ? _spPageContextInfo.webServerRelativeUrl.replace(/\/+$/, '')
                     : "/sites/Mrs_Bectors_PTMS");
-            link.href = `${webUrl}/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/admin.css?v=2.6`;
+            link.href = `${webUrl}/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/admin.css?v=2.7`;
             document.head.appendChild(link);
         }
     },

@@ -1088,6 +1088,22 @@ const ALC_Dashboard = {
         const tbody = document.getElementById("rajpura-ongoing-tbody");
         if (!tbody) return;
 
+        // Clean up any toggle or card remnants from DOM
+        const oldToggle = document.getElementById("rajpura-view-toggle-wrap");
+        if (oldToggle) oldToggle.remove();
+        const oldOngoingCards = document.getElementById("rajpura-ongoing-cards");
+        if (oldOngoingCards) oldOngoingCards.remove();
+        const oldClosedCards = document.getElementById("rajpura-cycles-cards");
+        if (oldClosedCards) oldClosedCards.remove();
+        const hints = document.querySelectorAll(".rajpura-scroll-indicator");
+        hints.forEach(h => h.remove());
+
+        const dashboardEl = document.getElementById("rajpuraQualityDashboard");
+        if (dashboardEl) {
+            dashboardEl.classList.remove("rajpura-view-mode-cards");
+            dashboardEl.classList.remove("rajpura-view-mode-table");
+        }
+
         tbody.innerHTML = "";
         if (list.length === 0) {
             tbody.innerHTML = `<tr><td colspan="9" class="text-center py-3 text-secondary">No ongoing clearance tours at the moment.</td></tr>`;
@@ -1947,6 +1963,9 @@ const ALC_Dashboard = {
     renderClosedListPaged: function () {
         const tbody = document.getElementById("rajpura-cycles-tbody");
         if (!tbody) return;
+
+        const oldClosedCards = document.getElementById("rajpura-cycles-cards");
+        if (oldClosedCards) oldClosedCards.remove();
 
         tbody.innerHTML = "";
         if (this.closedList.length === 0) {
