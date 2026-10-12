@@ -560,4 +560,37 @@
 .alc-saved-file-link:hover {
     background-color: #dbeafe;
     color: #1e40af !important;
-}
+}
+
+/* ==========================================================================
+   Responsive Adaptations for Area Line Clearance (Rajpura)
+   ========================================================================== */
+@media screen and (max-width: 768px) {
+    .plan-tour-body {
+        padding: 10px 6px !important;
+    }
+
+    .alc-checklist-scroll-container,
+    .alc-reverify-scroll-container,
+    .alc-corrective-scroll-container {
+        max-height: calc(100vh - 140px) !important;
+        min-height: 340px !important;
+    }
+
+    .tour-cycle-card-lists {
+        flex-direction: column !important;
+        gap: 12px !important;
+    }
+
+    .tour-cycle-panel {
+        width: 100% !important;
+        min-width: 100% !important;
+    }
+
+    .bs-card {
+        width: 100% !important;
+        min-width: 100% !important;
+        flex: 1 1 100% !important;
+    }
+}
+

@@ -39,6 +39,26 @@ const PKGOPS_Summary = {
         return fallbackIdx !== undefined ? fallbackIdx + 1 : 999;
     },
 
+    extractPackWeight: function (title) {
+        if (!title) return null;
+        let t = String(title).trim().replace(/\[[^\]]*\]/g, ' ').replace(/^\s*\d{5,}\s*[-:]?\s*/, ' ');
+        const promo = t.match(/(\d+(?:\.\d+)?)\s*(?:g|gm|gms)?\s*\+\s*(\d+(?:\.\d+)?)\s*(?:gm|gms|g)\b/i);
+        if (promo) return parseFloat(promo[1]) + parseFloat(promo[2]);
+        const multi = t.match(/(\d+(?:\.\d+)?)\s*(?:gm|gms|g)\s*[*xX]\s*(\d+)/i);
+        if (multi) return parseFloat(multi[1]) * parseFloat(multi[2]);
+        const gMatch = t.match(/(?:^|[^\d.])(\d+(?:\.\d+)?)\s*(?:gm|gms|g)\b/i);
+        if (gMatch) return parseFloat(gMatch[1]);
+        const kgMatch = t.match(/(?:^|[^\d.])(\d+(?:\.\d+)?)\s*(?:kg|kgs)\b/i);
+        if (kgMatch) return parseFloat(kgMatch[1]) * 1000;
+        const mlMatch = t.match(/(?:^|[^\d.])(\d+(?:\.\d+)?)\s*(?:ml)\b/i);
+        if (mlMatch) return parseFloat(mlMatch[1]);
+        const preBracket = title.match(/(\d+(?:\.\d+)?)\s*\[/);
+        if (preBracket) return parseFloat(preBracket[1]);
+        const endNum = t.match(/\b(\d+(?:\.\d+)?)\s*$/);
+        if (endNum) return parseFloat(endNum[1]);
+        return null;
+    },
+
     formatProofLinks: function (proofString, label = "Proof") {
         if (!proofString) return "";
         const urls = Array.from(new Set(String(proofString).split(",").map(u => u.trim()).filter(Boolean)));
@@ -47,6 +67,16 @@ const PKGOPS_Summary = {
             const text = urls.length > 1 ? `${label} ${i + 1}` : `View ${label}`;
             return ` <a href="${u}" target="_blank" class="badge bg-info text-decoration-none" style="font-size: 10px; font-weight: 600; margin: 1px;"><i class="fa fa-image"></i> ${text}</a>`;
         }).join("");
+    },
+
+    escapeHtml: function (str) {
+        if (str === null || str === undefined) return "";
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
     },
 
     init: async function (tourId, pkgopsType, pendingMessage) {
@@ -82,18 +112,26 @@ const PKGOPS_Summary = {
 
             if (this.activeSubChecklistKey) {
                 const rows = await PKGOPS_DAL.getSubChecklistRows(this.activeSubChecklistKey, this.currentTourId);
+                let netWeightRows = [];
+                if (this.pkgopsType === "PQI") {
+                    try {
+                        netWeightRows = await PKGOPS_DAL.getSubChecklistRows("CHILD_PQI_NET_WEIGHT", this.currentTourId);
+                    } catch (errNw) {
+                        console.warn("Failed to fetch net weight rows for PQI summary:", errNw);
+                    }
+                }
                 
-                if (isExpired && rows.length === 0) {
+                if (isExpired && rows.length === 0 && netWeightRows.length === 0) {
                     detailHtml = `
                         <div class="alert alert-danger text-center p-4 mt-3" style="border-radius: 8px; border: 1px solid #fecaca; background-color: #fee2e2; color: #b91c1c; font-family: sans-serif;">
                             <h4 style="font-weight: 700; margin-bottom: 8px;">Expired while In Progress / QA Process</h4>
                             <p style="margin: 0; font-size: 14px;">This checklist session was closed automatically because it expired before completion.</p>
                         </div>
                     `;
-                } else if (rows.length === 0) {
+                } else if (rows.length === 0 && netWeightRows.length === 0) {
                     detailHtml = `<div class="alert alert-info">No detail records found for this checklist session.</div>`;
                 } else {
-                    detailHtml = await this.buildChecklistSummaryHtml(rows);
+                    detailHtml = await this.buildChecklistSummaryHtml(rows, netWeightRows);
                 }
             }
 
@@ -127,7 +165,7 @@ const PKGOPS_Summary = {
         }
     },
 
-    buildChecklistSummaryHtml: async function (rows) {
+    buildChecklistSummaryHtml: async function (rows, netWeightRows) {
         let html = "";
 
         if (this.pkgopsType === "Temperatures & Humidity") {
@@ -462,6 +500,92 @@ const PKGOPS_Summary = {
             `;
         } 
         else if (this.pkgopsType === "PQI") {
+            let netWeightCardHtml = "";
+            const nwList = netWeightRows || [];
+            if (nwList.length > 0) {
+                const nw = nwList[0];
+                let std = nw.cr3ea_standardweight;
+                if (!std && nw.cr3ea_name) {
+                    const match = nw.cr3ea_name.match(/Std:([0-9.]+)/i);
+                    if (match) std = parseFloat(match[1]);
+                }
+                if (!std) {
+                    const skuOrProd = nw.cr3ea_sku || nw.cr3ea_productname || "";
+                    std = this.extractPackWeight(skuOrProd);
+                }
+                if (!std && nw.cr3ea_averageweight > 0 && nw.cr3ea_giveaway !== undefined) {
+                    std = Number((nw.cr3ea_averageweight - (nw.cr3ea_giveaway || 0)).toFixed(2));
+                }
+
+                const avg = nw.cr3ea_averageweight || 0;
+                const diff = (std && std > 0) ? (avg - std) : (nw.cr3ea_giveaway || 0);
+                const gaPct = (std && std > 0) ? ((diff / std) * 100).toFixed(2) : "0.00";
+                const isUnder = (std && std > 0 && avg < std);
+
+                // Collect 15 samples
+                const sampleChips = [];
+                for (let i = 1; i <= 15; i++) {
+                    const sw = nw[`cr3ea_sampleweight${i}`];
+                    if (sw !== undefined && sw !== null && sw !== "" && sw !== 0) {
+                        const isSampleUnder = (std && std > 0 && sw < std);
+                        const chipCls = isSampleUnder ? "badge bg-danger text-white" : "badge bg-light text-dark border";
+                        sampleChips.push(`
+                            <span class="${chipCls}" style="font-size: 11px; padding: 5px 8px; font-weight: 500;">
+                                S${i}: <strong>${sw}g</strong>
+                            </span>
+                        `);
+                    }
+                }
+
+                netWeightCardHtml = `
+                    <div class="card mb-4 shadow-sm rounded border bg-white" style="overflow: hidden; border-radius: 8px;">
+                        <div class="card-header py-3 px-4" style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                            <h5 class="mb-0 fw-bold" style="color: #1e3a8a; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                <i class="fa fa-balance-scale text-primary me-2"></i> 1. Net Weight Evaluation
+                            </h5>
+                            <div>
+                                <span class="badge ${isUnder ? 'bg-danger' : 'bg-success'}" style="font-size: 12px; padding: 5px 10px;">
+                                    ${isUnder ? 'Underweight Alert' : 'Weight Conformance: OK'}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="card-body p-3">
+                            <div class="row g-3 text-center">
+                                <div class="col-md-4 col-sm-6">
+                                    <div class="p-2 border rounded bg-light">
+                                        <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Standard Weight</span>
+                                        <h4 class="mb-0 fw-bold text-dark mt-1">${std ? std + ' g' : '-'}</h4>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 col-sm-6">
+                                    <div class="p-2 border rounded bg-light">
+                                        <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Average Weight</span>
+                                        <h4 class="mb-0 fw-bold text-primary mt-1">${avg ? avg.toFixed(2) + ' g' : '-'}</h4>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 col-sm-12">
+                                    <div class="p-2 border rounded bg-light">
+                                        <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Give-Away</span>
+                                        <h4 class="mb-0 fw-bold ${isUnder ? 'text-danger' : 'text-success'} mt-1">
+                                            ${diff >= 0 ? '+' : ''}${diff.toFixed(2)} g <span style="font-size: 13px;">(${diff >= 0 ? '+' : ''}${gaPct}%)</span>
+                                        </h4>
+                                    </div>
+                                </div>
+                            </div>
+
+                            ${sampleChips.length > 0 ? `
+                                <div class="mt-3 pt-2 border-top">
+                                    <span class="text-secondary font-weight-bold d-block mb-2" style="font-size: 11px; text-transform: uppercase;">15 Sample Weight Readings:</span>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        ${sampleChips.join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
             // Group rows by evaluation type
             const groups = {};
             rows.forEach(row => {
@@ -499,7 +623,7 @@ const PKGOPS_Summary = {
             const overallPQIDefectPct = totalPQIEvaluated > 0 
                 ? ((totalPQIDefective / totalPQIEvaluated) * 100).toFixed(2) 
                 : "0.00";
-            const firstRow = rows[0] || {};
+            const firstRow = rows[0] || (nwList && nwList[0]) || {};
             const productName = firstRow.cr3ea_productname || "-";
             const sku = firstRow.cr3ea_sku || "-";
 
@@ -655,6 +779,7 @@ const PKGOPS_Summary = {
 
                 <div class="row mt-3">
                     <div class="col-md-12">
+                        ${netWeightCardHtml}
                         ${groupsHtml}
                     </div>
                 </div>
@@ -775,71 +900,216 @@ const PKGOPS_Summary = {
         else if (this.pkgopsType === "Quality Wall Records") {
             const r = rows[0] || {};
             const facDisplayName = await PKGOPS_DAL.resolveUserDisplayNames(r.cr3ea_facilitator);
-            const membersDisplayName = await PKGOPS_DAL.resolveUserDisplayNames(r.cr3ea_memberspresent);
 
             let rawRemarks = r.cr3ea_remarks || "";
-            let prodRatings = { appearance: 5, colour: 5, texture: 5, flavour: 5, taste: 5 };
-
-            // Parse Product Quality header e.g. [Product Quality | Appearance: 5, Colour: 5, Texture: 5, Flavour: 5, Taste: 5]
-            const prodMatch = rawRemarks.match(/\[Product Quality\s*\|\s*Appearance:\s*(\d+(?:\.\d+)?),\s*Colour:\s*(\d+(?:\.\d+)?),\s*Texture:\s*(\d+(?:\.\d+)?),\s*Flavour:\s*(\d+(?:\.\d+)?),\s*Taste:\s*(\d+(?:\.\d+)?)\]/i);
-            if (prodMatch) {
-                prodRatings.appearance = parseFloat(prodMatch[1]) || 5;
-                prodRatings.colour = parseFloat(prodMatch[2]) || 5;
-                prodRatings.texture = parseFloat(prodMatch[3]) || 5;
-                prodRatings.flavour = parseFloat(prodMatch[4]) || 5;
-                prodRatings.taste = parseFloat(prodMatch[5]) || 5;
-                rawRemarks = rawRemarks.replace(prodMatch[0], "").trim();
+            let meta = null;
+            try {
+                if (rawRemarks && rawRemarks.trim().startsWith("{")) {
+                    meta = JSON.parse(rawRemarks);
+                }
+            } catch (e) {
+                console.warn("Could not parse wall JSON remarks in summary:", e);
             }
 
-            const pApp = parseFloat(prodRatings.appearance) || 5;
-            const pCol = parseFloat(prodRatings.colour) || 5;
-            const pTex = parseFloat(prodRatings.texture) || 5;
-            const pFlv = parseFloat(prodRatings.flavour) || 5;
-            const pTas = parseFloat(prodRatings.taste) || 5;
+            // Extract member scores
+            let memberScores = [];
+            if (meta && Array.isArray(meta.memberScores) && meta.memberScores.length > 0) {
+                memberScores = meta.memberScores;
+            } else if (r.cr3ea_memberspresent) {
+                const names = r.cr3ea_memberspresent.split(/[,;]+/).map(n => n.trim()).filter(Boolean);
+                memberScores = names.map((n, idx) => ({
+                    id: "mem_" + idx,
+                    name: n,
+                    role: "Panelist",
+                    score: 0,
+                    status: "Green Wall (Sustain)",
+                    notes: ""
+                }));
+            }
 
-            const pkApp = parseFloat(r.cr3ea_packappearancerating) || 5;
-            const pkSeal = parseFloat(r.cr3ea_sealingqualityrating) || 5;
-            const pkCod = parseFloat(r.cr3ea_codingrating) || 5;
+            const getScoreStatusInfo = (score) => {
+                const s = parseInt(score, 10);
+                if (s === 4) {
+                    return {
+                        status: "Hot Wall (Abort)",
+                        badgeClass: "bg-danger",
+                        alertClass: "alert-danger",
+                        icon: "fa-times-circle",
+                        badgeHtml: `<span class="badge bg-danger wall-score-badge"><i class="fa fa-times-circle me-1"></i> Hot Wall (Abort)</span>`
+                    };
+                } else if (s === 2 || s === 3) {
+                    return {
+                        status: "Yellow Wall (Action Taken)",
+                        badgeClass: "bg-warning text-dark",
+                        alertClass: "alert-warning",
+                        icon: "fa-exclamation-triangle",
+                        badgeHtml: `<span class="badge bg-warning text-dark wall-score-badge"><i class="fa fa-exclamation-triangle me-1"></i> Yellow Wall (Action Taken)</span>`
+                    };
+                } else {
+                    return {
+                        status: "Green Wall (Sustain)",
+                        badgeClass: "bg-success",
+                        alertClass: "alert-success",
+                        icon: "fa-check-circle",
+                        badgeHtml: `<span class="badge bg-success wall-score-badge"><i class="fa fa-check-circle me-1"></i> Green Wall (Sustain)</span>`
+                    };
+                }
+            };
+
+            const scoresList = memberScores.map(m => parseInt(m.score, 10) || 0);
+            const panelAvg = scoresList.length > 0 ? (scoresList.reduce((a, b) => a + b, 0) / scoresList.length) : (parseFloat(r.cr3ea_overallrating) || 0);
+            const countHot = scoresList.filter(s => s === 4).length;
+            const countYellow = scoresList.filter(s => s === 2 || s === 3).length;
+            const countGreen = scoresList.filter(s => s === 0 || s === 1).length;
+
+            let overallWallStatus = (meta && meta.overallWallStatus) || r.cr3ea_typeofqualitywall || "Green Wall (Sustain)";
+            if (!meta) {
+                if (countHot > 0 || String(r.cr3ea_typeofqualitywall).toLowerCase().includes("hot")) overallWallStatus = "Hot Wall (Abort)";
+                else if (countYellow > 0 || String(r.cr3ea_typeofqualitywall).toLowerCase().includes("yellow")) overallWallStatus = "Yellow Wall (Action Taken)";
+                else overallWallStatus = "Green Wall (Sustain)";
+            }
+
+            let wallAlertClass = "alert-success";
+            let wallAlertIcon = "fa-check-circle";
+            let wallAlertText = `All ${memberScores.length} team members recorded scores 0-1 (Sustain). Optimal quality sustained.`;
+            if (overallWallStatus.includes("Hot") || countHot > 0) {
+                wallAlertClass = "alert-danger";
+                wallAlertIcon = "fa-times-circle";
+                wallAlertText = `CRITICAL ALERT: Hot Wall (Abort) triggered! ${countHot} member(s) gave a score of 4. Immediate line halt or containment action recommended.`;
+            } else if (overallWallStatus.includes("Yellow") || countYellow > 0) {
+                wallAlertClass = "alert-warning";
+                wallAlertIcon = "fa-exclamation-triangle";
+                wallAlertText = `ACTION REQUIRED: Yellow Wall (Action Taken)! ${countYellow} member(s) scored 2-3. Corrective actions required.`;
+            }
+
+            // Ratings
+            let prodRatings = { appearance: 0, colour: 0, texture: 0, flavour: 0, taste: 0 };
+            let packRatings = {
+                appearance: parseFloat(r.cr3ea_packappearancerating) || 0,
+                sealing: parseFloat(r.cr3ea_sealingqualityrating) || 0,
+                coding: parseFloat(r.cr3ea_codingrating) || 0
+            };
+            let userRemarksText = rawRemarks;
+
+            if (meta) {
+                if (meta.prodRatings) prodRatings = meta.prodRatings;
+                if (meta.packRatings) packRatings = meta.packRatings;
+                userRemarksText = meta.userRemarks || "";
+            } else {
+                const prodMatch = rawRemarks.match(/\[Product Quality\s*\|\s*Appearance:\s*(\d+(?:\.\d+)?),\s*Colour:\s*(\d+(?:\.\d+)?),\s*Texture:\s*(\d+(?:\.\d+)?),\s*Flavour:\s*(\d+(?:\.\d+)?),\s*Taste:\s*(\d+(?:\.\d+)?)\]/i);
+                if (prodMatch) {
+                    prodRatings.appearance = parseFloat(prodMatch[1]) || 0;
+                    prodRatings.colour = parseFloat(prodMatch[2]) || 0;
+                    prodRatings.texture = parseFloat(prodMatch[3]) || 0;
+                    prodRatings.flavour = parseFloat(prodMatch[4]) || 0;
+                    prodRatings.taste = parseFloat(prodMatch[5]) || 0;
+                    userRemarksText = rawRemarks.replace(prodMatch[0], "").trim();
+                }
+            }
+
+            const pApp = parseFloat(prodRatings.appearance) || 0;
+            const pCol = parseFloat(prodRatings.colour) || 0;
+            const pTex = parseFloat(prodRatings.texture) || 0;
+            const pFlv = parseFloat(prodRatings.flavour) || 0;
+            const pTas = parseFloat(prodRatings.taste) || 0;
+
+            const pkApp = parseFloat(packRatings.appearance) || 0;
+            const pkSeal = parseFloat(packRatings.sealing) || 0;
+            const pkCod = parseFloat(packRatings.coding) || 0;
 
             const prodAvg = (pApp + pCol + pTex + pFlv + pTas) / 5;
             const packAvg = (pkApp + pkSeal + pkCod) / 3;
-            const overallScore = parseFloat(r.cr3ea_overallrating) || ((pApp + pCol + pTex + pFlv + pTas + pkApp + pkSeal + pkCod) / 8);
 
-            const wallType = r.cr3ea_typeofqualitywall || "Routine Wall";
-            let wallBadgeClass = "bg-primary";
-            if (wallType === "Hot Wall") wallBadgeClass = "bg-danger";
-            else if (wallType === "Mini Wall") wallBadgeClass = "bg-info text-dark";
-            else if (wallType === "Management Wall") wallBadgeClass = "bg-warning text-dark";
+            let wallBadgeClass = "bg-success";
+            if (overallWallStatus.includes("Hot")) wallBadgeClass = "bg-danger";
+            else if (overallWallStatus.includes("Yellow")) wallBadgeClass = "bg-warning text-dark";
 
             html = `
                 <!-- 1. Sensory Setup & Header Info Card -->
                 <div class="row mt-3 g-3">
                     ${this.createSummaryCard("wall-product", "Product Name & SKU", `${r.cr3ea_productname || "-"} <br><span class="text-muted fw-normal" style="font-size: 11px;">SKU: ${r.cr3ea_sku || "-"}</span>`)}
-                    ${this.createSummaryCard("wall-type", "Type of Quality Wall", `<span class="badge ${wallBadgeClass} px-2 py-1" style="font-size: 12px;">${wallType}</span>`)}
+                    ${this.createSummaryCard("wall-type", "Type of Quality Wall", `<span class="badge ${wallBadgeClass} px-2 py-1" style="font-size: 12px;">${overallWallStatus}</span>`)}
                     ${this.createSummaryCard("wall-line-pkd", "Line No & PKD/Batch", `${r.cr3ea_lineno || "-"} <br><span class="text-muted fw-normal" style="font-size: 11px;">${r.cr3ea_pkdbatchno || "Batch: -"}</span>`)}
                     ${this.createSummaryCard("wall-fac", "Facilitator", facDisplayName || "-")}
                 </div>
 
-                <!-- 2. Sensory Team / Members Present -->
+                <!-- 2. Overall Wall Status Decision Banner -->
                 <div class="row mt-3">
                     <div class="col-md-12">
-                        <div class="card border rounded p-3 bg-white shadow-sm" style="border: 1px solid #cbd5e1 !important;">
-                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div class="alert ${wallAlertClass} d-flex align-items-center justify-content-between p-3 mb-0 shadow-sm" style="border-radius: 8px;">
+                            <div class="d-flex align-items-center">
+                                <i class="fa ${wallAlertIcon} fs-4 me-3"></i>
                                 <div>
-                                    <span class="text-secondary fw-bold" style="font-size: 11px; text-transform: uppercase;">Members Involved in Sensory Activity</span>
-                                    <div class="mt-1 fw-semibold text-dark" style="font-size: 13.5px;">
-                                        <i class="fa fa-users text-primary me-1"></i> ${membersDisplayName || "No additional members listed"}
-                                    </div>
+                                    <h6 class="mb-0 fw-bold">${overallWallStatus}</h6>
+                                    <div style="font-size: 13px;" class="mt-0.5">${wallAlertText}</div>
                                 </div>
-                                <div>
-                                    <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 11.5px;">Sensory Panel</span>
-                                </div>
+                            </div>
+                            <div class="d-flex gap-2 ms-3">
+                                <span class="badge bg-success" style="font-size: 12px; padding: 6px 10px;">Green (0-1): ${countGreen}</span>
+                                <span class="badge bg-warning text-dark" style="font-size: 12px; padding: 6px 10px;">Yellow (2-3): ${countYellow}</span>
+                                <span class="badge bg-danger" style="font-size: 12px; padding: 6px 10px;">Hot (4): ${countHot}</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 3. Product Quality Sensory Evaluation Card -->
+                <!-- 3. Individual Team Member Scores Table (Scale 0-4) -->
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="card border rounded p-3 bg-white shadow-sm" style="border: 1px solid #cbd5e1 !important;">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                                <div>
+                                    <span class="text-secondary fw-bold" style="font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                        <i class="fa fa-users text-primary me-1"></i> Individual Team Member Scores (Scale 0-4)
+                                    </span>
+                                    <div class="text-muted small mt-0.5" style="font-size: 11px;">
+                                        Recorded sensory evaluations per panel member:
+                                        <span class="badge bg-success ms-1">0-1 Sustain</span>
+                                        <span class="badge bg-warning text-dark ms-1">2-3 Action Taken</span>
+                                        <span class="badge bg-danger ms-1">4 Abort</span>
+                                    </div>
+                                </div>
+                                <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 12px;">
+                                    Panel Size: <strong>${memberScores.length}</strong> | Avg: <strong>${panelAvg.toFixed(2)} / 4</strong>
+                                </span>
+                            </div>
+
+                            <div class="table-responsive mt-2">
+                                <table class="table table-bordered table-sm align-middle mb-0" style="font-size: 12.5px;">
+                                    <thead class="table-light">
+                                        <tr style="font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.4px;">
+                                            <th style="width: 40px;" class="text-center">#</th>
+                                            <th>Team Member / Panelist</th>
+                                            <th style="width: 140px;">Role / Dept</th>
+                                            <th style="width: 130px;" class="text-center">Score (0-4)</th>
+                                            <th style="width: 200px;" class="text-center">Wall Status</th>
+                                            <th>Sensory Observations / Notes</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${memberScores.length > 0 ? memberScores.map((m, idx) => {
+                                            const statusInfo = getScoreStatusInfo(m.score);
+                                            return `
+                                                <tr>
+                                                    <td class="text-center fw-bold text-muted">${idx + 1}</td>
+                                                    <td class="fw-semibold text-dark">${this.escapeHtml(m.name || "Panelist")}</td>
+                                                    <td><span class="badge bg-light text-secondary border">${this.escapeHtml(m.role || "Panelist")}</span></td>
+                                                    <td class="text-center">
+                                                        <span class="badge ${statusInfo.badgeClass} fs-6 px-2 py-1 fw-bold">${m.score ?? 0}</span>
+                                                    </td>
+                                                    <td class="text-center">${statusInfo.badgeHtml}</td>
+                                                    <td class="text-muted fst-italic">${this.escapeHtml(m.notes || "-")}</td>
+                                                </tr>
+                                            `;
+                                        }).join("") : `<tr><td colspan="6" class="text-center text-muted py-3">No individual panel scores recorded.</td></tr>`}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Sensory Parameter Ratings (Product & Pack Quality: Scale 0-4) -->
                 <div class="row mt-3 g-3">
                     <div class="col-md-6">
                         <div class="card border rounded h-100 bg-white shadow-sm" style="border: 1px solid #bfdbfe !important;">
@@ -847,57 +1117,56 @@ const PKGOPS_Summary = {
                                 <span class="fw-bold text-dark" style="font-size: 13px;">
                                     <i class="fa fa-cookie-bite text-primary me-1"></i> Product Quality Sensory Ratings
                                 </span>
-                                <span class="badge bg-primary px-2 py-1" style="font-size: 12px;">Avg: ${prodAvg.toFixed(2)} / 5</span>
+                                <span class="badge bg-primary px-2 py-1" style="font-size: 12px;">Avg: ${prodAvg.toFixed(2)} / 4</span>
                             </div>
                             <div class="card-body p-3">
                                 <div class="d-flex flex-column gap-2">
                                     <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
                                         <span class="text-muted" style="font-size: 12.5px;">Appearance</span>
-                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pApp.toFixed(1)} / 5</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pApp.toFixed(1)} / 4</span>
                                     </div>
                                     <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
                                         <span class="text-muted" style="font-size: 12.5px;">Colour</span>
-                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pCol.toFixed(1)} / 5</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pCol.toFixed(1)} / 4</span>
                                     </div>
                                     <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
                                         <span class="text-muted" style="font-size: 12.5px;">Texture</span>
-                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pTex.toFixed(1)} / 5</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pTex.toFixed(1)} / 4</span>
                                     </div>
                                     <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
                                         <span class="text-muted" style="font-size: 12.5px;">Flavour</span>
-                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pFlv.toFixed(1)} / 5</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pFlv.toFixed(1)} / 4</span>
                                     </div>
                                     <div class="d-flex justify-content-between align-items-center">
                                         <span class="text-muted" style="font-size: 12.5px;">Taste</span>
-                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pTas.toFixed(1)} / 5</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pTas.toFixed(1)} / 4</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- 4. Pack Quality Evaluation Card -->
                     <div class="col-md-6">
                         <div class="card border rounded h-100 bg-white shadow-sm" style="border: 1px solid #bbf7d0 !important;">
                             <div class="card-header bg-light d-flex justify-content-between align-items-center py-2 px-3">
                                 <span class="fw-bold text-dark" style="font-size: 13px;">
                                     <i class="fa fa-box-open text-success me-1"></i> Pack Quality Ratings
                                 </span>
-                                <span class="badge bg-success px-2 py-1" style="font-size: 12px;">Avg: ${packAvg.toFixed(2)} / 5</span>
+                                <span class="badge bg-success px-2 py-1" style="font-size: 12px;">Avg: ${packAvg.toFixed(2)} / 4</span>
                             </div>
                             <div class="card-body p-3">
                                 <div class="d-flex flex-column gap-2">
                                     <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
                                         <span class="text-muted" style="font-size: 12.5px;">Pack Appearance</span>
-                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pkApp.toFixed(1)} / 5</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pkApp.toFixed(1)} / 4</span>
                                     </div>
                                     <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
                                         <span class="text-muted" style="font-size: 12.5px;">Sealing Quality</span>
-                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pkSeal.toFixed(1)} / 5</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pkSeal.toFixed(1)} / 4</span>
                                     </div>
                                     <div class="d-flex justify-content-between align-items-center">
                                         <span class="text-muted" style="font-size: 12.5px;">Coding Quality</span>
-                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pkCod.toFixed(1)} / 5</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pkCod.toFixed(1)} / 4</span>
                                     </div>
                                 </div>
                             </div>
@@ -905,18 +1174,20 @@ const PKGOPS_Summary = {
                     </div>
                 </div>
 
-                <!-- 5. Overall Score Card -->
+                <!-- 5. Overall Quality Wall KPI Card -->
                 <div class="row mt-3">
                     <div class="col-md-12">
                         <div class="card border rounded p-3 bg-white shadow-sm text-center" style="border: 1px solid #cbd5e1 !important;">
                             <span class="text-secondary fw-bold" style="font-size: 11px; text-transform: uppercase;">Overall Quality Wall Score</span>
-                            <h3 class="mt-1 mb-1 fw-bold ${overallScore >= 4.5 ? 'text-success' : (overallScore >= 3.5 ? 'text-primary' : (overallScore >= 2.5 ? 'text-warning' : 'text-danger'))}">
-                                ${overallScore.toFixed(2)} / 5.00
+                            <h3 class="mt-1 mb-1 fw-bold ${countHot > 0 ? 'text-danger' : (countYellow > 0 ? 'text-warning' : 'text-success')}">
+                                ${panelAvg.toFixed(2)} / 4.00
                             </h3>
                             <div class="d-flex justify-content-center gap-3 mt-1" style="font-size: 12px;">
-                                <span class="text-muted">Product Quality: <strong>${prodAvg.toFixed(2)}</strong></span>
+                                <span class="text-muted">Panel Status: <strong>${overallWallStatus}</strong></span>
                                 <span class="text-muted">&bull;</span>
-                                <span class="text-muted">Pack Quality: <strong>${packAvg.toFixed(2)}</strong></span>
+                                <span class="text-muted">Product Avg: <strong>${prodAvg.toFixed(2)} / 4</strong></span>
+                                <span class="text-muted">&bull;</span>
+                                <span class="text-muted">Pack Avg: <strong>${packAvg.toFixed(2)} / 4</strong></span>
                             </div>
                         </div>
                     </div>
@@ -928,11 +1199,38 @@ const PKGOPS_Summary = {
                         <div class="card border rounded p-3 bg-light shadow-sm">
                             <h6 class="fw-bold text-dark mb-1" style="font-size: 13px;">Evaluation & Sensory Remarks</h6>
                             <p class="mb-0 text-secondary" style="font-style: italic; word-break: break-word; overflow-wrap: break-word; white-space: normal; font-size: 13px;">
-                                ${rawRemarks || "No remarks entered"}
+                                ${userRemarksText || "No remarks entered"}
                             </p>
                         </div>
                     </div>
                 </div>
+
+                ${(() => {
+                    const actionRaw = (meta && meta.actionTaken) || r.cr3ea_actiontaken || "";
+                    if (!actionRaw) return "";
+                    const prodPart = actionRaw.split(" | QA: ")[0] || "";
+                    const qaPart = actionRaw.split(" | QA: ")[1] || "";
+
+                    const prodRemarks = prodPart.split(" | Proof: ")[0] || "-";
+                    const prodProof = prodPart.split(" | Proof: ")[1] || "";
+                    const qaRemarks = qaPart.split(" | Proof: ")[0] || "-";
+                    const qaProof = qaPart.split(" | Proof: ")[1] || "";
+
+                    const prodLinkHtml = prodProof ? PKGOPS_Summary.formatProofLinks(prodProof, "Proof") : "";
+                    const qaLinkHtml = qaProof ? PKGOPS_Summary.formatProofLinks(qaProof, "QA Proof") : "";
+
+                    return `
+                        <div class="row mt-3">
+                            <div class="col-md-12">
+                                <div class="p-3 border rounded bg-white shadow-sm">
+                                    <h5 class="text-danger fw-bold"><i class="fa fa-wrench me-1"></i> Deviation & Corrective Action Summary</h5>
+                                    <p style="word-break: break-word; overflow-wrap: break-word; white-space: normal;"><strong>Corrective Action Taken:</strong> ${prodRemarks}${prodLinkHtml}</p>
+                                    <p style="word-break: break-word; overflow-wrap: break-word; white-space: normal;"><strong>Re-verification Remarks:</strong> ${qaRemarks}${qaLinkHtml}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                })()}
             `;
         }
         else if (this.pkgopsType === "Cream Percentage") {
@@ -943,12 +1241,24 @@ const PKGOPS_Summary = {
             const status = r.cr3ea_status || (reading >= min && reading <= max ? "Pass" : "Fail");
             const isPass = status === "Pass";
 
+            let meta = {};
+            if (r.cr3ea_remarks) {
+                try {
+                    if (r.cr3ea_remarks.startsWith("{")) meta = JSON.parse(r.cr3ea_remarks);
+                } catch (e) {}
+            }
+            const machine = meta.machine || "-";
+            const wtSandwich = meta.wtSandwich ? `${meta.wtSandwich} g` : "-";
+            const wtShells = meta.wtShells ? `${meta.wtShells} g` : "-";
+            const netCream = meta.calculatedCreamWt ? `${meta.calculatedCreamWt} g` : (meta.wtSandwich && meta.wtShells ? `${(parseFloat(meta.wtSandwich) - parseFloat(meta.wtShells)).toFixed(2)} g` : "-");
+            const targetVal = meta.standardTarget ? `${meta.standardTarget}%` : `${((min + max) / 2).toFixed(1)}%`;
+
             html = `
                 <div class="row mt-3 g-3">
-                    ${this.createSummaryCard("cream-sum-prod", "Product Name", `${r.cr3ea_productname || "-"} <br><span class="text-muted fw-normal" style="font-size: 11px;">SKU: ${r.cr3ea_sku || "-"}</span>`)}
-                    ${this.createSummaryCard("cream-sum-sample", "Sample Size", r.cr3ea_samplesize || "10")}
-                    ${this.createSummaryCard("cream-sum-specs", "Standard Specs", `Min: <strong>${r.cr3ea_standardmin || "-"}%</strong> &bull; Max: <strong>${r.cr3ea_standardmax || "-"}%</strong>`)}
-                    ${this.createSummaryCard("cream-sum-reading", "Cream Reading", `<span class="fw-bold ${isPass ? 'text-success' : 'text-danger'}" style="font-size: 1.25rem;">${r.cr3ea_creamreading || "-"}%</span>`)}
+                    ${this.createSummaryCard("cream-sum-prod", "Product & Machine", `${r.cr3ea_productname || "-"} <br><span class="text-muted fw-normal" style="font-size: 11px;">Machine: <strong>${machine}</strong> | SKU: ${r.cr3ea_sku || "-"}</span>`)}
+                    ${this.createSummaryCard("cream-sum-weights", "Sample & Weights", `Sample: <strong>${r.cr3ea_samplesize || "10"} pcs</strong><br><span style="font-size: 11px;">Sandwich: <strong>${wtSandwich}</strong> | Shells: <strong>${wtShells}</strong></span>`)}
+                    ${this.createSummaryCard("cream-sum-specs", "Standard Specs", `Target: <strong>${targetVal}</strong><br><span style="font-size: 11px;">Tolerance: <strong>${r.cr3ea_standardmin || "-"}%</strong> - <strong>${r.cr3ea_standardmax || "-"}%</strong></span>`)}
+                    ${this.createSummaryCard("cream-sum-reading", "Cream Reading", `<span class="fw-bold ${isPass ? 'text-success' : 'text-danger'}" style="font-size: 1.25rem;">${r.cr3ea_creamreading || "-"}%</span><br><span style="font-size: 11px; color: #475569;">Cream Wt: <strong>${netCream}</strong></span>`)}
                 </div>
                 <div class="row mt-3">
                     <div class="col-md-12">
@@ -962,9 +1272,13 @@ const PKGOPS_Summary = {
                                         <tr>
                                             <th style="padding: 10px 14px; font-weight: 700;">Product Category</th>
                                             <th style="padding: 10px 14px; font-weight: 700;">Product Name & SKU</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Machine</th>
                                             <th style="padding: 10px 14px; font-weight: 700;">Sample Size</th>
-                                            <th style="padding: 10px 14px; font-weight: 700;">Standard Min (%)</th>
-                                            <th style="padding: 10px 14px; font-weight: 700;">Standard Max (%)</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Sandwich Wt (g)</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Shells Wt (g)</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Cream Wt (g)</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Target (%)</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Tolerance Range (%)</th>
                                             <th style="padding: 10px 14px; font-weight: 700;">Observed Reading (%)</th>
                                             <th style="padding: 10px 14px; font-weight: 700;">Result Status</th>
                                         </tr>
@@ -973,10 +1287,14 @@ const PKGOPS_Summary = {
                                         <tr>
                                             <td>${r.cr3ea_productcategory || "Cream"}</td>
                                             <td class="fw-semibold text-start">${r.cr3ea_productname || "-"} <span class="text-muted">(${r.cr3ea_sku || "-"})</span></td>
+                                            <td><span class="badge bg-light text-dark border">${machine}</span></td>
                                             <td>${r.cr3ea_samplesize || "-"}</td>
-                                            <td>${r.cr3ea_standardmin || "-"}%</td>
-                                            <td>${r.cr3ea_standardmax || "-"}%</td>
-                                            <td class="fw-bold ${isPass ? 'text-success' : 'text-danger'}">${r.cr3ea_creamreading || "-"}%</td>
+                                            <td>${wtSandwich}</td>
+                                            <td>${wtShells}</td>
+                                            <td class="fw-semibold text-primary">${netCream}</td>
+                                            <td class="fw-bold">${targetVal}</td>
+                                            <td>${r.cr3ea_standardmin || "-"}% - ${r.cr3ea_standardmax || "-"}%</td>
+                                            <td class="fw-bold ${isPass ? 'text-success' : 'text-danger'}" style="font-size: 1.05rem;">${r.cr3ea_creamreading || "-"}%</td>
                                             <td><span class="badge ${isPass ? 'bg-success' : 'bg-danger'} px-3 py-1" style="font-size: 12px;">${status.toUpperCase()}</span></td>
                                         </tr>
                                     </tbody>

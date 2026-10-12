@@ -41,7 +41,7 @@ const PKGOPS_PAPA_DEFECTS_FLAT = [
     { category: "B", type: "Product", name: "Blister" },
     { category: "B", type: "Product", name: "Dust on Biscuit" },
     { category: "B", type: "Product", name: "Broken" },
-    { category: "B", type: "Product", name: "DE shaped" },
+    { category: "B", type: "Product", name: "De-shaped" },
     { category: "B", type: "Product", name: "Mould Embossing absent" },
     { category: "B", type: "Product", name: "Edge Dark" },
     { category: "B", type: "Product", name: "Oozing" },
@@ -60,18 +60,18 @@ const PKGOPS_PAPA_DEFECTS_FLAT = [
     { category: "B", type: "Pack", name: "Damaged CBB" },
     { category: "B", type: "Pack", name: "Burnt seal" },
     { category: "B", type: "Pack", name: "Loose pack" },
-    { category: "B", type: "Pack", name: "coding out" },
+    { category: "B", type: "Pack", name: "Coding out" },
     { category: "B", type: "Pack", name: "Code smudged" },
     { category: "B", type: "Pack", name: "CBB tape in open" },
     { category: "B", type: "Pack", name: "Improper taping of CBB" },
-    { category: "B", type: "Pack", name: "Poor Gazetting" },
+    { category: "B", type: "Pack", name: "Poor Gusseting" },
     { category: "B", type: "Pack", name: "Torn poly" },
     { category: "B", type: "Pack", name: "Polybag - unsealed" },
     { category: "B", type: "Pack", name: "Seal leakage/Cut On Seal" },
     { category: "B", type: "Pack", name: "Silver line on sealing" },
     { category: "B", type: "Pack", name: "Illegible code on CBB" },
-    { category: "B", type: "Pack", name: "improper sealing on cup" },
-    { category: "B", type: "Pack", name: "Damge duplex/open duplex" },
+    { category: "B", type: "Pack", name: "Improper sealing on cup" },
+    { category: "B", type: "Pack", name: "Damaged duplex / Open duplex" },
     { category: "B", type: "Pack", name: "Cross Pasting" },
     { category: "B", type: "Pack", name: "Glue excess/less" },
     { category: "B", type: "Pack", name: "Underweight above MPE" },
@@ -80,21 +80,22 @@ const PKGOPS_PAPA_DEFECTS_FLAT = [
     { category: "B", type: "Pack", name: "Weak seal" },
     { category: "B", type: "Pack", name: "Tight Lid" },
     { category: "B", type: "Pack", name: "Code smudge on TIN" },
-    { category: "B", type: "Pack", name: "Dent on tin/ Disc out" },
+    { category: "B", type: "Pack", name: "Dent on tin / Disc out" },
+    { category: "B", type: "Pack", name: "Wrinkles in sealing (<2mm)" },
     { category: "B", type: "Pack", name: "Others" },
 
     // C Defects - Product
     { category: "C", type: "Product", name: "Tailing" },
     { category: "C", type: "Product", name: "Oozing Out" },
     { category: "C", type: "Product", name: "Chipping" },
-    { category: "C", type: "Product", name: "Chocking" },
+    { category: "C", type: "Product", name: "Choking" },
     { category: "C", type: "Product", name: "Docker pin not visible" },
     { category: "C", type: "Product", name: "Bottom chippings" },
-    { category: "C", type: "Product", name: "Wegging" },
+    { category: "C", type: "Product", name: "Wedging" },
     { category: "C", type: "Product", name: "Others" },
 
     // C Defects - Pack
-    { category: "C", type: "Pack", name: "ROGH TAPING ON TIN" },
+    { category: "C", type: "Pack", name: "Rough Taping on Tin" },
     { category: "C", type: "Pack", name: "Wrinkles on primary pack" },
     { category: "C", type: "Pack", name: "Slant pack" },
     { category: "C", type: "Pack", name: "Overweight >5% of declared weight" },
@@ -137,7 +138,7 @@ const PKGOPS_DEFECT_DETAILS_BY_CATEGORY = {
         "Blister",
         "Dust on Biscuit",
         "Broken",
-        "DE shaped",
+        "De-shaped",
         "Mould Embossing absent",
         "Edge Dark",
         "Oozing",
@@ -157,14 +158,14 @@ const PKGOPS_DEFECT_DETAILS_BY_CATEGORY = {
         "Code smudged",
         "CBB tape in open",
         "Improper taping of CBB",
-        "Poor Gazetting",
+        "Poor Gusseting",
         "Torn poly",
         "Polybag - unsealed",
         "Seal leakage/Cut On Seal",
         "Silver line on sealing",
         "Illegible code on CBB",
         "Improper sealing on cup",
-        "Damge duplex/open duplex",
+        "Damaged duplex / Open duplex",
         "Cross Pasting",
         "Glue excess/less",
         "Underweight above MPE",
@@ -172,25 +173,23 @@ const PKGOPS_DEFECT_DETAILS_BY_CATEGORY = {
         "Weak seal",
         "Tight Lid",
         "Code smudge on TIN",
-        "Dent on tin/Disc out",
+        "Dent on tin / Disc out",
         "Less bulge",
+        "Wrinkles in sealing (<2mm)",
         "Others"
     ],
     "Category C": [
         "Tailing",
         "Oozing Out",
         "Chipping",
-        "Chocking",
+        "Choking",
         "Docker pin not visible",
         "Bottom chippings",
-        "Wegging",
-        "ROGH TAPING ON TIN",
+        "Wedging",
+        "Rough Taping on Tin",
         "Wrinkles on primary pack",
         "Slant pack",
         "Overweight >5% of declared weight",
-        "Code smudge on TIN",
-        "Dent on tin/Disc out",
-        "Less bulge",
         "Others"
     ]
 };
@@ -367,7 +366,9 @@ const PKGOPS_Checklist = {
     categories: [],
     products: [],
     skus: [],
+    machines: [],
     selectedLine: "",
+    wallMemberScores: [],
 
     init: async function (tourId, pkgopsType) {
         this.currentTourId = tourId;
@@ -399,7 +400,7 @@ const PKGOPS_Checklist = {
         
         console.log(`Initializing Checklist: TourId=${tourId}, Type=${pkgopsType}`);
 
-        // Fetch master products and SKUs for the selected line dynamically from SharePoint list
+        // Fetch master products, SKUs, and machines for the selected line dynamically from SharePoint list
         const selectedLine = (typeof PKGOPS_StateMachine !== "undefined" && PKGOPS_StateMachine.currentSession && PKGOPS_StateMachine.currentSession.cr3ea_lineno) || document.getElementById("setup-line")?.value || "";
         this.selectedLine = selectedLine;
 
@@ -415,8 +416,11 @@ const PKGOPS_Checklist = {
             
             // 4. Get SKU master
             this.skus = await PKGOPS_DAL.getSkus();
+
+            // 5. Get Machine master (dynamically loaded from SharePoint Machine Master)
+            this.machines = await PKGOPS_DAL.getMachines(selectedLine);
         } catch (err) {
-            console.warn("Failed to load products/skus from DAL:", err);
+            console.warn("Failed to load products/skus/machines from DAL:", err);
             this.allProducts = (PKGOPS_DAL.getMasterSeedDefaults ? PKGOPS_DAL.getMasterSeedDefaults() : []).filter(c => {
                 const cType = (c.ConfigType || "").trim().toLowerCase();
                 return cType === "product master" || cType === "product_x0020_master";
@@ -431,11 +435,12 @@ const PKGOPS_Checklist = {
                 const cType = (c.ConfigType || "").trim().toLowerCase();
                 return cType === "sku master" || cType === "sku_x0020_master";
             });
+            this.machines = [];
         }
 
         this.products = this.lineProducts;
 
-        console.log(`PKGOPS_Checklist: Loaded ${this.lineProducts.length} line products (from ${this.allProducts.length} master products) across ${this.categories.length} categories for line "${selectedLine || 'All'}".`);
+        console.log(`PKGOPS_Checklist: Loaded ${this.lineProducts.length} line products, ${this.skus.length} SKUs, and ${this.machines.length} machines for line "${selectedLine || 'All'}".`);
 
         this.renderChecklistForm();
         await this.loadSavedValues();
@@ -446,18 +451,87 @@ const PKGOPS_Checklist = {
         }
     },
 
+    getMachineOptionsHtml: function (selectedValue) {
+        let html = `<option value="">-- Select Machine --</option>`;
+        let selectedFound = false;
+        const list = (this.machines && Array.isArray(this.machines)) ? this.machines : [];
+
+        list.forEach(m => {
+            const mTitle = m.Title || m.title || "";
+            if (!mTitle) return;
+            const isSel = (selectedValue && selectedValue === mTitle) ? "selected" : "";
+            if (isSel) selectedFound = true;
+            html += `<option value="${mTitle}" ${isSel}>${mTitle}</option>`;
+        });
+
+        if (selectedValue && !selectedFound) {
+            html += `<option value="${selectedValue}" selected>${selectedValue}</option>`;
+        }
+        return html;
+    },
+
+    extractPackWeight: function (title) {
+        if (!title) return null;
+        let t = String(title).trim();
+        // Strip carton / shipper / outer pack info inside brackets e.g. [6 KG], [12x50g], [10 PKT]
+        t = t.replace(/\[[^\]]*\]/g, ' ');
+        // Strip product codes at start e.g. '100234 - ' or '100234:'
+        t = t.replace(/^\s*\d{5,}\s*[-:]?\s*/, ' ');
+
+        // 1. Promo packs e.g. 75+25G, 75 + 25 GM, 100g+20g
+        const promo = t.match(/(\d+(?:\.\d+)?)\s*(?:g|gm|gms)?\s*\+\s*(\d+(?:\.\d+)?)\s*(?:gm|gms|g)\b/i);
+        if (promo) return parseFloat(promo[1]) + parseFloat(promo[2]);
+
+        // 2. Multipacks e.g. 93Gx3PK, 50G X 6, 75GM*4
+        const multi = t.match(/(\d+(?:\.\d+)?)\s*(?:gm|gms|g)\s*[*xX]\s*(\d+)/i);
+        if (multi) return parseFloat(multi[1]) * parseFloat(multi[2]);
+
+        // 3. Explicit Grams: 75GM, 125 GM, 200.5G, 350 GMS
+        const gMatch = t.match(/(?:^|[^\d.])(\d+(?:\.\d+)?)\s*(?:gm|gms|g)\b/i);
+        if (gMatch) return parseFloat(gMatch[1]);
+
+        // 4. Explicit KG packs: 1.36 KG, 1KG -> convert to grams
+        const kgMatch = t.match(/(?:^|[^\d.])(\d+(?:\.\d+)?)\s*(?:kg|kgs)\b/i);
+        if (kgMatch) return parseFloat(kgMatch[1]) * 1000;
+
+        // 5. Explicit ML or other: if e.g. 100ML
+        const mlMatch = t.match(/(?:^|[^\d.])(\d+(?:\.\d+)?)\s*(?:ml)\b/i);
+        if (mlMatch) return parseFloat(mlMatch[1]);
+
+        // 6. Number right before bracket in original title: e.g. 'CRACKERS 75 [6 KG]'
+        const preBracket = title.match(/(\d+(?:\.\d+)?)\s*\[/);
+        if (preBracket) return parseFloat(preBracket[1]);
+
+        // 7. Standalone number at end of name or after product words: e.g. 'MARIE GOLD 120'
+        const endNum = t.match(/\b(\d+(?:\.\d+)?)\s*$/);
+        if (endNum) return parseFloat(endNum[1]);
+
+        return null;
+    },
+
     getCategoryOptionsHtml: function (selectedCategory) {
+        let cats = this.categories || [];
+        if ((this.pkgopsType === "PQI" || cats.length === 0) && this.allProducts && this.allProducts.length > 0) {
+            const catSet = new Set(cats);
+            this.allProducts.forEach(p => {
+                if (p.ProductCategory && p.ProductCategory.trim()) catSet.add(p.ProductCategory.trim());
+            });
+            cats = Array.from(catSet).sort((a, b) => a.localeCompare(b));
+        }
+
         let html = `<option value="">All Categories</option>`;
-        (this.categories || []).forEach(cat => {
+        cats.forEach(cat => {
             const isSel = (selectedCategory && selectedCategory.toLowerCase() === cat.toLowerCase()) ? 'selected' : '';
             html += `<option value="${cat}" ${isSel}>${cat}</option>`;
         });
         return html;
     },
 
-    getProductOptionsHtml: function (selectedValue, categoryFilter) {
-        // Base product list: line-filtered products if available, otherwise all products
-        let prods = (this.lineProducts && this.lineProducts.length > 0) ? this.lineProducts : (this.allProducts || []);
+    getProductOptionsHtml: function (selectedValue, categoryFilter, forceAllProducts) {
+        // Base product list: if PQI or forceAllProducts, include all varieties across all lines
+        let prods = (forceAllProducts || this.pkgopsType === "PQI")
+            ? (this.allProducts && this.allProducts.length > 0 ? this.allProducts : this.lineProducts)
+            : ((this.lineProducts && this.lineProducts.length > 0) ? this.lineProducts : (this.allProducts || []));
         
         // If categoryFilter is provided (and not empty / "All Categories"), filter by category
         if (categoryFilter && categoryFilter.trim() && categoryFilter.toLowerCase() !== "all categories") {
@@ -486,14 +560,22 @@ const PKGOPS_Checklist = {
             }
         }
 
+        // Sort products alphabetically by Title for smooth navigation
+        prods = (prods || []).slice().sort((a, b) => (a.Title || "").localeCompare(b.Title || ""));
+
         let html = `<option value="">Select Product</option>`;
         let selectedFound = false;
 
+        const seenTitles = new Set();
         prods.forEach(p => {
+            const title = (p.Title || "").trim();
+            if (!title || seenTitles.has(title)) return;
+            seenTitles.add(title);
+
             const code = p.ProductCode ? ` (${p.ProductCode})` : '';
-            const isSel = (selectedValue && (selectedValue === p.Title || selectedValue === `${p.Title}${code}` || selectedValue === p.ProductCode)) ? 'selected' : '';
+            const isSel = (selectedValue && (selectedValue === title || selectedValue === `${title}${code}` || selectedValue === p.ProductCode)) ? 'selected' : '';
             if (isSel) selectedFound = true;
-            html += `<option value="${p.Title}" data-category="${p.ProductCategory || ''}" ${isSel}>${p.Title}${code}</option>`;
+            html += `<option value="${title}" data-category="${p.ProductCategory || ''}" ${isSel}>${title}${code}</option>`;
         });
 
         // If a previously saved value is not in the filtered list, keep it visible and selected so saved data is never lost
@@ -543,6 +625,10 @@ const PKGOPS_Checklist = {
             if (sectionPrefix === "pqi" && typeof this.onPqiSkuChange === "function") {
                 this.onPqiSkuChange();
             }
+        }
+
+        if (sectionPrefix === "cream" && typeof this.applyCreamStandards === "function") {
+            this.applyCreamStandards(selectedTitle);
         }
 
         if (!selectedTitle) return;
@@ -595,6 +681,10 @@ const PKGOPS_Checklist = {
             if (sectionPrefix === "pqi" && typeof this.onPqiSkuChange === "function") {
                 this.onPqiSkuChange();
             }
+        }
+
+        if (sectionPrefix === "cream" && typeof this.applyCreamStandards === "function") {
+            this.applyCreamStandards(productName);
         }
     },
 
@@ -1150,7 +1240,12 @@ const PKGOPS_Checklist = {
                                         <tbody>
                                             ${prodList.map(item => `
                                                 <tr>
-                                                    <td style="font-size: 12.5px; font-weight: 500;">${item.name}</td>
+                                                    <td style="font-size: 12.5px; font-weight: 500;">
+                                                        <div>${item.name}</div>
+                                                        ${item.name === "Others" ? `
+                                                            <input type="text" class="form-control form-control-sm mt-1 papa-other-remark" id="papa-other-remark-${item.flatIndex}" placeholder="Enter specific defect remarks..." style="display: none; font-size: 11px;" oninput="PKGOPS_Checklist.onPapaOtherRemarkInput(${item.flatIndex})">
+                                                        ` : ''}
+                                                    </td>
                                                     <td style="text-align: center; position: relative;">
                                                         <input type="checkbox" class="form-check-input papa-defect-chk" id="papa-chk-${item.flatIndex}" onchange="PKGOPS_Checklist.togglePapaDefect(${item.flatIndex})" style="position: relative !important; float: none !important; margin: 0 auto !important; display: inline-block !important; width: 16px !important; height: 16px !important; opacity: 1 !important; visibility: visible !important;">
                                                     </td>
@@ -1183,7 +1278,12 @@ const PKGOPS_Checklist = {
                                         <tbody>
                                             ${packList.map(item => `
                                                 <tr>
-                                                    <td style="font-size: 12.5px; font-weight: 500;">${item.name}</td>
+                                                    <td style="font-size: 12.5px; font-weight: 500;">
+                                                        <div>${item.name}</div>
+                                                        ${item.name === "Others" ? `
+                                                            <input type="text" class="form-control form-control-sm mt-1 papa-other-remark" id="papa-other-remark-${item.flatIndex}" placeholder="Enter specific defect remarks..." style="display: none; font-size: 11px;" oninput="PKGOPS_Checklist.onPapaOtherRemarkInput(${item.flatIndex})">
+                                                        ` : ''}
+                                                    </td>
                                                     <td style="text-align: center; position: relative;">
                                                         <input type="checkbox" class="form-check-input papa-defect-chk" id="papa-chk-${item.flatIndex}" onchange="PKGOPS_Checklist.togglePapaDefect(${item.flatIndex})" style="position: relative !important; float: none !important; margin: 0 auto !important; display: inline-block !important; width: 16px !important; height: 16px !important; opacity: 1 !important; visibility: visible !important;">
                                                     </td>
@@ -1318,13 +1418,32 @@ const PKGOPS_Checklist = {
     togglePapaDefect: function (idx) {
         const chk = document.getElementById(`papa-chk-${idx}`);
         const countInput = document.getElementById(`papa-count-${idx}`);
+        const remarkInput = document.getElementById(`papa-other-remark-${idx}`);
 
-        if (chk.checked) {
-            countInput.disabled = false;
+        if (chk && chk.checked) {
+            if (countInput) countInput.disabled = false;
+            if (remarkInput) {
+                remarkInput.style.display = "block";
+                setTimeout(() => remarkInput.focus(), 50);
+            }
         } else {
-            countInput.disabled = true;
-            countInput.value = "0";
+            if (countInput) {
+                countInput.disabled = true;
+                countInput.value = "0";
+            }
+            if (remarkInput) {
+                remarkInput.style.display = "none";
+                remarkInput.value = "";
+                PKGOPS_Validator.highlight(remarkInput, false);
+            }
             this.calculatePapaPercentages();
+        }
+    },
+
+    onPapaOtherRemarkInput: function (idx) {
+        const remarkInput = document.getElementById(`papa-other-remark-${idx}`);
+        if (remarkInput && remarkInput.value.trim()) {
+            PKGOPS_Validator.highlight(remarkInput, false);
         }
     },
 
@@ -1489,13 +1608,12 @@ const PKGOPS_Checklist = {
 
     onPqiSkuChange: function () {
         const skuVal = document.getElementById("pqi-sku")?.value || "";
+        const prodVal = document.getElementById("pqi-product")?.value || "";
         const stdInput = document.getElementById("pqi-nw-standard");
-        if (stdInput && skuVal) {
-            const skuNum = parseFloat(String(skuVal).replace(/[^0-9.]/g, ""));
-            if (!isNaN(skuNum) && skuNum > 0) {
-                stdInput.value = skuNum;
-                this.calculateNetWeightMetrics();
-            }
+        const detected = this.extractPackWeight(skuVal) || this.extractPackWeight(prodVal);
+        if (stdInput && detected) {
+            stdInput.value = detected;
+            this.calculateNetWeightMetrics();
         }
     },
 
@@ -1525,7 +1643,7 @@ const PKGOPS_Checklist = {
         const batch = document.getElementById("pqi-batch")?.value || "";
 
         if (prevVal === "NetWeight") {
-            const standard = document.getElementById("pqi-nw-standard")?.value || "150";
+            const standard = document.getElementById("pqi-nw-standard")?.value || "";
             const weights = {};
             let hasAny = false;
             for (let i = 0; i < 15; i++) {
@@ -1535,12 +1653,12 @@ const PKGOPS_Checklist = {
                     hasAny = true;
                 }
             }
-            if (product || sku || hasAny) {
+            if (product || sku || hasAny || standard) {
                 this.savedPqiNetWeight = {
                     ...(this.savedPqiNetWeight || {}),
                     cr3ea_productname: product,
                     cr3ea_sku: sku,
-                    cr3ea_standardweight: standard,
+                    cr3ea_standardweight: standard ? parseFloat(standard) : (this.savedPqiNetWeight?.cr3ea_standardweight || null),
                     ...weights
                 };
             }
@@ -1550,7 +1668,11 @@ const PKGOPS_Checklist = {
             for (let idx = 0; idx < 10; idx++) {
                 const status = document.getElementById(`pqi-eval-status-${idx}`)?.value || "Okay";
                 const cat = document.getElementById(`pqi-eval-cat-${idx}`)?.value || "";
-                const detail = document.getElementById(`pqi-eval-detail-${idx}`)?.value || "";
+                let detail = document.getElementById(`pqi-eval-detail-${idx}`)?.value || "";
+                const otherVal = document.getElementById(`pqi-eval-detail-other-${idx}`)?.value?.trim() || "";
+                if ((detail.toLowerCase() === "others" || detail.toLowerCase() === "other") && otherVal) {
+                    detail = `Others: ${otherVal}`;
+                }
                 if (status === "Not Okay" || cat || detail) hasAny = true;
 
                 const existingPrev = (this.savedPqiEvaluations || []).find(r => r.cr3ea_evaluationtype === prevVal && r.cr3ea_samplenumber === `Sample ${idx + 1}`);
@@ -1589,23 +1711,23 @@ const PKGOPS_Checklist = {
         subContainer.innerHTML = "";
 
         if (val === "NetWeight") {
+            const prodVal = document.getElementById("pqi-product")?.value || "";
             const skuVal = document.getElementById("pqi-sku")?.value || "";
-            let defaultStd = "150";
-            if (skuVal) {
-                const skuNum = parseFloat(String(skuVal).replace(/[^0-9.]/g, ""));
-                if (!isNaN(skuNum) && skuNum > 0) defaultStd = String(skuNum);
-            }
+            const savedStd = this.savedPqiNetWeight ? this.savedPqiNetWeight.cr3ea_standardweight : null;
+            let defaultStd = (savedStd !== null && savedStd !== undefined && savedStd !== "")
+                ? savedStd
+                : (this.extractPackWeight(skuVal) || this.extractPackWeight(prodVal) || "");
 
             subContainer.innerHTML = `
                 <div class="row g-3">
                     <div class="col-md-3">
                         <label class="form-label fw-bold">Standard Weight (g)</label>
-                        <input type="number" class="form-control" id="pqi-nw-standard" value="${defaultStd}" oninput="PKGOPS_Checklist.calculateNetWeightMetrics()">
+                        <input type="number" step="0.01" class="form-control" id="pqi-nw-standard" value="${defaultStd}" oninput="PKGOPS_Checklist.calculateNetWeightMetrics()" placeholder="e.g. 75">
                     </div>
                 </div>
                 <div class="row mt-4">
                     <div class="col-md-12">
-                        <h4 class="form-section-title">Sample Weight Entries (g)</h4>
+                        <h4 class="form-section-title">Sample Weight Entries (g) - 15 Samples</h4>
                     </div>
                     ${Array.from({ length: 15 }).map((_, idx) => `
                         <div class="col-md-2 mt-2">
@@ -1614,12 +1736,12 @@ const PKGOPS_Checklist = {
                         </div>
                     `).join('')}
                 </div>
-                <div class="row mt-4 p-3 border rounded bg-white text-center">
+                <div class="row mt-4 p-3 border rounded bg-white text-center shadow-sm">
                     <div class="col-md-6">
                         <h5>Average Weight: <span id="pqi-average-weight" class="text-primary fw-bold">-</span></h5>
                     </div>
                     <div class="col-md-6">
-                        <h5>Give-Away: <span id="pqi-giveaway" class="text-danger fw-bold">-</span></h5>
+                        <h5>Give-Away: <span id="pqi-giveaway" class="text-secondary fw-bold">-</span></h5>
                     </div>
                 </div>
             `;
@@ -1684,6 +1806,7 @@ const PKGOPS_Checklist = {
                                             <select class="form-select pqi-eval-defect-detail" id="pqi-eval-detail-${idx}" disabled onchange="PKGOPS_Checklist.onPqiDefectDetailChange(${idx})">
                                                 <option value="">-- Select Detail --</option>
                                             </select>
+                                            <input type="text" class="form-control mt-1 pqi-eval-detail-other" id="pqi-eval-detail-other-${idx}" placeholder="Specify other defect detail..." style="display: none; font-size: 12px;" oninput="PKGOPS_Checklist.onPqiDefectDetailOtherInput(${idx})">
                                         </td>
                                         <td>
                                             <input type="file" class="form-control pqi-eval-file" id="pqi-eval-file-${idx}" accept="image/*" multiple disabled onchange="PKGOPS_Checklist.onFileSelected(this, 'pqi-${val}-${idx}')">
@@ -1705,6 +1828,7 @@ const PKGOPS_Checklist = {
     onPqiDefectCatChange: function (idx, selectedDetail) {
         const catSelect = document.getElementById(`pqi-eval-cat-${idx}`);
         const detailSelect = document.getElementById(`pqi-eval-detail-${idx}`);
+        const otherInput = document.getElementById(`pqi-eval-detail-other-${idx}`);
         const statusSelect = document.getElementById(`pqi-eval-status-${idx}`);
         const fileInput = document.getElementById(`pqi-eval-file-${idx}`);
         if (!catSelect || !detailSelect) return;
@@ -1718,6 +1842,10 @@ const PKGOPS_Checklist = {
             detailSelect.innerHTML = `<option value="">-- Select Detail --</option>`;
             detailSelect.disabled = true;
             detailSelect.value = "";
+            if (otherInput) {
+                otherInput.style.display = "none";
+                otherInput.value = "";
+            }
         } else {
             let optionsHtml = `<option value="">-- Select Detail --</option>`;
             details.forEach(d => {
@@ -1729,14 +1857,40 @@ const PKGOPS_Checklist = {
             }
 
             if (selectedDetail) {
-                detailSelect.value = selectedDetail;
-                if (!detailSelect.value && selectedDetail) {
-                    const opt = document.createElement("option");
-                    opt.value = selectedDetail;
-                    opt.textContent = selectedDetail;
-                    opt.selected = true;
-                    detailSelect.appendChild(opt);
-                    detailSelect.value = selectedDetail;
+                const sDetailStr = String(selectedDetail).trim();
+                const sDetailLower = sDetailStr.toLowerCase();
+                if (sDetailLower.startsWith("others:") || sDetailLower.startsWith("others -")) {
+                    detailSelect.value = "Others";
+                    if (otherInput) {
+                        otherInput.style.display = "block";
+                        otherInput.value = sDetailStr.replace(/^others[:\s-]+/i, "").trim();
+                    }
+                } else if (sDetailLower === "others" || sDetailLower === "other") {
+                    detailSelect.value = "Others";
+                    if (otherInput) {
+                        otherInput.style.display = "block";
+                        otherInput.value = "";
+                    }
+                } else {
+                    detailSelect.value = sDetailStr;
+                    if (!detailSelect.value) {
+                        // Custom defect entered under Others
+                        detailSelect.value = "Others";
+                        if (otherInput) {
+                            otherInput.style.display = "block";
+                            otherInput.value = sDetailStr;
+                        }
+                    } else {
+                        if (otherInput) {
+                            otherInput.style.display = "none";
+                            otherInput.value = "";
+                        }
+                    }
+                }
+            } else {
+                if (otherInput) {
+                    otherInput.style.display = "none";
+                    otherInput.value = "";
                 }
             }
         }
@@ -1746,7 +1900,28 @@ const PKGOPS_Checklist = {
 
     onPqiDefectDetailChange: function (idx) {
         const detailSelect = document.getElementById(`pqi-eval-detail-${idx}`);
+        const otherInput = document.getElementById(`pqi-eval-detail-other-${idx}`);
         if (detailSelect) PKGOPS_Validator.highlight(detailSelect, false);
+
+        const val = (detailSelect?.value || "").trim().toLowerCase();
+        if (val === "others" || val === "other") {
+            if (otherInput) {
+                otherInput.style.display = "block";
+                otherInput.focus();
+            }
+        } else {
+            if (otherInput) {
+                otherInput.style.display = "none";
+                otherInput.value = "";
+                PKGOPS_Validator.highlight(otherInput, false);
+            }
+        }
+        this.calculatePqiEvaluationMetrics();
+    },
+
+    onPqiDefectDetailOtherInput: function (idx) {
+        const otherInput = document.getElementById(`pqi-eval-detail-other-${idx}`);
+        if (otherInput) PKGOPS_Validator.highlight(otherInput, false);
         this.calculatePqiEvaluationMetrics();
     },
 
@@ -1755,6 +1930,7 @@ const PKGOPS_Checklist = {
         const status = statusSelect?.value;
         const catSelect = document.getElementById(`pqi-eval-cat-${idx}`);
         const detailSelect = document.getElementById(`pqi-eval-detail-${idx}`);
+        const otherInput = document.getElementById(`pqi-eval-detail-other-${idx}`);
         const fileInput = document.getElementById(`pqi-eval-file-${idx}`);
         const val = document.getElementById("pqi-sub-select")?.value || "Product";
 
@@ -1764,8 +1940,13 @@ const PKGOPS_Checklist = {
             if (detailSelect) {
                 if (catSelect && catSelect.value) {
                     detailSelect.disabled = false;
+                    const dVal = (detailSelect.value || "").trim().toLowerCase();
+                    if ((dVal === "others" || dVal === "other") && otherInput) {
+                        otherInput.style.display = "block";
+                    }
                 } else {
                     detailSelect.disabled = true;
+                    if (otherInput) otherInput.style.display = "none";
                 }
             }
         } else {
@@ -1780,6 +1961,11 @@ const PKGOPS_Checklist = {
                 detailSelect.innerHTML = `<option value="">-- Select Detail --</option>`;
                 detailSelect.value = "";
                 PKGOPS_Validator.highlight(detailSelect, false);
+            }
+            if (otherInput) {
+                otherInput.style.display = "none";
+                otherInput.value = "";
+                PKGOPS_Validator.highlight(otherInput, false);
             }
             if (fileInput) {
                 fileInput.disabled = true;
@@ -1823,12 +2009,13 @@ const PKGOPS_Checklist = {
     },
 
     calculateNetWeightMetrics: function () {
-        const stdWeight = parseFloat(document.getElementById("pqi-nw-standard")?.value) || 0;
+        const stdInput = document.getElementById("pqi-nw-standard");
+        const stdWeight = parseFloat(stdInput?.value) || 0;
         const weights = [];
 
         document.querySelectorAll(".pqi-weight-input").forEach(input => {
             const val = parseFloat(input.value);
-            if (!isNaN(val)) weights.push(val);
+            if (!isNaN(val) && val > 0) weights.push(val);
         });
 
         const avgSpan = document.getElementById("pqi-average-weight");
@@ -1843,10 +2030,22 @@ const PKGOPS_Checklist = {
         }
 
         const avg = weights.reduce((a, b) => a + b, 0) / weights.length;
-        const giveAway = (stdWeight > 0 && avg > stdWeight) ? (avg - stdWeight) : 0;
+        const countStr = weights.length < 15 ? ` (${weights.length}/15 samples)` : "";
+        avgSpan.innerText = `${avg.toFixed(2)} g${countStr}`;
 
-        avgSpan.innerText = `${avg.toFixed(2)} g`;
-        gaSpan.innerText = `${giveAway.toFixed(2)} g`;
+        if (stdWeight <= 0) {
+            gaSpan.innerHTML = `<span class="text-muted" style="font-size: 13px;">Enter Standard Wt</span>`;
+        } else {
+            const diff = avg - stdWeight;
+            const gaPct = ((diff / stdWeight) * 100).toFixed(2);
+            if (diff > 0) {
+                gaSpan.innerHTML = `<span class="text-warning fw-bold">+${diff.toFixed(2)} g (+${gaPct}%)</span>`;
+            } else if (diff < 0) {
+                gaSpan.innerHTML = `<span class="text-danger fw-bold">${diff.toFixed(2)} g (${gaPct}%) <i class="fa fa-exclamation-triangle ms-1" title="Underweight"></i></span>`;
+            } else {
+                gaSpan.innerHTML = `<span class="text-success fw-bold">0.00 g (0.00%)</span>`;
+            }
+        }
     },
 
     saveCurrentPqiSubForm: async function () {
@@ -1923,11 +2122,11 @@ const PKGOPS_Checklist = {
                 }
 
                 const avg = weights.reduce((a, b) => a + b, 0) / weights.length;
-                const giveAway = (standardVal > 0 && avg > standardVal) ? (avg - standardVal) : 0;
+                const giveAway = Number((avg - standardVal).toFixed(2));
 
                 const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
                 const netWeightRecord = {
-                    cr3ea_name: `PQI_NetWeight_${sku}_${moment().format("DD-MM-YYYY")}`,
+                    cr3ea_name: `PQI_NetWeight_Std:${standardVal}_${sku || 'SKU'}_${moment().format("DD-MM-YYYY")}`.substring(0, 240),
                     cr3ea_productname: product,
                     cr3ea_sku: sku,
                     cr3ea_averageweight: Number(avg.toFixed(2)),
@@ -1971,6 +2170,16 @@ const PKGOPS_Checklist = {
                             return;
                         }
 
+                        const otherEl = document.getElementById(`pqi-eval-detail-other-${idx}`);
+                        const dVal = (detailEl.value || "").trim().toLowerCase();
+                        if ((dVal === "others" || dVal === "other") && (!otherEl || !otherEl.value.trim())) {
+                            if (otherEl) PKGOPS_Validator.highlight(otherEl, true);
+                            if (typeof HideLoader === "function") HideLoader();
+                            alert(`Please enter the defect detail for Sample ${idx + 1} when selecting Others.`);
+                            if (otherEl) otherEl.focus();
+                            return;
+                        }
+
                         const fileKey = `pqi-${val}-${idx}`;
                         const files = this.uploadedFiles[fileKey] || (fileInput && fileInput.files && fileInput.files.length ? Array.from(fileInput.files) : []);
                         const existingPrev = (this.savedPqiEvaluations || []).find(r => r.cr3ea_evaluationtype === val && r.cr3ea_samplenumber === `Sample ${idx + 1}`);
@@ -1994,7 +2203,12 @@ const PKGOPS_Checklist = {
                 for (let idx = 0; idx < 10; idx++) {
                     const status = document.getElementById(`pqi-eval-status-${idx}`).value;
                     const cat = document.getElementById(`pqi-eval-cat-${idx}`).value;
-                    const detail = document.getElementById(`pqi-eval-detail-${idx}`).value;
+                    let detail = document.getElementById(`pqi-eval-detail-${idx}`).value;
+                    const otherEl = document.getElementById(`pqi-eval-detail-other-${idx}`);
+                    const dVal = (detail || "").trim().toLowerCase();
+                    if ((dVal === "others" || dVal === "other") && otherEl && otherEl.value.trim()) {
+                        detail = `Others: ${otherEl.value.trim()}`;
+                    }
                     const fileInput = document.getElementById(`pqi-eval-file-${idx}`);
 
                     let pictureUrl = "";
@@ -2092,7 +2306,9 @@ const PKGOPS_Checklist = {
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-semibold">Machine No</label>
-                    <input type="text" class="form-control" id="seal-machine" placeholder="e.g. M/C-01">
+                    <select class="form-select fw-semibold" id="seal-machine">
+                        ${this.getMachineOptionsHtml()}
+                    </select>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-semibold">Sample Quantity Tested</label>
@@ -2404,69 +2620,218 @@ const PKGOPS_Checklist = {
         }
     },
 
-    // 6. Cream Percentage Form
+    // 6. Cream Percentage Form & Standards Configuration
+    creamVarietyStandards: {
+        "bourbon": { target: 28.0, min: 26.0, max: 30.0, variety: "Bourbon Sandwich", note: "Standard Cream: 28.00% (Tolerance: 26.00% - 30.00%)" },
+        "magicreme": { target: 25.0, min: 23.0, max: 27.0, variety: "Magic Cream", note: "Standard Cream: 25.00% (Tolerance: 23.00% - 27.00%)" },
+        "magic cream": { target: 25.0, min: 23.0, max: 27.0, variety: "Magic Cream", note: "Standard Cream: 25.00% (Tolerance: 23.00% - 27.00%)" },
+        "trufills": { target: 30.0, min: 28.0, max: 32.0, variety: "Trufills Centre Filled", note: "Standard Cream: 30.00% (Tolerance: 28.00% - 32.00%)" },
+        "centre filled": { target: 30.0, min: 28.0, max: 32.0, variety: "Centre Filled Cookies", note: "Standard Cream: 30.00% (Tolerance: 28.00% - 32.00%)" },
+        "choco-fill": { target: 30.0, min: 28.0, max: 32.0, variety: "Choco-Fill Cookies", note: "Standard Cream: 30.00% (Tolerance: 28.00% - 32.00%)" },
+        "sandwich": { target: 25.0, min: 23.0, max: 27.0, variety: "Sandwich Cream Cookies", note: "Standard Cream: 25.00% (Tolerance: 23.00% - 27.00%)" },
+        "creme": { target: 26.0, min: 24.0, max: 28.0, variety: "Creme Sandwich", note: "Standard Cream: 26.00% (Tolerance: 24.00% - 28.00%)" },
+        "van filld": { target: 25.0, min: 23.0, max: 27.0, variety: "Vanilla Cream Sandwich", note: "Standard Cream: 25.00% (Tolerance: 23.00% - 27.00%)" },
+        "biscochello": { target: 25.0, min: 23.0, max: 27.0, variety: "BiscoChello Cream", note: "Standard Cream: 25.00% (Tolerance: 23.00% - 27.00%)" },
+        "default": { target: 25.0, min: 20.0, max: 30.0, variety: "Cream / Sandwich Variety", note: "Standard Cream: 25.00% (Tolerance: 20.00% - 30.00%)" }
+    },
+
+    getCreamStandardsForProduct: function (productName) {
+        if (!productName || typeof productName !== "string") {
+            return this.creamVarietyStandards["default"];
+        }
+        const lower = productName.toLowerCase();
+        const keys = ["bourbon", "magicreme", "magic cream", "trufills", "centre filled", "choco-fill", "biscochello", "sandwich", "creme", "van filld"];
+        for (let i = 0; i < keys.length; i++) {
+            if (lower.indexOf(keys[i]) !== -1) {
+                return this.creamVarietyStandards[keys[i]];
+            }
+        }
+        return this.creamVarietyStandards["default"];
+    },
+
+    applyCreamStandards: function (productName) {
+        const std = this.getCreamStandardsForProduct(productName);
+        const minEl = document.getElementById("cream-min");
+        const maxEl = document.getElementById("cream-max");
+        const targetEl = document.getElementById("cream-target");
+        const varietyEl = document.getElementById("cream-variety-name");
+        const descEl = document.getElementById("cream-variety-desc");
+        const badgeEl = document.getElementById("cream-target-badge");
+
+        if (minEl) minEl.value = std.min.toFixed(2);
+        if (maxEl) maxEl.value = std.max.toFixed(2);
+        if (targetEl) targetEl.value = std.target.toFixed(2);
+        if (varietyEl) varietyEl.textContent = std.variety;
+        if (descEl) descEl.innerHTML = `Standard Target: <strong>${std.target.toFixed(2)}%</strong> (Tolerance: <strong>${std.min.toFixed(2)}%</strong> - <strong>${std.max.toFixed(2)}%</strong>)`;
+        if (badgeEl) badgeEl.textContent = `Standard Target: ${std.target.toFixed(2)}%`;
+
+        this.checkCreamStatus();
+    },
+
     renderCreamPercentage: function (container) {
         container.innerHTML = `
             <div class="row">
                 <div class="col-md-12">
-                    <h3 class="form-section-title">Cream Percentage Entry</h3>
+                    <h3 class="form-section-title">Cream Percentage Evaluation</h3>
                 </div>
             </div>
-            <div class="row g-3 mt-2">
-                <div class="col-md-3">
-                    <label class="form-label">Product Category</label>
-                    <select class="form-select" id="cream-category" onchange="PKGOPS_Checklist.onCategoryChange('cream')">
-                        ${this.getCategoryOptionsHtml()}
-                    </select>
+
+            <!-- Variety Standard Notification Banner -->
+            <div class="row mt-2">
+                <div class="col-12" id="cream-standard-info-box">
+                    <div class="alert alert-info py-2 px-3 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2 shadow-sm" style="border-left: 4px solid #0284c7; background-color: #f0f9ff; border-radius: 6px;">
+                        <div>
+                            <i class="fa fa-info-circle text-primary me-2"></i>
+                            <strong id="cream-variety-name">Cream / Sandwich Variety</strong> &mdash; 
+                            <span id="cream-variety-desc">Standard Target: <strong>25.00%</strong> (Tolerance: <strong>20.00%</strong> - <strong>30.00%</strong>)</span>
+                        </div>
+                        <span class="badge bg-primary px-3 py-2" id="cream-target-badge" style="font-size: 13px; font-weight: 600;">Standard Target: 25.00%</span>
+                    </div>
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label">Product Name</label>
-                    <div class="select2-parent">
-                        <select class="form-select" id="cream-product" onchange="PKGOPS_Checklist.onProductChange('cream')">
-                            ${this.getProductOptionsHtml()}
+            </div>
+
+            <!-- Product, Line & Machine Selection -->
+            <div class="card border rounded p-3 mb-3 bg-white shadow-sm" style="border: 1px solid #cbd5e1 !important;">
+                <h6 class="fw-bold text-dark mb-3" style="font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <i class="fa fa-cogs text-primary me-2"></i>Product & Machine Selection
+                </h6>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Product Category</label>
+                        <select class="form-select" id="cream-category" onchange="PKGOPS_Checklist.onCategoryChange('cream')">
+                            ${this.getCategoryOptionsHtml()}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Product Name <span class="text-danger">*</span></label>
+                        <div class="select2-parent">
+                            <select class="form-select" id="cream-product" onchange="PKGOPS_Checklist.onProductChange('cream')">
+                                ${this.getProductOptionsHtml()}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">SKU</label>
+                        <input type="text" class="form-control" id="cream-sku" placeholder="SKU" readonly style="background-color: #f1f5f9; cursor: not-allowed;">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Machine <span class="text-danger">*</span></label>
+                        <select class="form-select fw-semibold" id="cream-machine">
+                            ${this.getMachineOptionsHtml()}
                         </select>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label">SKU</label>
-                    <input type="text" class="form-control" id="cream-sku" placeholder="SKU" readonly style="background-color: #f1f5f9; cursor: not-allowed;">
+            </div>
+
+            <!-- Measurement & Auto Calculation Card -->
+            <div class="card border rounded p-3 mb-3 bg-white shadow-sm" style="border: 1px solid #cbd5e1 !important;">
+                <h6 class="fw-bold text-dark mb-3" style="font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <i class="fa fa-balance-scale text-primary me-2"></i>Sample Weights & Auto-Calculation
+                </h6>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Sample Size (Biscuits)</label>
+                        <input type="number" class="form-control" id="cream-sample-size" value="10" min="1">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Weight of Sandwich (g) <span class="text-danger">*</span></label>
+                        <input type="number" step="0.01" class="form-control fw-bold" id="cream-wt-sandwich" oninput="PKGOPS_Checklist.calculateCreamPercentage()" placeholder="e.g. 120.00">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Weight of Shells (g) <span class="text-danger">*</span></label>
+                        <input type="number" step="0.01" class="form-control fw-bold" id="cream-wt-shells" oninput="PKGOPS_Checklist.calculateCreamPercentage()" placeholder="e.g. 86.40">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Calculated Cream Weight (g)</label>
+                        <input type="text" class="form-control" id="cream-wt-net" placeholder="Auto-calculated" readonly style="background-color: #f8fafc; font-weight: 600;">
+                    </div>
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label">Sample Size</label>
-                    <input type="number" class="form-control" id="cream-sample-size" value="10" min="1">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Cream Percentage Reading (%)</label>
-                    <input type="number" step="0.01" class="form-control" id="cream-reading" oninput="PKGOPS_Checklist.checkCreamStatus()" placeholder="Reading %">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Standard Min (%)</label>
-                    <input type="number" step="0.01" class="form-control" id="cream-min" value="20" oninput="PKGOPS_Checklist.checkCreamStatus()">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Standard Max (%)</label>
-                    <input type="number" step="0.01" class="form-control" id="cream-max" value="30" oninput="PKGOPS_Checklist.checkCreamStatus()">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Status</label>
-                    <input type="text" class="form-control fw-bold" id="cream-status" value="Pass" readonly style="color: green;">
+            </div>
+
+            <!-- Standards & Result Status Card -->
+            <div class="card border rounded p-3 bg-white shadow-sm" style="border: 1px solid #cbd5e1 !important;">
+                <h6 class="fw-bold text-dark mb-3" style="font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <i class="fa fa-calculator text-primary me-2"></i>Cream % Result & Compliance
+                </h6>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Standard Target (%)</label>
+                        <input type="number" step="0.01" class="form-control" id="cream-target" value="25.00" readonly style="background-color: #f8fafc; font-weight: 600;">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Standard Min (%)</label>
+                        <input type="number" step="0.01" class="form-control" id="cream-min" value="20.00" oninput="PKGOPS_Checklist.checkCreamStatus()">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Standard Max (%)</label>
+                        <input type="number" step="0.01" class="form-control" id="cream-max" value="30.00" oninput="PKGOPS_Checklist.checkCreamStatus()">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Calculated Cream % <span class="badge bg-secondary ms-1">Auto</span></label>
+                        <input type="number" step="0.01" class="form-control fw-bold" id="cream-reading" oninput="PKGOPS_Checklist.checkCreamStatus()" placeholder="Reading %">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Status</label>
+                        <input type="text" class="form-control fw-bold text-center" id="cream-status" value="Pass" readonly style="color: green; font-size: 1.05rem;">
+                    </div>
                 </div>
             </div>
         `;
+
+        const curProd = document.getElementById("cream-product")?.value || "";
+        this.applyCreamStandards(curProd);
+    },
+
+    calculateCreamPercentage: function () {
+        const wtSandwichInput = document.getElementById("cream-wt-sandwich");
+        const wtShellsInput = document.getElementById("cream-wt-shells");
+        const netCreamInput = document.getElementById("cream-wt-net");
+        const readingInput = document.getElementById("cream-reading");
+        if (!wtSandwichInput || !wtShellsInput || !readingInput) return;
+
+        const wtSandwich = parseFloat(wtSandwichInput.value);
+        const wtShells = parseFloat(wtShellsInput.value);
+
+        if (!isNaN(wtSandwich) && wtSandwich > 0 && !isNaN(wtShells) && wtShells >= 0) {
+            if (wtShells > wtSandwich) {
+                if (netCreamInput) netCreamInput.value = "Invalid (Shells > Sandwich)";
+                readingInput.value = "";
+                this.checkCreamStatus();
+                return;
+            }
+            const creamWt = wtSandwich - wtShells;
+            if (netCreamInput) netCreamInput.value = creamWt.toFixed(2);
+            const creamPct = ((creamWt / wtSandwich) * 100).toFixed(2);
+            readingInput.value = creamPct;
+        } else {
+            if (netCreamInput && (isNaN(wtSandwich) || isNaN(wtShells))) {
+                netCreamInput.value = "";
+            }
+        }
+        this.checkCreamStatus();
     },
 
     checkCreamStatus: function () {
-        const reading = parseFloat(document.getElementById("cream-reading").value) || 0;
-        const min = parseFloat(document.getElementById("cream-min").value) || 0;
-        const max = parseFloat(document.getElementById("cream-max").value) || 0;
-
+        const readingVal = document.getElementById("cream-reading")?.value;
         const statusInput = document.getElementById("cream-status");
+        if (!statusInput) return;
+
+        if (readingVal === "" || readingVal === undefined || isNaN(parseFloat(readingVal))) {
+            statusInput.value = "Pending";
+            statusInput.style.color = "#64748b";
+            return;
+        }
+
+        const reading = parseFloat(readingVal) || 0;
+        const min = parseFloat(document.getElementById("cream-min")?.value) || 0;
+        const max = parseFloat(document.getElementById("cream-max")?.value) || 0;
+
         if (reading >= min && reading <= max) {
             statusInput.value = "Pass";
-            statusInput.style.color = "green";
+            statusInput.style.color = "#16a34a";
         } else {
             statusInput.value = "Fail";
-            statusInput.style.color = "red";
+            statusInput.style.color = "#dc2626";
         }
     },
 
@@ -2516,9 +2881,11 @@ const PKGOPS_Checklist = {
                     <div class="col-md-3">
                         <label class="form-label fw-semibold">Type of Quality Wall</label>
                         <select class="form-select" id="wall-type" style="font-weight: 600;">
-                            <option value="Mini Wall">Mini Wall</option>
-                            <option value="Hot Wall">Hot Wall</option>
+                            <option value="Green Wall (Sustain)">Green Wall (Sustain)</option>
+                            <option value="Yellow Wall (Action Taken)">Yellow Wall (Action Taken)</option>
+                            <option value="Hot Wall (Abort)">Hot Wall (Abort)</option>
                             <option value="Routine Wall">Routine Wall</option>
+                            <option value="Mini Wall">Mini Wall</option>
                             <option value="Management Wall">Management Wall</option>
                         </select>
                     </div>
@@ -2544,81 +2911,123 @@ const PKGOPS_Checklist = {
                             </div>
                             <div id="dropdown-wall-members" class="pkgops-picker-dropdown" style="display: none;"></div>
                         </div>
-                        <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Multiple team members in single activity</div>
+                        <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Select panelists or add directly in scorecard below</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Sensory & Quality Rating Sections -->
+            <!-- 1. Individual Team Member Scores (Numerical Scale 0-4) -->
+            <div class="card border rounded p-3 mb-4 bg-white shadow-sm" style="border: 1px solid #cbd5e1 !important;">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                    <div>
+                        <h6 class="fw-bold text-dark mb-0" style="font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <i class="fa fa-users text-primary me-2"></i>Individual Team Member Scores (Scale 0-4)
+                        </h6>
+                        <div class="text-muted small mt-1" style="font-size: 11.5px;">
+                            Record separate sensory ratings for each panel member: 
+                            <span class="badge bg-success ms-1">Score 0-1: Green Wall (Sustain)</span> 
+                            <span class="badge bg-warning text-dark ms-1">Score 2&3: Yellow Wall (Action Taken)</span> 
+                            <span class="badge bg-danger ms-1">Score 4: Hot Wall (Abort)</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" onclick="PKGOPS_Checklist.addWallMemberRow()">
+                        <i class="fa fa-user-plus me-1"></i> + Add Team Member
+                    </button>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle mb-0" id="wall-members-table">
+                        <thead class="table-light">
+                            <tr style="font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.4px;">
+                                <th style="width: 40px;" class="text-center">#</th>
+                                <th style="min-width: 200px;">Team Member / Panelist <span class="text-danger">*</span></th>
+                                <th style="width: 160px;">Role / Dept</th>
+                                <th style="min-width: 210px;" class="text-center">Individual Score (0 - 4) <span class="text-danger">*</span></th>
+                                <th style="min-width: 180px;" class="text-center">Wall Status</th>
+                                <th style="min-width: 200px;">Sensory Observations / Notes</th>
+                                <th style="width: 50px;" class="text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="wall-members-tbody">
+                            <!-- Populated dynamically by renderWallMemberRows -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Overall Wall Status Alert Banner -->
+                <div id="wall-overall-alert" class="mt-3"></div>
+            </div>
+
+            <!-- Sensory & Quality Rating Sections (Scale 0-4) -->
             <div class="row g-4">
-                <!-- 1. Product Quality Sensory Evaluation (5 parameters) -->
+                <!-- 2. Product Quality Sensory Evaluation (5 parameters) -->
                 <div class="col-md-6">
                     <div class="card border rounded h-100 bg-white shadow-sm" style="border: 1px solid #bfdbfe !important;">
                         <div class="card-header bg-light d-flex justify-content-between align-items-center py-2 px-3" style="border-bottom: 1px solid #e2e8f0;">
                             <span class="fw-bold text-dark" style="font-size: 13px;">
                                 <i class="fa fa-cookie-bite text-primary me-1"></i> Product Quality Evaluation
                             </span>
-                            <span class="badge bg-primary px-2 py-1" id="wall-score-prod" style="font-size: 12px;">Avg: 5.00 / 5</span>
+                            <span class="badge bg-primary px-2 py-1" id="wall-score-prod" style="font-size: 12px;">Avg: 0.00 / 4</span>
                         </div>
                         <div class="card-body p-3">
                             <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Appearance (1-5)</label>
-                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-prod-appearance" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
+                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Appearance (0-4)</label>
+                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-prod-appearance" min="0" max="4" step="1" value="0" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Colour (1-5)</label>
-                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-prod-colour" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
+                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Colour (0-4)</label>
+                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-prod-colour" min="0" max="4" step="1" value="0" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Texture (1-5)</label>
-                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-prod-texture" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
+                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Texture (0-4)</label>
+                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-prod-texture" min="0" max="4" step="1" value="0" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Flavour (1-5)</label>
-                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-prod-flavour" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
+                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Flavour (0-4)</label>
+                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-prod-flavour" min="0" max="4" step="1" value="0" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Taste (1-5)</label>
-                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-prod-taste" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
+                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Taste (0-4)</label>
+                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-prod-taste" min="0" max="4" step="1" value="0" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
                                 </div>
                             </div>
-                            <div class="text-muted small mt-2" style="font-size: 11px;">Score scale: 1 (Poor) to 5 (Optimal / Superior)</div>
+                            <div class="text-muted small mt-2" style="font-size: 11px;">Score scale: 0-1 (Green / Sustain), 2-3 (Yellow / Action Taken), 4 (Hot / Abort)</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 2. Pack Quality Evaluation (3 parameters) -->
+                <!-- 3. Pack Quality Evaluation (3 parameters) -->
                 <div class="col-md-6">
                     <div class="card border rounded h-100 bg-white shadow-sm" style="border: 1px solid #bbf7d0 !important;">
                         <div class="card-header bg-light d-flex justify-content-between align-items-center py-2 px-3" style="border-bottom: 1px solid #e2e8f0;">
                             <span class="fw-bold text-dark" style="font-size: 13px;">
                                 <i class="fa fa-box-open text-success me-1"></i> Pack Quality Evaluation
                             </span>
-                            <span class="badge bg-success px-2 py-1" id="wall-score-pack" style="font-size: 12px;">Avg: 5.00 / 5</span>
+                            <span class="badge bg-success px-2 py-1" id="wall-score-pack" style="font-size: 12px;">Avg: 0.00 / 4</span>
                         </div>
                         <div class="card-body p-3">
                             <div class="row g-3">
                                 <div class="col-md-4">
-                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Pack Appearance (1-5)</label>
-                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-pack-appearance" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
+                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Pack Appearance (0-4)</label>
+                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-pack-appearance" min="0" max="4" step="1" value="0" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Sealing Quality (1-5)</label>
-                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-pack-sealing" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
+                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Sealing Quality (0-4)</label>
+                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-pack-sealing" min="0" max="4" step="1" value="0" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Coding (1-5)</label>
-                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-pack-coding" min="1" max="5" step="1" value="5" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
+                                    <label class="form-label fw-semibold" style="font-size: 12.5px;">Coding (0-4)</label>
+                                    <input type="number" class="form-control fw-bold wall-rating-input" id="wall-rating-pack-coding" min="0" max="4" step="1" value="0" oninput="PKGOPS_Checklist.validateRatingInput(this)" onblur="PKGOPS_Checklist.onRatingBlur(this)">
                                 </div>
                             </div>
-                            <div class="text-muted small mt-2" style="font-size: 11px;">Evaluates primary & secondary packaging integrity</div>
+                            <div class="text-muted small mt-2" style="font-size: 11px;">Evaluates primary & secondary packaging integrity (0-4)</div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Real-time Overall Score KPI Card -->
+            <!-- 4. Real-time Overall Score KPI Card -->
             <div class="row mt-4">
                 <div class="col-md-12">
                     <div class="card border rounded bg-white shadow-sm p-3" style="border: 1px solid #cbd5e1 !important;">
@@ -2634,15 +3043,15 @@ const PKGOPS_Checklist = {
                                     <div class="d-flex align-items-center gap-3 border-start ps-3">
                                         <div>
                                             <span class="text-muted d-block" style="font-size: 11px;">Product Avg</span>
-                                            <span id="wall-kpi-prod-score" class="fw-bold text-primary">5.00</span>
+                                            <span id="wall-kpi-prod-score" class="fw-bold text-primary">0.00</span>
                                         </div>
                                         <div>
                                             <span class="text-muted d-block" style="font-size: 11px;">Pack Avg</span>
-                                            <span id="wall-kpi-pack-score" class="fw-bold text-success">5.00</span>
+                                            <span id="wall-kpi-pack-score" class="fw-bold text-success">0.00</span>
                                         </div>
                                         <div>
-                                            <span class="text-muted d-block" style="font-size: 11px;">Combined Total</span>
-                                            <span id="wall-overall-rating" class="fw-bold text-primary fs-5">5.00 / 5</span>
+                                            <span class="text-muted d-block" style="font-size: 11px;">Panel Avg</span>
+                                            <span id="wall-overall-rating" class="fw-bold text-success fs-5">0.00 / 4</span>
                                         </div>
                                     </div>
                                 </div>
@@ -2650,10 +3059,10 @@ const PKGOPS_Checklist = {
                             <div class="col-md-5">
                                 <div class="d-flex justify-content-between align-items-center mb-1">
                                     <span id="wall-metric-status" class="fw-semibold text-success" style="font-size: 12px;">
-                                        <i class="fa fa-check-circle me-1"></i> Superior Quality (5.00)
+                                        <i class="fa fa-check-circle me-1"></i> Green Wall &bull; Sustain (0.00)
                                     </span>
                                     <span id="wall-metric-badge" class="badge bg-success" style="font-size: 13px; padding: 4px 10px;">
-                                        5.00 / 5.00
+                                        0.00 / 4.00
                                     </span>
                                 </div>
                                 <div class="progress" style="height: 10px; background-color: #e2e8f0; border-radius: 6px; overflow: hidden;">
@@ -2674,6 +3083,7 @@ const PKGOPS_Checklist = {
             </div>
         `;
         this.initQualityWallPickerState();
+        this.initWallMemberScores();
         this.calculateOverallWallRating();
     },
 
@@ -2797,6 +3207,9 @@ const PKGOPS_Checklist = {
 
         this.renderPickerChips(pickerKey);
         this.syncPickerHiddenInput(pickerKey);
+        if (pickerKey === "wall-members") {
+            this.syncWallMembersFromPicker();
+        }
 
         const input = document.getElementById(`picker-input-${pickerKey}`);
         if (input) {
@@ -2816,6 +3229,9 @@ const PKGOPS_Checklist = {
         );
         this.renderPickerChips(pickerKey);
         this.syncPickerHiddenInput(pickerKey);
+        if (pickerKey === "wall-members") {
+            this.syncWallMembersFromPicker();
+        }
 
         const input = document.getElementById(`picker-input-${pickerKey}`);
         if (input) {
@@ -2910,11 +3326,11 @@ const PKGOPS_Checklist = {
         }
         let num = parseFloat(val);
         if (isNaN(num)) {
-            input.value = "5";
-        } else if (num > 5) {
-            input.value = "5";
-        } else if (num < 1) {
-            input.value = "1";
+            input.value = "0";
+        } else if (num > 4) {
+            input.value = "4";
+        } else if (num < 0) {
+            input.value = "0";
         }
         this.calculateOverallWallRating();
     },
@@ -2923,37 +3339,255 @@ const PKGOPS_Checklist = {
         if (!input) return;
         let val = input.value;
         let num = parseFloat(val);
-        if (val === "" || isNaN(num) || num < 1) {
-            input.value = "1";
-        } else if (num > 5) {
-            input.value = "5";
+        if (val === "" || isNaN(num) || num < 0) {
+            input.value = "0";
+        } else if (num > 4) {
+            input.value = "4";
         }
+        this.calculateOverallWallRating();
+    },
+
+    getWallStatusFromScore: function (score) {
+        const s = parseInt(score, 10);
+        if (s === 4) {
+            return {
+                status: "Hot Wall (Abort)",
+                badgeClass: "bg-danger",
+                alertClass: "alert-danger",
+                icon: "fa-times-circle",
+                badgeHtml: `<span class="badge bg-danger wall-score-badge"><i class="fa fa-times-circle"></i> Hot Wall (Abort)</span>`
+            };
+        } else if (s === 2 || s === 3) {
+            return {
+                status: "Yellow Wall (Action Taken)",
+                badgeClass: "bg-warning text-dark",
+                alertClass: "alert-warning",
+                icon: "fa-exclamation-triangle",
+                badgeHtml: `<span class="badge bg-warning text-dark wall-score-badge"><i class="fa fa-exclamation-triangle"></i> Yellow Wall (Action Taken)</span>`
+            };
+        } else {
+            return {
+                status: "Green Wall (Sustain)",
+                badgeClass: "bg-success",
+                alertClass: "alert-success",
+                icon: "fa-check-circle",
+                badgeHtml: `<span class="badge bg-success wall-score-badge"><i class="fa fa-check-circle"></i> Green Wall (Sustain)</span>`
+            };
+        }
+    },
+
+    evaluateOverallWall: function () {
+        const scores = (this.wallMemberScores || []).map(m => parseInt(m.score, 10));
+        const totalMembers = scores.length || 1;
+        const sum = scores.reduce((acc, s) => acc + s, 0);
+        const avg = sum / totalMembers;
+
+        const countHot = scores.filter(s => s === 4).length;
+        const countYellow = scores.filter(s => s === 2 || s === 3).length;
+        const countGreen = scores.filter(s => s === 0 || s === 1).length;
+
+        let wallStatus = "Green Wall (Sustain)";
+        let alertClass = "alert-success";
+        let icon = "fa-check-circle";
+        let message = `All ${totalMembers} team member(s) scored 0-1 (Sustain). Optimal quality sustained.`;
+
+        if (countHot > 0) {
+            wallStatus = "Hot Wall (Abort)";
+            alertClass = "alert-danger";
+            icon = "fa-times-circle";
+            message = `CRITICAL: ${countHot} member(s) gave a Score of 4 (Hot Wall / Abort). Immediate line halt or containment action recommended!`;
+        } else if (countYellow > 0) {
+            wallStatus = "Yellow Wall (Action Taken)";
+            alertClass = "alert-warning";
+            icon = "fa-exclamation-triangle";
+            message = `ACTION REQUIRED: ${countYellow} member(s) scored 2-3 (Yellow Wall / Action Taken). Corrective actions needed.`;
+        }
+
+        return {
+            avg: avg,
+            wallStatus: wallStatus,
+            alertClass: alertClass,
+            icon: icon,
+            message: message,
+            countGreen: countGreen,
+            countYellow: countYellow,
+            countHot: countHot,
+            totalMembers: totalMembers
+        };
+    },
+
+    initWallMemberScores: function () {
+        if (!this.wallMemberScores || this.wallMemberScores.length === 0) {
+            const defaultName = (typeof PKGOPS_StateMachine !== "undefined" && PKGOPS_StateMachine.qaUserName) || "Panelist 1";
+            this.wallMemberScores = [
+                { id: "mem_" + Date.now(), name: defaultName, role: "Quality", score: 0, notes: "" }
+            ];
+        }
+        this.renderWallMemberRows();
+        this.syncWallMembersToInput();
+    },
+
+    renderWallMemberRows: function () {
+        const tbody = document.getElementById("wall-members-tbody");
+        if (!tbody) return;
+
+        if (!this.wallMemberScores || this.wallMemberScores.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-3">No team members added yet. Click "+ Add Team Member" to begin scoring.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = this.wallMemberScores.map((m, idx) => {
+            const statusInfo = this.getWallStatusFromScore(m.score);
+            const canDelete = this.wallMemberScores.length > 1;
+            return `
+                <tr data-member-id="${m.id}">
+                    <td class="text-center fw-bold text-muted">${idx + 1}</td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm fw-semibold wall-member-name" 
+                            value="${this.escapeHtml(m.name)}" 
+                            placeholder="Panelist Name..." 
+                            onchange="PKGOPS_Checklist.onWallMemberFieldChange('${m.id}', 'name', this.value)">
+                    </td>
+                    <td>
+                        <select class="form-select form-select-sm wall-member-role" 
+                            onchange="PKGOPS_Checklist.onWallMemberFieldChange('${m.id}', 'role', this.value)">
+                            <option value="Quality" ${m.role === 'Quality' ? 'selected' : ''}>Quality</option>
+                            <option value="Production" ${m.role === 'Production' ? 'selected' : ''}>Production</option>
+                            <option value="Packaging" ${m.role === 'Packaging' ? 'selected' : ''}>Packaging</option>
+                            <option value="Engineering" ${m.role === 'Engineering' ? 'selected' : ''}>Engineering</option>
+                            <option value="R&D" ${m.role === 'R&D' ? 'selected' : ''}>R&D</option>
+                            <option value="Panelist" ${m.role === 'Panelist' ? 'selected' : ''}>Panelist</option>
+                        </select>
+                    </td>
+                    <td class="text-center">
+                        <div class="wall-score-btn-group" role="group" aria-label="Score 0-4">
+                            ${[0, 1, 2, 3, 4].map(num => `
+                                <button type="button" 
+                                    class="wall-score-btn score-${num} ${m.score === num ? 'active score-' + num : ''}" 
+                                    onclick="PKGOPS_Checklist.onWallMemberScoreChange('${m.id}', ${num})">${num}</button>
+                            `).join("")}
+                        </div>
+                    </td>
+                    <td class="text-center">
+                        ${statusInfo.badgeHtml}
+                    </td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm wall-member-notes" 
+                            value="${this.escapeHtml(m.notes || '')}" 
+                            placeholder="Observations / notes..." 
+                            onchange="PKGOPS_Checklist.onWallMemberFieldChange('${m.id}', 'notes', this.value)">
+                    </td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-outline-danger p-1" 
+                            onclick="PKGOPS_Checklist.removeWallMemberRow('${m.id}')" 
+                            title="Remove member" 
+                            ${!canDelete ? 'disabled style="opacity:0.35;cursor:not-allowed;"' : ''}>
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join("");
+    },
+
+    addWallMemberRow: function (name = "", role = "Panelist") {
+        const newId = "mem_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+        this.wallMemberScores.push({
+            id: newId,
+            name: name || `Panelist ${this.wallMemberScores.length + 1}`,
+            role: role,
+            score: 0,
+            notes: ""
+        });
+        this.renderWallMemberRows();
+        this.syncWallMembersToInput();
+        this.calculateOverallWallRating();
+    },
+
+    removeWallMemberRow: function (id) {
+        if (this.wallMemberScores.length <= 1) {
+            alert("At least one team member score is required.");
+            return;
+        }
+        this.wallMemberScores = this.wallMemberScores.filter(m => m.id !== id);
+        this.renderWallMemberRows();
+        this.syncWallMembersToInput();
+        this.calculateOverallWallRating();
+    },
+
+    onWallMemberScoreChange: function (id, score) {
+        const m = this.wallMemberScores.find(item => item.id === id);
+        if (m) {
+            m.score = parseInt(score, 10);
+            this.renderWallMemberRows();
+            this.calculateOverallWallRating();
+        }
+    },
+
+    onWallMemberFieldChange: function (id, field, value) {
+        const m = this.wallMemberScores.find(item => item.id === id);
+        if (m) {
+            m[field] = value;
+            if (field === "name") {
+                this.syncWallMembersToInput();
+            }
+        }
+    },
+
+    syncWallMembersToInput: function () {
+        const input = document.getElementById("wall-members");
+        if (!input) return;
+        const names = (this.wallMemberScores || []).map(m => (m.name || "").trim()).filter(Boolean);
+        input.value = names.join(", ");
+    },
+
+    syncWallMembersFromPicker: function () {
+        const users = this.wallPickerState["wall-members"] || [];
+        if (!users || users.length === 0) return;
+
+        users.forEach(u => {
+            const uName = (u.title || u.email || "").trim();
+            if (uName && !this.wallMemberScores.some(m => m.name.toLowerCase() === uName.toLowerCase())) {
+                this.wallMemberScores.push({
+                    id: "mem_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
+                    name: uName,
+                    role: "Panelist",
+                    score: 0,
+                    notes: ""
+                });
+            }
+        });
+        this.renderWallMemberRows();
+        this.syncWallMembersToInput();
         this.calculateOverallWallRating();
     },
 
     calculateOverallWallRating: function () {
         const clamp = (val) => {
-            if (val === "" || val === null || val === undefined) return 5;
+            if (val === "" || val === null || val === undefined) return 0;
             const n = parseFloat(val);
-            if (isNaN(n)) return 5;
-            return Math.min(5, Math.max(1, n));
+            if (isNaN(n)) return 0;
+            return Math.min(4, Math.max(0, n));
         };
 
-        // Product Quality (5 parameters)
+        // Product Quality (5 parameters: 0-4)
         const pApp = clamp(document.getElementById("wall-rating-prod-appearance")?.value);
         const pCol = clamp(document.getElementById("wall-rating-prod-colour")?.value);
         const pTex = clamp(document.getElementById("wall-rating-prod-texture")?.value);
         const pFlv = clamp(document.getElementById("wall-rating-prod-flavour")?.value);
         const pTas = clamp(document.getElementById("wall-rating-prod-taste")?.value);
 
-        // Pack Quality (3 parameters)
+        // Pack Quality (3 parameters: 0-4)
         const pkApp = clamp(document.getElementById("wall-rating-pack-appearance")?.value);
         const pkSeal = clamp(document.getElementById("wall-rating-pack-sealing")?.value);
         const pkCod = clamp(document.getElementById("wall-rating-pack-coding")?.value);
 
         const prodAvg = (pApp + pCol + pTex + pFlv + pTas) / 5;
         const packAvg = (pkApp + pkSeal + pkCod) / 3;
-        const overallAvg = (pApp + pCol + pTex + pFlv + pTas + pkApp + pkSeal + pkCod) / 8;
+
+        // Evaluate Team Member scores
+        const evalResult = this.evaluateOverallWall();
+        const panelAvg = evalResult.avg;
 
         const prodScoreBadge = document.getElementById("wall-score-prod");
         const packScoreBadge = document.getElementById("wall-score-pack");
@@ -2963,55 +3597,79 @@ const PKGOPS_Checklist = {
         const metricStatus = document.getElementById("wall-metric-status");
         const metricBadge = document.getElementById("wall-metric-badge");
         const metricProgress = document.getElementById("wall-metric-progress");
+        const alertBox = document.getElementById("wall-overall-alert");
 
-        if (prodScoreBadge) prodScoreBadge.textContent = `Avg: ${prodAvg.toFixed(2)} / 5`;
-        if (packScoreBadge) packScoreBadge.textContent = `Avg: ${packAvg.toFixed(2)} / 5`;
+        if (prodScoreBadge) prodScoreBadge.textContent = `Avg: ${prodAvg.toFixed(2)} / 4`;
+        if (packScoreBadge) packScoreBadge.textContent = `Avg: ${packAvg.toFixed(2)} / 4`;
         if (kpiProdSpan) kpiProdSpan.textContent = prodAvg.toFixed(2);
         if (kpiPackSpan) kpiPackSpan.textContent = packAvg.toFixed(2);
 
         if (ratingSpan) {
-            ratingSpan.innerText = `${overallAvg.toFixed(2)} / 5`;
+            ratingSpan.innerText = `${panelAvg.toFixed(2)} / 4`;
         }
 
         if (metricBadge) {
-            metricBadge.textContent = `${overallAvg.toFixed(2)} / 5.00`;
+            metricBadge.textContent = `${evalResult.wallStatus} (${panelAvg.toFixed(2)} / 4)`;
         }
 
-        if (metricProgress) {
-            metricProgress.style.width = `${(overallAvg / 5) * 100}%`;
+        // Auto-sync Type of Quality Wall dropdown if available
+        const wallTypeSelect = document.getElementById("wall-type");
+        if (wallTypeSelect) {
+            wallTypeSelect.value = evalResult.wallStatus;
         }
 
-        if (overallAvg >= 4.5) {
-            if (ratingSpan) ratingSpan.className = "fw-bold text-success fs-5";
-            if (metricBadge) metricBadge.className = "badge bg-success";
-            if (metricProgress) metricProgress.className = "progress-bar bg-success";
-            if (metricStatus) {
-                metricStatus.className = "fw-semibold text-success";
-                metricStatus.innerHTML = `<i class="fa fa-check-circle me-1"></i> Superior Quality (${overallAvg.toFixed(2)})`;
-            }
-        } else if (overallAvg >= 3.5) {
-            if (ratingSpan) ratingSpan.className = "fw-bold text-primary fs-5";
-            if (metricBadge) metricBadge.className = "badge bg-primary";
-            if (metricProgress) metricProgress.className = "progress-bar bg-primary";
-            if (metricStatus) {
-                metricStatus.className = "fw-semibold text-primary";
-                metricStatus.innerHTML = `<i class="fa fa-check me-1"></i> Good / Optimal (${overallAvg.toFixed(2)})`;
-            }
-        } else if (overallAvg >= 2.5) {
-            if (ratingSpan) ratingSpan.className = "fw-bold text-warning fs-5";
-            if (metricBadge) metricBadge.className = "badge bg-warning text-dark";
-            if (metricProgress) metricProgress.className = "progress-bar bg-warning";
-            if (metricStatus) {
-                metricStatus.className = "fw-semibold text-warning";
-                metricStatus.innerHTML = `<i class="fa fa-exclamation-circle me-1"></i> Needs Improvement (${overallAvg.toFixed(2)})`;
-            }
-        } else {
+        // Update banner alert box
+        if (alertBox) {
+            alertBox.innerHTML = `
+                <div class="alert ${evalResult.alertClass} d-flex align-items-center justify-content-between p-2 mb-0 shadow-sm" style="font-size: 13px; border-radius: 6px;">
+                    <div class="d-flex align-items-center">
+                        <i class="fa ${evalResult.icon} fs-5 me-2"></i>
+                        <div>
+                            <strong>${evalResult.wallStatus}:</strong> ${evalResult.message}
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 ms-3">
+                        <span class="badge bg-success" title="Scores 0-1">Green: ${evalResult.countGreen}</span>
+                        <span class="badge bg-warning text-dark" title="Scores 2-3">Yellow: ${evalResult.countYellow}</span>
+                        <span class="badge bg-danger" title="Score 4">Hot: ${evalResult.countHot}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Visual styles based on wallStatus
+        if (evalResult.wallStatus === "Hot Wall (Abort)") {
             if (ratingSpan) ratingSpan.className = "fw-bold text-danger fs-5";
             if (metricBadge) metricBadge.className = "badge bg-danger";
-            if (metricProgress) metricProgress.className = "progress-bar bg-danger";
+            if (metricProgress) {
+                metricProgress.className = "progress-bar bg-danger";
+                metricProgress.style.width = "100%";
+            }
             if (metricStatus) {
                 metricStatus.className = "fw-bold text-danger";
-                metricStatus.innerHTML = `<i class="fa fa-times-circle me-1"></i> Below Standard (${overallAvg.toFixed(2)})`;
+                metricStatus.innerHTML = `<i class="fa fa-times-circle me-1"></i> Hot Wall &bull; Abort (${panelAvg.toFixed(2)})`;
+            }
+        } else if (evalResult.wallStatus === "Yellow Wall (Action Taken)") {
+            if (ratingSpan) ratingSpan.className = "fw-bold text-warning fs-5";
+            if (metricBadge) metricBadge.className = "badge bg-warning text-dark";
+            if (metricProgress) {
+                metricProgress.className = "progress-bar bg-warning";
+                metricProgress.style.width = `${Math.min(100, Math.max(25, (panelAvg / 4) * 100))}%`;
+            }
+            if (metricStatus) {
+                metricStatus.className = "fw-semibold text-warning";
+                metricStatus.innerHTML = `<i class="fa fa-exclamation-triangle me-1"></i> Yellow Wall &bull; Action Taken (${panelAvg.toFixed(2)})`;
+            }
+        } else {
+            if (ratingSpan) ratingSpan.className = "fw-bold text-success fs-5";
+            if (metricBadge) metricBadge.className = "badge bg-success";
+            if (metricProgress) {
+                metricProgress.className = "progress-bar bg-success";
+                metricProgress.style.width = `${Math.min(100, Math.max(10, (panelAvg / 4) * 100))}%`;
+            }
+            if (metricStatus) {
+                metricStatus.className = "fw-semibold text-success";
+                metricStatus.innerHTML = `<i class="fa fa-check-circle me-1"></i> Green Wall &bull; Sustain (${panelAvg.toFixed(2)})`;
             }
         }
     },
@@ -3299,6 +3957,14 @@ const PKGOPS_Checklist = {
                             countEl.focus();
                             return;
                         }
+                        const remarkEl = document.getElementById(`papa-other-remark-${i}`);
+                        if (remarkEl && !remarkEl.value.trim()) {
+                            PKGOPS_Validator.highlight(remarkEl, true);
+                            if (typeof HideLoader === "function") HideLoader();
+                            alert(`Please enter remarks for checked "Others" defect in Category ${PKGOPS_PAPA_DEFECTS_FLAT[i].category} (${PKGOPS_PAPA_DEFECTS_FLAT[i].type}).`);
+                            remarkEl.focus();
+                            return;
+                        }
                         sumCounts += countVal;
                     }
                 }
@@ -3329,9 +3995,17 @@ const PKGOPS_Checklist = {
                         overallDefectCount += count;
 
                         const defectItem = PKGOPS_PAPA_DEFECTS_FLAT[i];
+                        let defectName = defectItem.name;
+                        if (defectItem.name === "Others") {
+                            const remarkVal = (document.getElementById(`papa-other-remark-${i}`)?.value || "").trim();
+                            if (remarkVal) {
+                                defectName = `Others: ${remarkVal}`;
+                            }
+                        }
+
                         if (defectItem.category === "Category A" || defectItem.category === "A") {
                             categoryADefects.push({
-                                name: defectItem.name,
+                                name: defectName,
                                 count: count,
                                 remarks: `${product} (SKU: ${sku})`,
                                 area: `PAPA (${defectItem.type || "Defect"})`
@@ -3343,7 +4017,7 @@ const PKGOPS_Checklist = {
                             cr3ea_productname: product,
                             cr3ea_sku: sku,
                             cr3ea_noofsamples: String(sampleSize),
-                            cr3ea_defecttype: `${defectItem.name} (${defectItem.category} - ${defectItem.type})`,
+                            cr3ea_defecttype: `${defectName} (${defectItem.category} - ${defectItem.type})`,
                             cr3ea_defectcount: String(count),
                             cr3ea_defectwisepercentage: `${((count / sampleSize) * 100).toFixed(2)}%`,
                             cr3ea_deviationstatus: "Open",
@@ -3537,7 +4211,12 @@ const PKGOPS_Checklist = {
                 PKGOPS_Validator.clearAll("checklist-container");
                 const product = document.getElementById("cream-product")?.value || "";
                 const sku = document.getElementById("cream-sku")?.value || "";
+                const machine = document.getElementById("cream-machine")?.value || "";
                 const sampleSize = document.getElementById("cream-sample-size")?.value || "10";
+                const wtSandwich = document.getElementById("cream-wt-sandwich")?.value || "";
+                const wtShells = document.getElementById("cream-wt-shells")?.value || "";
+                const calculatedCreamWt = document.getElementById("cream-wt-net")?.value || "";
+                const target = document.getElementById("cream-target")?.value || "";
                 const reading = document.getElementById("cream-reading")?.value !== undefined ? document.getElementById("cream-reading").value.trim() : "";
                 const min = document.getElementById("cream-min")?.value || "20";
                 const max = document.getElementById("cream-max")?.value || "30";
@@ -3549,10 +4228,16 @@ const PKGOPS_Checklist = {
                     document.getElementById("cream-product")?.focus();
                     return;
                 }
+                if (!machine) {
+                    if (typeof HideLoader === "function") HideLoader();
+                    alert("Please select a Machine.");
+                    document.getElementById("cream-machine")?.focus();
+                    return;
+                }
                 if (reading === "") {
                     if (typeof HideLoader === "function") HideLoader();
-                    alert("Please enter the Cream Percentage Reading (%).");
-                    document.getElementById("cream-reading")?.focus();
+                    alert("Please enter the Weight of Sandwich & Weight of Shells to calculate the Cream % reading.");
+                    document.getElementById("cream-wt-sandwich")?.focus();
                     return;
                 }
 
@@ -3563,6 +4248,14 @@ const PKGOPS_Checklist = {
                 const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
                 const existingRowId = (this.savedCreamRow && (this.savedCreamRow.id || this.savedCreamRow.cr3ea_rajpura_pkgops_creampercentagesid || this.savedCreamRow.cr3ea_prod_rajpura_pkgops_creampercentagesid)) || null;
 
+                const creamMeta = {
+                    machine: machine,
+                    wtSandwich: wtSandwich,
+                    wtShells: wtShells,
+                    calculatedCreamWt: calculatedCreamWt,
+                    standardTarget: target
+                };
+
                 const creamRecord = {
                     cr3ea_name: `CreamPct_${sku || moment().format("DD-MM-YYYY_HHmm")}`,
                     cr3ea_productcategory: document.getElementById("cream-category")?.value || "Cream",
@@ -3572,8 +4265,9 @@ const PKGOPS_Checklist = {
                     cr3ea_creamreading: String(reading),
                     cr3ea_standardmin: String(min),
                     cr3ea_standardmax: String(max),
-                    cr3ea_status: status,
+                    cr3ea_status: status === "Pending" ? "Pass" : status,
                     cr3ea_deviationstatus: status === "Fail" ? "Open" : "None",
+                    cr3ea_remarks: JSON.stringify(creamMeta),
                     "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
                 };
 
@@ -3592,13 +4286,12 @@ const PKGOPS_Checklist = {
                     { id: "wall-product", name: "Product Name" },
                     { id: "wall-sku", name: "SKU" },
                     { id: "wall-type", name: "Type of Quality Wall" },
-                    { id: "wall-facilitator", name: "Facilitator" },
-                    { id: "wall-members", name: "Members Present" }
+                    { id: "wall-facilitator", name: "Facilitator" }
                 ];
                 for (let h of headers) {
                     const el = document.getElementById(h.id);
                     if (!el || !el.value.trim()) {
-                        if (h.id === "wall-facilitator" || h.id === "wall-members") {
+                        if (h.id === "wall-facilitator") {
                             const box = document.getElementById(`selected-chips-box-${h.id}`);
                             if (box) box.style.borderColor = "#ef4444";
                             const input = document.getElementById(`picker-input-${h.id}`);
@@ -3613,6 +4306,31 @@ const PKGOPS_Checklist = {
                     }
                 }
 
+                // Validate Team Member Scores (Requirement: separate scores for each team member on 0-4 scale)
+                if (!this.wallMemberScores || this.wallMemberScores.length === 0) {
+                    if (typeof HideLoader === "function") HideLoader();
+                    alert("Please add at least one team member in the scorecard.");
+                    return;
+                }
+
+                for (let i = 0; i < this.wallMemberScores.length; i++) {
+                    const m = this.wallMemberScores[i];
+                    if (!m.name || !m.name.trim()) {
+                        if (typeof HideLoader === "function") HideLoader();
+                        alert(`Please enter a name for Team Member #${i + 1}.`);
+                        const rowInput = document.querySelector(`tr[data-member-id="${m.id}"] .wall-member-name`);
+                        if (rowInput) rowInput.focus();
+                        return;
+                    }
+                    const s = parseInt(m.score, 10);
+                    if (isNaN(s) || s < 0 || s > 4) {
+                        if (typeof HideLoader === "function") HideLoader();
+                        alert(`Score for ${m.name} must be between 0 and 4.`);
+                        return;
+                    }
+                }
+
+                // Validate Product and Pack Quality ratings (0 - 4 scale)
                 const ratingFields = [
                     // Product Quality (5 items)
                     { id: "wall-rating-prod-appearance", name: "Product Appearance" },
@@ -3629,10 +4347,10 @@ const PKGOPS_Checklist = {
                 for (let r of ratingFields) {
                     const el = document.getElementById(r.id);
                     const val = parseFloat(el ? el.value : "");
-                    if (!el || isNaN(val) || val < 1 || val > 5) {
+                    if (!el || isNaN(val) || val < 0 || val > 4) {
                         if (el) PKGOPS_Validator.highlight(el, true);
                         if (typeof HideLoader === "function") HideLoader();
-                        alert(`${r.name} rating must be a valid number between 1 and 5.`);
+                        alert(`${r.name} rating must be a valid number between 0 and 4.`);
                         if (el) el.focus();
                         return;
                     }
@@ -3643,10 +4361,13 @@ const PKGOPS_Checklist = {
                 const line = document.getElementById("wall-line")?.value || (PKGOPS_StateMachine.currentSession && PKGOPS_StateMachine.currentSession.cr3ea_lineno) || "";
                 const pkdBatch = document.getElementById("wall-pkdbatch")?.value || "";
                 const facilitator = document.getElementById("wall-facilitator").value;
-                const type = document.getElementById("wall-type").value;
-                const members = document.getElementById("wall-members").value;
+                const type = document.getElementById("wall-type")?.value || "Green Wall (Sustain)";
+                
+                // Sync all member names to members string
+                this.syncWallMembersToInput();
+                const members = document.getElementById("wall-members")?.value || this.wallMemberScores.map(m => m.name).join(", ");
 
-                const clamp = (v) => Math.min(5, Math.max(1, parseFloat(v) || 5));
+                const clamp = (v) => Math.min(4, Math.max(0, parseFloat(v) || 0));
                 const pApp = clamp(document.getElementById("wall-rating-prod-appearance")?.value);
                 const pCol = clamp(document.getElementById("wall-rating-prod-colour")?.value);
                 const pTex = clamp(document.getElementById("wall-rating-prod-texture")?.value);
@@ -3657,12 +4378,39 @@ const PKGOPS_Checklist = {
                 const pkSeal = clamp(document.getElementById("wall-rating-pack-sealing")?.value);
                 const pkCod = clamp(document.getElementById("wall-rating-pack-coding")?.value);
 
-                const userRemarks = document.getElementById("wall-remarks")?.value.trim() || "";
-                const sum8 = pApp + pCol + pTex + pFlv + pTas + pkApp + pkSeal + pkCod;
-                const overallAvg = (sum8 / 8).toFixed(2);
+                const prodAvg = ((pApp + pCol + pTex + pFlv + pTas) / 5).toFixed(2);
+                const packAvg = ((pkApp + pkSeal + pkCod) / 3).toFixed(2);
 
-                const prodQualityHeader = `[Product Quality | Appearance: ${pApp}, Colour: ${pCol}, Texture: ${pTex}, Flavour: ${pFlv}, Taste: ${pTas}]`;
-                const fullRemarks = userRemarks ? `${prodQualityHeader} ${userRemarks}` : prodQualityHeader;
+                const evalResult = this.evaluateOverallWall();
+                const panelAvg = evalResult.avg.toFixed(2);
+                const overallAvg = ((parseFloat(prodAvg) + parseFloat(packAvg) + parseFloat(panelAvg)) / 3).toFixed(2);
+
+                const isWallDeviation = evalResult.wallStatus.includes("Hot") || evalResult.wallStatus.includes("Yellow") || evalResult.wallStatus.includes("Abort") || evalResult.wallStatus.includes("Action");
+                if (isWallDeviation) {
+                    hasDeviation = true;
+                }
+
+                const userRemarks = document.getElementById("wall-remarks")?.value.trim() || "";
+
+                const wallMeta = {
+                    memberScores: (this.wallMemberScores || []).map(m => ({
+                        id: m.id,
+                        name: m.name,
+                        role: m.role || "Panelist",
+                        score: parseInt(m.score, 10),
+                        status: this.getWallStatusFromScore(m.score).status,
+                        notes: m.notes || ""
+                    })),
+                    overallWallStatus: evalResult.wallStatus,
+                    panelAvg: panelAvg,
+                    prodAvg: prodAvg,
+                    packAvg: packAvg,
+                    overallAvg: overallAvg,
+                    prodRatings: { appearance: pApp, colour: pCol, texture: pTex, flavour: pFlv, taste: pTas },
+                    packRatings: { appearance: pkApp, sealing: pkSeal, coding: pkCod },
+                    userRemarks: userRemarks,
+                    deviationStatus: hasDeviation ? "Open" : "None"
+                };
 
                 const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
 
@@ -3673,13 +4421,13 @@ const PKGOPS_Checklist = {
                     cr3ea_lineno: line,
                     cr3ea_pkdbatchno: pkdBatch,
                     cr3ea_facilitator: facilitator,
-                    cr3ea_typeofqualitywall: type,
+                    cr3ea_typeofqualitywall: evalResult.wallStatus || type,
                     cr3ea_memberspresent: members,
                     cr3ea_packappearancerating: String(pkApp),
                     cr3ea_sealingqualityrating: String(pkSeal),
                     cr3ea_codingrating: String(pkCod),
-                    cr3ea_overallrating: String(overallAvg),
-                    cr3ea_remarks: fullRemarks,
+                    cr3ea_overallrating: String(panelAvg),
+                    cr3ea_remarks: JSON.stringify(wallMeta),
                     "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
                 };
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_QUALITY_WALL", this.currentTourId);
@@ -3884,12 +4632,21 @@ const PKGOPS_Checklist = {
                     if (isChecked && count > 0) {
                         overallDefectCount += count;
 
+                        const defectItem = PKGOPS_PAPA_DEFECTS_FLAT[i];
+                        let defectName = defectItem.name;
+                        if (defectItem.name === "Others") {
+                            const remarkVal = (document.getElementById(`papa-other-remark-${i}`)?.value || "").trim();
+                            if (remarkVal) {
+                                defectName = `Others: ${remarkVal}`;
+                            }
+                        }
+
                         const papaRecord = {
                             cr3ea_name: `PAPA_${sku}`,
                             cr3ea_productname: product,
                             cr3ea_sku: sku,
                             cr3ea_noofsamples: String(sampleSize),
-                            cr3ea_defecttype: `${PKGOPS_PAPA_DEFECTS_FLAT[i].name} (${PKGOPS_PAPA_DEFECTS_FLAT[i].category} - ${PKGOPS_PAPA_DEFECTS_FLAT[i].type})`,
+                            cr3ea_defecttype: `${defectName} (${defectItem.category} - ${defectItem.type})`,
                             cr3ea_defectcount: String(count),
                             cr3ea_defectwisepercentage: `${((count / sampleSize) * 100).toFixed(2)}%`,
                             cr3ea_deviationstatus: "Open",
@@ -3948,7 +4705,7 @@ const PKGOPS_Checklist = {
                         const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
 
                         const netWeightRecord = {
-                            cr3ea_name: `PQI_NetWeight_${sku || 'Draft'}_${moment().format("DD-MM-YYYY")}`,
+                            cr3ea_name: `PQI_NetWeight_Std:${standard || 0}_${sku || 'Draft'}_${moment().format("DD-MM-YYYY")}`.substring(0, 240),
                             cr3ea_productname: product,
                             cr3ea_sku: sku,
                             cr3ea_averageweight: Number(avg.toFixed(2)),
@@ -3963,7 +4720,9 @@ const PKGOPS_Checklist = {
                         await PKGOPS_DAL.cleanSubChecklistRows("CHILD_PQI_NET_WEIGHT", this.currentTourId);
                         await PKGOPS_DAL.saveSubChecklistRow("CHILD_PQI_NET_WEIGHT", netWeightRecord);
                         this.savedPqiNetWeight = { ...netWeightRecord, cr3ea_standardweight: standard };
-                        this.pqiSubChecklistsFilled.NetWeight = true;
+                        if (filledWeights.length === 15 && standard > 0) {
+                            this.pqiSubChecklistsFilled.NetWeight = true;
+                        }
                         this.updatePqiBadges();
                     }
                 } else {
@@ -3985,7 +4744,12 @@ const PKGOPS_Checklist = {
                         for (let idx = 0; idx < 10; idx++) {
                             const status = document.getElementById(`pqi-eval-status-${idx}`)?.value || "Okay";
                             const cat = document.getElementById(`pqi-eval-cat-${idx}`)?.value || "";
-                            const detail = document.getElementById(`pqi-eval-detail-${idx}`)?.value || "";
+                            let detail = document.getElementById(`pqi-eval-detail-${idx}`)?.value || "";
+                            const otherEl = document.getElementById(`pqi-eval-detail-other-${idx}`);
+                            const dVal = (detail || "").trim().toLowerCase();
+                            if ((dVal === "others" || dVal === "other") && otherEl && otherEl.value.trim()) {
+                                detail = `Others: ${otherEl.value.trim()}`;
+                            }
                             const fileInput = document.getElementById(`pqi-eval-file-${idx}`);
 
                             let pictureUrl = "";
@@ -4096,7 +4860,12 @@ const PKGOPS_Checklist = {
             else if (this.pkgopsType === "Cream Percentage") {
                 const product = document.getElementById("cream-product")?.value || "";
                 const sku = document.getElementById("cream-sku")?.value || "";
+                const machine = document.getElementById("cream-machine")?.value || "";
                 const sampleSize = document.getElementById("cream-sample-size")?.value || "10";
+                const wtSandwich = document.getElementById("cream-wt-sandwich")?.value || "";
+                const wtShells = document.getElementById("cream-wt-shells")?.value || "";
+                const calculatedCreamWt = document.getElementById("cream-wt-net")?.value || "";
+                const target = document.getElementById("cream-target")?.value || "";
                 const reading = document.getElementById("cream-reading")?.value !== undefined ? document.getElementById("cream-reading").value.trim() : "";
                 const min = document.getElementById("cream-min")?.value || "20";
                 const max = document.getElementById("cream-max")?.value || "30";
@@ -4104,6 +4873,14 @@ const PKGOPS_Checklist = {
 
                 const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
                 const existingRowId = (this.savedCreamRow && (this.savedCreamRow.id || this.savedCreamRow.cr3ea_rajpura_pkgops_creampercentagesid || this.savedCreamRow.cr3ea_prod_rajpura_pkgops_creampercentagesid)) || null;
+
+                const creamMeta = {
+                    machine: machine,
+                    wtSandwich: wtSandwich,
+                    wtShells: wtShells,
+                    calculatedCreamWt: calculatedCreamWt,
+                    standardTarget: target
+                };
 
                 const creamRecord = {
                     cr3ea_name: `CreamPct_${sku || moment().format("DD-MM-YYYY_HHmm")}`,
@@ -4114,8 +4891,9 @@ const PKGOPS_Checklist = {
                     cr3ea_creamreading: String(reading),
                     cr3ea_standardmin: String(min),
                     cr3ea_standardmax: String(max),
-                    cr3ea_status: status,
+                    cr3ea_status: status === "Pending" ? "Pass" : status,
                     cr3ea_deviationstatus: status === "Fail" ? "Open" : "None",
+                    cr3ea_remarks: JSON.stringify(creamMeta),
                     "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
                 };
 
@@ -4134,10 +4912,12 @@ const PKGOPS_Checklist = {
                 const line = document.getElementById("wall-line")?.value || (PKGOPS_StateMachine.currentSession && PKGOPS_StateMachine.currentSession.cr3ea_lineno) || "";
                 const pkdBatch = document.getElementById("wall-pkdbatch")?.value || "";
                 const facilitator = document.getElementById("wall-facilitator")?.value || "";
-                const type = document.getElementById("wall-type")?.value || "Routine Wall";
-                const members = document.getElementById("wall-members")?.value || "";
+                const type = document.getElementById("wall-type")?.value || "Green Wall (Sustain)";
+                
+                this.syncWallMembersToInput();
+                const members = document.getElementById("wall-members")?.value || (this.wallMemberScores || []).map(m => m.name).join(", ");
 
-                const clamp = (v) => Math.min(5, Math.max(1, parseFloat(v) || 5));
+                const clamp = (v) => Math.min(4, Math.max(0, parseFloat(v) || 0));
                 const pApp = clamp(document.getElementById("wall-rating-prod-appearance")?.value);
                 const pCol = clamp(document.getElementById("wall-rating-prod-colour")?.value);
                 const pTex = clamp(document.getElementById("wall-rating-prod-texture")?.value);
@@ -4148,12 +4928,34 @@ const PKGOPS_Checklist = {
                 const pkSeal = clamp(document.getElementById("wall-rating-pack-sealing")?.value);
                 const pkCod = clamp(document.getElementById("wall-rating-pack-coding")?.value);
 
-                const userRemarks = document.getElementById("wall-remarks")?.value.trim() || "";
-                const sum8 = pApp + pCol + pTex + pFlv + pTas + pkApp + pkSeal + pkCod;
-                const overallAvg = (sum8 / 8).toFixed(2);
+                const prodAvg = ((pApp + pCol + pTex + pFlv + pTas) / 5).toFixed(2);
+                const packAvg = ((pkApp + pkSeal + pkCod) / 3).toFixed(2);
 
-                const prodQualityHeader = `[Product Quality | Appearance: ${pApp}, Colour: ${pCol}, Texture: ${pTex}, Flavour: ${pFlv}, Taste: ${pTas}]`;
-                const fullRemarks = userRemarks ? `${prodQualityHeader} ${userRemarks}` : prodQualityHeader;
+                const evalResult = this.evaluateOverallWall ? this.evaluateOverallWall() : { avg: 0, wallStatus: type };
+                const panelAvg = (evalResult.avg || 0).toFixed(2);
+                const overallAvg = ((parseFloat(prodAvg) + parseFloat(packAvg) + parseFloat(panelAvg)) / 3).toFixed(2);
+
+                const userRemarks = document.getElementById("wall-remarks")?.value.trim() || "";
+
+                const wallMeta = {
+                    memberScores: (this.wallMemberScores || []).map(m => ({
+                        id: m.id,
+                        name: m.name,
+                        role: m.role || "Panelist",
+                        score: parseInt(m.score, 10),
+                        status: this.getWallStatusFromScore(m.score).status,
+                        notes: m.notes || ""
+                    })),
+                    overallWallStatus: evalResult.wallStatus || type,
+                    panelAvg: panelAvg,
+                    prodAvg: prodAvg,
+                    packAvg: packAvg,
+                    overallAvg: overallAvg,
+                    prodRatings: { appearance: pApp, colour: pCol, texture: pTex, flavour: pFlv, taste: pTas },
+                    packRatings: { appearance: pkApp, sealing: pkSeal, coding: pkCod },
+                    userRemarks: userRemarks,
+                    deviationStatus: (evalResult.wallStatus && (evalResult.wallStatus.includes("Hot") || evalResult.wallStatus.includes("Yellow") || evalResult.wallStatus.includes("Abort") || evalResult.wallStatus.includes("Action"))) ? "Open" : "None"
+                };
 
                 const cleanTourId = String(this.currentTourId).replace(/[{}]/g, "").trim().toLowerCase();
 
@@ -4164,13 +4966,13 @@ const PKGOPS_Checklist = {
                     cr3ea_lineno: line,
                     cr3ea_pkdbatchno: pkdBatch,
                     cr3ea_facilitator: facilitator,
-                    cr3ea_typeofqualitywall: type,
+                    cr3ea_typeofqualitywall: evalResult.wallStatus || type,
                     cr3ea_memberspresent: members,
                     cr3ea_packappearancerating: String(pkApp),
                     cr3ea_sealingqualityrating: String(pkSeal),
                     cr3ea_codingrating: String(pkCod),
-                    cr3ea_overallrating: String(overallAvg),
-                    cr3ea_remarks: fullRemarks,
+                    cr3ea_overallrating: String(panelAvg),
+                    cr3ea_remarks: JSON.stringify(wallMeta),
                     "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
                 };
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_QUALITY_WALL", this.currentTourId);
@@ -4338,11 +5140,36 @@ const PKGOPS_Checklist = {
                             const category = matches ? matches[1].toUpperCase() : null;
                             const type = matches ? matches[2] : null;
 
-                            const flatIdx = PKGOPS_PAPA_DEFECTS_FLAT.findIndex(d => 
-                                d.name.trim().toLowerCase() === cleanName.toLowerCase() &&
-                                (!category || d.category === category) &&
-                                (!type || d.type.toLowerCase() === type.toLowerCase())
-                            );
+                            const isOthers = cleanName.toLowerCase().startsWith("others:") || cleanName.toLowerCase().startsWith("others -") || cleanName.toLowerCase() === "others";
+                            let otherRemark = "";
+                            if (isOthers) {
+                                otherRemark = cleanName.replace(/^others[:\s-]+/i, "").trim();
+                            }
+
+                            const legacyAliases = {
+                                "rogh taping on tin": "rough taping on tin",
+                                "poor gazetting": "poor gusseting",
+                                "damge duplex/open duplex": "damaged duplex / open duplex",
+                                "de shaped": "de-shaped",
+                                "chocking": "choking",
+                                "wegging": "wedging",
+                                "coding out": "coding out",
+                                "improper sealing on cup": "improper sealing on cup"
+                            };
+
+                            const flatIdx = PKGOPS_PAPA_DEFECTS_FLAT.findIndex(d => {
+                                if (category && d.category !== category) return false;
+                                if (type && d.type.toLowerCase() !== type.toLowerCase()) return false;
+
+                                if (isOthers && d.name.toLowerCase() === "others") return true;
+
+                                const dNameLower = d.name.trim().toLowerCase();
+                                const cNameLower = cleanName.toLowerCase();
+                                if (dNameLower === cNameLower) return true;
+                                if (legacyAliases[cNameLower] === dNameLower) return true;
+
+                                return false;
+                            });
 
                             if (flatIdx !== -1) {
                                 const chk = document.getElementById(`papa-chk-${flatIdx}`);
@@ -4352,6 +5179,14 @@ const PKGOPS_Checklist = {
                                 }
                                 const countInput = document.getElementById(`papa-count-${flatIdx}`);
                                 if (countInput) countInput.value = row.cr3ea_defectcount || "0";
+
+                                if (isOthers && otherRemark) {
+                                    const remarkInput = document.getElementById(`papa-other-remark-${flatIdx}`);
+                                    if (remarkInput) {
+                                        remarkInput.value = otherRemark;
+                                        remarkInput.style.display = "block";
+                                    }
+                                }
                             }
                         }
                     });
@@ -4367,6 +5202,16 @@ const PKGOPS_Checklist = {
 
                 if (nwRows && nwRows.length > 0) {
                     const row = nwRows[0];
+                    if (!row.cr3ea_standardweight && row.cr3ea_name) {
+                        const match = row.cr3ea_name.match(/Std:([0-9.]+)/i);
+                        if (match) row.cr3ea_standardweight = parseFloat(match[1]);
+                    }
+                    if (!row.cr3ea_standardweight) {
+                        row.cr3ea_standardweight = this.extractPackWeight(row.cr3ea_sku || row.cr3ea_productname);
+                    }
+                    if (!row.cr3ea_standardweight && row.cr3ea_averageweight > 0 && row.cr3ea_giveaway !== undefined) {
+                        row.cr3ea_standardweight = Number((row.cr3ea_averageweight - (row.cr3ea_giveaway || 0)).toFixed(2));
+                    }
                     this.savedPqiNetWeight = row;
                     this.pqiSubChecklistsFilled.NetWeight = true;
                 }
@@ -4391,7 +5236,17 @@ const PKGOPS_Checklist = {
                     const row = rows[0];
                     if (document.getElementById("seal-product")) this.setProductWithCategory("seal", row.cr3ea_productname);
                     if (document.getElementById("seal-sku")) this.setSelectValueSafely("seal-sku", row.cr3ea_sku);
-                    if (document.getElementById("seal-machine")) document.getElementById("seal-machine").value = row.cr3ea_machineno || "";
+                    if (document.getElementById("seal-machine")) {
+                        const smEl = document.getElementById("seal-machine");
+                        smEl.value = row.cr3ea_machineno || "";
+                        if (row.cr3ea_machineno && smEl.value !== row.cr3ea_machineno) {
+                            const opt = document.createElement("option");
+                            opt.value = row.cr3ea_machineno;
+                            opt.textContent = row.cr3ea_machineno;
+                            opt.selected = true;
+                            smEl.appendChild(opt);
+                        }
+                    }
                     if (document.getElementById("seal-qty")) document.getElementById("seal-qty").value = row.cr3ea_samplequantity || "10";
 
                     // Clear previous rows
@@ -4469,23 +5324,65 @@ const PKGOPS_Checklist = {
                         row.cr3ea_memberspresent ? this.populatePickerFromSavedValue("wall-members", row.cr3ea_memberspresent) : Promise.resolve()
                     ]);
 
-                    // Pack Quality (3 parameters)
-                    if (document.getElementById("wall-rating-pack-appearance")) document.getElementById("wall-rating-pack-appearance").value = row.cr3ea_packappearancerating || "5";
-                    if (document.getElementById("wall-rating-pack-sealing")) document.getElementById("wall-rating-pack-sealing").value = row.cr3ea_sealingqualityrating || "5";
-                    if (document.getElementById("wall-rating-pack-coding")) document.getElementById("wall-rating-pack-coding").value = row.cr3ea_codingrating || "5";
-
                     let rawRemarks = row.cr3ea_remarks || "";
-                    let prodRatings = { appearance: 5, colour: 5, texture: 5, flavour: 5, taste: 5 };
+                    let meta = null;
+                    try {
+                        if (rawRemarks && rawRemarks.trim().startsWith("{")) {
+                            meta = JSON.parse(rawRemarks);
+                        }
+                    } catch (e) {
+                        console.warn("Could not parse wall JSON remarks:", e);
+                    }
 
-                    // Parse Product Quality header e.g. [Product Quality | Appearance: 5, Colour: 5, Texture: 5, Flavour: 5, Taste: 5]
-                    const prodMatch = rawRemarks.match(/\[Product Quality\s*\|\s*Appearance:\s*(\d+(?:\.\d+)?),\s*Colour:\s*(\d+(?:\.\d+)?),\s*Texture:\s*(\d+(?:\.\d+)?),\s*Flavour:\s*(\d+(?:\.\d+)?),\s*Taste:\s*(\d+(?:\.\d+)?)\]/i);
-                    if (prodMatch) {
-                        prodRatings.appearance = prodMatch[1];
-                        prodRatings.colour = prodMatch[2];
-                        prodRatings.texture = prodMatch[3];
-                        prodRatings.flavour = prodMatch[4];
-                        prodRatings.taste = prodMatch[5];
-                        rawRemarks = rawRemarks.replace(prodMatch[0], "").trim();
+                    // Restore team member scores
+                    if (meta && Array.isArray(meta.memberScores) && meta.memberScores.length > 0) {
+                        this.wallMemberScores = meta.memberScores.map(m => ({
+                            id: m.id || ("mem_" + Math.random()),
+                            name: m.name || "",
+                            role: m.role || "Panelist",
+                            score: typeof m.score === "number" ? m.score : parseInt(m.score, 10) || 0,
+                            notes: m.notes || ""
+                        }));
+                    } else if (row.cr3ea_memberspresent) {
+                        const names = row.cr3ea_memberspresent.split(/[,;]+/).map(n => n.trim()).filter(Boolean);
+                        if (names.length > 0) {
+                            this.wallMemberScores = names.map((name, idx) => ({
+                                id: "mem_leg_" + idx,
+                                name: name,
+                                role: "Panelist",
+                                score: 0,
+                                notes: ""
+                            }));
+                        }
+                    }
+
+                    this.renderWallMemberRows();
+                    this.syncWallMembersToInput();
+
+                    // Restore ratings
+                    let prodRatings = { appearance: 0, colour: 0, texture: 0, flavour: 0, taste: 0 };
+                    let packRatings = {
+                        appearance: row.cr3ea_packappearancerating || "0",
+                        sealing: row.cr3ea_sealingqualityrating || "0",
+                        coding: row.cr3ea_codingrating || "0"
+                    };
+                    let userRemarksText = rawRemarks;
+
+                    if (meta) {
+                        if (meta.prodRatings) prodRatings = meta.prodRatings;
+                        if (meta.packRatings) packRatings = meta.packRatings;
+                        userRemarksText = meta.userRemarks || "";
+                    } else {
+                        // Legacy regex parsing
+                        const prodMatch = rawRemarks.match(/\[Product Quality\s*\|\s*Appearance:\s*(\d+(?:\.\d+)?),\s*Colour:\s*(\d+(?:\.\d+)?),\s*Texture:\s*(\d+(?:\.\d+)?),\s*Flavour:\s*(\d+(?:\.\d+)?),\s*Taste:\s*(\d+(?:\.\d+)?)\]/i);
+                        if (prodMatch) {
+                            prodRatings.appearance = prodMatch[1];
+                            prodRatings.colour = prodMatch[2];
+                            prodRatings.texture = prodMatch[3];
+                            prodRatings.flavour = prodMatch[4];
+                            prodRatings.taste = prodMatch[5];
+                            userRemarksText = rawRemarks.replace(prodMatch[0], "").trim();
+                        }
                     }
 
                     if (document.getElementById("wall-rating-prod-appearance")) document.getElementById("wall-rating-prod-appearance").value = prodRatings.appearance;
@@ -4494,7 +5391,11 @@ const PKGOPS_Checklist = {
                     if (document.getElementById("wall-rating-prod-flavour")) document.getElementById("wall-rating-prod-flavour").value = prodRatings.flavour;
                     if (document.getElementById("wall-rating-prod-taste")) document.getElementById("wall-rating-prod-taste").value = prodRatings.taste;
 
-                    if (document.getElementById("wall-remarks")) document.getElementById("wall-remarks").value = rawRemarks;
+                    if (document.getElementById("wall-rating-pack-appearance")) document.getElementById("wall-rating-pack-appearance").value = packRatings.appearance;
+                    if (document.getElementById("wall-rating-pack-sealing")) document.getElementById("wall-rating-pack-sealing").value = packRatings.sealing;
+                    if (document.getElementById("wall-rating-pack-coding")) document.getElementById("wall-rating-pack-coding").value = packRatings.coding;
+
+                    if (document.getElementById("wall-remarks")) document.getElementById("wall-remarks").value = userRemarksText;
                     PKGOPS_Checklist.calculateOverallWallRating();
                 }
             }
@@ -4509,6 +5410,38 @@ const PKGOPS_Checklist = {
                     if (document.getElementById("cream-reading")) document.getElementById("cream-reading").value = row.cr3ea_creamreading || "";
                     if (document.getElementById("cream-min")) document.getElementById("cream-min").value = row.cr3ea_standardmin || "20";
                     if (document.getElementById("cream-max")) document.getElementById("cream-max").value = row.cr3ea_standardmax || "30";
+
+                    if (row.cr3ea_remarks) {
+                        try {
+                            const meta = JSON.parse(row.cr3ea_remarks);
+                            if (meta.machine && document.getElementById("cream-machine")) {
+                                const cmEl = document.getElementById("cream-machine");
+                                cmEl.value = meta.machine;
+                                if (cmEl.value !== meta.machine) {
+                                    const opt = document.createElement("option");
+                                    opt.value = meta.machine;
+                                    opt.textContent = meta.machine;
+                                    opt.selected = true;
+                                    cmEl.appendChild(opt);
+                                }
+                            }
+                            if (meta.wtSandwich && document.getElementById("cream-wt-sandwich")) {
+                                document.getElementById("cream-wt-sandwich").value = meta.wtSandwich;
+                            }
+                            if (meta.wtShells && document.getElementById("cream-wt-shells")) {
+                                document.getElementById("cream-wt-shells").value = meta.wtShells;
+                            }
+                            if (meta.calculatedCreamWt && document.getElementById("cream-wt-net")) {
+                                document.getElementById("cream-wt-net").value = meta.calculatedCreamWt;
+                            }
+                            if (meta.standardTarget && document.getElementById("cream-target")) {
+                                document.getElementById("cream-target").value = meta.standardTarget;
+                            }
+                        } catch (e) {
+                            // Non-JSON remarks
+                        }
+                    }
+
                     if (document.getElementById("cream-status")) {
                         document.getElementById("cream-status").value = row.cr3ea_status || "Pass";
                         this.checkCreamStatus();
@@ -4556,15 +5489,22 @@ const PKGOPS_Checklist = {
         if (val === "NetWeight") {
             const row = this.savedPqiNetWeight;
             let std = row ? row.cr3ea_standardweight : null;
+            if (!std && row && row.cr3ea_name) {
+                const match = row.cr3ea_name.match(/Std:([0-9.]+)/i);
+                if (match) std = parseFloat(match[1]);
+            }
             if (!std) {
                 const currentSku = document.getElementById("pqi-sku")?.value || (row && row.cr3ea_sku);
-                if (currentSku) {
-                    const skuNum = parseFloat(String(currentSku).replace(/[^0-9.]/g, ""));
-                    if (!isNaN(skuNum) && skuNum > 0) std = skuNum;
-                }
+                const currentProd = document.getElementById("pqi-product")?.value || (row && row.cr3ea_productname);
+                std = this.extractPackWeight(currentSku) || this.extractPackWeight(currentProd);
+            }
+            if (!std && row && row.cr3ea_averageweight > 0 && row.cr3ea_giveaway !== undefined) {
+                std = Number((row.cr3ea_averageweight - (row.cr3ea_giveaway || 0)).toFixed(2));
             }
             if (document.getElementById("pqi-nw-standard")) {
-                document.getElementById("pqi-nw-standard").value = std || "150";
+                if (std && !isNaN(std) && std > 0) {
+                    document.getElementById("pqi-nw-standard").value = std;
+                }
             }
 
             if (row) {
@@ -4572,7 +5512,7 @@ const PKGOPS_Checklist = {
                     const weightEl = document.getElementById(`pqi-weight-${i}`);
                     if (weightEl) {
                         const valWeight = row[`cr3ea_sampleweight${i + 1}`];
-                        weightEl.value = (valWeight !== null && valWeight !== undefined && valWeight !== "" && valWeight !== 0) ? valWeight : (valWeight === 0 ? "0" : "");
+                        weightEl.value = (valWeight !== null && valWeight !== undefined && valWeight !== "" && valWeight !== 0) ? valWeight : "";
                     }
                 }
                 PKGOPS_Checklist.calculateNetWeightMetrics();

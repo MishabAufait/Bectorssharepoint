@@ -32,7 +32,7 @@ $(document).ready(function () {
 
         const script = document.createElement("script");
         script.id = adminScriptId;
-        script.src = `${webUrl}/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/admin.js?v=9.6`;
+        script.src = `${webUrl}/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/admin.js?v=9.8`;
         document.body.appendChild(script);
     }
     ALC_Dashboard.init();

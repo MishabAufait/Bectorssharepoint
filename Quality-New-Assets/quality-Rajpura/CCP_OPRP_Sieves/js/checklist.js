@@ -79,6 +79,41 @@ const CCP_OPRP_Checklist = {
         return ["CCP (Metal Detector)"];
     },
 
+    // Formats checkpoint display label to clearly show the machine/station name (Rotary, Shell, Rework, etc.)
+    formatCheckpointLabel: function (cpName, allCheckpoints = []) {
+        if (!cpName) return "";
+        let clean = String(cpName).replace(/\s*\(Metal Detector\)/gi, "").trim();
+
+        if (clean.includes(":")) {
+            const parts = clean.split(":");
+            const prefix = parts[0].trim(); // e.g. "OPRP-1", "OPRP-2", "OPRP", "CCP", "CCP-1"
+            const station = parts[1].trim(); // e.g. "Rotary", "Shell", "Rework", "Offline", "Packing"
+
+            // Count if multiple checkpoints share the exact same station name in this line (e.g. Line 1 has two Rotary checkpoints)
+            const sameStationCount = (allCheckpoints || []).filter(c => {
+                const s = String(c).replace(/\s*\(Metal Detector\)/gi, "").split(":");
+                return s[1] && s[1].trim().toLowerCase() === station.toLowerCase();
+            }).length;
+
+            const isCcp = prefix.toUpperCase().startsWith("CCP");
+            const tag = isCcp ? "CCP" : "OPRP";
+
+            if (sameStationCount > 1) {
+                const numMatch = prefix.match(/\d+/);
+                const num = numMatch ? `-${numMatch[0]}` : "";
+                return `${tag}${num} : ${station}`;
+            }
+
+            return `${tag} : ${station}`;
+        }
+
+        if (clean.includes("- Post Cooling")) {
+            return "CCP : Post Cooling";
+        }
+
+        return clean;
+    },
+
     // Sieves & Magnets Checklists grouped by plant location and frequency
     sieveItems: {
         "NewPlant_8hrs": [
@@ -865,14 +900,7 @@ const CCP_OPRP_Checklist = {
                 const paneId = `pane-${cycleNum}-${idx}`;
                 
                 // Add Tab Header Button
-                let cleanName = cpName;
-                if (cpName.includes(":")) {
-                    cleanName = cpName.split(":")[0].trim();
-                } else if (cpName.includes("- Post Cooling")) {
-                    cleanName = "CCP (Post Cooling)";
-                } else if (cpName.includes("(Metal Detector)")) {
-                    cleanName = cpName.replace("(Metal Detector)", "").trim();
-                }
+                const cleanName = this.formatCheckpointLabel(cpName, checkpoints);
                 const activeClass = idx === 0 ? "active" : "";
                 tabsHeader.insertAdjacentHTML("beforeend", `
                     <button type="button" class="tab-header-btn ${activeClass}" id="${tabId}" onclick="CCP_OPRP_Checklist.switchTab('${cycleNum}', ${idx}, ${checkpoints.length})">${cleanName}</button>
@@ -882,7 +910,7 @@ const CCP_OPRP_Checklist = {
                 const displayStyle = idx === 0 ? "block" : "none";
                 const displayAddRow = canEdit ? "block" : "none";
                 tabsPanes.insertAdjacentHTML("beforeend", `
-                    <div class="tab-pane-content" id="${paneId}" style="display: ${displayStyle};" data-checkpoint="${cpName}">
+                    <div class="tab-pane-content" id="${paneId}" style="display: ${displayStyle};" data-checkpoint="${cpName}" data-label="${cleanName}">
                         <div class="rows-container"></div>
                         <div style="margin-top: 15px; margin-bottom: 10px; display: ${displayAddRow};">
                             <button type="button" class="bs-btn bs-btn-outline-primary btn-sm" onclick="CCP_OPRP_Checklist.addChecklistRow('${cycleNum}', ${idx})">+ Add Row</button>
@@ -968,6 +996,10 @@ const CCP_OPRP_Checklist = {
         const rowCount = rowsContainer.children.length + 1;
         const rowId = `row-${cycleNum}-${tabIdx}-${rowCount}`;
         const canEdit = CCP_OPRP_Main.state.canEditChecklist;
+        const cpName = pane ? pane.dataset.checkpoint : "";
+        const stationLabel = (pane && pane.dataset.label)
+            ? pane.dataset.label
+            : this.formatCheckpointLabel(cpName, this.getLineCheckpoints(CCP_OPRP_Main.state.selectedLine));
 
         const rowHtml = `
             <div class="bs-card bs-card-light bs-card-sm checkpoint-inner-row" id="${rowId}" style="margin-bottom: 15px; border: 1px solid #cbd5e1; position: relative;">
@@ -977,10 +1009,11 @@ const CCP_OPRP_Checklist = {
                 </div>
 
                 <!-- Column Metadata display -->
-                <div style="display: flex; gap: 10px; margin-bottom: 15px; background: #f1f5f9; padding: 10px; border-radius: 6px; flex-wrap: wrap;">
+                <div style="display: flex; gap: 10px; margin-bottom: 15px; background: #f1f5f9; padding: 10px; border-radius: 6px; flex-wrap: wrap; align-items: center;">
                     <div style="font-size: 12px;"><strong>Product:</strong> ${document.getElementById(`product-name-${cycleNum}`).value}</div>
                     <div style="font-size: 12px;"><strong>Exec:</strong> ${document.getElementById(`executive-name-${cycleNum}`).value}</div>
                     <div style="font-size: 12px;"><strong>Line:</strong> ${CCP_OPRP_Main.state.selectedLine}</div>
+                    ${stationLabel ? `<div style="font-size: 12px; color: #4338ca; background: #e0e7ff; padding: 2px 8px; border-radius: 4px; font-weight: 600;"><strong>Station:</strong> ${stationLabel}</div>` : ""}
                 </div>
 
                 <!-- Checkpoints list (FE, NFE, SS) -->

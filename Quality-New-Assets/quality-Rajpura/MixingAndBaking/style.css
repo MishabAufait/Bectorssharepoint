@@ -948,3 +948,36 @@ span.select2.select2-container,
     background-color: transparent !important;
 }
 
+/* ==========================================================================
+   Responsive Adaptations for Mixing & Baking (Rajpura)
+   ========================================================================== */
+@media screen and (max-width: 768px) {
+    .plan-tour-body {
+        padding: 12px 8px !important;
+    }
+
+    .zone-strip-container {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+    }
+
+    .zone-box-item {
+        padding: 6px 4px !important;
+    }
+
+    .zone-inputs-grid {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+
+    .supplier-section-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .zone-strip-container {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 6px !important;
+    }
+}

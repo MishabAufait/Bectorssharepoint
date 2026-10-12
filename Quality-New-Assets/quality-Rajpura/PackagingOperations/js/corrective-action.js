@@ -110,6 +110,7 @@ const PKGOPS_CorrectiveAction = {
             case "PQI": this.activeSubChecklistKey = "CHILD_PQI_EVALUATION"; break;
             case "Seal Integrity": this.activeSubChecklistKey = "CHILD_SEAL_INTEGRITY"; break;
             case "Cream Percentage": this.activeSubChecklistKey = "CHILD_CREAM_PERCENTAGE"; break;
+            case "Quality Wall Records": this.activeSubChecklistKey = "CHILD_QUALITY_WALL"; break;
         }
 
         console.log(`Initializing Corrective Action: Key=${this.activeSubChecklistKey}`);
@@ -173,6 +174,27 @@ const PKGOPS_CorrectiveAction = {
                 this.deviatedRows = rows.filter(r => parseInt(r.cr3ea_noofleakage) > 0);
             } else if (this.pkgopsType === "Cream Percentage") {
                 this.deviatedRows = rows.filter(r => r.cr3ea_status === "Fail" || r.cr3ea_deviationstatus === "Open" || r.cr3ea_deviationstatus === "Pending Re-Verification" || (r.cr3ea_deviationstatus && r.cr3ea_deviationstatus.includes("Pending Production")));
+            } else if (this.pkgopsType === "Quality Wall Records") {
+                this.deviatedRows = rows.filter(r => {
+                    let meta = null;
+                    try {
+                        if (r.cr3ea_remarks && r.cr3ea_remarks.trim().startsWith("{")) {
+                            meta = JSON.parse(r.cr3ea_remarks);
+                        }
+                    } catch (e) {}
+                    const devStatus = (meta && meta.deviationStatus) || r.cr3ea_deviationstatus || "";
+                    if (devStatus === "Closed") return false;
+                    const parentStatus = (typeof PKGOPS_StateMachine !== "undefined" && PKGOPS_StateMachine.currentSession && (PKGOPS_StateMachine.currentSession.cr3ea_status || PKGOPS_StateMachine.currentSession.cr3ea_processstatus)) || "";
+                    if (parentStatus.includes("Pending Production") || parentStatus.includes("Pending Observation") || parentStatus.includes("Failed")) return true;
+                    if (devStatus === "Open" || devStatus === "Pending Re-Verification" || devStatus.includes("Pending Production")) return true;
+                    const wallType = String(r.cr3ea_typeofqualitywall || "").toLowerCase();
+                    if (wallType.includes("hot") || wallType.includes("abort") || wallType.includes("yellow") || wallType.includes("action")) return true;
+                    if (meta) {
+                        if (meta.overallWallStatus && (meta.overallWallStatus.includes("Hot") || meta.overallWallStatus.includes("Yellow") || meta.overallWallStatus.includes("Abort") || meta.overallWallStatus.includes("Action"))) return true;
+                        if (Array.isArray(meta.memberScores) && meta.memberScores.some(m => parseInt(m.score, 10) >= 2)) return true;
+                    }
+                    return false;
+                });
             } else {
                 this.deviatedRows = [];
             }
@@ -271,6 +293,56 @@ const PKGOPS_CorrectiveAction = {
                                             <div class="text-danger mt-1"><strong>Status:</strong> ${row.cr3ea_status || "Fail"}</div>
                                         </div>
                                     `;
+                                } else if (this.pkgopsType === "Quality Wall Records") {
+                                    let meta = null;
+                                    try {
+                                        if (row.cr3ea_remarks && row.cr3ea_remarks.trim().startsWith("{")) {
+                                            meta = JSON.parse(row.cr3ea_remarks);
+                                        }
+                                    } catch (e) {}
+
+                                    const wallStatus = (meta && meta.overallWallStatus) || row.cr3ea_typeofqualitywall || "Yellow Wall (Action Taken)";
+                                    const isHot = wallStatus.includes("Hot") || wallStatus.includes("Abort");
+                                    const badgeClass = isHot ? "bg-danger" : "bg-warning text-dark";
+                                    const statusIcon = isHot ? "fa-times-circle" : "fa-exclamation-triangle";
+
+                                    defectDesc = `
+                                        <div class="d-flex flex-column align-items-center justify-content-center gap-1.5 p-1">
+                                            <span class="fw-bold ${isHot ? 'text-danger' : 'text-warning'}" style="font-size: 13px;">
+                                                <i class="fa ${statusIcon} me-1"></i>${isHot ? 'Hot Wall (Abort)' : 'Yellow Wall (Action Taken)'}
+                                            </span>
+                                            <span class="badge ${badgeClass}" style="font-size: 11px; padding: 4px 8px; border-radius: 4px;">
+                                                ${isHot ? 'Score 4: Abort' : 'Score 2-3: Action Taken'}
+                                            </span>
+                                        </div>
+                                    `;
+
+                                    let memberRowsHtml = "";
+                                    if (meta && Array.isArray(meta.memberScores)) {
+                                        const flaggedMembers = meta.memberScores.filter(m => parseInt(m.score, 10) >= 2);
+                                        if (flaggedMembers.length > 0) {
+                                            memberRowsHtml = `
+                                                <div class="mt-2 p-1.5 rounded" style="background-color: #fef2f2; border: 1px solid #fee2e2; font-size: 11px;">
+                                                    <strong class="text-danger"><i class="fa fa-users me-1"></i>Flagged Sensory Scores (Scale 0-4):</strong>
+                                                    <ul class="mb-0 ps-3 mt-1 text-start">
+                                                        ${flaggedMembers.map(m => `
+                                                            <li><strong>${this.escapeHtml(m.name)}:</strong> Score <span class="badge ${m.score === 4 ? 'bg-danger' : 'bg-warning text-dark'} px-1 py-0.5">${m.score}</span> (${m.score === 4 ? 'Hot Wall / Abort' : 'Yellow Wall / Action Taken'})${m.notes ? ` &ndash; <em>"${this.escapeHtml(m.notes)}"</em>` : ''}</li>
+                                                        `).join("")}
+                                                    </ul>
+                                                </div>
+                                            `;
+                                        }
+                                    }
+
+                                    obsDetails = `
+                                        <div class="text-start" style="font-size: 12px;">
+                                            <div><strong>Product:</strong> ${row.cr3ea_productname || "-"} (${row.cr3ea_sku || "-"})</div>
+                                            <div><strong>Batch / Line:</strong> ${row.cr3ea_pkdbatchno || "-"} | ${row.cr3ea_lineno || "-"}</div>
+                                            <div><strong>Panel Avg Score:</strong> <span class="fw-bold text-primary">${row.cr3ea_overallrating || (meta && meta.panelAvg) || "-"} / 4.00</span></div>
+                                            ${memberRowsHtml}
+                                            ${(meta && meta.userRemarks) ? `<div class="text-muted small mt-1"><strong>Sensory Remarks:</strong> ${this.escapeHtml(meta.userRemarks)}</div>` : ''}
+                                        </div>
+                                    `;
                                 }
 
                                 const defectPhotos = Array.from(new Set((row.cr3ea_codepictureurl || row.cr3ea_batchcodepictureurl || "").split(",").map(u => u.trim()).filter(Boolean)));
@@ -281,7 +353,13 @@ const PKGOPS_CorrectiveAction = {
                                         `</div>`;
                                 }
 
-                                const actionRaw = row.cr3ea_actiontaken || "";
+                                let metaObj = null;
+                                try {
+                                    if (row.cr3ea_remarks && row.cr3ea_remarks.trim().startsWith("{")) {
+                                        metaObj = JSON.parse(row.cr3ea_remarks);
+                                    }
+                                } catch (e) {}
+                                const actionRaw = (metaObj && metaObj.actionTaken) || row.cr3ea_actiontaken || "";
                                 const actionRemarksOnly = actionRaw.split(" | QA: ")[0].split(" | Proof: ")[0] || "";
                                 const actionProof = actionRaw.split(" | QA: ")[0].split(" | Proof: ")[1] || "";
 
@@ -398,19 +476,35 @@ const PKGOPS_CorrectiveAction = {
                 }
 
                 // Update child record
-                let updatePayload = {
-                    id: childId,
-                    cr3ea_actiontaken: actionValue,
-                    cr3ea_deviationstatus: "Pending Re-Verification"
-                };
+                if (this.activeSubChecklistKey === "CHILD_QUALITY_WALL") {
+                    let meta = {};
+                    try {
+                        if (row.cr3ea_remarks && row.cr3ea_remarks.trim().startsWith("{")) {
+                            meta = JSON.parse(row.cr3ea_remarks);
+                        }
+                    } catch (e) {}
+                    meta.actionTaken = actionValue;
+                    meta.deviationStatus = "Pending Re-Verification";
+                    const updatePayload = {
+                        id: childId,
+                        cr3ea_remarks: JSON.stringify(meta)
+                    };
+                    await PKGOPS_DAL.saveSubChecklistRow(this.activeSubChecklistKey, updatePayload);
+                } else {
+                    let updatePayload = {
+                        id: childId,
+                        cr3ea_actiontaken: actionValue,
+                        cr3ea_deviationstatus: "Pending Re-Verification"
+                    };
 
-                if (this.pkgopsType === "Code Verification" && row.cr3ea_codepictureurl) {
-                    updatePayload.cr3ea_codepictureurl = row.cr3ea_codepictureurl;
-                } else if (this.pkgopsType === "PQI" && row.cr3ea_batchcodepictureurl) {
-                    updatePayload.cr3ea_batchcodepictureurl = row.cr3ea_batchcodepictureurl;
+                    if (this.pkgopsType === "Code Verification" && row.cr3ea_codepictureurl) {
+                        updatePayload.cr3ea_codepictureurl = row.cr3ea_codepictureurl;
+                    } else if (this.pkgopsType === "PQI" && row.cr3ea_batchcodepictureurl) {
+                        updatePayload.cr3ea_batchcodepictureurl = row.cr3ea_batchcodepictureurl;
+                    }
+
+                    await PKGOPS_DAL.saveSubChecklistRow(this.activeSubChecklistKey, updatePayload);
                 }
-
-                await PKGOPS_DAL.saveSubChecklistRow(this.activeSubChecklistKey, updatePayload);
             }
 
             // Transition parent status to Pending Re-Verification

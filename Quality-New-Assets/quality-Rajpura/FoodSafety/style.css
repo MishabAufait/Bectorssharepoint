@@ -617,3 +617,35 @@ html, body {
     vertical-align: middle;
 }
 
+/* ==========================================================================
+   Responsive Adaptations for Food Safety (Rajpura)
+   ========================================================================== */
+@media screen and (max-width: 768px) {
+    .fs-checklist-scroll-container {
+        max-height: calc(100vh - 140px) !important;
+        min-height: 340px !important;
+        padding-right: 2px !important;
+    }
+
+    .fs-question-card,
+    .fs-checklist-item {
+        padding: 10px !important;
+        margin-bottom: 10px !important;
+    }
+
+    .fs-question-card .d-flex {
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+
+    .fs-toggle-btns {
+        width: 100% !important;
+        display: flex !important;
+    }
+
+    .fs-toggle-btns .btn,
+    .fs-toggle-btns button {
+        flex: 1 !important;
+        height: 38px !important;
+    }
+}

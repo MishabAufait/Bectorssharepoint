@@ -458,6 +458,65 @@
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2) !important;
 }
 
+/* Quality Wall 0-4 Segmented Score Buttons & Status Badges */
+.wall-score-btn-group {
+    display: inline-flex;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.wall-score-btn {
+    border: none;
+    background: #f8fafc;
+    padding: 5px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    border-right: 1px solid #e2e8f0;
+    line-height: 1.2;
+}
+
+.wall-score-btn:last-child {
+    border-right: none;
+}
+
+.wall-score-btn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.wall-score-btn.active.score-0,
+.wall-score-btn.active.score-1 {
+    background: #16a34a !important;
+    color: #ffffff !important;
+}
+
+.wall-score-btn.active.score-2,
+.wall-score-btn.active.score-3 {
+    background: #eab308 !important;
+    color: #1e293b !important;
+}
+
+.wall-score-btn.active.score-4 {
+    background: #dc2626 !important;
+    color: #ffffff !important;
+}
+
+.wall-score-badge {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
 /* ==========================================================================
    Code Verification Multi-Select Defect Category Styling
    ========================================================================== */
@@ -608,5 +667,74 @@
     background-color: rgba(220, 38, 38, 0.1) !important;
 }
 
+/* ==========================================================================
+   Responsive Adaptations for Packaging Operations (Rajpura)
+   ========================================================================== */
+@media screen and (max-width: 992px) {
+    /* PAPA: Stack Product Defects and Pack Defects vertically on tablet/mobile */
+    #checklist-form-area .row.g-4 > .col-md-6 {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+        border-end: none !important;
+        margin-bottom: 20px !important;
+    }
 
+    /* PAPA KPI Summary Cards: 2x2 grid on tablet */
+    .card-body .row.g-4 > .col-md-3 {
+        flex: 0 0 50% !important;
+        max-width: 50% !important;
+        margin-bottom: 12px !important;
+    }
+}
 
+@media screen and (max-width: 768px) {
+    /* PAPA KPI Summary Cards: 1x1 on phone */
+    .card-body .row.g-4 > .col-md-3 {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* Code Verification Defect Dropdown: centered bottom/modal sheet on mobile */
+    .cv-defect-dropdown-panel {
+        position: fixed !important;
+        top: 20% !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: 92vw !important;
+        max-width: 340px !important;
+        max-height: 65vh !important;
+        z-index: 99999 !important;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.2) !important;
+    }
+
+    /* PAPA tables compact count input */
+    .papa-defect-count {
+        width: 48px !important;
+        font-size: 12px !important;
+        padding: 2px 4px !important;
+    }
+
+    /* PAPA percentage badge */
+    [id^="papa-pct-"] {
+        font-size: 9px !important;
+        padding: 2px 4px !important;
+    }
+
+    /* PQI Stats Cards on mobile */
+    .pqi-stats-card,
+    .pqi-kpi-card {
+        margin-bottom: 8px !important;
+    }
+
+    /* Defect chips wrap */
+    .cv-selected-chips-wrap {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+    }
+
+    .cv-defect-chip {
+        font-size: 10px !important;
+        padding: 2px 6px !important;
+    }
+}

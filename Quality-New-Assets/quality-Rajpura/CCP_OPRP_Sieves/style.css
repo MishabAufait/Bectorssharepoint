@@ -378,3 +378,47 @@ select.form-select:focus,
 select.form-select::-ms-expand {
     display: none !important;
 }
+
+/* ==========================================================================
+   Responsive Adaptations for CCP, OPRP & Sieves (Rajpura)
+   ========================================================================== */
+@media screen and (max-width: 768px) {
+    .tabs-header-container {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding-bottom: 8px !important;
+        gap: 6px !important;
+    }
+
+    .tab-header-btn {
+        flex-shrink: 0 !important;
+        padding: 6px 12px !important;
+        font-size: 12px !important;
+    }
+
+    .tour-cycle-panel .bs-card-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+        padding: 12px 14px !important;
+    }
+
+    .tour-cycle-panel .bs-card-body {
+        padding: 12px 8px !important;
+    }
+
+    .toggle-switch-badge {
+        flex-wrap: nowrap !important;
+        width: 100% !important;
+        justify-content: center !important;
+    }
+
+    .toggle-switch-badge button {
+        flex: 1 !important;
+        text-align: center !important;
+        padding: 8px 6px !important;
+    }
+}
+

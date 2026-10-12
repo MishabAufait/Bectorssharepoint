@@ -445,6 +445,34 @@ const PKGOPS_DAL = {
         }
     },
 
+    // Helper: Get active Machines dynamically (optionally filtered by line)
+    getMachines: async function (selectedLine, forceRefresh) {
+        try {
+            const configs = await this.getConfig(forceRefresh);
+            let machines = configs.filter(c => {
+                const cType = (c.ConfigType || "").trim().toLowerCase();
+                return (cType === "machine master" || cType === "machine_x0020_master" || cType === "machine") && c.IsActive !== false;
+            });
+
+            if (selectedLine && typeof selectedLine === "string" && selectedLine.trim() && selectedLine.trim().toLowerCase() !== "all lines") {
+                const lineMatch = String(selectedLine).match(/(?:line\s*(?:no\.?)?\s*|^)(\d+)/i);
+                const lineNum = lineMatch ? lineMatch[1] : null;
+                machines = machines.filter(m => {
+                    const mLine = (m.LineName || "").trim().toLowerCase();
+                    if (!mLine || mLine === "all lines" || mLine === "all") return true;
+                    if (lineNum && mLine.includes(lineNum)) return true;
+                    return mLine === selectedLine.trim().toLowerCase();
+                });
+            }
+
+            machines.sort((a, b) => (a.Title || "").localeCompare(b.Title || ""));
+            return machines;
+        } catch (e) {
+            console.error("Error fetching Machines from DAL:", e);
+            return [];
+        }
+    },
+
     // 2. Fetch Dataverse access token
     getAccessToken: async function () {
         if (typeof getAccessToken === "function") {
@@ -844,7 +872,7 @@ const PKGOPS_DAL = {
                 "cr3ea_name", "cr3ea_productname", "cr3ea_lineno", "cr3ea_pkdbatchno", "cr3ea_facilitator",
                 "cr3ea_sku", "cr3ea_typeofqualitywall", "cr3ea_memberspresent",
                 "cr3ea_packappearancerating", "cr3ea_sealingqualityrating", "cr3ea_codingrating",
-                "cr3ea_overallrating", "cr3ea_remarks", "cr3ea_deviationstatus", "cr3ea_actiontaken",
+                "cr3ea_overallrating", "cr3ea_remarks",
                 "cr3ea_qualitytourid@odata.bind", "cr3ea_QualityTourId@odata.bind"
             ],
             CHILD_CREAM_PERCENTAGE: [

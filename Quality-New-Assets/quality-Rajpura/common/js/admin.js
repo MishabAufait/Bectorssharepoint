@@ -11,7 +11,7 @@ const Rajpura_Admin = {
     activeTab: "ALC",
     activeSubSection: "users", // "users" or "products" for other checklist forms
     alcSubTab: "qa-matrix", // "qa-matrix", "areas", "lines", "shifts", "products", "questions" for ALC
-    pkgSubTab: "users", // "users", "products", "skus" for PackagingOperations
+    pkgSubTab: "users", // "users", "products", "skus", "machines" for PackagingOperations
     mbSubTab: "users", // "users", "recipes" for MixingAndBaking
     ccpSubTab: "users", // "users", "products" for CCP_OPRP_Sieves
     configs: {},
@@ -199,8 +199,8 @@ const Rajpura_Admin = {
             shortName: "Packaging Ops",
             listName: "Quality-Rajpura-PackagingOperations",
             badgeClass: "badge-purple",
-            description: "Manage Packaging Operations Master Data: Role Assignments (QA & Production), Product Master (Line & Category), and SKU Master catalogue.",
-            roleTypes: ["QA User", "QA HOD", "Production Incharge", "Production HOD", "Product Master", "SKU Master"],
+            description: "Manage Packaging Operations Master Data: Role Assignments (QA & Production), Product Master (Line & Category), SKU Master, and Machine Master catalogue.",
+            roleTypes: ["QA User", "QA HOD", "Production Incharge", "Production HOD", "Product Master", "SKU Master", "Machine Master"],
             userFieldNames: ["AssignedUser", "Assigned_x0020_User"],
             managerFieldNames: ["EscalationManager", "Escalation_x0020_Manager"],
             hasLines: false
@@ -1022,7 +1022,7 @@ const Rajpura_Admin = {
                     this.configs[formKey] = this.configs[formKey].filter(r => {
                         const t = (r.title || "").toLowerCase();
                         const c = (r.configType || "").toLowerCase();
-                        if (c === "product master" || c === "sku master") return true;
+                        if (c === "product master" || c === "sku master" || c === "machine master" || c === "machine_x0020_master" || c === "machine") return true;
                         return !t.includes("product user") && !c.includes("product user") && !t.includes("product hod") && !c.includes("product hod");
                     });
                 }
@@ -1419,6 +1419,7 @@ const Rajpura_Admin = {
             case "users": return "Role & User Assignments (QA, Production & HODs)";
             case "products": return "Product Master Catalogue (Line & Category)";
             case "skus": return "SKU / Weight Master";
+            case "machines": return "Machine Master (Packaging & Creaming Equipment)";
             default: return "Packaging Operations Master Suite";
         }
     },
@@ -1534,6 +1535,10 @@ const Rajpura_Admin = {
                             <span class="subnav-icon"></span>
                             <span>SKU / Weight Master</span>
                         </button>
+                        <button type="button" class="admin-subnav-btn ${pkgSub === 'machines' ? 'active' : ''}" onclick="Rajpura_Admin.switchPkgSubTab('machines')">
+                            <span class="subnav-icon"></span>
+                            <span>Machine Master</span>
+                        </button>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <button type="button" id="admin-btn-seed-pkg" class="admin-btn-secondary" style="font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 8px; border-color: #cbd5e1; color: #94a3b8; background: #f1f5f9; cursor: not-allowed !important; opacity: 0.6; pointer-events: none; display: inline-flex; align-items: center; gap: 5px;" disabled title="Seeding is disabled">
@@ -1545,7 +1550,7 @@ const Rajpura_Admin = {
 
             let contentHtml = "";
             if (pkgSub === "users") {
-                let userRows = rows.filter(r => !["Product Master", "SKU Master", "Line Master", "Shift Master", "Area Inspector"].includes(r.configType));
+                let userRows = rows.filter(r => !["Product Master", "SKU Master", "Machine Master", "Line Master", "Shift Master", "Area Inspector"].includes(r.configType));
                 if (this.searchFilter.trim() !== "") {
                     const q = this.searchFilter.toLowerCase().trim();
                     userRows = userRows.filter(r => {
@@ -1569,6 +1574,8 @@ const Rajpura_Admin = {
                 return;
             } else if (pkgSub === "skus") {
                 contentHtml = this.renderPkgSkuMaster(rows);
+            } else if (pkgSub === "machines") {
+                contentHtml = this.renderPkgMachineMaster(rows);
             }
 
             mount.innerHTML = `
@@ -4185,6 +4192,86 @@ const Rajpura_Admin = {
         `;
     },
 
+    renderPkgMachineMaster: function (rows) {
+        let machineRows = rows.filter(r => {
+            const cType = (r.configType || "").trim().toLowerCase();
+            return cType === "machine master" || cType === "machine_x0020_master" || cType === "machine";
+        });
+
+        if (this.searchFilter.trim() !== "") {
+            const q = this.searchFilter.toLowerCase().trim();
+            machineRows = machineRows.filter(r => (r.title || "").toLowerCase().includes(q) || (r.lineName || "").toLowerCase().includes(q));
+        }
+
+        return `
+            <div class="admin-panel-card">
+                <div class="admin-panel-header">
+                    <div class="admin-panel-title-area">
+                        <h3 class="admin-panel-title"> Machine Master (Packaging & Creaming Equipment)</h3>
+                    </div>
+                    <div class="admin-panel-actions">
+                        <button type="button" class="admin-btn-product-add" onclick="Rajpura_Admin.openAddPkgMachineModal()">
+                            + Add Machine
+                        </button>
+                    </div>
+                </div>
+
+                <div class="admin-table-container">
+                    <table class="admin-product-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 45%;">Machine Name / Description</th>
+                                <th style="width: 25%;">Applicable Line</th>
+                                <th style="width: 15%;">Status</th>
+                                <th style="width: 15%; text-align: center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${machineRows.length > 0 ? machineRows.map(r => `
+                                <tr>
+                                    <td>
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <span style="font-size: 16px; color: #7c3aed;"><i class="fa fa-cogs"></i></span>
+                                            <div>
+                                                <strong style="color: #0f172a; font-size: 14px;">${this.escapeHtml(r.title)}</strong>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge" style="background: #e0e7ff; color: #3730a3; font-weight: 600; padding: 4px 10px; border-radius: 4px; font-size: 12px;">
+                                            ${this.escapeHtml(r.lineName || "All Lines")}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="admin-status-pill ${r.isActive !== false ? 'active' : 'inactive'}" style="cursor: pointer;" onclick="Rajpura_Admin.toggleItemActive('PackagingOperations', ${r.id})" title="Click to toggle status">
+                                            &bull; ${r.isActive !== false ? 'Active' : 'Inactive'}
+                                        </span>
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <div class="admin-product-actions" style="display: flex; justify-content: center; gap: 8px;">
+                                            <button type="button" class="admin-btn-action" onclick="Rajpura_Admin.openEditPkgMachineModal(${r.id})" title="Edit Machine">
+                                                Edit
+                                            </button>
+                                            <button type="button" class="admin-btn-action" style="color: #dc2626;" onclick="Rajpura_Admin.confirmDeleteRow('PackagingOperations', ${r.id})" title="Delete Machine">
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `).join("") : `
+                                <tr>
+                                    <td colspan="4" style="text-align: center; padding: 32px; color: #64748b;">
+                                        No machines configured. Click "+ Add Machine" to add one.
+                                    </td>
+                                </tr>
+                            `}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    },
+
     /**
      * ALC Modals: Line Master Add & Edit
      */
@@ -6488,189 +6575,12 @@ const Rajpura_Admin = {
         return;
     },
 
-    /**
-     * seedPkgProductMasterData: async function () {
+    seedPkgProductMasterData: async function () {
         console.warn("Seeding functionality is disabled in the admin panel.");
         this.showToast("Seeding master data is currently disabled.", "warning");
         return;
-
-        let rawSeedList = (typeof PKG_PRODUCTS_SEED_DATA !== "undefined" && Array.isArray(PKG_PRODUCTS_SEED_DATA) && PKG_PRODUCTS_SEED_DATA.length > 0)
-            ? PKG_PRODUCTS_SEED_DATA
-            : ((typeof window !== "undefined" && window.PKG_PRODUCTS_SEED_DATA && Array.isArray(window.PKG_PRODUCTS_SEED_DATA) && window.PKG_PRODUCTS_SEED_DATA.length > 0)
-                ? window.PKG_PRODUCTS_SEED_DATA
-                : []);
-
-        if (rawSeedList.length === 0) {
-            updateBtns(`Loading seed dataset...`, true);
-            try {
-                const siteUrl = this.getSiteUrl();
-                const seedUrl = (siteUrl ? siteUrl : "/sites/Mrs_Bectors_PTMS") + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/pkg-products-seed.js?v=" + Date.now();
-                await new Promise((resolve) => {
-                    const s = document.createElement("script");
-                    s.src = seedUrl;
-                    s.onload = resolve;
-                    s.onerror = resolve;
-                    document.head.appendChild(s);
-                });
-            } catch (e) {
-                console.warn("Dynamic load of pkg-products-seed.js failed:", e);
-            }
-
-            rawSeedList = (typeof PKG_PRODUCTS_SEED_DATA !== "undefined" && Array.isArray(PKG_PRODUCTS_SEED_DATA) && PKG_PRODUCTS_SEED_DATA.length > 0)
-                ? PKG_PRODUCTS_SEED_DATA
-                : ((typeof window !== "undefined" && window.PKG_PRODUCTS_SEED_DATA && Array.isArray(window.PKG_PRODUCTS_SEED_DATA) && window.PKG_PRODUCTS_SEED_DATA.length > 0)
-                    ? window.PKG_PRODUCTS_SEED_DATA
-                    : []);
-        }
-
-        if (rawSeedList.length === 0) {
-            this.showToast("Could not load master seed products from pkg-products-seed.js.", "warning");
-            updateBtns(`Bulk Add / Seed (1,105)`, false);
-            if (btn1) btn1.innerHTML = `Seed Master Records (1,105)`;
-            return;
-        }
-
-        updateBtns(`Initializing (${rawSeedList.length} items)...`, true);
-
-        const siteUrl = this.getSiteUrl();
-        const listName = "Quality-Rajpura-PackagingOperations";
-
-        try {
-            const digest = await this.getFormDigest();
-            let insertedCount = 0;
-            let skippedCount = 0;
-
-            let entityTypeName = "SP.Data.Quality_x002d_Rajpura_x002d_PackagingOperationsListItem";
-            try {
-                const listMetaRes = await fetch(`${siteUrl}/_api/web/lists/getbytitle('${listName}')?$select=ListItemEntityTypeFullName`, {
-                    headers: { "Accept": "application/json;odata=verbose" }
-                });
-                if (listMetaRes.ok) {
-                    const listMetaData = await listMetaRes.json();
-                    if (listMetaData.d && listMetaData.d.ListItemEntityTypeFullName) {
-                        entityTypeName = listMetaData.d.ListItemEntityTypeFullName;
-                    }
-                }
-            } catch (e) {}
-
-            // Query existing items with pagination to avoid duplicates
-            let existingItems = [];
-            try {
-                let nextUrl = `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items?$select=Id,Title,ProductCode,ConfigType&$top=5000`;
-                while (nextUrl) {
-                    const existingRes = await fetch(nextUrl, {
-                        headers: { "Accept": "application/json;odata=verbose" }
-                    });
-                    if (existingRes.ok) {
-                        const existingData = await existingRes.json();
-                        const pageItems = (existingData.d && existingData.d.results) ? existingData.d.results : [];
-                        existingItems = existingItems.concat(pageItems);
-                        nextUrl = (existingData.d && existingData.d.__next) ? existingData.d.__next : null;
-                    } else {
-                        break;
-                    }
-                }
-            } catch (fetchErr) {
-                console.warn("Could not query existing items from list:", fetchErr);
-            }
-
-            const existingMap = new Set(existingItems.map(ex => (ex.Title || "").trim().toLowerCase()));
-
-            // Filter items that need insertion
-            const toInsert = rawSeedList.filter(item => {
-                const titleLower = (item.title || "").trim().toLowerCase();
-                if (existingMap.has(titleLower)) {
-                    skippedCount++;
-                    return false;
-                }
-                return true;
-            });
-
-            console.log(`Packaging Operations: ${existingItems.length} existing in list, ${toInsert.length} to insert, ${skippedCount} skipped.`);
-
-            // Insert in parallel batches (chunk size 15 for fast & reliable SharePoint execution)
-            const chunkSize = 15;
-            for (let i = 0; i < toInsert.length; i += chunkSize) {
-                const chunk = toInsert.slice(i, i + chunkSize);
-                updateBtns(`Seeding Products (${insertedCount + skippedCount} / ${rawSeedList.length})...`, true);
-
-                await Promise.all(chunk.map(async (item) => {
-                    const postUrl = `${siteUrl}/_api/web/lists/getbytitle('${listName}')/items`;
-                    const payload = {
-                        __metadata: { type: entityTypeName },
-                        Title: item.title,
-                        ConfigType: "Product Master",
-                        ProductCode: item.productCode || "",
-                        LineName: item.lineName || "Line 1",
-                        ProductCategory: item.productCategory || "General",
-                        Plant: "Rajpura",
-                        IsActive: true
-                    };
-
-                    try {
-                        const res = await fetch(postUrl, {
-                            method: "POST",
-                            headers: {
-                                "Accept": "application/json;odata=verbose",
-                                "Content-Type": "application/json;odata=verbose",
-                                "X-RequestDigest": digest
-                            },
-                            body: JSON.stringify(payload)
-                        });
-
-                        if (res.ok) {
-                            insertedCount++;
-                            existingMap.add((item.title || "").trim().toLowerCase());
-                        } else {
-                            // Try fallback payload without custom fields if column names differ
-                            const fbPayload = {
-                                __metadata: { type: entityTypeName },
-                                Title: item.title,
-                                ConfigType: "Product Master",
-                                Plant: "Rajpura",
-                                IsActive: true
-                            };
-                            const fbRes = await fetch(postUrl, {
-                                method: "POST",
-                                headers: {
-                                    "Accept": "application/json;odata=verbose",
-                                    "Content-Type": "application/json;odata=verbose",
-                                    "X-RequestDigest": digest
-                                },
-                                body: JSON.stringify(fbPayload)
-                            });
-                            if (fbRes.ok) {
-                                insertedCount++;
-                                existingMap.add((item.title || "").trim().toLowerCase());
-                            } else {
-                                console.warn("Failed inserting product:", item.title, await res.text());
-                            }
-                        }
-                    } catch (postErr) {
-                        console.warn("Network error inserting product:", item.title, postErr);
-                    }
-                }));
-            }
-
-            if (insertedCount > 0 || skippedCount > 0) {
-                this.showToast(`Packaging Master Products: ${insertedCount} inserted to SharePoint list, ${skippedCount} already existed.`, "success");
-            } else {
-                this.showToast("Local preview fallback: 1,105 master products initialized in memory.", "info");
-            }
-
-            await this.loadSingleFormConfig("PackagingOperations");
-            this.renderCurrentTab();
-            this.updateStatsCounters();
-        } catch (err) {
-            console.error("Error seeding Packaging products:", err);
-            this.showToast("Seeding error: " + (err.message || err), "warning");
-            await this.loadSingleFormConfig("PackagingOperations");
-            this.renderCurrentTab();
-        } finally {
-            updateBtns(`Bulk Add / Seed (1,105)`, false);
-            if (btn1) btn1.innerHTML = `Seed Master Records (1,105)`;
-        }
     },
+
 
     openAddPkgProductModal: function () {
         this.openPkgProductModalInternal(null, {});
@@ -6867,6 +6777,125 @@ const Rajpura_Admin = {
         if (success) {
             this.closeModal();
             this.showToast(`SKU weight '${title}' saved successfully.`, "success");
+            await this.loadSingleFormConfig("PackagingOperations");
+            this.renderCurrentTab();
+            this.updateStatsCounters();
+        }
+    },
+
+    openAddPkgMachineModal: function () {
+        this.openPkgMachineModalInternal(null, {});
+    },
+
+    openEditPkgMachineModal: function (rowId) {
+        const row = (this.configs.PackagingOperations || []).find(r => r.id === rowId);
+        if (!row) return;
+        this.openPkgMachineModalInternal(rowId, row);
+    },
+
+    openPkgMachineModalInternal: function (rowId, row) {
+        let mount = document.getElementById("adminModalMount");
+        if (!mount) {
+            mount = document.createElement("div");
+            mount.id = "adminModalMount";
+            document.body.appendChild(mount);
+        }
+
+        const isEdit = !!rowId;
+        const currentLine = row.lineName || "All Lines";
+
+        const lines = ["All Lines", "Line 1", "Line 2", "Line 3", "Line 4", "Line 5", "Line 6", "Line 7", "Line 8"];
+        const lineOptionsHtml = lines.map(l => `<option value="${l}" ${currentLine === l ? 'selected' : ''}>${l}</option>`).join("");
+
+        mount.innerHTML = `
+            <div class="admin-modal-backdrop" id="adminModalBackdrop" onclick="Rajpura_Admin.onModalBackdropClick(event)">
+                <div class="admin-modal-card">
+                    <div class="admin-modal-header" style="background: linear-gradient(90deg, #faf5ff 0%, #ffffff 100%);">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 24px; color: #7c3aed;"><i class="fa fa-cogs"></i></span>
+                            <div>
+                                <h4 class="admin-modal-title">${isEdit ? `Edit Machine &bull; ${this.escapeHtml(row.title)}` : "+ Add New Machine"}</h4>
+                                <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Packaging Operations &bull; Equipment Master</div>
+                            </div>
+                        </div>
+                        <button type="button" class="admin-modal-close" onclick="Rajpura_Admin.closeModal()">&times;</button>
+                    </div>
+
+                    <div class="admin-modal-body" style="padding: 20px 24px;">
+                        <div class="admin-form-group">
+                            <label class="admin-form-label">Machine Name / Code <span style="color: #dc2626;">*</span></label>
+                            <input type="text" id="modal-machine-title" class="admin-form-input" style="font-weight: 600;" value="${this.escapeHtml(row.title || '')}" placeholder="e.g. Machine 1, Creaming Machine 1 (Stencil), Packaging M/C 2" />
+                            <div style="font-size: 11.5px; color: #64748b; margin-top: 3px;">The equipment identifier selected by operators in inspection modules.</div>
+                        </div>
+                        <div class="admin-form-group" style="margin-top: 14px;">
+                            <label class="admin-form-label">Applicable Line</label>
+                            <select id="modal-machine-line" class="admin-form-input">
+                                ${lineOptionsHtml}
+                            </select>
+                            <div style="font-size: 11.5px; color: #64748b; margin-top: 3px;">Select specific line or "All Lines" to display for all lines.</div>
+                        </div>
+                        <div class="admin-form-group" style="margin-top: 14px;">
+                            <label style="cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13.5px; color: #15803d; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 8px 14px; border-radius: 6px;">
+                                <input type="checkbox" id="modal-machine-active" ${row.isActive !== false ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer;" />
+                                <span>Machine Enabled / Active</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="admin-modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0;">
+                        <button type="button" class="admin-btn-secondary" onclick="Rajpura_Admin.closeModal()">Cancel</button>
+                        <button type="button" class="admin-btn-primary" style="background: #7c3aed; border-color: #7c3aed; font-weight: 700;" onclick="Rajpura_Admin.savePkgMachine(${isEdit ? rowId : 'null'})">
+                            ${isEdit ? "Update Machine" : "Save Machine"}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    savePkgMachine: async function (rowId) {
+        const titleEl = document.getElementById("modal-machine-title");
+        const lineEl = document.getElementById("modal-machine-line");
+        const activeEl = document.getElementById("modal-machine-active");
+
+        const title = (titleEl ? titleEl.value : "").trim();
+        const lineName = lineEl ? lineEl.value : "All Lines";
+        const isActive = activeEl ? activeEl.checked : true;
+
+        if (!title) {
+            alert("Please enter a Machine Name / Code.");
+            if (titleEl) titleEl.focus();
+            return;
+        }
+
+        const normTitle = title.toLowerCase();
+        const normLine = lineName.toLowerCase();
+        const isDuplicate = (this.configs.PackagingOperations || []).some(r => {
+            const cType = (r.configType || "").trim().toLowerCase();
+            if (cType !== "machine master" && cType !== "machine_x0020_master" && cType !== "machine") return false;
+            if (rowId && r.id === rowId) return false;
+            const rLine = (r.lineName || "all lines").trim().toLowerCase();
+            return (r.title || "").trim().toLowerCase() === normTitle && (rLine === normLine || normLine === "all lines" || rLine === "all lines");
+        });
+
+        if (isDuplicate) {
+            if (!confirm(`A machine named "${title}" is already configured for ${lineName}. Do you still want to save?`)) {
+                return;
+            }
+        }
+
+        const payload = {
+            Title: title,
+            LineName: lineName,
+            ConfigType: "Machine Master",
+            Plant: "Rajpura",
+            IsActive: isActive
+        };
+
+        const success = await this.persistItemToSharePoint("PackagingOperations", rowId, payload);
+        if (success) {
+            this.closeModal();
+            this.showToast(`Machine '${title}' saved successfully.`, "success");
             await this.loadSingleFormConfig("PackagingOperations");
             this.renderCurrentTab();
             this.updateStatsCounters();
@@ -7894,7 +7923,7 @@ const Rajpura_Admin = {
             if (countBadge) countBadge.innerText = list.length;
 
             list.forEach(r => {
-                if (r.configType === "Product Master" || r.configType === "SKU Master" || r.configType === "Product Recipe") {
+                if (r.configType === "Product Master" || r.configType === "SKU Master" || r.configType === "Product Recipe" || r.configType === "Machine Master") {
                     return;
                 }
                 totalAssignedUsers += (r.assignedUsers || []).length;
