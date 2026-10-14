@@ -359,6 +359,17 @@ const ALC_Dashboard = {
             $('#ShowCategory').hide();
             $('#ShowGraph').hide();
 
+            // Prevent horizontal scrolling on SharePoint layout wrappers & allow flex child to shrink
+            $('#s4-workspace, #s4-bodyContainer, #contentRow, #contentBox, .body-wrapper, .ptms-dashboard-section').css({
+                'overflow-x': 'hidden',
+                'max-width': '100vw'
+            });
+            $('.ptms-dashboard-section').css({
+                'min-width': '0',
+                'flex': '1 1 0%',
+                'max-width': '100%'
+            });
+
             // 2. Hide Admin Panel container when viewing standard Quality Dashboard
             $('#rajpuraAdminPanel').hide();
 

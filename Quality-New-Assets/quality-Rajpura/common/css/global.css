@@ -1,13 +1,30 @@
 /* CSS Specificity booster overrides for Rajpura Quality Dashboard to prevent SharePoint style bleeding */
 
 /* Global SharePoint Workspace & Viewport Horizontal Scroll Prevention */
-#s4-workspace {
+html, body,
+#s4-workspace,
+#s4-bodyContainer,
+#contentRow,
+#contentBox,
+.body-wrapper {
     overflow-x: hidden !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
 }
 
-html, body {
+.body-wrapper {
+    display: flex !important;
+    max-width: 100vw !important;
     overflow-x: hidden !important;
+    box-sizing: border-box !important;
+}
+
+.ptms-dashboard-section {
+    flex: 1 1 0% !important;
+    min-width: 0 !important; /* CRITICAL: Enables table container to scroll internally instead of expanding page */
     max-width: 100% !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
 }
 
 /* Eliminate full-viewport popup overflow caused by 100vw in SharePoint containers */
@@ -119,8 +136,8 @@ html, body {
     border-collapse: separate !important;
     border-spacing: 0 !important;
     width: 100% !important;
-    min-width: 980px !important; /* Critical: prevents columns from squishing on tablet and mobile */
-    max-width: none !important;
+    min-width: 900px !important;
+    max-width: 100% !important;
     border: 1px solid #e2e8f0 !important;
     border-radius: 8px !important;
     margin-top: 10px !important;
@@ -132,6 +149,8 @@ html, body {
     background-color: #f8fafc !important;
 }
 
+body #s4-workspace #rajpuraQualityDashboard table.bs-table th,
+#rajpuraQualityDashboard table.bs-table thead th,
 #rajpuraQualityDashboard table.bs-table th {
     background-color: #f1f5f9 !important;
     color: #475569 !important;
@@ -139,7 +158,7 @@ html, body {
     font-size: 12.5px !important;
     text-transform: uppercase !important;
     letter-spacing: 0.04em !important;
-    padding: 12px 14px !important;
+    padding: 10px 12px !important;
     border-top: none !important;
     border-bottom: 2px solid #cbd5e1 !important;
     border-left: 1px solid #e2e8f0 !important;
@@ -152,7 +171,7 @@ html, body {
 }
 
 #rajpuraQualityDashboard table.bs-table td {
-    padding: 11px 14px !important;
+    padding: 10px 12px !important;
     border: 1px solid #e2e8f0 !important;
     color: #334155 !important;
     font-size: 13.5px !important;
@@ -161,7 +180,6 @@ html, body {
     text-align: center !important;
     word-break: normal !important;
     overflow-wrap: normal !important;
-    white-space: normal !important;
     line-height: 1.4 !important;
 }
 
@@ -169,55 +187,57 @@ html, body {
 #rajpuraQualityDashboard table.bs-table td:nth-child(1),
 #rajpuraQualityDashboard table.bs-table th:nth-child(1) {
     white-space: nowrap !important;
-    min-width: 140px !important; /* Date & Time */
+    min-width: 130px !important; /* Date & Time */
 }
 
 #rajpuraQualityDashboard table.bs-table td:nth-child(2),
 #rajpuraQualityDashboard table.bs-table th:nth-child(2) {
-    min-width: 175px !important; /* Checklist Form */
+    min-width: 85px !important; /* Checklist Form */
     font-weight: 600 !important;
     color: #0f172a !important;
+    white-space: nowrap !important;
 }
 
 #rajpuraQualityDashboard table.bs-table td:nth-child(3),
 #rajpuraQualityDashboard table.bs-table th:nth-child(3) {
     white-space: nowrap !important;
-    min-width: 75px !important; /* Line */
+    min-width: 90px !important; /* Line */
 }
 
 #rajpuraQualityDashboard table.bs-table td:nth-child(4),
 #rajpuraQualityDashboard table.bs-table th:nth-child(4) {
-    white-space: nowrap !important;
-    min-width: 75px !important; /* Shift */
+    min-width: 130px !important; /* Shift */
 }
 
 #rajpuraQualityDashboard table.bs-table td:nth-child(5),
 #rajpuraQualityDashboard table.bs-table th:nth-child(5) {
-    min-width: 200px !important; /* Executive Details */
+    min-width: 160px !important; /* Executive Details */
     text-align: left !important;
     line-height: 1.4 !important;
 }
 
 #rajpuraQualityDashboard table.bs-table td:nth-child(6),
 #rajpuraQualityDashboard table.bs-table th:nth-child(6) {
-    min-width: 70px !important; /* Score */
+    min-width: 100px !important; /* Score */
+    white-space: nowrap !important;
+    text-align: center !important;
 }
 
 #rajpuraQualityDashboard table.bs-table td:nth-child(7),
 #rajpuraQualityDashboard table.bs-table th:nth-child(7) {
     white-space: nowrap !important;
-    min-width: 95px !important; /* Is Line Clear */
+    min-width: 90px !important; /* Is Line Clear */
 }
 
 #rajpuraQualityDashboard table.bs-table td:nth-child(8),
 #rajpuraQualityDashboard table.bs-table th:nth-child(8) {
     white-space: nowrap !important;
-    min-width: 155px !important; /* Status */
+    min-width: 135px !important; /* Status (Ongoing) or Status / Result (Closed) */
 }
 
 #rajpuraQualityDashboard table.bs-table td:nth-child(9),
 #rajpuraQualityDashboard table.bs-table th:nth-child(9) {
-    min-width: 165px !important; /* Pending With */
+    min-width: 135px !important; /* Pending With */
     text-align: center !important;
     line-height: 1.4 !important;
 }
