@@ -935,22 +935,49 @@ const PKGOPS_DAL = {
                 body: JSON.stringify(payloadAttempt)
             });
 
-            // If 400 Bad Request mentions navigation property casing, retry with alternate binding property
-            if (!response.ok && response.status === 400 && method === "POST") {
+            // If 400 Bad Request mentions navigation property casing or schema type mismatch, auto-adapt and retry
+            if (!response.ok && response.status === 400) {
                 const errTxt = await response.text();
-                if (errTxt.includes("cr3ea_qualitytourid") || errTxt.includes("cr3ea_QualityTourId") || errTxt.includes("navigation") || errTxt.includes("property")) {
+                let retried = false;
+
+                if (method === "POST" && (errTxt.includes("cr3ea_qualitytourid") || errTxt.includes("cr3ea_QualityTourId") || errTxt.includes("navigation") || errTxt.includes("property"))) {
                     if (payloadAttempt["cr3ea_qualitytourid@odata.bind"]) {
                         payloadAttempt["cr3ea_QualityTourId@odata.bind"] = payloadAttempt["cr3ea_qualitytourid@odata.bind"];
                         delete payloadAttempt["cr3ea_qualitytourid@odata.bind"];
+                        retried = true;
                     } else if (payloadAttempt["cr3ea_QualityTourId@odata.bind"]) {
                         payloadAttempt["cr3ea_qualitytourid@odata.bind"] = payloadAttempt["cr3ea_QualityTourId@odata.bind"];
                         delete payloadAttempt["cr3ea_QualityTourId@odata.bind"];
+                        retried = true;
                     }
+                }
+
+                // Type mismatch handling (e.g. environment expects Edm.String, but numbers were sent, or vice-versa)
+                if (errTxt.includes("Cannot convert the literal") && errTxt.includes("Edm.String")) {
+                    Object.keys(payloadAttempt).forEach(k => {
+                        if (typeof payloadAttempt[k] === "number") {
+                            payloadAttempt[k] = String(payloadAttempt[k]);
+                        }
+                    });
+                    retried = true;
+                } else if (errTxt.includes("Cannot convert the literal") && (errTxt.includes("Edm.Decimal") || errTxt.includes("Edm.Double") || errTxt.includes("Edm.Int32"))) {
+                    Object.keys(payloadAttempt).forEach(k => {
+                        if (typeof payloadAttempt[k] === "string" && !k.includes("@") && !isNaN(Number(payloadAttempt[k])) && payloadAttempt[k].trim() !== "") {
+                            payloadAttempt[k] = Number(payloadAttempt[k]);
+                        }
+                    });
+                    retried = true;
+                }
+
+                if (retried) {
                     response = await this.fetchWithToken(targetUrl, {
                         method: method,
                         headers: headers,
                         body: JSON.stringify(payloadAttempt)
                     });
+                    if (!response.ok) {
+                        try { lastError = await response.text(); } catch (_) { lastError = errTxt; }
+                    }
                 } else {
                     lastError = errTxt;
                 }

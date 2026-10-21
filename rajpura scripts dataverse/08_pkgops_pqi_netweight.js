@@ -44,38 +44,32 @@ const columns = [
     "MaxLength": 100
   },
   {
-    "@odata.type": "Microsoft.Dynamics.CRM.DecimalAttributeMetadata",
+    "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
     "SchemaName": "cr3ea_averageweight",
     "DisplayName": {
       "LocalizedLabels": [{ "Label": "Average Weight", "LanguageCode": 1033 }]
     },
     "RequiredLevel": { "Value": "None" },
-    "Precision": 2,
-    "MinValue": -100000000000,
-    "MaxValue": 100000000000
+    "MaxLength": 50
   },
   {
-    "@odata.type": "Microsoft.Dynamics.CRM.DecimalAttributeMetadata",
+    "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
     "SchemaName": "cr3ea_giveaway",
     "DisplayName": {
       "LocalizedLabels": [{ "Label": "Giveaway", "LanguageCode": 1033 }]
     },
     "RequiredLevel": { "Value": "None" },
-    "Precision": 2,
-    "MinValue": -100000000000,
-    "MaxValue": 100000000000
+    "MaxLength": 50
   },
-  // Sample Weights 1 through 32
+  // Sample Weights 1 through 32 (Edm.String / Single Line of Text)
   ...Array.from({ length: 32 }, (_, i) => ({
-    "@odata.type": "Microsoft.Dynamics.CRM.DecimalAttributeMetadata",
+    "@odata.type": "Microsoft.Dynamics.CRM.StringAttributeMetadata",
     "SchemaName": `cr3ea_sampleweight${i + 1}`,
     "DisplayName": {
       "LocalizedLabels": [{ "Label": `Sample Weight ${i + 1}`, "LanguageCode": 1033 }]
     },
     "RequiredLevel": { "Value": "None" },
-    "Precision": 2,
-    "MinValue": -100000000000,
-    "MaxValue": 100000000000
+    "MaxLength": 50
   }))
 ];
 

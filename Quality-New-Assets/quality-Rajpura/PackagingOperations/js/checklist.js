@@ -2129,14 +2129,14 @@ const PKGOPS_Checklist = {
                     cr3ea_name: `PQI_NetWeight_Std:${standardVal}_${sku || 'SKU'}_${moment().format("DD-MM-YYYY")}`.substring(0, 240),
                     cr3ea_productname: product,
                     cr3ea_sku: sku,
-                    cr3ea_averageweight: Number(avg.toFixed(2)),
-                    cr3ea_giveaway: Number(giveAway.toFixed(2)),
+                    cr3ea_averageweight: String(avg.toFixed(2)),
+                    cr3ea_giveaway: String(giveAway.toFixed(2)),
                     "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
                 };
 
-                // Add weights
+                // Add weights as strings to match Dataverse Edm.String schema in PROD & UAT
                 weights.forEach((w, idx) => {
-                    netWeightRecord[`cr3ea_sampleweight${idx + 1}`] = Number(w.toFixed(2));
+                    netWeightRecord[`cr3ea_sampleweight${idx + 1}`] = String(w.toFixed(2));
                 });
 
                 await PKGOPS_DAL.cleanSubChecklistRows("CHILD_PQI_NET_WEIGHT", this.currentTourId);
@@ -4708,13 +4708,13 @@ const PKGOPS_Checklist = {
                             cr3ea_name: `PQI_NetWeight_Std:${standard || 0}_${sku || 'Draft'}_${moment().format("DD-MM-YYYY")}`.substring(0, 240),
                             cr3ea_productname: product,
                             cr3ea_sku: sku,
-                            cr3ea_averageweight: Number(avg.toFixed(2)),
-                            cr3ea_giveaway: Number(giveAway.toFixed(2)),
+                            cr3ea_averageweight: String(avg.toFixed(2)),
+                            cr3ea_giveaway: String(giveAway.toFixed(2)),
                             "cr3ea_qualitytourid@odata.bind": `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${cleanTourId})`
                         };
 
                         weights.forEach((w, idx) => {
-                            netWeightRecord[`cr3ea_sampleweight${idx + 1}`] = Number(w.toFixed(2));
+                            netWeightRecord[`cr3ea_sampleweight${idx + 1}`] = String(w.toFixed(2));
                         });
 
                         await PKGOPS_DAL.cleanSubChecklistRows("CHILD_PQI_NET_WEIGHT", this.currentTourId);
@@ -5209,8 +5209,8 @@ const PKGOPS_Checklist = {
                     if (!row.cr3ea_standardweight) {
                         row.cr3ea_standardweight = this.extractPackWeight(row.cr3ea_sku || row.cr3ea_productname);
                     }
-                    if (!row.cr3ea_standardweight && row.cr3ea_averageweight > 0 && row.cr3ea_giveaway !== undefined) {
-                        row.cr3ea_standardweight = Number((row.cr3ea_averageweight - (row.cr3ea_giveaway || 0)).toFixed(2));
+                    if (!row.cr3ea_standardweight && parseFloat(row.cr3ea_averageweight) > 0 && row.cr3ea_giveaway !== undefined) {
+                        row.cr3ea_standardweight = Number((parseFloat(row.cr3ea_averageweight) - (parseFloat(row.cr3ea_giveaway) || 0)).toFixed(2));
                     }
                     this.savedPqiNetWeight = row;
                     this.pqiSubChecklistsFilled.NetWeight = true;
@@ -5498,8 +5498,8 @@ const PKGOPS_Checklist = {
                 const currentProd = document.getElementById("pqi-product")?.value || (row && row.cr3ea_productname);
                 std = this.extractPackWeight(currentSku) || this.extractPackWeight(currentProd);
             }
-            if (!std && row && row.cr3ea_averageweight > 0 && row.cr3ea_giveaway !== undefined) {
-                std = Number((row.cr3ea_averageweight - (row.cr3ea_giveaway || 0)).toFixed(2));
+            if (!std && row && parseFloat(row.cr3ea_averageweight) > 0 && row.cr3ea_giveaway !== undefined) {
+                std = Number((parseFloat(row.cr3ea_averageweight) - (parseFloat(row.cr3ea_giveaway) || 0)).toFixed(2));
             }
             if (document.getElementById("pqi-nw-standard")) {
                 if (std && !isNaN(std) && std > 0) {

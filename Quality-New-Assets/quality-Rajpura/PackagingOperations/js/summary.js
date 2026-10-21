@@ -513,12 +513,12 @@ const PKGOPS_Summary = {
                     const skuOrProd = nw.cr3ea_sku || nw.cr3ea_productname || "";
                     std = this.extractPackWeight(skuOrProd);
                 }
-                if (!std && nw.cr3ea_averageweight > 0 && nw.cr3ea_giveaway !== undefined) {
-                    std = Number((nw.cr3ea_averageweight - (nw.cr3ea_giveaway || 0)).toFixed(2));
+                if (!std && parseFloat(nw.cr3ea_averageweight) > 0 && nw.cr3ea_giveaway !== undefined) {
+                    std = Number((parseFloat(nw.cr3ea_averageweight) - (parseFloat(nw.cr3ea_giveaway) || 0)).toFixed(2));
                 }
 
-                const avg = nw.cr3ea_averageweight || 0;
-                const diff = (std && std > 0) ? (avg - std) : (nw.cr3ea_giveaway || 0);
+                const avg = parseFloat(nw.cr3ea_averageweight) || 0;
+                const diff = (std && std > 0) ? (avg - std) : (parseFloat(nw.cr3ea_giveaway) || 0);
                 const gaPct = (std && std > 0) ? ((diff / std) * 100).toFixed(2) : "0.00";
                 const isUnder = (std && std > 0 && avg < std);
 
@@ -527,7 +527,8 @@ const PKGOPS_Summary = {
                 for (let i = 1; i <= 15; i++) {
                     const sw = nw[`cr3ea_sampleweight${i}`];
                     if (sw !== undefined && sw !== null && sw !== "" && sw !== 0) {
-                        const isSampleUnder = (std && std > 0 && sw < std);
+                        const swNum = parseFloat(sw);
+                        const isSampleUnder = (std && std > 0 && !isNaN(swNum) && swNum < std);
                         const chipCls = isSampleUnder ? "badge bg-danger text-white" : "badge bg-light text-dark border";
                         sampleChips.push(`
                             <span class="${chipCls}" style="font-size: 11px; padding: 5px 8px; font-weight: 500;">

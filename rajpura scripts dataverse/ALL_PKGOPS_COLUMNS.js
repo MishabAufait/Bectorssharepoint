@@ -125,13 +125,13 @@ const accessToken = "PASTE_YOUR_ACCESS_TOKEN_HERE";
         { SchemaName: "cr3ea_name", Display: "Name", Type: "String", MaxLength: 250 },
         { SchemaName: "cr3ea_productname", Display: "Product Name", Type: "String", MaxLength: 150 },
         { SchemaName: "cr3ea_sku", Display: "SKU", Type: "String", MaxLength: 100 },
-        { SchemaName: "cr3ea_averageweight", Display: "Average Weight", Type: "Decimal", Precision: 2 },
-        { SchemaName: "cr3ea_giveaway", Display: "Giveaway", Type: "Decimal", Precision: 2 },
+        { SchemaName: "cr3ea_averageweight", Display: "Average Weight", Type: "String", MaxLength: 50 },
+        { SchemaName: "cr3ea_giveaway", Display: "Giveaway", Type: "String", MaxLength: 50 },
         ...Array.from({ length: 32 }, (_, i) => ({
           SchemaName: `cr3ea_sampleweight${i + 1}`,
           Display: `Sample Weight ${i + 1}`,
-          Type: "Decimal",
-          Precision: 2
+          Type: "String",
+          MaxLength: 50
         }))
       ]
     },
