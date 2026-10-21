@@ -17,54 +17,54 @@ $(document).ready(function () {
         var itemName = $(this).find('span.item-name').text();
 
         if (itemName.trim() === 'Reports') {
-    var subListItems = $(this).find(".nav-sub-list .sub-list-item");
-    var menulink = $(this).find('a');
+            var subListItems = $(this).find(".nav-sub-list .sub-list-item");
+            var menulink = $(this).find('a');
 
-    subListItems.each(function () {
-        var menulink = $(this).find('a');
+            subListItems.each(function () {
+                var menulink = $(this).find('a');
 
-        if (menulink.text() === '\n\t\t\t\t\tTours Report' || menulink.text().trim() === 'Tours Report') {
-    menulink.attr({
-        "href": "https://app.powerbi.com/reportEmbed?reportId=4147eb94-3935-41f7-a629-3a86b5f549c8&autoAuth=true&ctid=aa44c5c1-5448-4e74-88d9-17838a6f9d5a",
-        "target": "_blank"
-    });
-    }
-    else if (menulink.text() === '\n\t\t\t\t\tQuality Biscuit Report' || menulink.text() === '\n\t\t\t\t\tQuality Tours Report' || menulink.text().trim() === 'Quality Biscuit Report' || menulink.text().trim() === 'Quality Tours Report') {
-        menulink.attr({
-            "href": "https://app.powerbi.com/reportEmbed?reportId=a51c1eab-db99-44fc-9c0c-93536c90f0ed&autoAuth=true&ctid=aa44c5c1-5448-4e74-88d9-17838a6f9d5a",
-            "target": "_blank"
-        });
-    }
-    else if (menulink.text() === '\n\t\t\t\t\tQuality Bakery Report' || menulink.text().trim() === 'Quality Bakery Report') {
-        menulink.attr({
-            "href": "https://app.powerbi.com/reportEmbed?reportId=62f422de-3be3-4c5e-916c-b6c64aae9ae7&autoAuth=true&ctid=aa44c5c1-5448-4e74-88d9-17838a6f9d5a",
-            "target": "_blank"
-        });
-    }
-    else if (menulink.text().toLowerCase().indexOf('rajpura') !== -1) {
-        menulink.attr({
-            "href": "https://app.fabric.microsoft.com/links/hf07t1lliz?ctid=aa44c5c1-5448-4e74-88d9-17838a6f9d5a&pbi_source=linkShare",
-            "target": "_blank"
-        });
-    }
-    });
+                if (menulink.text() === '\n\t\t\t\t\tTours Report' || menulink.text().trim() === 'Tours Report') {
+                    menulink.attr({
+                        "href": "https://app.powerbi.com/reportEmbed?reportId=4147eb94-3935-41f7-a629-3a86b5f549c8&autoAuth=true&ctid=aa44c5c1-5448-4e74-88d9-17838a6f9d5a",
+                        "target": "_blank"
+                    });
+                }
+                else if (menulink.text() === '\n\t\t\t\t\tQuality Biscuit Report' || menulink.text() === '\n\t\t\t\t\tQuality Tours Report' || menulink.text().trim() === 'Quality Biscuit Report' || menulink.text().trim() === 'Quality Tours Report') {
+                    menulink.attr({
+                        "href": "https://app.powerbi.com/reportEmbed?reportId=a51c1eab-db99-44fc-9c0c-93536c90f0ed&autoAuth=true&ctid=aa44c5c1-5448-4e74-88d9-17838a6f9d5a",
+                        "target": "_blank"
+                    });
+                }
+                else if (menulink.text() === '\n\t\t\t\t\tQuality Bakery Report' || menulink.text().trim() === 'Quality Bakery Report') {
+                    menulink.attr({
+                        "href": "https://app.powerbi.com/reportEmbed?reportId=62f422de-3be3-4c5e-916c-b6c64aae9ae7&autoAuth=true&ctid=aa44c5c1-5448-4e74-88d9-17838a6f9d5a",
+                        "target": "_blank"
+                    });
+                }
+                else if (menulink.text().toLowerCase().indexOf('rajpura') !== -1) {
+                    menulink.attr({
+                        "href": "https://app.fabric.microsoft.com/reportEmbed?reportId=4c4a49db-3c72-4758-b4f7-32f262d58d44&autoAuth=true&ctid=aa44c5c1-5448-4e74-88d9-17838a6f9d5a",
+                        "target": "_blank"
+                    });
+                }
+            });
 
-    var hasRajpura = false;
-    subListItems.each(function () {
-        if ($(this).find('a').text().toLowerCase().indexOf('rajpura') !== -1) {
-            hasRajpura = true;
-        }
-    });
-    if (!hasRajpura && subListItems.length > 0) {
-        $(this).find(".nav-sub-list").append(
-            '<li class="sub-list-item">' +
-                '<a class="bec-fs-md" href="https://app.fabric.microsoft.com/links/hf07t1lliz?ctid=aa44c5c1-5448-4e74-88d9-17838a6f9d5a&pbi_source=linkShare" target="_blank">' +
+            var hasRajpura = false;
+            subListItems.each(function () {
+                if ($(this).find('a').text().toLowerCase().indexOf('rajpura') !== -1) {
+                    hasRajpura = true;
+                }
+            });
+            if (!hasRajpura && subListItems.length > 0) {
+                $(this).find(".nav-sub-list").append(
+                    '<li class="sub-list-item">' +
+                    '<a class="bec-fs-md" href="https://app.fabric.microsoft.com/reportEmbed?reportId=4c4a49db-3c72-4758-b4f7-32f262d58d44&autoAuth=true&ctid=aa44c5c1-5448-4e74-88d9-17838a6f9d5a" target="_blank">' +
                     'Rajpura Report' +
-                '</a>' +
-            '</li>'
-        );
-    }
-}
+                    '</a>' +
+                    '</li>'
+                );
+            }
+        }
 
         // Check if the menu item text is 'Administrator'
         if (itemName.trim() === 'Administrator') {
@@ -86,7 +86,7 @@ $(document).ready(function () {
                 else if (menulink.text() === 'YearMaster') {
                     menulink.attr("href", "https://bectors.sharepoint.com/sites/PTMS_PRD/Lists/YearMaster/AllItems.aspx?npsAction=createList")
                 }
-                
+
             });
         }
         else if (itemName.trim() === 'Documentation') {
@@ -205,10 +205,10 @@ $(document).ready(function () {
         }
     }
 
-    function PowerBiView(data){
+    function PowerBiView(data) {
         var fileRelativeUrl = $(data).attr('href');
         var modifiedFileRelativeUrl = fileRelativeUrl;
-            window.open(modifiedFileRelativeUrl, "_blank");
+        window.open(modifiedFileRelativeUrl, "_blank");
     }
 
 
@@ -245,20 +245,20 @@ function initializeSideNav() {
     listItems.first().addClass("active");
 
     listItems.each(function () {
-    var item = $(this);
-    var spanEl = item.find("span").first();
+        var item = $(this);
+        var spanEl = item.find("span").first();
 
-    // Unbind previous click handler before binding
-    spanEl.off("click").on("click", function () {
-        listItems.not(item).removeClass("active");
-        item.toggleClass("active");
+        // Unbind previous click handler before binding
+        spanEl.off("click").on("click", function () {
+            listItems.not(item).removeClass("active");
+            item.toggleClass("active");
 
-        // On mobile, auto-close sidebar after selection
-        if (window.innerWidth <= 768) {
-            $(".sidebar-container").removeClass("mobile-open");
-        }
+            // On mobile, auto-close sidebar after selection
+            if (window.innerWidth <= 768) {
+                $(".sidebar-container").removeClass("mobile-open");
+            }
+        });
     });
-});
 
 
     $(".sidebar-container .nav-list .list-item").each(function () {
@@ -275,22 +275,22 @@ function initializeSideNav() {
 
     var sidebarToggleBtn = $("#sidebarToggle");
     sidebarToggleBtn.off("click").on("click", function (e) {
-    e.preventDefault();
+        e.preventDefault();
 
-    if (window.innerWidth <= 768) {
-        $(".sidebar-container").toggleClass("mobile-open");
-    } else {
-        $(".sidebar .sidebar-container").toggleClass("collapsed");
-        $(".sidebar-container .nav-list .list-item").each(function () {
-            $(this).removeClass("active");
-            if ($(".sidebar-container").hasClass("collapsed")) {
-                $(this).find(".item-title .item-name").css("visibility", "hidden");
-            } else {
-                $(this).find(".item-title .item-name").css("visibility", "visible");
-            }
-        });
-    }
-});
+        if (window.innerWidth <= 768) {
+            $(".sidebar-container").toggleClass("mobile-open");
+        } else {
+            $(".sidebar .sidebar-container").toggleClass("collapsed");
+            $(".sidebar-container .nav-list .list-item").each(function () {
+                $(this).removeClass("active");
+                if ($(".sidebar-container").hasClass("collapsed")) {
+                    $(this).find(".item-title .item-name").css("visibility", "hidden");
+                } else {
+                    $(this).find(".item-title .item-name").css("visibility", "visible");
+                }
+            });
+        }
+    });
 
 }
 
@@ -1012,21 +1012,21 @@ window.goBack = function (e) {
 async function getAccessToken() {
     const storedToken = JSON.parse(localStorage.getItem("access_token"));
     const currentTime = new Date().getTime() / 1000; // Current time in seconds
- 
+
     // If there's a stored token and it's still valid, return it
     if (storedToken && storedToken.expires_at > currentTime) {
         return storedToken.token;
     }
-    else{
+    else {
         localStorage.removeItem("access_token");
     }
- 
+
     var isBectors = (window.location.href || "").toLowerCase().indexOf("bectors.sharepoint.com") !== -1 || (window.location.href || "").toLowerCase().indexOf("ptms_uat") !== -1 || (window.location.href || "").toLowerCase().indexOf("ptms_prd") !== -1;
 
     const flowUrl = isBectors
         ? "https://prod-24.centralindia.logic.azure.com:443/workflows/7b6770178a5b424baddc640faef80342/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=-vK5eFyMUINt3lp8qvpPzPSN0SwXDf9efw5a4T_SzEI"
         : "https://86c49df27027e13c808b32506fa981.d1.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/11/workflows/182bf483e5b84314aba7baf2612543fc/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=oE7DjCwm3S0c-8PZlVFIYGCIL61LybVqodXyqq9U0HY";
- 
+
     try {
         const response = await fetch(flowUrl, {
             method: "POST", // Ensure this matches the method expected by your flow
@@ -1035,14 +1035,14 @@ async function getAccessToken() {
             },
             body: JSON.stringify({}) // Send an empty JSON object if required
         });
- 
+
         if (!response.ok) {
             throw new Error(`Failed to fetch token from Power Automate: ${response.statusText}`);
         }
- 
+
         const data = await response.json(); // Assuming the flow returns a JSON object with the token and expiry
         const expiresAt = currentTime + data.expires_in;
- 
+
         // Store the token and expiration in localStorage
         localStorage.setItem(
             "access_token",
@@ -1051,7 +1051,7 @@ async function getAccessToken() {
                 expires_at: expiresAt
             })
         );
- 
+
         return data.access_token;
         console.log(data.access_token);
     } catch (error) {
@@ -1061,25 +1061,25 @@ async function getAccessToken() {
 }
 
 $(document).ready(function () {
-  $('#tourSelect').select2({
-    dropdownParent: $('#shiftPopup')
-  });
+    $('#tourSelect').select2({
+        dropdownParent: $('#shiftPopup')
+    });
 
-  $('#shiftSelect').select2({
-    dropdownParent: $('#shiftPopup')
-  });
+    $('#shiftSelect').select2({
+        dropdownParent: $('#shiftPopup')
+    });
 });
 
-function hideSection( sectioId ) {
-  const element = document.getElementById( sectioId );
-  if ( element && !element.classList?.contains( 'd-none' ) ) {
-    element.classList.add( 'd-none' );
-  }
+function hideSection(sectioId) {
+    const element = document.getElementById(sectioId);
+    if (element && !element.classList?.contains('d-none')) {
+        element.classList.add('d-none');
+    }
 }
 
 
-function showhiddenSection( sectioId ) {
-  if ( document.getElementById( sectioId )?.classList?.contains( 'd-none' ) ) {
-    document.getElementById( sectioId )?.classList.remove( 'd-none' );
-  }
+function showhiddenSection(sectioId) {
+    if (document.getElementById(sectioId)?.classList?.contains('d-none')) {
+        document.getElementById(sectioId)?.classList.remove('d-none');
+    }
 }
