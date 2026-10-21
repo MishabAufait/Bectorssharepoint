@@ -106,7 +106,8 @@ const PKGOPS_CorrectiveAction = {
         // Map table keys
         switch (this.pkgopsType) {
             case "Code Verification": this.activeSubChecklistKey = "CHILD_CODE_VERIFICATION"; break;
-            case "PAPA": this.activeSubChecklistKey = "CHILD_PAPA"; break;
+            case "PAPA":
+            case "PAPA's": this.activeSubChecklistKey = "CHILD_PAPA"; break;
             case "PQI": this.activeSubChecklistKey = "CHILD_PQI_EVALUATION"; break;
             case "Seal Integrity": this.activeSubChecklistKey = "CHILD_SEAL_INTEGRITY"; break;
             case "Cream Percentage": this.activeSubChecklistKey = "CHILD_CREAM_PERCENTAGE"; break;
@@ -159,7 +160,7 @@ const PKGOPS_CorrectiveAction = {
                 this.deviatedRows = rows
                     .filter(r => r.cr3ea_defecttype && r.cr3ea_defecttype !== "None" && r.cr3ea_defecttype !== "Okay")
                     .sort((a, b) => this.parseSampleNum(a) - this.parseSampleNum(b));
-            } else if (this.pkgopsType === "PAPA") {
+            } else if (this.pkgopsType === "PAPA" || this.pkgopsType === "PAPA's") {
                 this.deviatedRows = rows.filter(r => r.cr3ea_defecttype && r.cr3ea_defecttype !== "Overall Summary");
             } else if (this.pkgopsType === "PQI") {
                 this.deviatedRows = rows
@@ -245,7 +246,7 @@ const PKGOPS_CorrectiveAction = {
                                         </div>
                                     `;
                                     obsDetails = `Batch: ${row.cr3ea_batchno || "-"} | PKD: ${row.cr3ea_pkd || "-"} | Defect Count: ${row.cr3ea_defectcount || "1"}`;
-                                } else if (this.pkgopsType === "PAPA") {
+                                } else if (this.pkgopsType === "PAPA" || this.pkgopsType === "PAPA's") {
                                     defectDesc = row.cr3ea_defecttype || "Appearance Defect";
                                     obsDetails = `Defect Count: ${row.cr3ea_defectcount || "1"} | Percentage: ${row.cr3ea_defectwisepercentage || "1%"}`;
                                 } else if (this.pkgopsType === "PQI") {

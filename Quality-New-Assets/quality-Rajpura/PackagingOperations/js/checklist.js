@@ -798,6 +798,7 @@ const PKGOPS_Checklist = {
                 this.renderCodeVerification(container);
                 break;
             case "PAPA":
+            case "PAPA's":
                 this.activeSubChecklistKey = "CHILD_PAPA";
                 this.renderPAPA(container);
                 break;
@@ -1308,7 +1309,7 @@ const PKGOPS_Checklist = {
         container.innerHTML = `
             <div class="row">
                 <div class="col-md-12">
-                    <h3 class="form-section-title">PAPA (Product Attributes & Packaging Appearance)</h3>
+                    <h3 class="form-section-title">PAPA's (Product Attributes & Packaging Appearance)</h3>
                 </div>
             </div>
             <div class="row g-3 mt-2">
@@ -1406,7 +1407,7 @@ const PKGOPS_Checklist = {
                                 <div class="progress mb-2" style="height: 8px; background-color: #e2e8f0; border-radius: 4px; overflow: hidden;">
                                     <div id="papa-total-bar" class="progress-bar bg-danger" role="progressbar" style="width: 0%; transition: width 0.3s ease;"></div>
                                 </div>
-                                <small class="text-muted" style="font-size: 11px;">Combined PAPA deviation rate</small>
+                                <small class="text-muted" style="font-size: 11px;">Combined PAPA's deviation rate</small>
                             </div>
                         </div>
                     </div>
@@ -3915,7 +3916,7 @@ const PKGOPS_Checklist = {
                     await Promise.all(chunk.map(rec => PKGOPS_DAL.saveSubChecklistRow("CHILD_CODE_VERIFICATION", rec)));
                 }
             } 
-            else if (this.pkgopsType === "PAPA") {
+            else if (this.pkgopsType === "PAPA" || this.pkgopsType === "PAPA's") {
                 PKGOPS_Validator.clearAll("checklist-container");
                 const headers = [
                     { id: "papa-product", name: "Product Name" },
@@ -4008,7 +4009,7 @@ const PKGOPS_Checklist = {
                                 name: defectName,
                                 count: count,
                                 remarks: `${product} (SKU: ${sku})`,
-                                area: `PAPA (${defectItem.type || "Defect"})`
+                                area: `PAPA's (${defectItem.type || "Defect"})`
                             });
                         }
 
@@ -4613,7 +4614,7 @@ const PKGOPS_Checklist = {
                     await Promise.all(chunk.map(rec => PKGOPS_DAL.saveSubChecklistRow("CHILD_CODE_VERIFICATION", rec)));
                 }
             } 
-            else if (this.pkgopsType === "PAPA") {
+            else if (this.pkgopsType === "PAPA" || this.pkgopsType === "PAPA's") {
                 const product = document.getElementById("papa-product")?.value || "";
                 const sku = document.getElementById("papa-sku")?.value || "";
                 const sampleSize = parseInt(document.getElementById("papa-sample-size")?.value) || 100;
@@ -5122,7 +5123,7 @@ const PKGOPS_Checklist = {
                     });
                 }
             } 
-            else if (this.pkgopsType === "PAPA") {
+            else if (this.pkgopsType === "PAPA" || this.pkgopsType === "PAPA's") {
                 const rows = await PKGOPS_DAL.getSubChecklistRows("CHILD_PAPA", this.currentTourId);
                 if (rows && rows.length > 0) {
                     const firstRow = rows.find(r => r.cr3ea_defecttype === "Overall Summary") || rows[0];

@@ -1468,7 +1468,8 @@ const ALC_Dashboard = {
                         };
                     }
                 } else if (isPkgOps) {
-                    const subType = t.cr3ea_pkgops_type || "Packaging Operations";
+                    const rawSubType = t.cr3ea_pkgops_type || "Packaging Operations";
+                    const subType = rawSubType === "PAPA" ? "PAPA's" : rawSubType;
                     const form = `Packaging - ${subType}`;
                     const prodExecRaw = t.cr3ea_shiftexecutiveproduction || "N/A";
                     const prodExec = prodExecRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(prodExecRaw) : prodExecRaw;
@@ -2178,7 +2179,8 @@ const ALC_Dashboard = {
                         };
                     }
                 } else if (isPkgOps) {
-                    const subType = t.cr3ea_pkgops_type || "Packaging Operations";
+                    const rawSubType = t.cr3ea_pkgops_type || "Packaging Operations";
+                    const subType = rawSubType === "PAPA" ? "PAPA's" : rawSubType;
                     const form = `Packaging - ${subType}`;
                     const qaName = t.cr3ea_assigned_qa || t.cr3ea_tourby || "N/A";
                     const qaExec = qaName.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaName) : qaName;

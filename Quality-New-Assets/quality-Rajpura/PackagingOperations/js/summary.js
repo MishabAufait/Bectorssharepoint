@@ -87,7 +87,8 @@ const PKGOPS_Summary = {
         switch (this.pkgopsType) {
             case "Temperatures & Humidity": this.activeSubChecklistKey = "CHILD_TEMP_HUMIDITY"; break;
             case "Code Verification": this.activeSubChecklistKey = "CHILD_CODE_VERIFICATION"; break;
-            case "PAPA": this.activeSubChecklistKey = "CHILD_PAPA"; break;
+            case "PAPA":
+            case "PAPA's": this.activeSubChecklistKey = "CHILD_PAPA"; break;
             case "PQI": this.activeSubChecklistKey = "CHILD_PQI_EVALUATION"; break;
             case "Seal Integrity": this.activeSubChecklistKey = "CHILD_SEAL_INTEGRITY"; break;
             case "Quality Wall Records": this.activeSubChecklistKey = "CHILD_QUALITY_WALL"; break;
@@ -153,7 +154,7 @@ const PKGOPS_Summary = {
                 <div class="row">
                     <div class="col-md-12 text-center">
                         <span class="badge ${badgeColor} px-4 py-2" style="font-size: 16px; border-radius: 9999px; text-transform: uppercase;">${badgeText}</span>
-                        <h2 class="mt-2" style="color: #1e293b; font-weight: 700;">${this.pkgopsType} Audit Summary</h2>
+                        <h2 class="mt-2" style="color: #1e293b; font-weight: 700;">${this.pkgopsType === "PAPA" ? "PAPA's" : this.pkgopsType} Audit Summary</h2>
                     </div>
                 </div>
                 ${pendingBannerHtml}
@@ -260,7 +261,7 @@ const PKGOPS_Summary = {
                 </div>
             `;
         } 
-        else if (this.pkgopsType === "PAPA") {
+        else if (this.pkgopsType === "PAPA" || this.pkgopsType === "PAPA's") {
             const firstRow = rows.find(r => r.cr3ea_defecttype === "Overall Summary") || rows[0] || {};
             const productName = firstRow.cr3ea_productname || "-";
             const sku = firstRow.cr3ea_sku || "-";
@@ -345,7 +346,7 @@ const PKGOPS_Summary = {
                             <div class="card-body p-3">
                                 <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Total Samples Audited</span>
                                 <h4 class="mt-1 mb-0 text-dark fw-bold">${sampleSize} <span style="font-size: 13px; font-weight: 500; color: #64748b;">Units</span></h4>
-                                <small class="text-muted">PAPA Sample Base</small>
+                                <small class="text-muted">PAPA's Sample Base</small>
                             </div>
                         </div>
                     </div>
@@ -492,7 +493,7 @@ const PKGOPS_Summary = {
                             <div class="card border-0 shadow-sm rounded p-4 text-center" style="border: 1px solid #bbf7d0 !important; background-color: #f0fdf4 !important;">
                                 <div class="text-success mb-2" style="font-size: 36px;"><i class="fa fa-check-circle"></i></div>
                                 <h5 class="fw-bold text-success mb-1">100.00% Quality Conformance</h5>
-                                <p class="text-secondary mb-0" style="font-size: 14px;">All sampled units (${sampleSize} units) conformed to specifications. Zero product or packaging defects were observed during this PAPA audit.</p>
+                                <p class="text-secondary mb-0" style="font-size: 14px;">All sampled units (${sampleSize} units) conformed to specifications. Zero product or packaging defects were observed during this PAPA's audit.</p>
                             </div>
                         </div>
                     </div>

@@ -105,7 +105,8 @@ const PKGOPS_Reverify = {
         
         switch (this.pkgopsType) {
             case "Code Verification": this.activeSubChecklistKey = "CHILD_CODE_VERIFICATION"; break;
-            case "PAPA": this.activeSubChecklistKey = "CHILD_PAPA"; break;
+            case "PAPA":
+            case "PAPA's": this.activeSubChecklistKey = "CHILD_PAPA"; break;
             case "PQI": this.activeSubChecklistKey = "CHILD_PQI_EVALUATION"; break;
             case "Seal Integrity": this.activeSubChecklistKey = "CHILD_SEAL_INTEGRITY"; break;
             case "Cream Percentage": this.activeSubChecklistKey = "CHILD_CREAM_PERCENTAGE"; break;
@@ -152,7 +153,7 @@ const PKGOPS_Reverify = {
                 this.reverifyRows = rows
                     .filter(r => r.cr3ea_deviationstatus === "Pending Re-Verification" || (r.cr3ea_actiontaken && r.cr3ea_deviationstatus !== "Closed") || (r.cr3ea_defecttype && r.cr3ea_defecttype !== "None" && r.cr3ea_defecttype !== "Okay" && r.cr3ea_deviationstatus !== "Closed"))
                     .sort((a, b) => this.parseSampleNum(a) - this.parseSampleNum(b));
-            } else if (this.pkgopsType === "PAPA") {
+            } else if (this.pkgopsType === "PAPA" || this.pkgopsType === "PAPA's") {
                 this.reverifyRows = rows.filter(r => r.cr3ea_deviationstatus === "Pending Re-Verification" || (r.cr3ea_actiontaken && r.cr3ea_deviationstatus !== "Closed") || (r.cr3ea_defecttype && r.cr3ea_defecttype !== "Overall Summary" && r.cr3ea_deviationstatus !== "Closed"));
             } else if (this.pkgopsType === "PQI") {
                 this.reverifyRows = rows
@@ -250,7 +251,7 @@ const PKGOPS_Reverify = {
                                             <small class="text-secondary">Batch: ${row.cr3ea_batchno || "-"} | PKD: ${row.cr3ea_pkd || "-"}</small>
                                         </div>
                                     `;
-                                } else if (this.pkgopsType === "PAPA") {
+                                } else if (this.pkgopsType === "PAPA" || this.pkgopsType === "PAPA's") {
                                     defectDesc = row.cr3ea_defecttype || "Appearance Defect";
                                 } else if (this.pkgopsType === "PQI") {
                                     defectDesc = `

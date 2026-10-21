@@ -191,7 +191,7 @@ const PKGOPS_Main = {
         if (headerInfo) {
             headerInfo.innerHTML = `
                 <div style="display: flex; gap: 20px; flex-wrap: wrap; font-size: 14px; font-weight: 600; color: #475569;">
-                    <span><strong>Type:</strong> ${this.currentSession.cr3ea_pkgops_type || "N/A"}</span>
+                    <span><strong>Type:</strong> ${this.currentSession.cr3ea_pkgops_type === "PAPA" ? "PAPA's" : (this.currentSession.cr3ea_pkgops_type || "N/A")}</span>
                     <span><strong>Line:</strong> ${this.currentSession.cr3ea_lineno || "N/A"}</span>
                     <span><strong>Shift:</strong> ${this.currentSession.cr3ea_shift || "N/A"}</span>
                     <span><strong>Date:</strong> ${dateVal}</span>

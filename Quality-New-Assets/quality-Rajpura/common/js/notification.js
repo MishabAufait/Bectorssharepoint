@@ -174,10 +174,11 @@ const ALC_Notification = {
         
         // 1. Packaging Operations
         if (session.cr3ea_pkgops_type) {
+            const rawType = session.cr3ea_pkgops_type;
             return {
                 prefix: "PKGOPS_",
                 parentType: "Packaging_Operations",
-                type: session.cr3ea_pkgops_type
+                type: rawType === "PAPA" ? "PAPA's" : rawType
             };
         }
         if (title.startsWith("pkgops_") || title.includes("pkgops")) {
