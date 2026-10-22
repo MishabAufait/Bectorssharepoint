@@ -48,8 +48,6 @@ function isRajpuraPlant() {
   if (typeof $ !== 'undefined') {
     var deptText = $('#DepartmentDropDownId option:selected').text() || '';
     if (deptText.toLowerCase().indexOf('rajpura') !== -1) return true;
-    var selectedDept = $('#DepartmentDropDownId').val();
-    if (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.QUALITY_DEPT_IDS && QualityRajpura_Config.QUALITY_DEPT_IDS.indexOf(String(selectedDept)) !== -1) return true;
   }
 
   return false;
@@ -57,26 +55,37 @@ function isRajpuraPlant() {
 
 function isQualityDepartment() {
   if (userDepratmentId == 79 || userDepratmentId == 82) return false;
-  if (typeof $ !== 'undefined') {
-    var selectedDept = $('#DepartmentDropDownId').val();
-    if (selectedDept && selectedDept !== 'All') {
-      if (selectedDept == 79 || selectedDept == 82) return false;
-      if (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.QUALITY_DEPT_IDS) {
-        if (QualityRajpura_Config.QUALITY_DEPT_IDS.indexOf(String(selectedDept)) !== -1) return true;
-      }
-      var qDepts = ['39', '80', '81', '135', '18'];
+
+  var deptText = (typeof $ !== 'undefined' ? $('#DepartmentDropDownId option:selected').text() : '') || '';
+  var leftNaviDept = (typeof DepartmentNameLeftNavi === 'string') ? DepartmentNameLeftNavi : '';
+  var combinedText = (deptText + ' ' + leftNaviDept).toLowerCase();
+
+  // 1. Explicit non-quality departments (Stores, Warehouse, Baking) are never Quality
+  if (combinedText.indexOf('store') !== -1 || combinedText.indexOf('warehouse') !== -1 || combinedText.indexOf('baking') !== -1) {
+    return false;
+  }
+
+  // 2. If department name contains 'quality', it is Quality (applies across all plants)
+  if (combinedText.indexOf('quality') !== -1) {
+    return true;
+  }
+
+  // 3. For Rajpura Plant: check BOTH Plant ID AND Department ID together
+  if (isRajpuraPlant()) {
+    var selectedDept = typeof $ !== 'undefined' ? $('#DepartmentDropDownId').val() : '';
+    var qDepts = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.QUALITY_DEPT_IDS)
+      ? QualityRajpura_Config.QUALITY_DEPT_IDS
+      : ['39', '80', '81', '135', '18'];
+
+    if (selectedDept && selectedDept !== 'All' && selectedDept != 79 && selectedDept != 82) {
       if (qDepts.indexOf(String(selectedDept)) !== -1) return true;
-      var deptText = $('#DepartmentDropDownId option:selected').text() || '';
-      if (deptText.toLowerCase().indexOf('quality') !== -1) return true;
+    }
+
+    if (qDepts.indexOf(String(userDepratmentId)) !== -1) {
+      return true;
     }
   }
 
-  if (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.QUALITY_DEPT_IDS) {
-    if (QualityRajpura_Config.QUALITY_DEPT_IDS.indexOf(String(userDepratmentId)) !== -1) return true;
-  }
-  var qDepts = ['39', '80', '81', '135', '18'];
-  if (qDepts.indexOf(String(userDepratmentId)) !== -1) return true;
-  if (typeof DepartmentNameLeftNavi === 'string' && DepartmentNameLeftNavi.toLowerCase().indexOf('quality') !== -1) return true;
   return false;
 }
 
