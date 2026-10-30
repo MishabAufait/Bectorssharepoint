@@ -237,7 +237,7 @@ const FoodSafety_Main = {
             this.state.productionIncharge = tour.cr3ea_shiftexecutiveproduction || "";
             this.state.observedBy = tour.cr3ea_observedby || tour.cr3ea_shiftexecutive || "";
             this.state.areaIncharge = tour.cr3ea_food_safety_areaincharge || "";
-            this.state.selectedArea = tour.cr3ea_food_safety_area || "";
+            this.state.selectedArea = tour.cr3ea_food_safety_area || (tour.cr3ea_lineno && (tour.cr3ea_lineno.includes("5") || tour.cr3ea_lineno.includes("6") || tour.cr3ea_lineno.includes("7")) ? "New Block" : "Old Block");
             this.state.selectedCycle = tour.cr3ea_food_safety_cycle || "Cycle-1";
             this.state.tourStartDate = tour.cr3ea_tourstartdate;
 

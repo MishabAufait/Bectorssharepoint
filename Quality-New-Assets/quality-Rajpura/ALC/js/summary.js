@@ -201,15 +201,22 @@ const ALC_Summary = {
             areaStats[area].obtained += numericScore;
         });
 
-        const overallPercentRaw = totalMaxPoints > 0 ? (totalObtainedPoints / totalMaxPoints) * 100 : 0;
-        const overallPercent = overallPercentRaw.toFixed(2);
+        const checkpointPercentRaw = totalMaxPoints > 0 ? (totalObtainedPoints / totalMaxPoints) * 100 : 0;
+        const checkpointPercent = checkpointPercentRaw.toFixed(2);
+
+        // Final score reflects the first time score given only (from session.cr3ea_overall_score or initial checkpoints)
+        const hasSessionScore = (this.session && this.session.cr3ea_overall_score !== undefined && this.session.cr3ea_overall_score !== null && String(this.session.cr3ea_overall_score).trim() !== "");
+        const overallPercent = hasSessionScore
+            ? parseFloat(String(this.session.cr3ea_overall_score).replace("%", "")).toFixed(2)
+            : checkpointPercent;
+
         const scoreCircle = document.getElementById("sum-score-circle");
         const scoreCard = scoreCircle ? scoreCircle.parentElement : null;
         const isPassingScore = (parseFloat(overallPercent) >= 80) && !hasCriticalFailure;
 
         const status = this.session.cr3ea_processstatus || this.session.cr3ea_status || "";
         const isExpired = status === "Closed - Expired" || status.includes("Expired");
-        const hasNoScore = (totalMaxPoints === 0 || totalObtainedPoints === 0);
+        const hasNoScore = (totalMaxPoints === 0 || totalObtainedPoints === 0) && !hasSessionScore;
 
         if (scoreCircle) {
             if (isExpired && hasNoScore) {
@@ -255,13 +262,15 @@ const ALC_Summary = {
                 scoreDesc.innerText = `${isPassingScore ? "Success" : "Failed"} - Expired with ${overallPercent}% compliance score.`;
                 scoreDesc.style.color = isPassingScore ? "#047857" : "#b91c1c";
             } else if (status.includes("Pending Production")) {
-                scoreDesc.innerText = `Pending Production Corrective Actions. Current Score: ${overallPercent}%`;
+                scoreDesc.innerText = `Pending Production Corrective Actions. Initial Score: ${overallPercent}%`;
                 scoreDesc.style.color = isPassingScore ? "#047857" : "#b91c1c";
             } else if (status.includes("Pending Re-Verification")) {
-                scoreDesc.innerText = `Pending QA Re-Verification. Current Score: ${overallPercent}%`;
+                scoreDesc.innerText = `Pending QA Re-Verification. Initial Score: ${overallPercent}%`;
                 scoreDesc.style.color = isPassingScore ? "#047857" : "#b91c1c";
             } else if (status === "Completed") {
-                scoreDesc.innerText = `Excellent! 100% compliance cleared successfully.`;
+                scoreDesc.innerText = (parseFloat(overallPercent) >= 100)
+                    ? `Excellent! 100% compliance cleared successfully.`
+                    : `Completed with ${overallPercent}% initial compliance score.`;
                 scoreDesc.style.color = "#047857";
             } else {
                 scoreDesc.innerText = `Completed with ${overallPercent}% compliance score.`;

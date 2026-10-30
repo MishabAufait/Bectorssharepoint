@@ -158,8 +158,12 @@ const FoodSafety_Summary = {
             }
             
             const pciAreaWrapper = document.getElementById("sum-pci-area-wrapper");
-            if (checklistType === "PCI Checklist" && parent.cr3ea_food_safety_area) {
-                document.getElementById("sum-pci-area").innerText = parent.cr3ea_food_safety_area;
+            const resolvedPciArea = parent.cr3ea_food_safety_area || (parent.cr3ea_lineno && (parent.cr3ea_lineno.includes("5") || parent.cr3ea_lineno.includes("6") || parent.cr3ea_lineno.includes("7")) ? "New Block" : "Old Block");
+            if (checklistType === "PCI Checklist" && resolvedPciArea) {
+                const areaDisplay = resolvedPciArea === "New Block" 
+                    ? "New Block (Line 5, 6, 7)" 
+                    : "Old Block (Line 1, 2, 3, 4, 8)";
+                document.getElementById("sum-pci-area").innerText = areaDisplay;
                 pciAreaWrapper.style.display = "block";
             } else {
                 pciAreaWrapper.style.display = "none";
@@ -204,7 +208,7 @@ const FoodSafety_Summary = {
                     calculatedResult = (notOkayCount === 0 && okayCount === totalItems) ? "Pass" : "Fail";
                 }
             } else if (checklistType === "PCI Checklist") {
-                const area = parent.cr3ea_food_safety_area || "Old Block";
+                const area = resolvedPciArea;
                 const locations = area === "New Block" ? this.newBlockLocations : this.oldBlockLocations;
                 const totalLocs = locations.length;
                 let okayCount = 0;
@@ -396,7 +400,7 @@ const FoodSafety_Summary = {
                     });
                 });
             } else if (checklistType === "PCI Checklist") {
-                const area = parent.cr3ea_food_safety_area || "Old Block";
+                const area = resolvedPciArea;
                 const locations = area === "New Block" ? this.newBlockLocations : this.oldBlockLocations;
                 
                 locations.forEach((locName, idx) => {

@@ -539,13 +539,12 @@ const ALC_Dashboard = {
                 let scoreNum = null;
                 const computedScore = ALC_Dashboard.calculateScoreDynamically(t);
                 
-                if (computedScore !== null) {
+                                if (t.cr3ea_overall_score !== undefined && t.cr3ea_overall_score !== null && String(t.cr3ea_overall_score).trim() !== "") {
+                    scoreNum = parseFloat(String(t.cr3ea_overall_score).replace("%", ""));
+                    scoreDisplay = `<strong style="color: #0f172a; font-size: 15px;">${scoreNum.toFixed(2)}%</strong>`;
+                } else if (computedScore !== null) {
                     scoreNum = parseFloat(computedScore);
                     scoreDisplay = `<strong style="color: #0f172a; font-size: 15px;">${computedScore}%</strong>`;
-                } else if (t.cr3ea_overall_score !== undefined && t.cr3ea_overall_score !== null && String(t.cr3ea_overall_score).trim() !== "") {
-                    // Fallback to Dataverse field if checkpoints couldn't be loaded (e.g. mock fallback)
-                    scoreNum = parseFloat(t.cr3ea_overall_score);
-                    scoreDisplay = `<strong style="color: #0f172a; font-size: 15px;">${scoreNum.toFixed(2)}%</strong>`;
                 }
 
                 let status = t.cr3ea_processstatus || t.cr3ea_status || "Pending QA";

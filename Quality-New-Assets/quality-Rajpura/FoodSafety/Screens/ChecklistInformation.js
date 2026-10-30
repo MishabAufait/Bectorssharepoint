@@ -74,6 +74,34 @@ const ChecklistInformationScreen = {
             $(siteSelect).off("change.site").on("change.site", () => this.handleSiteChange());
         }
 
+        const pciAreaSelectEl = document.getElementById("infoPCIAreaSelect");
+        if (pciAreaSelectEl) {
+            $(pciAreaSelectEl).off("change.pciArea").on("change.pciArea", () => this.updateLineDropdown());
+        }
+
+        const lineSelectEl = document.getElementById("infoLineSelect");
+        if (lineSelectEl) {
+            $(lineSelectEl).off("change.pciLineSync").on("change.pciLineSync", () => {
+                const type = document.getElementById("infoChecklistTypeSelect")?.value;
+                if (type !== "PCI Checklist") return;
+                const val = lineSelectEl.value || "";
+                const pciAreaSel = document.getElementById("infoPCIAreaSelect");
+                if (!pciAreaSel) return;
+
+                if (val.includes("5") || val.includes("6") || val.includes("7")) {
+                    if (pciAreaSel.value !== "New Block") {
+                        pciAreaSel.value = "New Block";
+                        $(pciAreaSel).val("New Block").trigger("change.select2");
+                    }
+                } else if (val.includes("1") || val.includes("2") || val.includes("3") || val.includes("4") || val.includes("8")) {
+                    if (pciAreaSel.value !== "Old Block") {
+                        pciAreaSel.value = "Old Block";
+                        $(pciAreaSel).val("Old Block").trigger("change.select2");
+                    }
+                }
+            });
+        }
+
         // Trigger type change and site change once on load to display dependent fields
         this.handleTypeChange();
         this.handleSiteChange();
@@ -200,21 +228,40 @@ const ChecklistInformationScreen = {
             if (areaInchargeGroup) areaInchargeGroup.style.display = "none";
             if (pciAreaGroup) pciAreaGroup.style.display = "none";
         }
+
+        this.updateLineDropdown();
     },
 
     // Handle site dependent line list
     handleSiteChange: function () {
-        const site = document.getElementById("infoSiteSelect").value;
+        this.updateLineDropdown();
+    },
+
+    // Dynamically populate lines segregated by block for PCI or standard lines for PPE/GMP
+    updateLineDropdown: function () {
+        const site = document.getElementById("infoSiteSelect")?.value || "Rajpura";
+        const checklistType = document.getElementById("infoChecklistTypeSelect")?.value || "PPE Checklist";
+        const pciArea = document.getElementById("infoPCIAreaSelect")?.value || "Old Block";
         const lineSelectId = "infoLineSelect";
+        const currentLine = document.getElementById(lineSelectId)?.value || "";
         
         let lines = [];
         if (site === "Rajpura") {
-            lines = ["Line 1", "Line 2", "Line 3", "Line 4", "Line 5", "Line 6", "Line 7", "Line 8"];
+            if (checklistType === "PCI Checklist") {
+                if (pciArea === "New Block") {
+                    lines = ["Line 5, 6, 7 (Shared)", "Line 5", "Line 6", "Line 7"];
+                } else {
+                    lines = ["Line 1, 2, 3, 4, 8 (Shared)", "Line 1", "Line 2", "Line 3", "Line 4", "Line 8"];
+                }
+            } else {
+                lines = ["Line 1", "Line 2", "Line 3", "Line 4", "Line 5", "Line 6", "Line 7", "Line 8"];
+            }
         } else {
             lines = ["Line 1", "Line 2", "Line 3", "Line 4", "Line 5"];
         }
 
-        DropdownComponent.populate(lineSelectId, lines, lines[0]);
+        const selectedLine = lines.includes(currentLine) ? currentLine : lines[0];
+        DropdownComponent.populate(lineSelectId, lines, selectedLine);
     },
 
     // Submit Common Header (Create Parent Record in Dataverse)
@@ -374,6 +421,8 @@ const ChecklistInformationScreen = {
             if (FoodSafety_Main.state.selectedChecklistType === "PCI Checklist") {
                 FoodSafety_Main.state.areaIncharge = areaIncharge;
                 FoodSafety_Main.state.selectedArea = selectedArea;
+                tourPayload.cr3ea_food_safety_area = selectedArea;
+                tourPayload.cr3ea_food_safety_areaincharge = areaIncharge;
             }
 
             console.log("Submitting parent tour record payload to Dataverse:", tourPayload);

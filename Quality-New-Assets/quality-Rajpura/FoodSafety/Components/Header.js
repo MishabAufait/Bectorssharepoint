@@ -33,8 +33,15 @@ const HeaderComponent = {
             ? `${FoodSafety_Main.state.selectedChecklistType.toUpperCase()} (RAJPURA)`
             : "FOOD SAFETY CHECKLIST (RAJPURA)";
 
-        const areaBadgeHtml = (FoodSafety_Main.state.selectedChecklistType === "PCI Checklist" && FoodSafety_Main.state.selectedArea)
-            ? `<span class="badge badge-info" id="areaBadge" style="background-color: #6366f1; color: #ffffff; font-weight: bold; margin-right: 5px;">${FoodSafety_Main.state.selectedArea}</span>`
+        let displayAreaText = FoodSafety_Main.state.selectedArea || "";
+        if (displayAreaText === "Old Block") {
+            displayAreaText = "Old Block (Line 1, 2, 3, 4, 8)";
+        } else if (displayAreaText === "New Block") {
+            displayAreaText = "New Block (Line 5, 6, 7)";
+        }
+
+        const areaBadgeHtml = (FoodSafety_Main.state.selectedChecklistType === "PCI Checklist" && displayAreaText)
+            ? `<span class="badge badge-info" id="areaBadge" style="background-color: #6366f1; color: #ffffff; font-weight: bold; margin-right: 5px;">${displayAreaText}</span>`
             : "";
 
         targets.forEach(tid => {

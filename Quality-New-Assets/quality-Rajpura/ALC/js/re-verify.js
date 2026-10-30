@@ -95,13 +95,18 @@ const ALC_ReVerification = {
             this.allCheckpoints = checkpoints;
 
             // Only re-verify the items that were previously marked Not Okay
-            this.failedCheckpoints = checkpoints.filter(c =>
-                c.cr3ea_status === "Not Okay" ||
-                c.cr3ea_defectcategory.includes("00") ||
-                c.cr3ea_defectcategory.includes("01") ||
-                c.cr3ea_defectcategory.includes("Non-Compliant") ||
-                c.cr3ea_defectcategory.includes("Partial")
-            );
+            this.failedCheckpoints = checkpoints.filter(c => {
+                const scoreText = c.cr3ea_defectcategory || "";
+                const isInitiallyFailed = (c.cr3ea_status === "Not Okay" ||
+                    scoreText.includes("00") || scoreText.includes("01") ||
+                    scoreText.includes("Non-Compliant") || scoreText.includes("Partial"));
+                if (!isInitiallyFailed) return false;
+                // If it was already re-verified and marked OK in a previous cycle, it is already resolved
+                if (c.cr3ea_status === "OK" && c.cr3ea_defectremarks && c.cr3ea_defectremarks.includes("Re-verified:")) {
+                    return false;
+                }
+                return true;
+            });
 
             this.uploadedFiles = {}; // Reset cache
             this.renderReverifyTable();
@@ -364,9 +369,10 @@ const ALC_ReVerification = {
                     reverifyVal = reverifyVal ? `${reverifyVal} | File: ${fileString}` : ` | File: ${fileString}`;
                 }
 
-                const finalRemarks = reverifyVal
-                    ? (baseRemark ? `${baseRemark} | Re-verified: ${reverifyVal}` : `Re-verified: ${reverifyVal}`)
-                    : cp.cr3ea_defectremarks;
+                const reverifyEntry = reverifyVal
+                    ? `Re-verified: [${scoreText}] ${reverifyVal}`
+                    : `Re-verified: [${scoreText}]`;
+                const finalRemarks = baseRemark ? `${baseRemark} | ${reverifyEntry}` : reverifyEntry;
 
                 // Update checkpoint record in Dataverse
                 const updatedRecord = {
@@ -374,7 +380,7 @@ const ALC_ReVerification = {
                     cr3ea_status: status,
                     // Increment cycle to show re-verification cycle
                     cr3ea_cycle: `Cycle-2`,
-                    cr3ea_defectcategory: scoreText,
+                    // NOTE: cr3ea_defectcategory is not updated to preserve the initial score
                     cr3ea_defectremarks: finalRemarks
                 };
                 if (status === "Not Okay") {
@@ -433,7 +439,9 @@ const ALC_ReVerification = {
                     }
                 }
 
-                if (isCritical && (numericScore === 0 || numericScore === 1)) {
+                // A critical failure in re-verification exists ONLY if the checkpoint is currently Not Okay
+                const isCurrentlyFailed = (cp.cr3ea_status === "Not Okay");
+                if (isCritical && isCurrentlyFailed) {
                     hasCriticalFailure = true;
                     failedCriticalItems.push({
                         criteria: cp.cr3ea_criteria || "Critical Checkpoint",
@@ -456,8 +464,8 @@ const ALC_ReVerification = {
                 }
             }
 
-            // 2. Evaluate overall result based on score threshold (80%) AND critical items
-            let isPass = (parseFloat(overallPercent) >= 80) && !hasCriticalFailure;
+            // 2. Evaluate overall result based on unresolved items and critical gate
+            let isPass = !hasUnresolvedItems && !hasCriticalFailure;
             let statusText = "Completed";
             let stateNext = ALC_STATES.SUMMARY;
 
@@ -470,7 +478,7 @@ const ALC_ReVerification = {
                 statusText = "Failed - Pending Production";
                 stateNext = (ALC_StateMachine.isProductionUser || ALC_StateMachine.isProductUser) ? ALC_STATES.PRODUCTION_ACTION : ALC_STATES.SUMMARY;
             } else if (hasUnresolvedItems) {
-                statusText = isPass ? "Success - Pending Production" : "Failed - Pending Production";
+                statusText = "Failed - Pending Production";
                 // QA (not in production team) should go to Summary page instead of Production Action
                 stateNext = (ALC_StateMachine.isProductionUser || ALC_StateMachine.isProductUser) ? ALC_STATES.PRODUCTION_ACTION : ALC_STATES.SUMMARY;
             }
@@ -484,12 +492,12 @@ const ALC_ReVerification = {
 
             const isLineClearVal = isPass && !ALC_StateMachine.isPreviousDay;
 
+            // NOTE: Do NOT update cr3ea_overall_score! The score reflects the first time score given only.
             const sessionUpdate = {
                 cr3ea_prod_rajpura_quality_tourid: ALC_StateMachine.currentTourId,
                 cr3ea_status: dbStatusValue,
                 cr3ea_processstatus: statusText,
                 cr3ea_title: cleanBaseTitle,
-                cr3ea_overall_score: String(overallPercent),
                 cr3ea_checklist_result: ALC_StateMachine.isPreviousDay ? "Expired" : (isPass ? "Pass" : "Fail"),
                 cr3ea_islineclear: isLineClearVal
             };
@@ -500,9 +508,10 @@ const ALC_ReVerification = {
                 if (typeof ALC_Notification !== "undefined") {
                     const fullSession = Object.assign({}, ALC_StateMachine.currentSession, sessionUpdate);
                     const isPass = (sessionUpdate.cr3ea_checklist_result === "Pass");
+                    const initialScore = session.cr3ea_overall_score || ALC_StateMachine.currentSession?.cr3ea_overall_score || overallPercent;
                     await ALC_Notification.sendReverificationComplete(
                         fullSession,
-                        overallPercent,
+                        initialScore,
                         sessionUpdate.cr3ea_checklist_result,
                         isPass
                     );
@@ -624,7 +633,10 @@ const ALC_ReVerification = {
 
         const estimatedScoreEl = document.getElementById("reverify-tracker-estimated-score");
         if (estimatedScoreEl) {
-            estimatedScoreEl.innerText = `${estimatedScorePercent}%`;
+            const initialScoreDisplay = (ALC_StateMachine.currentSession && ALC_StateMachine.currentSession.cr3ea_overall_score !== undefined && ALC_StateMachine.currentSession.cr3ea_overall_score !== null && String(ALC_StateMachine.currentSession.cr3ea_overall_score).trim() !== "")
+                ? parseFloat(String(ALC_StateMachine.currentSession.cr3ea_overall_score).replace("%", "")).toFixed(2)
+                : estimatedScorePercent;
+            estimatedScoreEl.innerText = `${initialScoreDisplay}%`;
         }
 
         const scoreBadgeEl = document.getElementById("reverify-tracker-score-badge");

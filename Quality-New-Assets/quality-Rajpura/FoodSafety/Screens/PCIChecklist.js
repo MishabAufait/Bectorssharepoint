@@ -129,9 +129,30 @@ const PCIChecklistScreen = {
         const container = document.getElementById("pci-locations-container");
         if (!container) return;
 
-        container.innerHTML = "";
+        const isNewBlock = area === "New Block";
+        const blockTitle = isNewBlock ? "New Block (Line 5, 6, 7)" : "Old Block (Line 1, 2, 3, 4, 8)";
+        const applicableLines = isNewBlock ? "Lines covered: Line 5, Line 6, Line 7" : "Lines covered: Line 1, Line 2, Line 3, Line 4, Line 8";
+        const locations = isNewBlock ? this.newBlockLocations : this.oldBlockLocations;
 
-        const locations = area === "New Block" ? this.newBlockLocations : this.oldBlockLocations;
+        const bannerHtml = `
+            <div class="pci-block-banner" style="background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%); border: 1px solid #bae6fd; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 36px; height: 36px; border-radius: 50%; background: #0284c7; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold;">
+                        <i class="fa fa-building-o"></i>
+                    </div>
+                    <div>
+                        <div style="font-size: 14px; font-weight: 700; color: #0f172a;">${blockTitle}</div>
+                        <div style="font-size: 12px; color: #64748b;">${applicableLines} &bull; Shared Master Checklist Inspection Areas (${locations.length} Locations)</div>
+                    </div>
+                </div>
+                <div>
+                    <span class="badge" style="background-color: #0284c7; color: #ffffff; font-size: 12px; padding: 5px 12px; border-radius: 12px; font-weight: 600;">
+                        ${area}
+                    </span>
+                </div>
+            </div>
+        `;
+        container.innerHTML = bannerHtml;
 
         locations.forEach((locName, index) => {
             const rowHtml = `
