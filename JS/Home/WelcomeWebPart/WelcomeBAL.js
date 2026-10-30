@@ -311,15 +311,23 @@ function AddDepartmentTourOnClick() {
   ShowLoader();
 
   if (userRoleSequence == 20) {
-    if (userDepratmentId == 79 || SelectedDepartmentValue == 79) {
-      SaveWarehouseItem();
-    }
-    else if (isQualityDepartment()) {
+    // 1. Rajpura Quality -> new Rajpura Quality forms
+    if (isQualityDepartment() && isRajpuraPlant()) {
       tourPopup();
     }
+    // 2. Earlier Quality department IDs (Biscuit plant: 39, 80, 81) -> earlier quality tour popup
+    else if (userDepratmentId == 39 || userDepratmentId == 80 || userDepratmentId == 81) {
+      tourPopup();
+    }
+    // 3. Warehouse (Dept 79) -> warehouse tour
+    else if (userDepratmentId == 79 || SelectedDepartmentValue == 79) {
+      SaveWarehouseItem();
+    }
+    // 4. Bakery (Dept 82) -> bakery tour popup
     else if (userDepratmentId == 82) {
       tourPopup();
     }
+    // 5. All other plants and departments (including Bangalore Quality) -> standard Department Tour
     else {
       SaveDepartmentDataItem();
     }
@@ -351,6 +359,7 @@ function tourPopup() {
   const isRajpuraQuality = isQualityDepartment() && isRajpuraPlant();
 
   if (userDepratmentId == 82) {
+    // Custom logic for Bakery Plant (earlier code)
     $('#tourSelect').empty().append(
       '<option value="Baking & Cooling">Baking & Cooling</option>' +
       '<option value="Coding">Coding</option>' +
@@ -362,38 +371,41 @@ function tourPopup() {
     );
     $('#shiftPopupDone').attr("onclick", "SaveBakeryDataItem()");
     $('#shiftPopup .shift-popup-content-wrapper').show();
-  } else if (isQualityDepartment()) {
-    if (isRajpuraPlant()) {
-      $('#tourSelect').empty().append(
-        '<option value="ALC">ALC</option>' +
-        '<option value="Mixing And Baking">Mixing And Baking</option>' +
-        '<option value="Packaging Operations">Packaging Operations</option>' +
-        '<option value="CCP, OPRP, Sieves & Magnets">CCP, OPRP, Sieves & Magnets</option>' +
-        '<option value="Food Safety">Food Safety</option>'
-      );
-      $('#shiftPopupDone').attr("onclick", "SaveQualityDataItem()");
-      // Quality - Rajpura: hide shift selection, only template selection is required
-      $('#shiftPopup .shift-popup-content-wrapper').hide();
-    } else {
-      $('#tourSelect').empty().append(
-        '<option value="Area Line Clearance Checklist">Area Line Clearance Checklist</option>' +
-        '<option value="Baking Process Record">Baking Process Record</option>' +
-        '<option value="Code Verification Record">Code Verification Record</option>' +
-        '<option value="Cream Percentage Checklist">Cream Percentage Checklist</option>' +
-        '<option value="OPRP And CCP Record">OPRP And CCP Record</option>' +
-        '<option value="Mixing Parameter">Mixing Parameter</option>' +
-        '<option value="Product Monitoring Record">Product Monitoring Record</option>' +
-        '<option value="Product Quality Index">Product Quality Index</option>' +
-        '<option value="Quality Wall Record">Quality Wall Record</option>' +
-        '<option value="Seal Integrity Test">Seal Integrity Test</option>' +
-        '<option value="Sieves And Magnets New Plant">Sieves And Magnets New Plant</option>' +
-        '<option value="Sieves And Magnets Old Plant">Sieves And Magnets Old Plant</option>'
-      );
-      $('#shiftPopupDone').attr("onclick", "SaveQualityDataItem()");
-      $('#shiftPopup .shift-popup-content-wrapper').show();
-    }
-  } else {
+  } else if (isRajpuraQuality) {
+    // Quality - Rajpura: show ONLY the 5 Rajpura Quality forms
+    $('#tourSelect').empty().append(
+      '<option value="ALC">ALC</option>' +
+      '<option value="Mixing And Baking">Mixing And Baking</option>' +
+      '<option value="Packaging Operations">Packaging Operations</option>' +
+      '<option value="CCP, OPRP, Sieves & Magnets">CCP, OPRP, Sieves & Magnets</option>' +
+      '<option value="Food Safety">Food Safety</option>'
+    );
+    $('#shiftPopupDone').attr("onclick", "SaveQualityDataItem()");
+    // Quality - Rajpura: hide shift selection, only template selection is required
+    $('#shiftPopup .shift-popup-content-wrapper').hide();
+  } else if (userDepratmentId == 39 || userDepratmentId == 80 || userDepratmentId == 81) {
+    // Earlier checklist logic from earlier code (for departments 39, 80, 81)
+    $('#tourSelect').empty().append(
+      '<option value="Area Line Clearance Checklist">Area Line Clearance Checklist</option>' +
+      '<option value="Baking Process Record">Baking Process Record</option>' +
+      '<option value="Code Verification Record">Code Verification Record</option>' +
+      '<option value="Cream Percentage Checklist">Cream Percentage Checklist</option>' +
+      '<option value="OPRP And CCP Record">OPRP And CCP Record</option>' +
+      '<option value="Mixing Parameter">Mixing Parameter</option>' +
+      '<option value="Product Monitoring Record">Product Monitoring Record</option>' +
+      '<option value="Product Quality Index">Product Quality Index</option>' +
+      '<option value="Quality Wall Record">Quality Wall Record</option>' +
+      '<option value="Seal Integrity Test">Seal Integrity Test</option>' +
+      '<option value="Sieves And Magnets New Plant">Sieves And Magnets New Plant</option>' +
+      '<option value="Sieves And Magnets Old Plant">Sieves And Magnets Old Plant</option>'
+    );
+    $('#shiftPopupDone').attr("onclick", "SaveQualityDataItem()");
     $('#shiftPopup .shift-popup-content-wrapper').show();
+  } else {
+    // Any other department/plant should not open tourPopup; fallback to standard department tour
+    tourPopupclose();
+    SaveDepartmentDataItem();
+    return;
   }
 
   const $popupBody = $('#shiftPopup .popup-body');
@@ -658,8 +670,7 @@ async function SaveDepartmentDataItem() {
 async function SaveQualityDataItem() {
   const tourSelect = document.getElementById("tourSelect");
   const ProductValue = tourSelect ? tourSelect.value : "";
-  if ((ProductValue === 'Area Line Clearance Checklist' || 
-       ProductValue === 'ALC' || 
+  if ((ProductValue === 'ALC' || 
        ProductValue === 'Mixing And Baking' || 
        ProductValue === 'Packaging Operations' || 
        ProductValue === 'Food Safety' || 
@@ -708,7 +719,6 @@ async function SaveQualityDataItem() {
   var TitleDTour = prefix + RoleName + '_' + moment().format('MM-DD-YYYY');
   var AccessToken = await getAccessToken();
   const isRajpuraChecklist = (
-      ProductValue === 'Area Line Clearance Checklist' || 
       ProductValue === 'ALC' || 
       ProductValue === 'Mixing And Baking' || 
       ProductValue === 'Packaging Operations' || 
