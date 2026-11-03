@@ -98,13 +98,194 @@ const ALC_StateMachine = {
 
             case ALC_STATES.PENDING_QA_ACCEPTANCE:
                 this.showElement("#section-pending-qa");
-                // QA team should see "Accept" controls, Production sees "Waiting"
-                if (ALC_StateMachine.isQaUser && !this.isReadOnly) {
+
+                const currentSess = ALC_StateMachine.currentSession || {};
+                const sessStatus = (currentSess?.cr3ea_processstatus || currentSess?.cr3ea_status || "").trim().toLowerCase();
+                const isAlreadyEscalated = (sessStatus === "escalated") || 
+                    (typeof ALC_QARequest !== "undefined" && ALC_QARequest.isRequestExpired && ALC_QARequest.isRequestExpired());
+
+                // Resolve user identity against session
+                const myEmail = (typeof currentUserEmail !== 'undefined' && currentUserEmail) 
+                    ? currentUserEmail.toLowerCase().trim() 
+                    : ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? String(_spPageContextInfo.userEmail).toLowerCase().trim() : "");
+                const myName = (typeof currentUser !== 'undefined' && currentUser) 
+                    ? String(currentUser).toLowerCase().trim() 
+                    : ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? String(_spPageContextInfo.userDisplayName).toLowerCase().trim() : (typeof EmployeeName !== 'undefined' ? String(EmployeeName).toLowerCase().trim() : ""));
+                
+                const assignedQaStr = (currentSess.cr3ea_assigned_qa || currentSess.cr3ea_tourby || "").toLowerCase().trim();
+                const shiftExecStr = (currentSess.cr3ea_shiftexecutiveproduction || currentSess.cr3ea_observedby || "").toLowerCase().trim();
+
+                const cleanToken = (val) => {
+                    if (!val) return "";
+                    let s = String(val).toLowerCase().trim();
+                    if (s.includes("\\")) s = s.split("\\").pop();
+                    if (s.includes("|")) s = s.split("|").pop();
+                    if (s.includes("@")) s = s.split("@")[0];
+                    return s.replace(/[^a-z0-9]/g, "").trim();
+                };
+
+                const myToken = cleanToken(myEmail) || cleanToken(myName);
+                const assignedQaToken = cleanToken(assignedQaStr);
+                const shiftExecToken = cleanToken(shiftExecStr);
+
+                // Is Assigned QA Check
+                const isAssignedQA = ALC_StateMachine.isQaUser || (assignedQaStr && (
+                    assignedQaStr === myEmail || 
+                    assignedQaStr === myName ||
+                    (myEmail && (assignedQaStr.includes(myEmail) || myEmail.includes(assignedQaStr))) ||
+                    (myName && (assignedQaStr.includes(myName) || myName.includes(assignedQaStr))) ||
+                    (myToken && assignedQaToken && (myToken === assignedQaToken || assignedQaToken.includes(myToken) || myToken.includes(assignedQaToken)))
+                ));
+
+                // Is Shift Executive Check
+                const isShiftExec = ALC_StateMachine.isProductionUser || !shiftExecStr || (
+                    shiftExecStr === myEmail ||
+                    shiftExecStr === myName ||
+                    (myEmail && (shiftExecStr.includes(myEmail) || myEmail.includes(shiftExecStr))) ||
+                    (myName && (shiftExecStr.includes(myName) || myName.includes(shiftExecStr))) ||
+                    (myToken && shiftExecToken && (myToken === shiftExecToken || shiftExecToken.includes(myToken) || myToken.includes(shiftExecToken)))
+                );
+
+                const isDualRole = isAssignedQA && isShiftExec;
+
+                if (isAlreadyEscalated) {
+                    this.showElement("#escalation-alert-panel");
+
+                    const timerDisplay = document.getElementById("escalation-timer");
+                    if (timerDisplay) {
+                        timerDisplay.innerHTML = `<span class="text-danger font-weight-bold" style="font-size: 16px;"><i class="fa fa-exclamation-triangle"></i> Delayed (Acceptance Window Expired)</span>`;
+                    }
+
+                    // Priority Rule: If Dual Role (both Shift Exec and QA) -> Give priority to QA role and show accept option
+                    if (isDualRole) {
+                        this.showElement("#qa-accept-panel");
+                        this.hideElement("#production-wait-panel");
+                        
+                        const acceptBtn = document.getElementById("btn-accept-request");
+                        if (acceptBtn) {
+                            acceptBtn.disabled = false;
+                            acceptBtn.style.display = "inline-block";
+                            acceptBtn.className = "bs-btn bs-btn-success btn-lg my-2";
+                            acceptBtn.innerHTML = `<i class="fa fa-check-circle"></i> Accept Request &amp; Start Checklist (Delayed)`;
+                        }
+
+                        const escalationPanel = document.getElementById("escalation-alert-panel");
+                        if (escalationPanel) {
+                            escalationPanel.innerHTML = `
+                                <div style="font-size: 14px; margin-bottom: 8px;">
+                                    <strong><i class="fa fa-clock-o"></i> ACCEPTANCE DELAYED:</strong> The initial 5-minute acceptance window has expired. Since you are the assigned QA Executive, you can accept this request to proceed with the line clearance inspection. Acceptance delay duration will be recorded in the audit trail.
+                                </div>
+                                <div style="margin-top: 10px; font-size: 13px; color: #475569;">
+                                    <span>Need to delegate to another QA instead?</span>
+                                    <button type="button" class="bs-btn bs-btn-outline-secondary" onclick="ALC_Main.reassignQaExecutive()" style="padding: 4px 12px; margin-left: 8px; font-size: 12px; cursor: pointer; border-radius: 4px;">
+                                        <i class="fa fa-refresh"></i> Reassign QA Executive
+                                    </button>
+                                </div>
+                            `;
+                        }
+                    } else if (isAssignedQA) {
+                        // QA role only
+                        this.showElement("#qa-accept-panel");
+                        this.hideElement("#production-wait-panel");
+
+                        const acceptBtn = document.getElementById("btn-accept-request");
+                        if (acceptBtn) {
+                            acceptBtn.disabled = false;
+                            acceptBtn.style.display = "inline-block";
+                            acceptBtn.className = "bs-btn bs-btn-success btn-lg my-2";
+                            acceptBtn.innerHTML = `<i class="fa fa-check-circle"></i> Accept Request &amp; Start Checklist (Delayed)`;
+                        }
+
+                        const escalationPanel = document.getElementById("escalation-alert-panel");
+                        if (escalationPanel) {
+                            escalationPanel.innerHTML = `
+                                <div style="font-size: 14px;">
+                                    <strong><i class="fa fa-clock-o"></i> ACCEPTANCE DELAYED:</strong> The initial 5-minute acceptance window has expired. You can accept this request now to resume the inspection. The delay duration will be recorded in the audit trail.
+                                </div>
+                            `;
+                        }
+                    } else if (isShiftExec) {
+                        // Shift Executive only
+                        this.hideElement("#qa-accept-panel");
+                        this.hideElement("#production-wait-panel");
+
+                        const escalationPanel = document.getElementById("escalation-alert-panel");
+                        if (escalationPanel) {
+                            escalationPanel.innerHTML = `
+                                <div style="font-size: 14px; margin-bottom: 12px;">
+                                    <strong><i class="fa fa-exclamation-circle"></i> ACCEPTANCE DELAYED:</strong> The assigned QA Executive did not accept the request within the 5-minute limit. You can reassign a QA Executive to restart the inspection request.
+                                </div>
+                                <div>
+                                    <button type="button" class="bs-btn bs-btn-primary" onclick="ALC_Main.reassignQaExecutive()" style="padding: 8px 18px; font-weight: 600; font-size: 14px; cursor: pointer; border-radius: 4px; display: inline-flex; align-items: center; gap: 6px;">
+                                        <i class="fa fa-refresh"></i> Reassign QA Executive &amp; Restart Request
+                                    </button>
+                                </div>
+                            `;
+                        }
+                    } else {
+                        // General viewer / read only
+                        this.hideElement("#qa-accept-panel");
+                        this.showElement("#production-wait-panel");
+                        const escalationPanel = document.getElementById("escalation-alert-panel");
+                        if (escalationPanel) {
+                            escalationPanel.innerHTML = `
+                                <div style="font-size: 14px;">
+                                    <strong>ACCEPTANCE DELAYED:</strong> The assigned QA Executive did not accept the request within the 5-minute limit. Awaiting QA acceptance or reassignment by the Shift Executive.
+                                </div>
+                            `;
+                        }
+                    }
+
+                    const diagEl = document.getElementById("qa-diagnostic-msg");
+                    if (diagEl) diagEl.style.display = "none";
+                } else if (isAssignedQA && !this.isReadOnly) {
                     this.showElement("#qa-accept-panel");
                     this.hideElement("#production-wait-panel");
+                    this.hideElement("#escalation-alert-panel");
+                    
+                    const acceptBtn = document.getElementById("btn-accept-request");
+                    if (acceptBtn) {
+                        acceptBtn.disabled = false;
+                        acceptBtn.style.display = "inline-block";
+                        acceptBtn.className = "bs-btn bs-btn-success btn-lg my-2";
+                        acceptBtn.innerHTML = `Accept Request &amp; Start Checklist`;
+                    }
+                    const diagEl = document.getElementById("qa-diagnostic-msg");
+                    if (diagEl) diagEl.style.display = "none";
                 } else {
                     this.hideElement("#qa-accept-panel");
                     this.showElement("#production-wait-panel");
+                    this.hideElement("#escalation-alert-panel");
+
+                    // Add diagnostic message if the user is a QA user but is not authorized to accept (isReadOnly)
+                    const session = ALC_StateMachine.currentSession;
+                    const isUserQaRole = ALC_StateMachine.isGeneralQaUser || (ALC_StateMachine.userRole === "QUALITY");
+                    
+                    if (isUserQaRole && session) {
+                        const assignedQA = (session.cr3ea_assigned_qa || session.cr3ea_tourby || "None").trim();
+                        const myEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? String(_spPageContextInfo.userEmail).trim() : "";
+                        const myName = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? String(_spPageContextInfo.userDisplayName).trim() : (typeof EmployeeName !== 'undefined' ? EmployeeName : "");
+                        
+                        let diagEl = document.getElementById("qa-diagnostic-msg");
+                        if (!diagEl) {
+                            diagEl = document.createElement("div");
+                            diagEl.id = "qa-diagnostic-msg";
+                            diagEl.className = "alert alert-warning mt-3 text-start";
+                            diagEl.style.cssText = "font-size: 14px; max-width: 600px; margin: 15px auto 0 auto; text-align: left; border: 1px solid #ffeeba; background-color: #fff3cd; color: #856404; padding: 15px; border-radius: 4px;";
+                            const waitPanel = document.getElementById("production-wait-panel");
+                            if (waitPanel) waitPanel.appendChild(diagEl);
+                        }
+                        diagEl.innerHTML = `
+                            <strong>Inspection Access Notice:</strong><br>
+                            You are identified as a QA User: <strong>${myName}</strong> (${myEmail || "No email resolved"}).<br>
+                            However, this specific tour is assigned to: <strong>${assignedQA}</strong>.<br>
+                            Only the assigned QA Executive can accept and run this clearance checklist.
+                        `;
+                        diagEl.style.display = "block";
+                    } else {
+                        const diagEl = document.getElementById("qa-diagnostic-msg");
+                        if (diagEl) diagEl.style.display = "none";
+                    }
                 }
                 break;
 
@@ -193,17 +374,15 @@ const ALC_StateMachine = {
                     }
                 }
 
-                // Let Production/Product Incharge edit corrective actions if they have pending actions
-                const hasActionAccess = (this.isProductionUser || this.isProductUser);
-                this.setFieldsDisabled("#section-result-fail", this.isReadOnly || !hasActionAccess);
+                // In QA Re-Verification stage, production corrective actions are already submitted; disable fail section and hide button
+                this.setFieldsDisabled("#section-result-fail", true);
                 
                 const correctiveSubmitBtn = document.getElementById("btn-submit-corrective-actions");
                 if (correctiveSubmitBtn) {
-                    const isCorrectiveHidden = (this.isReadOnly || !hasActionAccess);
-                    correctiveSubmitBtn.style.display = isCorrectiveHidden ? "none" : "block";
+                    correctiveSubmitBtn.style.display = "none";
                     const wrapper2 = correctiveSubmitBtn.closest(".tour-cyle-btn-wrapper");
                     if (wrapper2) {
-                        wrapper2.style.display = isCorrectiveHidden ? "none" : "flex";
+                        wrapper2.style.display = "none";
                     }
                 }
 
@@ -309,7 +488,7 @@ const ALC_StateMachine = {
                 // Completed previous steps
                 html += `
                     <div class="breadcrumb-step completed" style="display: flex; align-items: center; color: #16a34a; font-weight: 500; gap: 4px;">
-                        <span style="font-weight: bold; font-size: 14px;">✓</span>
+                        <span style="font-weight: bold; font-size: 14px;">&#10003;</span>
                         <span>${step.label}</span>
                     </div>
                     <div class="breadcrumb-separator" style="color: #cbd5e1; font-weight: bold; margin: 0 4px;">&gt;</div>

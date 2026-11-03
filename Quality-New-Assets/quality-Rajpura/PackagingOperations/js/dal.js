@@ -1,0 +1,1464 @@
+// Data Access Layer for Rajpura Packaging Operations forms
+console.log("Packaging Operations DAL loaded");
+
+// Defensive helper for tour ID normalization (self-heals even if older utils.js is cached)
+function normalizeTourRecord(record) {
+    if (!record || typeof record !== 'object') return record;
+    if (typeof QualityRajpura_Config !== 'undefined' && typeof QualityRajpura_Config.normalizeTourRecord === 'function') {
+        return QualityRajpura_Config.normalizeTourRecord(record);
+    }
+    const id = record.cr3ea_prod_rajpura_quality_tourid || 
+               record.cr3ea_rajpura_quality_tourid || 
+               record.cr3ea_prod_rajpura_quality_toursid || 
+               record.cr3ea_rajpura_quality_toursid || 
+               record.cr3ea_qualitytourid || "";
+    if (id) {
+        record.cr3ea_prod_rajpura_quality_tourid = id;
+        record.cr3ea_rajpura_quality_tourid = id;
+    }
+    return record;
+}
+
+if (typeof QualityRajpura_Config !== 'undefined') {
+    if (typeof QualityRajpura_Config.normalizeTourRecord !== 'function') {
+        QualityRajpura_Config.normalizeTourRecord = normalizeTourRecord;
+    }
+    if (typeof QualityRajpura_Config.getTourId !== 'function') {
+        QualityRajpura_Config.getTourId = function (record) {
+            if (!record || typeof record !== 'object') return '';
+            return record.cr3ea_prod_rajpura_quality_tourid || 
+                   record.cr3ea_rajpura_quality_tourid || 
+                   record.cr3ea_prod_rajpura_quality_toursid || 
+                   record.cr3ea_rajpura_quality_toursid || 
+                   record.cr3ea_qualitytourid || '';
+        };
+    }
+}
+
+const PKGOPS_DAL = {
+    configCache: null,
+
+    // 1. Fetch SharePoint configuration mappings
+    getConfig: async function (forceRefresh) {
+        if (this.configCache && !forceRefresh) {
+            return this.configCache;
+        }
+
+        const webUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getSiteBaseUrl)
+            ? QualityRajpura_Config.getSiteBaseUrl()
+            : ((typeof _spPageContextInfo !== 'undefined' && (_spPageContextInfo.webAbsoluteUrl || _spPageContextInfo.webServerRelativeUrl))
+                ? (_spPageContextInfo.webAbsoluteUrl || _spPageContextInfo.webServerRelativeUrl)
+                : "");
+        const listName = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.SHAREPOINT_LISTS && QualityRajpura_Config.SHAREPOINT_LISTS.PACKAGING_OPERATIONS)
+            ? QualityRajpura_Config.SHAREPOINT_LISTS.PACKAGING_OPERATIONS
+            : "Quality-Rajpura-PackagingOperations";
+
+        if (!webUrl) {
+            console.log("Local development: returning master seed defaults for Packaging Operations config.");
+            this.configCache = this.getMasterSeedDefaults();
+            return this.configCache;
+        }
+
+        let allFetchedItems = [];
+        let configTypeField = null;
+        let plantField = null;
+        let areaField = null;
+        let lineNameField = null;
+        let productCodeField = null;
+        let productCategoryField = null;
+        let isActiveField = null;
+        let userField = null;
+        let prodField = null;
+        let managerField = null;
+
+        try {
+            // Step 1: Dynamically probe list schema fields to prevent OData 400 Bad Request
+            const fieldsUrl = `${webUrl}/_api/web/lists/getByTitle('${listName}')/Fields?$select=InternalName,Title,TypeAsString`;
+            let listFields = [];
+            try {
+                const fieldsResponse = await fetch(fieldsUrl, { headers: { "Accept": "application/json; odata=verbose" } });
+                if (fieldsResponse.ok) {
+                    const fieldsData = await fieldsResponse.json();
+                    listFields = (fieldsData && fieldsData.d && fieldsData.d.results) ? fieldsData.d.results : [];
+                }
+            } catch (errFields) {
+                console.warn("PKGOPS_DAL: Schema probing failed, continuing with dynamic field fallback:", errFields);
+            }
+
+            const findField = (possibleNames, displayNames) => {
+                const pNames = Array.isArray(possibleNames) ? possibleNames : [possibleNames];
+                let match = listFields.find(f => pNames.some(pn => pn.toLowerCase() === f.InternalName.toLowerCase()));
+                if (match) return match;
+                if (displayNames) {
+                    const dNames = Array.isArray(displayNames) ? displayNames : [displayNames];
+                    match = listFields.find(f => dNames.some(dn => dn.toLowerCase() === f.Title.toLowerCase()));
+                }
+                return match;
+            };
+
+            configTypeField = findField(["ConfigType", "Config_x0020_Type"], ["Config Type", "ConfigType"]);
+            plantField = findField(["Plant"], ["Plant"]);
+            areaField = findField(["Area"], ["Area"]);
+            lineNameField = findField(["LineName", "Line_x0020_Name", "Line"], ["Line Name", "Line"]);
+            productCodeField = findField(["ProductCode", "Product_x0020_Code", "SKU"], ["Product Code", "SKU"]);
+            productCategoryField = findField(["ProductCategory", "Product_x0020_Category", "Category"], ["Product Category", "Category"]);
+            isActiveField = findField(["IsActive", "Is_x0020_Active", "Active"], ["Is Active", "Active"]);
+
+            userField = findField(["AssignedUser", "Assigned_x0020_User", "QAExecutive", "QA_x0020_Executive", "AssignedQA", "Assigned_x0020_QA"], ["Assigned User", "QA Executive", "QAExecutive", "Assigned QA"]);
+            prodField = findField(["ProductionIncharge", "Production_x0020_Incharge", "ProductionExecutive", "Production_x0020_Executive"], ["Production Incharge", "Production Executive"]);
+            managerField = findField(["EscalationManager", "Escalation_x0020_Manager"], ["Escalation Manager"]);
+
+            const selectParts = ["Id", "Title"];
+            const expandParts = [];
+
+            if (configTypeField) selectParts.push(configTypeField.InternalName);
+            if (plantField) selectParts.push(plantField.InternalName);
+            if (areaField) selectParts.push(areaField.InternalName);
+            if (lineNameField) selectParts.push(lineNameField.InternalName);
+            if (productCodeField) selectParts.push(productCodeField.InternalName);
+            if (productCategoryField) selectParts.push(productCategoryField.InternalName);
+            if (isActiveField) selectParts.push(isActiveField.InternalName);
+
+            if (userField) {
+                const uName = userField.InternalName;
+                selectParts.push(`${uName}/Title`, `${uName}/EMail`, `${uName}/Id`);
+                expandParts.push(uName);
+            }
+            if (prodField) {
+                const pName = prodField.InternalName;
+                selectParts.push(`${pName}/Title`, `${pName}/EMail`, `${pName}/Id`);
+                expandParts.push(pName);
+            }
+            if (managerField) {
+                const mName = managerField.InternalName;
+                selectParts.push(`${mName}/Title`, `${mName}/EMail`, `${mName}/Id`);
+                expandParts.push(mName);
+            }
+
+            // Step 2: Query items with dynamic select and expand
+            let query = `?$select=${selectParts.join(",")}&$top=5000`;
+            if (expandParts.length > 0) query += `&$expand=${expandParts.join(",")}`;
+
+            let nextUrl = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
+
+            while (nextUrl) {
+                const response = await fetch(nextUrl, { headers: { "Accept": "application/json; odata=verbose" } });
+                if (!response.ok) throw new Error(`Fetch failed with status ${response.status} (${response.statusText})`);
+                const data = await response.json();
+                const pageResults = (data && data.d && data.d.results) ? data.d.results : [];
+                allFetchedItems = allFetchedItems.concat(pageResults);
+                nextUrl = (data && data.d && data.d.__next) ? data.d.__next : null;
+            }
+
+            console.log(`PKGOPS_DAL: Fetched ${allFetchedItems.length} raw items from list '${listName}'`);
+        } catch (e) {
+            console.warn("Primary dynamic SharePoint config fetch failed, attempting fallback query:", e);
+            allFetchedItems = [];
+            try {
+                // Fallback attempt with commonly used fields
+                const fbQuery = "?$select=Id,Title,ConfigType,Plant,Area,ProductCode,LineName,ProductCategory,IsActive,AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id&$expand=AssignedUser&$top=5000";
+                let fbUrl = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${fbQuery}`;
+                while (fbUrl) {
+                    const fbRes = await fetch(fbUrl, { headers: { "Accept": "application/json; odata=verbose" } });
+                    if (!fbRes.ok) throw new Error(`Fallback query failed with status ${fbRes.status}`);
+                    const fbData = await fbRes.json();
+                    const pageResults = (fbData && fbData.d && fbData.d.results) ? fbData.d.results : [];
+                    allFetchedItems = allFetchedItems.concat(pageResults);
+                    fbUrl = (fbData && fbData.d && fbData.d.__next) ? fbData.d.__next : null;
+                }
+            } catch (errFb1) {
+                console.warn("Fallback query with AssignedUser failed, attempting Assigned_x0020_User query:", errFb1);
+                try {
+                    const fbQuery2 = "?$select=Id,Title,ConfigType,Plant,Area,ProductCode,LineName,ProductCategory,IsActive,Assigned_x0020_User/Title,Assigned_x0020_User/EMail,Assigned_x0020_User/Id&$expand=Assigned_x0020_User&$top=5000";
+                    let fbUrl2 = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${fbQuery2}`;
+                    while (fbUrl2) {
+                        const fbRes2 = await fetch(fbUrl2, { headers: { "Accept": "application/json; odata=verbose" } });
+                        if (!fbRes2.ok) throw new Error(`Fallback query 2 failed with status ${fbRes2.status}`);
+                        const fbData2 = await fbRes2.json();
+                        const pageResults2 = (fbData2 && fbData2.d && fbData2.d.results) ? fbData2.d.results : [];
+                        allFetchedItems = allFetchedItems.concat(pageResults2);
+                        fbUrl2 = (fbData2 && fbData2.d && fbData2.d.__next) ? fbData2.d.__next : null;
+                    }
+                } catch (errFb2) {
+                    console.warn("All SharePoint config queries failed, using master seed defaults:", errFb2);
+                    this.configCache = this.getMasterSeedDefaults();
+                    return this.configCache;
+                }
+            }
+        }
+
+        if (allFetchedItems.length === 0) {
+            console.warn("SharePoint config returned 0 items, using master seed defaults.");
+            this.configCache = this.getMasterSeedDefaults();
+            return this.configCache;
+        }
+
+        const normalizeUsersArray = (raw) => {
+            if (!raw) return { results: [] };
+            if (raw.results && Array.isArray(raw.results)) return raw;
+            if (Array.isArray(raw)) return { results: raw };
+            if (raw.Title || raw.EMail || raw.Id || raw.title || raw.email || raw.Name || raw.name) return { results: [raw] };
+            return { results: [] };
+        };
+
+        const toCleanUserList = (rawNormalized) => {
+            if (!rawNormalized || !rawNormalized.results) return [];
+            return rawNormalized.results.map(u => {
+                let em = u.EMail || u.email || u.Email || "";
+                if (!em || !em.includes("@")) {
+                    const match = String(u.Name || u.name || u.LoginName || u.UserPrincipalName || "").match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+                    if (match) em = match[0].toLowerCase();
+                }
+                return {
+                    id: u.Id || u.id || 0,
+                    title: u.Title || u.title || "Unknown",
+                    email: em.toLowerCase()
+                };
+            });
+        };
+
+        const safeStr = (val) => (val === null || val === undefined) ? "" : String(val).trim();
+
+        this.configCache = allFetchedItems.map(item => {
+            const rawUser = item.AssignedUser || item.Assigned_x0020_User || item.QAExecutive || item.QA_x0020_Executive || item.AssignedQA || item.Assigned_x0020_QA;
+            const rawProd = item.ProductionIncharge || item.Production_x0020_Incharge || item.ProductionExecutive || item.Production_x0020_Executive;
+            const rawManager = item.EscalationManager || item.Escalation_x0020_Manager;
+
+            const assignedUserNormalized = normalizeUsersArray(rawUser);
+            const prodInchargeNormalized = normalizeUsersArray(rawProd);
+            const escalationManagerNormalized = normalizeUsersArray(rawManager);
+
+            const rawConfigType = safeStr(configTypeField ? item[configTypeField.InternalName] : (item.ConfigType || item.Config_x0020_Type));
+            const rawLineName = safeStr(lineNameField ? item[lineNameField.InternalName] : (item.LineName || item.Line_x0020_Name || item.Line));
+            const rawProductCode = safeStr(productCodeField ? item[productCodeField.InternalName] : (item.ProductCode || item.Product_x0020_Code || item.SKU));
+            const rawProductCategory = safeStr(productCategoryField ? item[productCategoryField.InternalName] : (item.ProductCategory || item.Product_x0020_Category || item.Category));
+            const rawPlant = safeStr(plantField ? item[plantField.InternalName] : item.Plant) || "Rajpura";
+            const rawArea = safeStr(areaField ? item[areaField.InternalName] : item.Area);
+            const rawIsActive = isActiveField ? (item[isActiveField.InternalName] !== false) : (item.IsActive !== false);
+            const finalTitle = safeStr(item.Title);
+
+            return {
+                Id: item.Id,
+                id: item.Id,
+                Title: finalTitle,
+                title: finalTitle,
+                ConfigType: rawConfigType || (finalTitle.toLowerCase().includes("qa") ? "QA User" : (finalTitle.toLowerCase().includes("prod") ? "Production Incharge" : "Product Master")),
+                configType: rawConfigType || (finalTitle.toLowerCase().includes("qa") ? "QA User" : (finalTitle.toLowerCase().includes("prod") ? "Production Incharge" : "Product Master")),
+                Region: "",
+                Plant: rawPlant,
+                plant: rawPlant,
+                Area: rawArea,
+                area: rawArea,
+                ProductCode: rawProductCode,
+                productCode: rawProductCode,
+                LineName: rawLineName,
+                lineName: rawLineName,
+                ProductCategory: rawProductCategory || "General",
+                productCategory: rawProductCategory || "General",
+                IsActive: typeof rawIsActive === "boolean" ? rawIsActive : true,
+                isActive: typeof rawIsActive === "boolean" ? rawIsActive : true,
+                AssignedUser: assignedUserNormalized,
+                assignedUsers: toCleanUserList(assignedUserNormalized),
+                ProductionIncharge: prodInchargeNormalized,
+                productionIncharges: toCleanUserList(prodInchargeNormalized),
+                EscalationManager: escalationManagerNormalized,
+                escalationManagers: toCleanUserList(escalationManagerNormalized),
+                raw: item
+            };
+        });
+
+        console.log(`PKGOPS_DAL: Successfully loaded ${this.configCache.length} configuration & master records dynamically from SharePoint list "${listName}".`);
+        return this.configCache;
+    },
+
+    // Built-in seed master defaults for offline/local development
+    getMasterSeedDefaults: function () {
+        return [
+            // 1. Role assignments
+            {
+                Id: 1,
+                id: 1,
+                Title: "QA User",
+                title: "QA User",
+                ConfigType: "QA User",
+                configType: "QA User",
+                Plant: "Rajpura",
+                plant: "Rajpura",
+                IsActive: true,
+                isActive: true,
+                AssignedUser: { results: [] },
+                assignedUsers: [],
+                EscalationManager: { results: [] },
+                escalationManagers: []
+            },
+            {
+                Id: 2,
+                id: 2,
+                Title: "Production Incharge",
+                title: "Production Incharge",
+                ConfigType: "Production Incharge",
+                configType: "Production Incharge",
+                Plant: "Rajpura",
+                plant: "Rajpura",
+                IsActive: true,
+                isActive: true,
+                AssignedUser: { results: [] },
+                assignedUsers: [],
+                EscalationManager: { results: [] },
+                escalationManagers: []
+            },
+
+            // 2. Product Master (1,105 Products across Lines 1 to 8 & Festive Packs)
+            ...(typeof PKG_PRODUCTS_SEED_DATA !== "undefined" && Array.isArray(PKG_PRODUCTS_SEED_DATA) && PKG_PRODUCTS_SEED_DATA.length > 0
+                ? PKG_PRODUCTS_SEED_DATA.map((p, idx) => ({
+                    Id: 300 + idx,
+                    Title: p.title,
+                    ProductCode: p.productCode || "",
+                    LineName: p.lineName || "All Lines",
+                    ProductCategory: p.productCategory || "General",
+                    ConfigType: "Product Master",
+                    Plant: "Rajpura",
+                    IsActive: true
+                }))
+                : [
+                    { Id: 301, Title: "Cremica Bourbon", ProductCode: "PRD-001", LineName: "Line 1", ProductCategory: "Cream", ConfigType: "Product Master", Plant: "Rajpura", IsActive: true },
+                    { Id: 302, Title: "Cremica Butter Cookies", ProductCode: "PRD-002", LineName: "Line 2", ProductCategory: "Cookies", ConfigType: "Product Master", Plant: "Rajpura", IsActive: true },
+                    { Id: 303, Title: "Cremica Digestive Crackers", ProductCode: "PRD-003", LineName: "Line 3", ProductCategory: "Crackers", ConfigType: "Product Master", Plant: "Rajpura", IsActive: true },
+                    { Id: 304, Title: "Cremica Marie Classic", ProductCode: "PRD-004", LineName: "Line 4", ProductCategory: "Health Biscuits", ConfigType: "Product Master", Plant: "Rajpura", IsActive: true },
+                    { Id: 305, Title: "Cremica Magic Cream Chocolate", ProductCode: "PRD-005", LineName: "Line 5", ProductCategory: "Cream", ConfigType: "Product Master", Plant: "Rajpura", IsActive: true },
+                    { Id: 306, Title: "Cremica Magic Cream Elaichi", ProductCode: "PRD-006", LineName: "Line 5", ProductCategory: "Cream", ConfigType: "Product Master", Plant: "Rajpura", IsActive: true },
+                    { Id: 307, Title: "Cremica Glucose Power", ProductCode: "PRD-007", LineName: "Line 6", ProductCategory: "Glucose", ConfigType: "Product Master", Plant: "Rajpura", IsActive: true },
+                    { Id: 308, Title: "Cremica Coconut Crunch", ProductCode: "PRD-008", LineName: "Line 7", ProductCategory: "Cookies", ConfigType: "Product Master", Plant: "Rajpura", IsActive: true },
+                    { Id: 309, Title: "Cremica Nice Sugar Sprinkled", ProductCode: "PRD-009", LineName: "Line 8", ProductCategory: "Cookies", ConfigType: "Product Master", Plant: "Rajpura", IsActive: true },
+                    { Id: 310, Title: "Bectors Original Crackers", ProductCode: "PRD-010", LineName: "All Lines", ProductCategory: "Crackers", ConfigType: "Product Master", Plant: "Rajpura", IsActive: true }
+                ]
+            ),
+
+            // 3. SKU Master (Pack Sizes / SKUs)
+            { Id: 401, Title: "50g", ProductCode: "", ConfigType: "SKU Master", Plant: "Rajpura", IsActive: true },
+            { Id: 402, Title: "75g", ProductCode: "", ConfigType: "SKU Master", Plant: "Rajpura", IsActive: true },
+            { Id: 403, Title: "100g", ProductCode: "", ConfigType: "SKU Master", Plant: "Rajpura", IsActive: true },
+            { Id: 404, Title: "120g", ProductCode: "", ConfigType: "SKU Master", Plant: "Rajpura", IsActive: true },
+            { Id: 405, Title: "150g", ProductCode: "", ConfigType: "SKU Master", Plant: "Rajpura", IsActive: true },
+            { Id: 406, Title: "200g", ProductCode: "", ConfigType: "SKU Master", Plant: "Rajpura", IsActive: true },
+            { Id: 407, Title: "250g", ProductCode: "", ConfigType: "SKU Master", Plant: "Rajpura", IsActive: true },
+            { Id: 408, Title: "300g", ProductCode: "", ConfigType: "SKU Master", Plant: "Rajpura", IsActive: true },
+            { Id: 409, Title: "500g", ProductCode: "", ConfigType: "SKU Master", Plant: "Rajpura", IsActive: true },
+            { Id: 410, Title: "1kg Family Pack", ProductCode: "", ConfigType: "SKU Master", Plant: "Rajpura", IsActive: true }
+        ];
+    },
+
+    // Helper: Get all active products from SharePoint list (or fallback seed)
+    getAllProducts: async function (forceRefresh) {
+        try {
+            const configs = await this.getConfig(forceRefresh);
+            let products = configs.filter(c => {
+                const cType = (c.ConfigType || "").trim().toLowerCase();
+                return (cType === "product master" || cType === "product_x0020_master") && c.IsActive !== false;
+            });
+            products.sort((a, b) => (a.Title || "").localeCompare(b.Title || ""));
+            return products;
+        } catch (e) {
+            console.error("Error fetching all products from DAL:", e);
+            return (this.getMasterSeedDefaults ? this.getMasterSeedDefaults() : []).filter(c => {
+                const cType = (c.ConfigType || "").trim().toLowerCase();
+                return cType === "product master" || cType === "product_x0020_master";
+            });
+        }
+    },
+
+    // Helper: Get active products (filtered dynamically by selected line from SharePoint list)
+    getProducts: async function (selectedLine, forceRefresh) {
+        try {
+            const allProducts = await this.getAllProducts(forceRefresh);
+            if (!selectedLine || typeof selectedLine !== "string" || !selectedLine.trim() || selectedLine.trim().toLowerCase() === "all lines") {
+                return allProducts;
+            }
+
+            // Extract line number if present, e.g. "Line 1", "Line No. 1", "Line 1 - HAAS", "1"
+            const lineNumMatch = String(selectedLine).match(/(?:line\s*(?:no\.?)?\s*|^)(\d+)/i);
+            const lineNum = lineNumMatch ? lineNumMatch[1] : null;
+
+            const cleanSelectedLine = String(selectedLine).toLowerCase().replace(/[^a-z0-9]/g, "");
+
+            const filtered = allProducts.filter(p => {
+                const pLineRaw = (p.LineName || "").trim();
+                // Products with empty LineName, "All Lines", or "Default" apply to all lines
+                if (!pLineRaw || pLineRaw.toLowerCase().includes("all") || pLineRaw.toLowerCase().includes("default")) return true;
+                
+                if (lineNum) {
+                    const pLineNumMatch = pLineRaw.match(/(?:line\s*(?:no\.?)?\s*|^)(\d+)/i);
+                    if (pLineNumMatch && pLineNumMatch[1] === lineNum) return true;
+                }
+
+                const pLineClean = pLineRaw.toLowerCase().replace(/[^a-z0-9]/g, "");
+                return pLineClean.includes(cleanSelectedLine) || cleanSelectedLine.includes(pLineClean);
+            });
+
+            return filtered.length > 0 ? filtered : allProducts;
+        } catch (e) {
+            console.error("Error fetching products from DAL:", e);
+            return (this.getMasterSeedDefaults ? this.getMasterSeedDefaults() : []).filter(c => {
+                const cType = (c.ConfigType || "").trim().toLowerCase();
+                return cType === "product master" || cType === "product_x0020_master";
+            });
+        }
+    },
+
+    // Helper: Get unique product categories dynamically derived from the SharePoint list / master seed catalogue
+    getProductCategories: async function (selectedLine, forceRefresh) {
+        const prods = selectedLine ? await this.getProducts(selectedLine, forceRefresh) : await this.getAllProducts(forceRefresh);
+        const catSet = new Set();
+        prods.forEach(p => {
+            if (p.ProductCategory && p.ProductCategory.trim()) {
+                catSet.add(p.ProductCategory.trim());
+            }
+        });
+
+        // If line-filtered categories is empty or very limited, also include all categories from master catalog
+        if (selectedLine && catSet.size <= 1) {
+            const allProds = await this.getAllProducts(forceRefresh);
+            allProds.forEach(p => {
+                if (p.ProductCategory && p.ProductCategory.trim()) {
+                    catSet.add(p.ProductCategory.trim());
+                }
+            });
+        }
+
+        return Array.from(catSet).sort((a, b) => a.localeCompare(b));
+    },
+
+    // Helper: Get active SKUs dynamically
+    getSkus: async function (forceRefresh) {
+        try {
+            const configs = await this.getConfig(forceRefresh);
+            return configs.filter(c => {
+                const cType = (c.ConfigType || "").trim().toLowerCase();
+                return (cType === "sku master" || cType === "sku_x0020_master") && c.IsActive !== false;
+            });
+        } catch (e) {
+            console.error("Error fetching SKUs from DAL:", e);
+            return (this.getMasterSeedDefaults ? this.getMasterSeedDefaults() : []).filter(c => {
+                const cType = (c.ConfigType || "").trim().toLowerCase();
+                return cType === "sku master" || cType === "sku_x0020_master";
+            });
+        }
+    },
+
+    // Helper: Get active Machines dynamically (optionally filtered by line)
+    getMachines: async function (selectedLine, forceRefresh) {
+        try {
+            const configs = await this.getConfig(forceRefresh);
+            let machines = configs.filter(c => {
+                const cType = (c.ConfigType || "").trim().toLowerCase();
+                return (cType === "machine master" || cType === "machine_x0020_master" || cType === "machine") && c.IsActive !== false;
+            });
+
+            if (selectedLine && typeof selectedLine === "string" && selectedLine.trim() && selectedLine.trim().toLowerCase() !== "all lines") {
+                const lineMatch = String(selectedLine).match(/(?:line\s*(?:no\.?)?\s*|^)(\d+)/i);
+                const lineNum = lineMatch ? lineMatch[1] : null;
+                machines = machines.filter(m => {
+                    const mLine = (m.LineName || "").trim().toLowerCase();
+                    if (!mLine || mLine === "all lines" || mLine === "all") return true;
+                    if (lineNum && mLine.includes(lineNum)) return true;
+                    return mLine === selectedLine.trim().toLowerCase();
+                });
+            }
+
+            machines.sort((a, b) => (a.Title || "").localeCompare(b.Title || ""));
+            return machines;
+        } catch (e) {
+            console.error("Error fetching Machines from DAL:", e);
+            return [];
+        }
+    },
+
+    // 2. Fetch Dataverse access token
+    getAccessToken: async function () {
+        if (typeof getAccessToken === "function") {
+            try {
+                const tok = await getAccessToken();
+                if (tok) return tok;
+            } catch (e) {
+                console.warn("Global getAccessToken error:", e);
+            }
+        }
+        if (typeof CommonDAL !== "undefined" && typeof CommonDAL.getAccessToken === "function") {
+            try {
+                const tok = await CommonDAL.getAccessToken();
+                if (tok) return tok;
+            } catch (e) {
+                console.warn("CommonDAL getAccessToken error:", e);
+            }
+        }
+        if (typeof QualityRajpura_Config !== "undefined" && typeof QualityRajpura_Config.getAccessToken === "function") {
+            try {
+                const tok = await QualityRajpura_Config.getAccessToken();
+                if (tok) return tok;
+            } catch (e) {
+                console.warn("QualityRajpura_Config getAccessToken error:", e);
+            }
+        }
+        try {
+            const rawStored = localStorage.getItem("access_token");
+            if (rawStored) {
+                const storedToken = JSON.parse(rawStored);
+                const currentTime = new Date().getTime() / 1000;
+                if (storedToken && storedToken.token && storedToken.expires_at > currentTime) {
+                    return storedToken.token;
+                }
+            }
+        } catch (e) {}
+
+        // Fallback: search storage for any cached JWT token
+        if (typeof window !== "undefined") {
+            const storages = [sessionStorage, localStorage];
+            for (const store of storages) {
+                if (!store) continue;
+                for (let i = 0; i < store.length; i++) {
+                    const key = store.key(i);
+                    const val = store.getItem(key);
+                    if (!val) continue;
+                    if (val.startsWith("eyJ") && val.split(".").length === 3) {
+                        return val;
+                    }
+                    if (val.includes("access_token") || val.includes("accessToken") || val.includes("secret")) {
+                        try {
+                            const parsed = JSON.parse(val);
+                            const t = parsed.access_token || parsed.accessToken || parsed.secret;
+                            if (t && typeof t === "string" && t.startsWith("eyJ")) return t;
+                        } catch (e) {}
+                    }
+                }
+            }
+        }
+        return null;
+    },
+
+    // 3. Fetch wrapper injecting Authorization token
+    fetchWithToken: async function (url, options = {}) {
+        let token = await this.getAccessToken();
+        if (!options.headers) {
+            options.headers = {};
+        }
+        if (token) {
+            options.headers["Authorization"] = `Bearer ${token}`;
+        }
+
+        let response = await fetch(url, options);
+        if (response.status === 401) {
+            console.warn("PKGOPS_DAL: 401 Unauthorized detected. Clearing cached token and retrying...");
+            localStorage.removeItem("access_token");
+            const freshToken = await this.getAccessToken();
+            if (freshToken) {
+                options.headers["Authorization"] = `Bearer ${freshToken}`;
+                response = await fetch(url, options);
+            }
+        }
+        return response;
+    },
+
+    // 4. Save or Update Parent Tour in Dataverse
+    saveTour: async function (tourData) {
+        let AccessToken = await this.getAccessToken();
+        if (!AccessToken) {
+            console.warn("No token available in saveTour. Attempting token fetch...");
+            if (typeof getAccessToken === "function") {
+                AccessToken = await getAccessToken();
+            }
+            if (!AccessToken) {
+                throw new Error("Dataverse Authentication Failed: No active access token available to save tour session. Please ensure you are logged in.");
+            }
+        }
+
+        const apiVersion = "9.2";
+        const tableName = QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR;
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
+
+        const headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json; charset=utf-8",
+            "OData-MaxVersion": "4.0",
+            "OData-Version": "4.0",
+            "Prefer": "return=representation"
+        };
+
+        const tourId = QualityRajpura_Config.getTourId(tourData);
+        let payload = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.sanitizeParentTourPayload)
+            ? QualityRajpura_Config.sanitizeParentTourPayload(tourData)
+            : { ...tourData };
+        delete payload.cr3ea_request_time;
+        delete payload.cr3ea_checklist_result;
+        delete payload.cr3ea_prod_rajpura_quality_tourid;
+        delete payload.cr3ea_rajpura_quality_tourid;
+        delete payload.cr3ea_prod_rajpura_quality_toursid;
+        delete payload.cr3ea_rajpura_quality_toursid;
+        delete payload.cr3ea_tourcompletiondate;
+
+        let url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}`;
+        let method = "POST";
+
+        if (tourId) {
+            url += `(${tourId})`;
+            method = "PATCH";
+        }
+
+        const response = await this.fetchWithToken(url, {
+            method: method,
+            headers: headers,
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Dataverse parent tour save failed: ${response.status} - ${errorText}`);
+        }
+
+        if (method === "PATCH") {
+            return normalizeTourRecord(tourData);
+        } else {
+            let data = {};
+            try {
+                const text = await response.text();
+                if (text && text.trim().length > 0) {
+                    data = JSON.parse(text);
+                }
+            } catch (e) {
+                console.warn("Could not parse JSON response from Dataverse saveTour:", e);
+            }
+
+            // Extract created ID from OData-EntityId or Location header if not in body
+            const entityIdHeader = response.headers.get("OData-EntityId") || response.headers.get("Location") || "";
+            const guidMatch = entityIdHeader.match(/\(([0-9a-fA-F-]{36})\)/);
+            const headerGuid = guidMatch ? guidMatch[1] : null;
+
+            const normalized = normalizeTourRecord(data);
+            if (!normalized.cr3ea_prod_rajpura_quality_tourid && headerGuid) {
+                normalized.cr3ea_prod_rajpura_quality_tourid = headerGuid;
+                normalized.cr3ea_rajpura_quality_tourid = headerGuid;
+            }
+            return normalized;
+        }
+    },
+
+    updateTour: async function (tourId, payload) {
+        const data = { ...payload };
+        if (tourId) {
+            data.cr3ea_prod_rajpura_quality_tourid = tourId;
+            data.cr3ea_rajpura_quality_tourid = tourId;
+        }
+        return this.saveTour(data);
+    },
+
+    // 5. Retrieve Active/Recent Tours for the Dashboard/State
+    getTours: async function (topCount = 50) {
+        const AccessToken = await this.getAccessToken();
+        if (!AccessToken) {
+            console.warn("No token available. Simulating getTours locally.");
+            return [];
+        }
+
+        const apiVersion = "9.2";
+        const tableName = QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR;
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
+
+        const headers = {
+            "Accept": "application/json",
+            "OData-MaxVersion": "4.0",
+            "OData-Version": "4.0"
+        };
+
+        const filter = `?$filter=(cr3ea_plantid eq '${QualityRajpura_Config.PLANT_ID}' or cr3ea_plantid eq 'Rajpura')&$orderby=cr3ea_tourstartdate desc&$top=${topCount}`;
+        const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}${filter}`;
+
+        const response = await this.fetchWithToken(url, { method: "GET", headers });
+        if (!response.ok) {
+            throw new Error(`Failed to fetch Dataverse tours: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const tours = data.value || [];
+        return tours.map(t => normalizeTourRecord(t));
+    },
+
+    // 6. Retrieve Single Tour by ID
+    getTour: async function (tourId) {
+        return this.getTourById(tourId);
+    },
+
+    getParentTour: async function (tourId) {
+        return this.getTourById(tourId);
+    },
+
+    getTourById: async function (tourId) {
+        const AccessToken = await this.getAccessToken();
+        if (!AccessToken || !tourId) return null;
+
+        const apiVersion = "9.2";
+        const tableName = QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR;
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
+        const cleanId = String(tourId).replace(/[{}]/g, "").trim().toLowerCase();
+
+        const headers = {
+            "Accept": "application/json",
+            "OData-MaxVersion": "4.0",
+            "OData-Version": "4.0"
+        };
+
+        const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}(${cleanId})`;
+        const response = await this.fetchWithToken(url, { method: "GET", headers });
+        if (!response.ok) {
+            throw new Error(`Failed to fetch Tour by ID: ${response.statusText}`);
+        }
+        const data = await response.json();
+        return normalizeTourRecord(data);
+    },
+
+    // Cache of verified working table names per sub-checklist key to avoid redundant candidate 404 lookups
+    _resolvedTableMap: {},
+
+    getWorkingTableName: function (subChecklistKey) {
+        if (this._resolvedTableMap && this._resolvedTableMap[subChecklistKey]) {
+            return this._resolvedTableMap[subChecklistKey];
+        }
+        return (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.DATAVERSE_TABLES?.PACKAGING_OPERATIONS?.[subChecklistKey]) || "";
+    },
+
+    setWorkingTableName: function (subChecklistKey, tableName) {
+        if (!this._resolvedTableMap) this._resolvedTableMap = {};
+        if (tableName) {
+            this._resolvedTableMap[subChecklistKey] = tableName;
+            if (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.DATAVERSE_TABLES?.PACKAGING_OPERATIONS) {
+                QualityRajpura_Config.DATAVERSE_TABLES.PACKAGING_OPERATIONS[subChecklistKey] = tableName;
+            }
+        }
+    },
+
+    getCandidateTables: function (subChecklistKey) {
+        const candidateTables = [];
+        const resolved = this.getWorkingTableName(subChecklistKey);
+        if (resolved) candidateTables.push(resolved);
+
+        const primaryTableName = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.DATAVERSE_TABLES?.PACKAGING_OPERATIONS?.[subChecklistKey]) || "";
+        if (primaryTableName && !candidateTables.includes(primaryTableName)) {
+            candidateTables.push(primaryTableName);
+        }
+
+        if (subChecklistKey === "CHILD_CREAM_PERCENTAGE") {
+            const isProd = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.CURRENT_ENV === "PROD") || (primaryTableName && primaryTableName.includes("_prod_"));
+            const candidates = isProd
+                ? ["cr3ea_prod_rajpura_pkgops_creampercentageses", "cr3ea_prod_rajpura_pkgops_creampercentages", "cr3ea_prod_rajpura_pkgops_creampercentagees", "cr3ea_rajpura_pkgops_creampercentageses"]
+                : ["cr3ea_rajpura_pkgops_creampercentageses", "cr3ea_rajpura_pkgops_creampercentages", "cr3ea_rajpura_pkgops_creampercentagees", "cr3ea_prod_rajpura_pkgops_creampercentageses"];
+            candidates.forEach(t => {
+                if (!candidateTables.includes(t)) candidateTables.push(t);
+            });
+        }
+        return candidateTables;
+    },
+
+    // 7. Generic Child Sub-Checklist CRUD Operations
+    // 7.a Save / Update Sub-checklist Row
+    saveSubChecklistRow: async function (subChecklistKey, record) {
+        let AccessToken = await this.getAccessToken();
+        if (!AccessToken) {
+            console.warn("No token available. Attempting token fetch...");
+            if (typeof getAccessToken === "function") {
+                AccessToken = await getAccessToken();
+            }
+            if (!AccessToken) {
+                throw new Error(`Dataverse Authentication Failed: No active access token available to save ${subChecklistKey}. Please ensure you are logged in.`);
+            }
+        }
+
+        const apiVersion = "9.2";
+        const candidateTables = this.getCandidateTables(subChecklistKey);
+        if (!candidateTables || candidateTables.length === 0) {
+            throw new Error(`Invalid subChecklistKey provided: ${subChecklistKey}`);
+        }
+
+        const primaryTableName = candidateTables[0];
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
+        const headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json; charset=utf-8",
+            "OData-MaxVersion": "4.0",
+            "OData-Version": "4.0",
+            "Prefer": "return=minimal"
+        };
+
+        // Determine ID column name based on entity
+        let idColumn = "";
+        const isProd = primaryTableName.includes("_prod_");
+        const p = isProd ? "cr3ea_prod_rajpura_pkgops_" : "cr3ea_rajpura_pkgops_";
+        if (subChecklistKey === "CHILD_TEMP_HUMIDITY") idColumn = p + "temphumidityid";
+        else if (subChecklistKey === "CHILD_CODE_VERIFICATION") idColumn = p + "codeverificationid";
+        else if (subChecklistKey === "CHILD_PAPA") idColumn = p + "papaid";
+        else if (subChecklistKey === "CHILD_PQI_NET_WEIGHT") idColumn = p + "pqi_netweightid";
+        else if (subChecklistKey === "CHILD_PQI_EVALUATION") idColumn = p + "pqi_evaluationid";
+        else if (subChecklistKey === "CHILD_SEAL_INTEGRITY") idColumn = p + "sealintegrityid";
+        else if (subChecklistKey === "CHILD_QUALITY_WALL") idColumn = p + "qualitywallid";
+        else if (subChecklistKey === "CHILD_CREAM_PERCENTAGE") idColumn = p + "creampercentagesid";
+
+        const baseSuffix = idColumn.replace(/^cr3ea_(prod_)?rajpura_pkgops_/, "");
+        let existingRowId = record.id || record[idColumn];
+        if (!existingRowId) {
+            existingRowId = record[p + "creampercentagesid"] ||
+                            record[p + "creampercentageid"] ||
+                            record[p + "sealintegrityid"] ||
+                            record[p + "codeverificationid"] ||
+                            record[p + "papaid"] ||
+                            record[p + "pqi_evaluationid"] ||
+                            record[p + "pqi_netweightid"] ||
+                            record[p + "temphumidityid"] ||
+                            record[p + "qualitywallid"] ||
+                            record["cr3ea_prod_rajpura_pkgops_" + baseSuffix] ||
+                            record["cr3ea_rajpura_pkgops_" + baseSuffix];
+        }
+        if (!existingRowId) {
+            for (let k in record) {
+                if (k.endsWith("id") && typeof record[k] === "string" && /^[0-9a-fA-F-]{36}$/.test(record[k])) {
+                    if (!k.includes("qualitytourid") && !k.includes("plantid") && !k.includes("bind")) {
+                        existingRowId = record[k];
+                        break;
+                    }
+                }
+            }
+        }
+        if (existingRowId) {
+            existingRowId = String(existingRowId).replace(/[{}]/g, "").trim().toLowerCase();
+        }
+
+        const cleanRecord = { ...record };
+
+        // Define valid table columns per sub-checklist to protect against OData 400 Bad Request
+        const SUB_CHECKLIST_COLUMNS = {
+            CHILD_TEMP_HUMIDITY: [
+                "cr3ea_name", "cr3ea_pkglinetemp", "cr3ea_pkglinehumidity", "cr3ea_coolingtunneltemp",
+                "cr3ea_creamroomtemp", "cr3ea_coldstorage1nbtemp", "cr3ea_coldstorage2nbtemp",
+                "cr3ea_flavourroomtemp", "cr3ea_dhroomhumidity", "cr3ea_coldroom1obtemp",
+                "cr3ea_coldroom2obtemp", "cr3ea_coldroom3obtemp", "cr3ea_deepfreezeryeasttemp",
+                "cr3ea_qualitytourid@odata.bind", "cr3ea_QualityTourId@odata.bind"
+            ],
+            CHILD_CODE_VERIFICATION: [
+                "cr3ea_name", "cr3ea_productname", "cr3ea_sku", "cr3ea_batchno", "cr3ea_pkd",
+                "cr3ea_expirydate", "cr3ea_noofsamples", "cr3ea_defecttype", "cr3ea_defectcount",
+                "cr3ea_codepictureurl", "cr3ea_deviationstatus", "cr3ea_actiontaken",
+                "cr3ea_qualitytourid@odata.bind", "cr3ea_QualityTourId@odata.bind"
+            ],
+            CHILD_PAPA: [
+                "cr3ea_name", "cr3ea_productname", "cr3ea_sku", "cr3ea_noofsamples",
+                "cr3ea_defecttype", "cr3ea_defectcount", "cr3ea_defectwisepercentage",
+                "cr3ea_overalldefectpercentage", "cr3ea_deviationstatus", "cr3ea_actiontaken",
+                "cr3ea_qualitytourid@odata.bind", "cr3ea_QualityTourId@odata.bind"
+            ],
+            CHILD_PQI_NET_WEIGHT: [
+                "cr3ea_name", "cr3ea_productname", "cr3ea_sku", "cr3ea_averageweight", "cr3ea_giveaway",
+                "cr3ea_qualitytourid@odata.bind", "cr3ea_QualityTourId@odata.bind",
+                ...Array.from({ length: 32 }, (_, i) => `cr3ea_sampleweight${i + 1}`)
+            ],
+            CHILD_PQI_EVALUATION: [
+                "cr3ea_name", "cr3ea_evaluationtype", "cr3ea_productname", "cr3ea_sku", "cr3ea_pkd",
+                "cr3ea_batchcode", "cr3ea_samplenumber", "cr3ea_sampleresult", "cr3ea_defectcategory",
+                "cr3ea_defectdetail", "cr3ea_batchcodepictureurl", "cr3ea_deviationstatus", "cr3ea_actiontaken",
+                "cr3ea_qualitytourid@odata.bind", "cr3ea_QualityTourId@odata.bind"
+            ],
+            CHILD_SEAL_INTEGRITY: [
+                "cr3ea_name", "cr3ea_productname", "cr3ea_sku", "cr3ea_machineno",
+                "cr3ea_samplequantity", "cr3ea_noofleakage", "cr3ea_leakagetype",
+                "cr3ea_deviationstatus", "cr3ea_actiontaken",
+                "cr3ea_qualitytourid@odata.bind", "cr3ea_QualityTourId@odata.bind"
+            ],
+            CHILD_QUALITY_WALL: [
+                "cr3ea_name", "cr3ea_productname", "cr3ea_lineno", "cr3ea_pkdbatchno", "cr3ea_facilitator",
+                "cr3ea_sku", "cr3ea_typeofqualitywall", "cr3ea_memberspresent",
+                "cr3ea_packappearancerating", "cr3ea_sealingqualityrating", "cr3ea_codingrating",
+                "cr3ea_overallrating", "cr3ea_remarks",
+                "cr3ea_qualitytourid@odata.bind", "cr3ea_QualityTourId@odata.bind"
+            ],
+            CHILD_CREAM_PERCENTAGE: [
+                "cr3ea_name", "cr3ea_productcategory", "cr3ea_productname", "cr3ea_sku",
+                "cr3ea_samplesize", "cr3ea_creamreading", "cr3ea_standardmin", "cr3ea_standardmax",
+                "cr3ea_status", "cr3ea_deviationstatus", "cr3ea_actiontaken", "cr3ea_remarks",
+                "cr3ea_qualitytourid@odata.bind", "cr3ea_QualityTourId@odata.bind"
+            ]
+        };
+
+        let method = "POST";
+        if (existingRowId) {
+            method = "PATCH";
+            delete cleanRecord[idColumn];
+            delete cleanRecord["cr3ea_prod_rajpura_pkgops_" + baseSuffix];
+            delete cleanRecord["cr3ea_rajpura_pkgops_" + baseSuffix];
+            delete cleanRecord.id;
+            delete cleanRecord["cr3ea_qualitytourid@odata.bind"];
+            delete cleanRecord["cr3ea_QualityTourId@odata.bind"];
+
+            // Strip any table primary ID property ending with "id" so PATCH never fails on schema mismatch
+            Object.keys(cleanRecord).forEach(k => {
+                if (k.endsWith("id") && !k.includes("@") && k !== "cr3ea_plantid") {
+                    delete cleanRecord[k];
+                }
+            });
+        } else {
+            // Auto-normalize @odata.bind for POST to match current environment parent tour entity
+            const bindKey = cleanRecord["cr3ea_QualityTourId@odata.bind"] ? "cr3ea_QualityTourId@odata.bind" : "cr3ea_qualitytourid@odata.bind";
+            if (cleanRecord[bindKey]) {
+                const parentTable = QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR;
+                const matchTour = cleanRecord[bindKey].match(/\(([0-9a-fA-F-]+)\)/);
+                const tourIdClean = matchTour ? matchTour[1] : String(cleanRecord[bindKey]).replace(/[^0-9a-fA-F-]/g, "");
+                cleanRecord[bindKey] = `/${parentTable}(${tourIdClean})`;
+            }
+        }
+
+        // Sanitize cleanRecord against allowed columns
+        const allowedCols = SUB_CHECKLIST_COLUMNS[subChecklistKey];
+        if (allowedCols) {
+            const allowedSet = new Set(allowedCols);
+            Object.keys(cleanRecord).forEach(k => {
+                if (!allowedSet.has(k)) {
+                    delete cleanRecord[k];
+                }
+            });
+        }
+
+        let lastResponse = null;
+        let lastError = "";
+
+        for (const tbl of candidateTables) {
+            let targetUrl = `${baseApiUrl}/api/data/v${apiVersion}/${tbl}`;
+            if (existingRowId) targetUrl += `(${existingRowId})`;
+
+            let payloadAttempt = { ...cleanRecord };
+            let response = await this.fetchWithToken(targetUrl, {
+                method: method,
+                headers: headers,
+                body: JSON.stringify(payloadAttempt)
+            });
+
+            // If 400 Bad Request mentions navigation property casing or schema type mismatch, auto-adapt and retry
+            if (!response.ok && response.status === 400) {
+                const errTxt = await response.text();
+                let retried = false;
+
+                if (method === "POST" && (errTxt.includes("cr3ea_qualitytourid") || errTxt.includes("cr3ea_QualityTourId") || errTxt.includes("navigation") || errTxt.includes("property"))) {
+                    if (payloadAttempt["cr3ea_qualitytourid@odata.bind"]) {
+                        payloadAttempt["cr3ea_QualityTourId@odata.bind"] = payloadAttempt["cr3ea_qualitytourid@odata.bind"];
+                        delete payloadAttempt["cr3ea_qualitytourid@odata.bind"];
+                        retried = true;
+                    } else if (payloadAttempt["cr3ea_QualityTourId@odata.bind"]) {
+                        payloadAttempt["cr3ea_qualitytourid@odata.bind"] = payloadAttempt["cr3ea_QualityTourId@odata.bind"];
+                        delete payloadAttempt["cr3ea_QualityTourId@odata.bind"];
+                        retried = true;
+                    }
+                }
+
+                // Type mismatch handling (e.g. environment expects Edm.String, but numbers were sent, or vice-versa)
+                if (errTxt.includes("Cannot convert the literal") && errTxt.includes("Edm.String")) {
+                    Object.keys(payloadAttempt).forEach(k => {
+                        if (typeof payloadAttempt[k] === "number") {
+                            payloadAttempt[k] = String(payloadAttempt[k]);
+                        }
+                    });
+                    retried = true;
+                } else if (errTxt.includes("Cannot convert the literal") && (errTxt.includes("Edm.Decimal") || errTxt.includes("Edm.Double") || errTxt.includes("Edm.Int32"))) {
+                    Object.keys(payloadAttempt).forEach(k => {
+                        if (typeof payloadAttempt[k] === "string" && !k.includes("@") && !isNaN(Number(payloadAttempt[k])) && payloadAttempt[k].trim() !== "") {
+                            payloadAttempt[k] = Number(payloadAttempt[k]);
+                        }
+                    });
+                    retried = true;
+                }
+
+                if (retried) {
+                    response = await this.fetchWithToken(targetUrl, {
+                        method: method,
+                        headers: headers,
+                        body: JSON.stringify(payloadAttempt)
+                    });
+                    if (!response.ok) {
+                        try { lastError = await response.text(); } catch (_) { lastError = errTxt; }
+                    }
+                } else {
+                    lastError = errTxt;
+                }
+            }
+
+            if (response.ok || response.status === 204) {
+                this.setWorkingTableName(subChecklistKey, tbl);
+                lastResponse = response;
+                break;
+            } else {
+                lastResponse = response;
+                if (!lastError) {
+                    try { lastError = await response.text(); } catch(e) {}
+                }
+                // If 404, loop will try next candidate entity set
+                if (response.status !== 404) {
+                    break;
+                }
+            }
+        }
+
+        if (!lastResponse || !lastResponse.ok) {
+            throw new Error(`Sub-checklist Dataverse save failed (${subChecklistKey}): ${lastResponse ? lastResponse.status : 'No response'} - ${lastError}`);
+        }
+
+        const entityIdHeader = (lastResponse.headers && typeof lastResponse.headers.get === "function") 
+            ? (lastResponse.headers.get("OData-EntityId") || lastResponse.headers.get("Location") || "") 
+            : "";
+        let createdGuid = null;
+        if (entityIdHeader) {
+            const match = entityIdHeader.match(/\(([0-9a-fA-F-]{36})\)/);
+            if (match && match[1]) createdGuid = match[1];
+        }
+
+        let result = { ...record };
+        if (createdGuid || existingRowId) {
+            const finalId = createdGuid || existingRowId;
+            result.id = finalId;
+            result[idColumn] = finalId;
+            if (baseSuffix) {
+                result["cr3ea_prod_rajpura_pkgops_" + baseSuffix] = finalId;
+                result["cr3ea_rajpura_pkgops_" + baseSuffix] = finalId;
+            }
+        }
+
+        if (lastResponse.status !== 204 && method !== "PATCH") {
+            try {
+                const text = await lastResponse.text();
+                if (text && text.trim().length > 0) {
+                    const parsed = JSON.parse(text);
+                    result = { ...result, ...parsed };
+                    if (baseSuffix) {
+                        result["cr3ea_prod_rajpura_pkgops_" + baseSuffix] = result[idColumn] || createdGuid || existingRowId;
+                        result["cr3ea_rajpura_pkgops_" + baseSuffix] = result[idColumn] || createdGuid || existingRowId;
+                    }
+                }
+            } catch (e) {
+                console.warn("Non-JSON response in saveSubChecklistRow (treated as success):", e);
+            }
+        }
+
+        return result;
+    },
+
+    // 7. Fetch all child rows for a tour ID across a specific child entity
+    getSubChecklistRows: async function (subChecklistKey, tourId) {
+        let AccessToken = await this.getAccessToken();
+        if (!AccessToken) {
+            console.warn("No token available. Attempting token fetch...");
+            if (typeof getAccessToken === "function") {
+                AccessToken = await getAccessToken();
+            }
+            if (!AccessToken) {
+                console.warn("No token available. Returning empty list.");
+                return [];
+            }
+        }
+
+        const apiVersion = "9.2";
+        const candidateTables = this.getCandidateTables(subChecklistKey);
+        if (!candidateTables || candidateTables.length === 0) {
+            return [];
+        }
+
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
+        const headers = {
+            "Accept": "application/json",
+            "OData-MaxVersion": "4.0",
+            "OData-Version": "4.0"
+        };
+
+        const cleanTourId = String(tourId).replace(/[{}]/g, "").trim().toLowerCase();
+        const filter = `?$filter=_cr3ea_qualitytourid_value eq '${cleanTourId}'`;
+
+        let rows = [];
+        let fetched = false;
+
+        for (const tbl of candidateTables) {
+            const url = `${baseApiUrl}/api/data/v${apiVersion}/${tbl}${filter}`;
+            const response = await this.fetchWithToken(url, {
+                method: "GET",
+                headers: headers
+            });
+
+            if (response.ok) {
+                this.setWorkingTableName(subChecklistKey, tbl);
+                const data = await response.json();
+                rows = data.value || [];
+                fetched = true;
+                break;
+            } else if (response.status !== 404) {
+                const errorText = await response.text();
+                console.warn(`Failed to fetch sub-checklist rows from ${tbl}: ${response.status} - ${errorText}`);
+                break;
+            }
+        }
+
+        if (!fetched) {
+            return [];
+        }
+
+        // Normalize IDs and set item.id reliably across environments
+        rows.forEach(item => {
+            let resolvedId = item.id || "";
+            if (!resolvedId) {
+                for (let k in item) {
+                    if (k.endsWith("id") && typeof item[k] === "string" && /^[0-9a-fA-F-]{36}$/.test(item[k])) {
+                        if (!k.includes("qualitytourid") && !k.includes("plantid") && !k.includes("modifiedby") && !k.includes("createdby")) {
+                            resolvedId = item[k];
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!resolvedId && item["@odata.id"]) {
+                const match = item["@odata.id"].match(/\(([0-9a-fA-F-]{36})\)/);
+                if (match) resolvedId = match[1];
+            }
+            if (resolvedId) {
+                item.id = String(resolvedId).replace(/[{}]/g, "").trim().toLowerCase();
+            }
+
+            for (let k in item) {
+                if (k.startsWith("cr3ea_rajpura_pkgops_") && k.endsWith("id")) {
+                    const prodKey = "cr3ea_prod_rajpura_pkgops_" + k.substring("cr3ea_rajpura_pkgops_".length);
+                    if (!item[prodKey]) item[prodKey] = item[k];
+                } else if (k.startsWith("cr3ea_prod_rajpura_pkgops_") && k.endsWith("id")) {
+                    const uatKey = "cr3ea_rajpura_pkgops_" + k.substring("cr3ea_prod_rajpura_pkgops_".length);
+                    if (!item[uatKey]) item[uatKey] = item[k];
+                }
+            }
+        });
+
+        // Sort rows by sample number if available
+        if (rows.length > 0 && rows.some(r => r.cr3ea_samplenumber)) {
+            const parseNum = (str) => {
+                if (!str) return 0;
+                const m = String(str).match(/\d+/);
+                return m ? parseInt(m[0], 10) : 0;
+            };
+            rows.sort((a, b) => {
+                const numA = parseNum(a.cr3ea_samplenumber);
+                const numB = parseNum(b.cr3ea_samplenumber);
+                if (numA !== numB) return numA - numB;
+                return (a.cr3ea_samplenumber || "").localeCompare(b.cr3ea_samplenumber || "", undefined, { numeric: true });
+            });
+        }
+
+        return rows;
+    },
+
+    // 7.b Delete Sub-checklist Row
+    deleteSubChecklistRow: async function (subChecklistKey, guid) {
+        let AccessToken = await this.getAccessToken();
+        if (!AccessToken) {
+            console.warn("No token available. Simulating deleteSubChecklistRow locally.");
+            return true;
+        }
+
+        const apiVersion = "9.2";
+        const candidateTables = this.getCandidateTables(subChecklistKey);
+        if (!candidateTables || candidateTables.length === 0) return false;
+
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
+        const headers = {
+            "Accept": "application/json",
+            "OData-MaxVersion": "4.0",
+            "OData-Version": "4.0"
+        };
+
+        const cleanGuid = String(guid).replace(/[{}]/g, "").trim().toLowerCase();
+
+        for (const tbl of candidateTables) {
+            const url = `${baseApiUrl}/api/data/v${apiVersion}/${tbl}(${cleanGuid})`;
+            const response = await this.fetchWithToken(url, { method: "DELETE", headers });
+
+            if (response.ok || response.status === 204) {
+                this.setWorkingTableName(subChecklistKey, tbl);
+                return true;
+            } else if (response.status === 404) {
+                // Table or record not found, try next candidate
+                continue;
+            }
+        }
+        return true;
+    },
+
+    // 7.c Clean all existing sub-checklist rows for a tour ID (High-performance Parallel Batch Delete)
+    cleanSubChecklistRows: async function (subChecklistKey, tourId, evaluationType) {
+        try {
+            const existing = await this.getSubChecklistRows(subChecklistKey, tourId);
+            if (existing && existing.length > 0) {
+                const tableName = this.getWorkingTableName(subChecklistKey);
+                const isProd = tableName.includes("_prod_");
+                const p = isProd ? "cr3ea_prod_rajpura_pkgops_" : "cr3ea_rajpura_pkgops_";
+
+                let idColumn = "";
+                if (subChecklistKey === "CHILD_TEMP_HUMIDITY") idColumn = p + "temphumidityid";
+                else if (subChecklistKey === "CHILD_CODE_VERIFICATION") idColumn = p + "codeverificationid";
+                else if (subChecklistKey === "CHILD_PAPA") idColumn = p + "papaid";
+                else if (subChecklistKey === "CHILD_PQI_NET_WEIGHT") idColumn = p + "pqi_netweightid";
+                else if (subChecklistKey === "CHILD_PQI_EVALUATION") idColumn = p + "pqi_evaluationid";
+                else if (subChecklistKey === "CHILD_SEAL_INTEGRITY") idColumn = p + "sealintegrityid";
+                else if (subChecklistKey === "CHILD_QUALITY_WALL") idColumn = p + "qualitywallid";
+                else if (subChecklistKey === "CHILD_CREAM_PERCENTAGE") idColumn = p + "creampercentagesid";
+
+                const baseSuffix = idColumn.replace(/^cr3ea_(prod_)?rajpura_pkgops_/, "");
+
+                const guidsToDelete = [];
+                for (let item of existing) {
+                    if (evaluationType && item.cr3ea_evaluationtype !== evaluationType) {
+                        continue;
+                    }
+                    const guid = item.id ||
+                                 item[idColumn] || 
+                                 item[p + "creampercentagesid"] ||
+                                 item[p + "creampercentageid"] ||
+                                 item["cr3ea_prod_rajpura_pkgops_" + baseSuffix] ||
+                                 item["cr3ea_rajpura_pkgops_" + baseSuffix];
+                    if (guid) {
+                        guidsToDelete.push(String(guid).replace(/[{}]/g, "").trim().toLowerCase());
+                    }
+                }
+
+                if (guidsToDelete.length > 0) {
+                    await Promise.all(guidsToDelete.map(g => this.deleteSubChecklistRow(subChecklistKey, g)));
+                }
+            }
+        } catch (e) {
+            console.error("cleanSubChecklistRows failed: ", e);
+        }
+    },
+
+    // 8. Upload photo file to SharePoint Document Library PackagingOperations_Docs
+    uploadAttachmentFile: async function (fileObject, tourId, pkgOpsType, checkpointId, actionRemarks) {
+        if (typeof window.compressImageFile === "function" && fileObject && fileObject.type.startsWith("image/")) {
+            try {
+                fileObject = await window.compressImageFile(fileObject);
+            } catch (e) {
+                console.warn("Image compression failed, using original: ", e);
+            }
+        }
+        const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
+        const webServerRelativeUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webServerRelativeUrl : "";
+        const libraryName = QualityRajpura_Config.SHAREPOINT_DOCS.PACKAGING_OPERATIONS;
+
+        const serverRelativeUrl = webServerRelativeUrl === "/"
+            ? `/${libraryName}`
+            : `${webServerRelativeUrl}/${libraryName}`;
+
+        let requestDigest = "";
+        const requestDigestEl = document.getElementById("__REQUESTDIGEST");
+        if (requestDigestEl && requestDigestEl.value) {
+            requestDigest = requestDigestEl.value;
+        } else if (this._cachedDigest) {
+            requestDigest = this._cachedDigest;
+        } else {
+            const digestResponse = await $.ajax({
+                url: `${webUrl}/_api/contextinfo`,
+                method: "POST",
+                headers: { "Accept": "application/json; odata=verbose" }
+            });
+            requestDigest = digestResponse.d.GetContextWebInformation.FormDigestValue;
+            this._cachedDigest = requestDigest;
+            setTimeout(() => { this._cachedDigest = null; }, 20 * 60 * 1000);
+        }
+
+        const fileBuffer = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.onerror = err => reject(err);
+            reader.readAsArrayBuffer(fileObject);
+        });
+
+        const dotIndex = fileObject.name.lastIndexOf(".");
+        let baseName = fileObject.name;
+        let extension = "";
+        if (dotIndex !== -1) {
+            baseName = fileObject.name.substring(0, dotIndex);
+            extension = fileObject.name.substring(dotIndex);
+        }
+        baseName = baseName.replace(/[^a-zA-Z0-9_-]/g, "_");
+        const timestamp = typeof moment !== 'undefined' ? moment().format("YYYYMMDD_HHmmss") : Date.now();
+        const safeCheckpointId = checkpointId ? String(checkpointId).replace(/[^a-zA-Z0-9_-]/g, "_") : "";
+        const uniqueFileName = safeCheckpointId
+            ? `${baseName}_${timestamp}_${safeCheckpointId}${extension}`
+            : `${baseName}_${timestamp}${extension}`;
+
+        const fileAddUrl = `${webUrl}/_api/web/GetFolderByServerRelativeUrl('${serverRelativeUrl}')/Files/add(url='${uniqueFileName}', overwrite=true)?$expand=ListItemAllFields`;
+        const uploadResponse = await $.ajax({
+            url: fileAddUrl,
+            method: "POST",
+            data: fileBuffer,
+            processData: false,
+            contentType: "application/octet-stream",
+            headers: {
+                "Accept": "application/json; odata=verbose",
+                "X-RequestDigest": requestDigest
+            }
+        });
+
+        let fileItemId = null;
+        if (uploadResponse.d && uploadResponse.d.ListItemAllFields && uploadResponse.d.ListItemAllFields.Id) {
+            fileItemId = uploadResponse.d.ListItemAllFields.Id;
+        } else {
+            const fileUrl = uploadResponse.d.ServerRelativeUrl;
+            const itemResponse = await $.ajax({
+                url: `${webUrl}/_api/web/getFileByServerRelativeUrl('${fileUrl}')/ListItemAllFields`,
+                method: "GET",
+                headers: { "Accept": "application/json; odata=verbose" }
+            });
+            fileItemId = itemResponse.d.Id;
+        }
+
+        if (!this._cachedEntityType) this._cachedEntityType = {};
+        let listItemEntityType = this._cachedEntityType[libraryName];
+        if (!listItemEntityType) {
+            const entityResponse = await $.ajax({
+                url: `${webUrl}/_api/web/lists/getByTitle('${libraryName}')?$select=ListItemEntityTypeFullName`,
+                method: "GET",
+                headers: { "Accept": "application/json; odata=verbose" }
+            });
+            listItemEntityType = entityResponse.d.ListItemEntityTypeFullName;
+            this._cachedEntityType[libraryName] = listItemEntityType;
+        }
+
+        const metadataPayload = {
+            "__metadata": { "type": listItemEntityType },
+            "Title": uniqueFileName,
+            "QualityTourId": tourId,
+            "PackagingOpsType": pkgOpsType,
+            "CheckpointID": checkpointId,
+            "ActionRemarks": actionRemarks
+        };
+
+        const updateUrl = `${webUrl}/_api/web/lists/getByTitle('${libraryName}')/items(${fileItemId})`;
+        await $.ajax({
+            url: updateUrl,
+            method: "POST",
+            data: JSON.stringify(metadataPayload),
+            headers: {
+                "Accept": "application/json; odata=verbose",
+                "Content-Type": "application/json; odata=verbose",
+                "X-RequestDigest": requestDigest,
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+            }
+        });
+
+        return uploadResponse.d.ServerRelativeUrl;
+    },
+
+    // 9. Fetch all attachments for a specific tour session
+    getAttachments: async function (tourId) {
+        const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
+        const libraryName = QualityRajpura_Config.SHAREPOINT_DOCS.PACKAGING_OPERATIONS;
+
+        const query = `?$filter=QualityTourId eq '${tourId}'`;
+        const url = `${webUrl}/_api/web/lists/getByTitle('${libraryName}')/items${query}`;
+
+        try {
+            const response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
+            if (!response.ok) return [];
+            const data = await response.json();
+            return data.d.results || [];
+        } catch (e) {
+            console.error("Error fetching attachments: ", e);
+            return [];
+        }
+    },
+
+    employeesCache: null,
+
+    // 10. Load Employee Directory from SharePoint / siteusers / mock fallback
+    getEmployeeList: async function () {
+        if (this.employeesCache && this.employeesCache.length > 0) {
+            return this.employeesCache;
+        }
+
+        const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
+        try {
+            const query = "?$select=Id,Title,EmployeeName/Id,EmployeeName/Title,EmployeeName/EMail,DepartmentId/Id,DepartmentId/Title,PlantId/Id,PlantId/Title&$expand=EmployeeName,DepartmentId,PlantId&$filter=IsActive eq 1&$top=500";
+            const url = `${webUrl}/_api/web/lists/getByTitle('EmployeeList')/items${query}`;
+            const response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
+            if (response.ok) {
+                const data = await response.json();
+                const results = data.d.results || [];
+                const emps = results.map(item => {
+                    const emp = item.EmployeeName || {};
+                    const dept = item.DepartmentId ? item.DepartmentId.Title : "";
+                    const plant = item.PlantId ? item.PlantId.Title : "";
+                    return {
+                        id: emp.Id || item.Id,
+                        spUserId: emp.Id || null,
+                        title: emp.Title || item.Title || "Unknown",
+                        email: emp.EMail || "",
+                        department: dept,
+                        plant: plant
+                    };
+                }).filter(e => e.title && e.title !== "Unknown");
+                if (emps.length > 0) {
+                    this.employeesCache = emps;
+                    return this.employeesCache;
+                }
+            }
+        } catch (e) {
+            console.warn("PKGOPS_DAL: Failed to load EmployeeList, attempting fallback to siteusers:", e);
+        }
+
+        // Fallback: Query siteusers
+        try {
+            const url = `${webUrl}/_api/web/siteusers?$filter=PrincipalType eq 1&$top=200`;
+            const response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
+            if (response.ok) {
+                const data = await response.json();
+                const results = data.d.results || [];
+                const emps = results.map(u => ({
+                    id: u.Id,
+                    spUserId: u.Id,
+                    title: u.Title,
+                    email: u.Email || "",
+                    department: "Quality / Plant",
+                    plant: "Rajpura"
+                }));
+                if (emps.length > 0) {
+                    this.employeesCache = emps;
+                    return this.employeesCache;
+                }
+            }
+        } catch (err) {
+            console.warn("PKGOPS_DAL: Fallback to mock employees for offline dev:", err);
+        }
+
+        // If no employees from SharePoint, return empty list
+        this.employeesCache = [];
+        return this.employeesCache;
+    },
+
+    // 11. Resolve user emails or names to Display Names for UI presentation
+    resolveUserDisplayNames: async function (rawEmailsOrNames) {
+        if (!rawEmailsOrNames || typeof rawEmailsOrNames !== 'string') return "-";
+        const trimmed = rawEmailsOrNames.trim();
+        if (!trimmed) return "-";
+
+        const employees = await this.getEmployeeList();
+        const parts = trimmed.split(/[,;]+/).map(p => p.trim()).filter(Boolean);
+
+        const resolvedNames = parts.map(part => {
+            const lowerPart = part.toLowerCase();
+            let match = employees.find(e => e.email && e.email.toLowerCase() === lowerPart);
+            if (!match) {
+                match = employees.find(e => e.title && e.title.toLowerCase() === lowerPart);
+            }
+            if (match) return match.title;
+            if (part.includes("@")) {
+                const namePart = part.split("@")[0].replace(/[._-]/g, " ");
+                return namePart.replace(/\b\w/g, l => l.toUpperCase());
+            }
+            return part;
+        });
+
+        return resolvedNames.join(", ");
+    }
+};

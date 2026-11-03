@@ -3,13 +3,360 @@ console.log("Rajpura Common Utils Loaded");
 
 // Global Quality Rajpura configuration
 const QualityRajpura_Config = {
-    PLANT_ID: "14",
-    PLANT_NAME: "Rajpura",
-    QUALITY_DEPT_IDS: ["80", "81", "135"],
+    get PLANT_ID() {
+        return this.getCurrentConfig().PLANT_ID;
+    },
+    get PLANT_NAME() {
+        return this.getCurrentConfig().PLANT_NAME;
+    },
+    get QUALITY_DEPT_IDS() {
+        return this.getCurrentConfig().QUALITY_DEPT_IDS;
+    },
+    get DATAVERSE_URL() {
+        return this.getCurrentConfig().DATAVERSE_URL || "https://org487f0635.crm8.dynamics.com";
+    },
+    get FLOW_URL() {
+        return this.getCurrentConfig().FLOW_URL;
+    },
+    get DATAVERSE_TABLES() {
+        return this.getCurrentConfig().DATAVERSE_TABLES;
+    },
+
+    // Environment configurations for DEV, UAT, and PROD
+    ENVIRONMENTS: {
+        DEV: {
+            TENANT_URL: "https://aufaitcloud.sharepoint.com/sites/Mrs_Bectors_PTMS",
+            DATAVERSE_URL: "https://org487f0635.crm8.dynamics.com",
+            FLOW_URL: "https://86c49df27027e13c808b32506fa981.d1.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/12/workflows/42a6c8814f9f4479b348f034f1084f99/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=rd6tp8DE5TveTIWR97PfKAKQRcH2d9qQ4BAUyGhHDm4", // Replace with actual Dev Notification Flow URL
+            PLANT_ID: "14",
+            PLANT_NAME: "Rajpura",
+            QUALITY_DEPT_IDS: ["80", "81", "135"],
+            DATAVERSE_TABLES: {
+                PARENT_TOUR: "cr3ea_rajpura_quality_tours",
+                ALC: {
+                    PARENT: "cr3ea_rajpura_quality_tours",
+                    CHILD: "cr3ea_rajpura_alcses"
+                },
+                FOOD_SAFETY: {
+                    PARENT: "cr3ea_rajpura_quality_tours",
+                    CHILD: "cr3ea_foodsafetychecklistforrajpuras"
+                },
+                MIXING_BAKING: {
+                    PARENT: "cr3ea_rajpura_quality_tours",
+                    CHILD: "cr3ea_rajpura_mixingandbakings"
+                },
+                PACKAGING_OPERATIONS: {
+                    PARENT: "cr3ea_rajpura_quality_tours",
+                    CHILD_TEMP_HUMIDITY: "cr3ea_rajpura_pkgops_temphumidities",
+                    CHILD_CODE_VERIFICATION: "cr3ea_rajpura_pkgops_codeverifications",
+                    CHILD_PAPA: "cr3ea_rajpura_pkgops_papas",
+                    CHILD_PQI_NET_WEIGHT: "cr3ea_rajpura_pkgops_pqi_netweights",
+                    CHILD_PQI_EVALUATION: "cr3ea_rajpura_pkgops_pqi_evaluations",
+                    CHILD_SEAL_INTEGRITY: "cr3ea_rajpura_pkgops_sealintegrities",
+                    CHILD_QUALITY_WALL: "cr3ea_rajpura_pkgops_qualitywalls",
+                    CHILD_CREAM_PERCENTAGE: "cr3ea_rajpura_pkgops_creampercentageses"
+                },
+                CCP_OPRP_SIEVES_MAGNETS: {
+                    PARENT: "cr3ea_rajpura_quality_tours",
+                    CHILD_CCP: "cr3ea_rajpura_ccpoprps",
+                    CHILD_SIEVES: "cr3ea_rajpura_sievesmagnetses"
+                }
+            }
+        },
+        UAT: {
+            TENANT_URL: "https://bectors.sharepoint.com/sites/PTMS_UAT",
+            DATAVERSE_URL: "https://orgea61b289.crm8.dynamics.com",
+            FLOW_URL: "https://defaultaa44c5c154484e7488d917838a6f9d.5a.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/19/workflows/def2982fbbfd44c5b6c2802642d63c52/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=koDPeZndomoORPqxJrsyG3OfSvXZ3K2xpplHuKj78vM", 
+            PLANT_ID: "2",
+            PLANT_NAME: "Rajpura",
+            QUALITY_DEPT_IDS: ["18", "81", "135"],
+            DATAVERSE_TABLES: {
+                PARENT_TOUR: "cr3ea_rajpura_quality_tours",
+                ALC: {
+                    PARENT: "cr3ea_rajpura_quality_tours",
+                    CHILD: "cr3ea_rajpura_alcses"
+                },
+                FOOD_SAFETY: {
+                    PARENT: "cr3ea_rajpura_quality_tours",
+                    CHILD: "cr3ea_foodsafetychecklistforrajpuras"
+                },
+                MIXING_BAKING: {
+                    PARENT: "cr3ea_rajpura_quality_tours",
+                    CHILD: "cr3ea_rajpura_mixingandbakings"
+                },
+                PACKAGING_OPERATIONS: {
+                    PARENT: "cr3ea_rajpura_quality_tours",
+                    CHILD_TEMP_HUMIDITY: "cr3ea_rajpura_pkgops_temphumidities",
+                    CHILD_CODE_VERIFICATION: "cr3ea_rajpura_pkgops_codeverifications",
+                    CHILD_PAPA: "cr3ea_rajpura_pkgops_papas",
+                    CHILD_PQI_NET_WEIGHT: "cr3ea_rajpura_pkgops_pqi_netweights",
+                    CHILD_PQI_EVALUATION: "cr3ea_rajpura_pkgops_pqi_evaluations",
+                    CHILD_SEAL_INTEGRITY: "cr3ea_rajpura_pkgops_sealintegrities",
+                    CHILD_QUALITY_WALL: "cr3ea_rajpura_pkgops_qualitywalls",
+                    CHILD_CREAM_PERCENTAGE: "cr3ea_rajpura_pkgops_creampercentageses"
+                },
+                CCP_OPRP_SIEVES_MAGNETS: {
+                    PARENT: "cr3ea_rajpura_quality_tours",
+                    CHILD_CCP: "cr3ea_rajpura_ccpoprps",
+                    CHILD_SIEVES: "cr3ea_rajpura_sievesmagnetses"
+                }
+            }
+        },
+        PROD: {
+            TENANT_URL: "https://bectors.sharepoint.com/sites/PTMS_PRD",
+            DATAVERSE_URL: "https://orgea61b289.crm8.dynamics.com",
+            FLOW_URL: "https://defaultaa44c5c154484e7488d917838a6f9d.5a.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/05/workflows/ebad95e3f75d45ce8ba2c3f1707ad323/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=RatgyLEO5lhV9HBvm7kdxvDBrImekoCq9TA_h2xdw4w",
+            PLANT_ID: "2",
+            PLANT_NAME: "Rajpura",
+            QUALITY_DEPT_IDS: ["39", "81", "135"],
+            DATAVERSE_TABLES: {
+                PARENT_TOUR: "cr3ea_prod_rajpura_quality_tours",
+                ALC: {
+                    PARENT: "cr3ea_prod_rajpura_quality_tours",
+                    CHILD: "cr3ea_prod_rajpura_alcses"
+                },
+                FOOD_SAFETY: {
+                    PARENT: "cr3ea_prod_rajpura_quality_tours",
+                    CHILD: "cr3ea_prod_foodsafetychecklistforrajpuras"
+                },
+                MIXING_BAKING: {
+                    PARENT: "cr3ea_prod_rajpura_quality_tours",
+                    CHILD: "cr3ea_prod_rajpura_mixingandbakings"
+                },
+                PACKAGING_OPERATIONS: {
+                    PARENT: "cr3ea_prod_rajpura_quality_tours",
+                    CHILD_TEMP_HUMIDITY: "cr3ea_prod_rajpura_pkgops_temphumidities",
+                    CHILD_CODE_VERIFICATION: "cr3ea_prod_rajpura_pkgops_codeverifications",
+                    CHILD_PAPA: "cr3ea_prod_rajpura_pkgops_papas",
+                    CHILD_PQI_NET_WEIGHT: "cr3ea_prod_rajpura_pkgops_pqi_netweights",
+                    CHILD_PQI_EVALUATION: "cr3ea_prod_rajpura_pkgops_pqi_evaluations",
+                    CHILD_SEAL_INTEGRITY: "cr3ea_prod_rajpura_pkgops_sealintegrities",
+                    CHILD_QUALITY_WALL: "cr3ea_prod_rajpura_pkgops_qualitywalls",
+                    CHILD_CREAM_PERCENTAGE: "cr3ea_prod_rajpura_pkgops_creampercentageses"
+                },
+                CCP_OPRP_SIEVES_MAGNETS: {
+                    PARENT: "cr3ea_prod_rajpura_quality_tours",
+                    CHILD_CCP: "cr3ea_prod_rajpura_ccpoprps",
+                    CHILD_SIEVES: "cr3ea_prod_rajpura_sievesmagnetses"
+                }
+            }
+        }
+    },
+
+    // Resolves current environment dynamically based on site URL context
+    getEnvironment: function () {
+        const currentUrl = window.location.href.toLowerCase();
+        if (currentUrl.includes("ptms_prd")) {
+            return "PROD";
+        } else if (currentUrl.includes("ptms_uat")) {
+            return "UAT";
+        } else if (currentUrl.includes("bectors.sharepoint.com")) {
+            // Any site collection on the Bectors tenant (e.g. Mrs_Bectors_PTMS) is UAT unless ptms_prd
+            return "UAT";
+        } else if (currentUrl.includes("aufaitcloud") || currentUrl.includes("localhost") || currentUrl.includes("127.0.0.1")) {
+            return "DEV";
+        }
+        return "DEV"; // Default fallback
+    },
+
+    getCurrentConfig: function () {
+        const env = this.getEnvironment();
+        return this.ENVIRONMENTS[env];
+    },
+
+    // Resolves tour GUID across schemas
+    getTourId: function (record) {
+        if (!record || typeof record !== "object") return "";
+        return record.cr3ea_prod_rajpura_quality_tourid || 
+               record.cr3ea_rajpura_quality_tourid || 
+               record.cr3ea_prod_rajpura_quality_toursid || 
+               record.cr3ea_rajpura_quality_toursid || 
+               record.cr3ea_qualitytourid || 
+               "";
+    },
+
+    // Synchronizes both prod and uat tourid properties on the record
+    normalizeTourRecord: function (record) {
+        if (!record || typeof record !== "object") return record;
+        const id = this.getTourId(record);
+        if (id) {
+            record.cr3ea_prod_rajpura_quality_tourid = id;
+            record.cr3ea_rajpura_quality_tourid = id;
+        }
+        return record;
+    },
+
+    // Strict column whitelist for the Parent Tour entity (cr3ea_rajpura_quality_tour / cr3ea_prod_rajpura_quality_tour)
+    PARENT_TOUR_COLUMNS: [
+        "cr3ea_title",
+        "cr3ea_tourstartdate",
+        "cr3ea_plantid",
+        "cr3ea_shift",
+        "cr3ea_lineno",
+        "cr3ea_assigned_qa",
+        "cr3ea_shiftexecutiveproduction",
+        "cr3ea_status",
+        "cr3ea_processstatus",
+        "cr3ea_observedby",
+        "cr3ea_tourby",
+        "cr3ea_previousrunningvariety",
+        "cr3ea_runningvariety",
+        "cr3ea_executivename",
+        "cr3ea_overall_score",
+        "cr3ea_total_checkpoints",
+        "cr3ea_compliant_count",
+        "cr3ea_non_compliant_count",
+        "cr3ea_escalation_contacts",
+        "cr3ea_islineclear",
+        "cr3ea_pkgops_type",
+        "cr3ea_ccp_oprp_sieves_parametertype",
+        "cr3ea_ccp_oprp_sieves_frequency",
+        "cr3ea_food_safety_checklisttype",
+        "cr3ea_batchno",
+        "cr3ea_cycle"
+    ],
+
+    // Strips invalid properties and maps aliases before sending parent tour to Dataverse
+    sanitizeParentTourPayload: function (payload) {
+        if (!payload || typeof payload !== "object") return payload;
+        const clean = {};
+        const validSet = new Set(this.PARENT_TOUR_COLUMNS);
+
+        // Map common aliases to their proper schema column names
+        if (payload.cr3ea_lineid && !payload.cr3ea_lineno) payload.cr3ea_lineno = payload.cr3ea_lineid;
+        if (payload.cr3ea_food_safety_cycle && !payload.cr3ea_cycle) payload.cr3ea_cycle = payload.cr3ea_food_safety_cycle;
+        if (payload.cr3ea_ccp_oprp_sieves_productvariety && !payload.cr3ea_runningvariety) payload.cr3ea_runningvariety = payload.cr3ea_ccp_oprp_sieves_productvariety;
+        if (payload.cr3ea_shiftexecutivequality && !payload.cr3ea_executivename) payload.cr3ea_executivename = payload.cr3ea_shiftexecutivequality;
+        if (payload.cr3ea_production_incharge && !payload.cr3ea_shiftexecutiveproduction) payload.cr3ea_shiftexecutiveproduction = payload.cr3ea_production_incharge;
+        if (payload.cr3ea_qaexecutive && !payload.cr3ea_assigned_qa) payload.cr3ea_assigned_qa = payload.cr3ea_qaexecutive;
+        if (payload.cr3ea_shiftexecutive && !payload.cr3ea_observedby) payload.cr3ea_observedby = payload.cr3ea_shiftexecutive;
+
+        for (const key of Object.keys(payload)) {
+            if (validSet.has(key)) {
+                clean[key] = payload[key];
+            }
+        }
+        return clean;
+    },
+
+    // Validates whether an email is a valid email format
+    isValidEmail: function (email) {
+        if (!email || typeof email !== "string") return false;
+        const trimmed = email.trim().toLowerCase();
+        return Boolean(trimmed.match(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/));
+    },
+
+    // Validates email validity (alias for backward compatibility)
+    isDummyEmail: function (email) {
+        return !this.isValidEmail(email);
+    },
+
+    // Escalation contacts & audit payload utilities (Zero Schema Dataverse storage)
+    parseEscalationContacts: function (contactsStr) {
+        if (!contactsStr || typeof contactsStr !== "string") return [];
+        const emailsPart = contactsStr.split("||")[0].trim();
+        return emailsPart.split(",")
+            .map(e => e.trim().toLowerCase())
+            .filter(e => !this.isDummyEmail(e));
+    },
+
+    parseEscalationAudit: function (sessionOrContacts) {
+        if (!sessionOrContacts) return null;
+        let str = typeof sessionOrContacts === "string" ? sessionOrContacts : (sessionOrContacts.cr3ea_escalation_contacts || "");
+        if (!str || !str.includes("||")) return null;
+        try {
+            const auditPart = str.split("||")[1].trim();
+            if (auditPart.startsWith("AUDIT:")) {
+                return JSON.parse(auditPart.substring(6).trim());
+            }
+            return JSON.parse(auditPart);
+        } catch (e) {
+            console.warn("Could not parse escalation audit payload:", e);
+            return null;
+        }
+    },
+
+    formatEscalationContacts: function (emailsList, auditObj) {
+        const cleanEmails = (Array.isArray(emailsList) ? emailsList : (emailsList || "").split(","))
+            .map(e => String(e).trim().toLowerCase())
+            .filter(e => !this.isDummyEmail(e));
+        const emailsStr = cleanEmails.join(",");
+        if (!auditObj) return emailsStr;
+        return `${emailsStr} || AUDIT:${JSON.stringify(auditObj)}`;
+    },
+
+    // Formats error messages clearly distinguishing Internet/Network issues from Dataverse/Server errors
+    formatDataverseError: function (error, context) {
+        context = context || "perform this operation";
+        const isOffline = typeof navigator !== "undefined" && navigator && navigator.onLine === false;
+
+        let errMsg = "";
+        if (error) {
+            if (error.responseJSON && error.responseJSON.error && error.responseJSON.error.message) {
+                errMsg = error.responseJSON.error.message;
+            } else if (error.responseText) {
+                try {
+                    const parsed = JSON.parse(error.responseText);
+                    if (parsed && parsed.error && parsed.error.message) {
+                        errMsg = parsed.error.message;
+                    } else {
+                        errMsg = error.responseText;
+                    }
+                } catch (_) {
+                    errMsg = error.responseText;
+                }
+            } else if (error.message) {
+                errMsg = error.message;
+            } else if (error.statusText && error.statusText !== "error") {
+                errMsg = `${error.status || ""} ${error.statusText}`.trim();
+            } else if (typeof error === "string") {
+                errMsg = error;
+            } else {
+                errMsg = String(error);
+            }
+        }
+        if (!errMsg || errMsg === "error" || errMsg === "[object Object]") {
+            errMsg = "Server or network request failed. Please check network connectivity or login session.";
+        }
+
+        const errLower = errMsg.toLowerCase();
+
+        const isNetworkIssue = isOffline ||
+            errLower.includes("failed to fetch") ||
+            errLower.includes("networkerror") ||
+            errLower.includes("network error") ||
+            errLower.includes("network request failed") ||
+            errLower.includes("net::err_") ||
+            errLower.includes("offline") ||
+            errLower.includes("internet") ||
+            errLower.includes("err_name_not_resolved") ||
+            errLower.includes("err_internet_disconnected") ||
+            (error && error.name === "TypeError" && (errLower.includes("fetch") || errLower.includes("network")));
+
+        if (isNetworkIssue) {
+            return `Internet Connection Error: Unable to ${context} because the device is offline or the network connection was lost.\n\nPlease check your internet connection and try again.\n\nDetails: ${errMsg || "Network connection failed"}`;
+        }
+
+        return `Dataverse Connection Failed: Unable to ${context}.\n\nDetails: ${errMsg || "Please check your network or login session."}`;
+    },
+
+    // Resolves current server-relative site URL based on environment (DEV, UAT, PROD)
+    getSiteBaseUrl: function () {
+        if (typeof _spPageContextInfo !== "undefined" && _spPageContextInfo.webServerRelativeUrl) {
+            return _spPageContextInfo.webServerRelativeUrl.replace(/\/+$/, "");
+        }
+        const currentUrl = window.location.href.toLowerCase();
+        if (currentUrl.includes("ptms_uat")) {
+            return "/sites/PTMS_UAT";
+        } else if (currentUrl.includes("ptms_prd")) {
+            return "/sites/PTMS_PRD";
+        }
+        return "/sites/Mrs_Bectors_PTMS";
+    },
 
     // SharePoint List Names categorized by form
     SHAREPOINT_LISTS: {
-        CONFIG: "Quality-Rajpura",
+        CONFIG: "Quality-Rajpura-ALC",
         ALC: "Quality-Rajpura-ALC",
         FOOD_SAFETY: "Quality-Rajpura-FoodSafety",
         MIXING_BAKING: "Quality-Rajpura-MixingBaking",
@@ -20,41 +367,267 @@ const QualityRajpura_Config = {
     // SharePoint Document Libraries
     SHAREPOINT_DOCS: {
         ALC_CORRECTIVE_ACTIONS: "ALC_CorrectiveActions_Docs",
-        CCP_OPRP_CORRECTIVE_ACTIONS: "CCP_OPRP_CorrectiveActions_Docs"
+        CCP_OPRP_CORRECTIVE_ACTIONS: "CCP_OPRP_CorrectiveActions_Docs",
+        MIXING_BAKING: "MixingBaking_Docs",
+        PACKAGING_OPERATIONS: "PackagingOperations_Docs",
+        FOOD_SAFETY: "FoodSafetyRajpuraDocs"
     },
 
-    // Dataverse Table Names categorized by form
-    DATAVERSE_TABLES: {
-        // Parent Tour table used by all quality checklist forms
-        PARENT_TOUR: "cr3ea_prod_rajpura_quality_tours",
+    // Helper to safely parse remarks text and proof URL from delimited string
+    parseRemarksAndProof: function (raw) {
+        if (!raw || typeof raw !== "string") return { remarks: "", proofUrl: "" };
+        var rawTrimmed = raw.trim();
+        if (!rawTrimmed || rawTrimmed === "--" || rawTrimmed === "N/A") return { remarks: "", proofUrl: "" };
 
-        // Individual form configurations
-        ALC: {
-            PARENT: "cr3ea_prod_rajpura_quality_tours",
-            CHILD: "cr3ea_rajpura_alcses"
-        },
-        FOOD_SAFETY: {
-            PARENT: "cr3ea_prod_rajpura_quality_tours",
-            CHILD: "cr953_foodsafetychecklistforrajpuras"
-        },
-        MIXING_BAKING: {
-            PARENT: "cr3ea_prod_rajpura_quality_tours",
-            CHILD: ""
-        },
-        PACKAGING_OPERATIONS: {
-            PARENT: "cr3ea_prod_rajpura_quality_tours",
-            CHILD: ""
-        },
-        CCP_OPRP_SIEVES_MAGNETS: {
-            PARENT: "cr3ea_prod_rajpura_quality_tours",
-            CHILD_CCP: "cr3ea_prod_rajpura_ccpoprps",      // logical name: cr3ea_prod_rajpura_ccpoprp
-            CHILD_SIEVES: "cr3ea_prod_rajpura_sievesmagnetses" // logical name: cr3ea_prod_rajpura_sievesmagnets
+        var remarks = rawTrimmed;
+        var proofUrl = "";
+
+        if (rawTrimmed.includes(" | Proof: ")) {
+            var parts = rawTrimmed.split(" | Proof: ");
+            remarks = parts[0].trim();
+            proofUrl = parts.slice(1).join(" | Proof: ").trim();
+        } else if (rawTrimmed.includes("| Proof: ")) {
+            var parts2 = rawTrimmed.split("| Proof: ");
+            remarks = parts2[0].trim();
+            proofUrl = parts2.slice(1).join("| Proof: ").trim();
+        } else if (rawTrimmed.startsWith("Proof: ")) {
+            remarks = "";
+            proofUrl = rawTrimmed.substring(7).trim();
+        } else if (rawTrimmed.includes("Proof: ")) {
+            var parts3 = rawTrimmed.split("Proof: ");
+            remarks = parts3[0].replace(/[\|\-\s]+$/, "").trim();
+            proofUrl = parts3.slice(1).join("Proof: ").trim();
+        } else if (rawTrimmed.startsWith("/sites/") || rawTrimmed.startsWith("http://") || rawTrimmed.startsWith("https://")) {
+            remarks = "";
+            proofUrl = rawTrimmed.trim();
         }
+
+        if (remarks.startsWith("Proof: ") || remarks.startsWith("/sites/") || remarks.startsWith("http")) {
+            remarks = "";
+        }
+
+        return { remarks: remarks, proofUrl: proofUrl };
+    },
+
+    // Helper to safely format clean remarks text with proof URL
+    formatRemarksWithProof: function (remarks, proofUrl) {
+        var cleanRemarks = remarks || "";
+        if (typeof cleanRemarks === "string") {
+            var parsed = this.parseRemarksAndProof(cleanRemarks);
+            cleanRemarks = parsed.remarks;
+            if (!proofUrl && parsed.proofUrl) {
+                proofUrl = parsed.proofUrl;
+            }
+        }
+        cleanRemarks = (cleanRemarks || "").trim();
+        if (proofUrl) {
+            return cleanRemarks ? cleanRemarks + " | Proof: " + proofUrl : "Proof: " + proofUrl;
+        }
+        return cleanRemarks;
+    },
+
+    // Fetches recent parent tours from Dataverse
+    fetchRecentTours: async function (token, topCount = 50) {
+        if (!token) {
+            try {
+                const stored = JSON.parse(localStorage.getItem("access_token") || "null");
+                if (stored && stored.token) token = stored.token;
+            } catch (e) {}
+        }
+        if (!token) return [];
+        const apiVersion = "9.2";
+        const tableName = this.DATAVERSE_TABLES.PARENT_TOUR;
+        const baseApiUrl = this.DATAVERSE_URL || "";
+        const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}?$filter=(cr3ea_plantid eq '${this.PLANT_ID}' or cr3ea_plantid eq 'Rajpura' or cr3ea_plantid eq '2' or cr3ea_plantid eq '14')&$orderby=cr3ea_tourstartdate desc&$top=${topCount}`;
+        const headers = {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${token}`,
+            "OData-MaxVersion": "4.0",
+            "OData-Version": "4.0"
+        };
+        try {
+            const response = await fetch(url, { method: "GET", headers });
+            if (!response.ok) return [];
+            const data = await response.json();
+            return (data.value || []).map(t => this.normalizeTourRecord(t));
+        } catch (e) {
+            console.warn("fetchRecentTours error:", e);
+            return [];
+        }
+    },
+
+    // Cancels an active parent tour session in Dataverse
+    cancelTourSession: async function (tourId, token) {
+        if (!tourId) return false;
+        if (!token) {
+            try {
+                const stored = JSON.parse(localStorage.getItem("access_token") || "null");
+                if (stored && stored.token) token = stored.token;
+            } catch (e) {}
+        }
+        if (!token) return false;
+        const cleanId = String(tourId).replace(/[{}]/g, "").trim().toLowerCase();
+        const apiVersion = "9.2";
+        const tableName = this.DATAVERSE_TABLES.PARENT_TOUR;
+        const baseApiUrl = this.DATAVERSE_URL || "";
+        const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}(${cleanId})`;
+        const payload = {
+            cr3ea_status: "Cancelled",
+            cr3ea_processstatus: "Cancelled"
+        };
+        const headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json; charset=utf-8",
+            "Authorization": `Bearer ${token}`,
+            "OData-MaxVersion": "4.0",
+            "OData-Version": "4.0"
+        };
+        try {
+            const resp = await fetch(url, { method: "PATCH", headers, body: JSON.stringify(payload) });
+            return resp.ok;
+        } catch (e) {
+            console.warn("cancelTourSession error:", e);
+            return false;
+        }
+    },
+
+    // Checks if an active tour already exists for the same line today and prompts user for override confirmation
+    checkAndPromptLineOverride: async function (options) {
+        const { moduleKey, line, subType, currentTourId, token } = options || {};
+        if (!line) return true;
+
+        const normLine = (str) => {
+            let s = String(str || "").toLowerCase().replace(/[\s\-_]/g, "");
+            if (s.startsWith("lineno.")) s = s.substring(7);
+            else if (s.startsWith("lineno")) s = s.substring(6);
+            else if (s.startsWith("line")) s = s.substring(4);
+            return s;
+        };
+
+        const cleanLine = normLine(line);
+        const rawLine = String(line || "").trim().toLowerCase();
+        const cleanCurrentId = currentTourId ? String(currentTourId).replace(/[{}]/g, "").trim().toLowerCase() : "";
+        const todayStr = (typeof moment !== "undefined") ? moment().format("YYYY-MM-DD") : new Date().toISOString().split("T")[0];
+
+        try {
+            const tours = await this.fetchRecentTours(token, 50);
+
+            const activeSession = tours.find(s => {
+                const sid = this.getTourId(s);
+                const cleanSessionId = sid ? String(sid).replace(/[{}]/g, "").trim().toLowerCase() : "";
+                if (cleanCurrentId && cleanSessionId === cleanCurrentId) return false;
+
+                // Line match (e.g. "Line 1", "Line-1", "Line 2 - IMAFORNI", "Line No. 2")
+                const sLineRaw = String(s.cr3ea_lineno || s.cr3ea_lineid || "").trim().toLowerCase();
+                const sLine = normLine(sLineRaw);
+                const isLineMatch = (sLine && cleanLine && (sLine === cleanLine || sLine.includes(cleanLine) || cleanLine.includes(sLine))) ||
+                                    (sLineRaw && rawLine && (sLineRaw === rawLine || sLineRaw.includes(rawLine) || rawLine.includes(sLineRaw)));
+                if (!isLineMatch) return false;
+
+                // Module match
+                const title = s.cr3ea_title || "";
+                const paramType = s.cr3ea_ccp_oprp_sieves_parametertype || "";
+                const pkgOpsType = s.cr3ea_pkgops_type || "";
+                const fsType = s.cr3ea_food_safety_checklisttype || "";
+
+                let moduleMatch = false;
+                if (moduleKey === "CCP") {
+                    moduleMatch = paramType === "CCP & OPRP" || title.startsWith("CCP_");
+                } else if (moduleKey === "PKGOPS") {
+                    if (subType) {
+                        moduleMatch = pkgOpsType === subType || title.includes(String(subType).replace(/[^a-zA-Z0-9]/g, ""));
+                    } else {
+                        moduleMatch = !!pkgOpsType || title.startsWith("PkgOps_");
+                    }
+                } else if (moduleKey === "FOOD_SAFETY") {
+                    if (subType) {
+                        moduleMatch = fsType === subType || title.includes(String(subType).replace(" Checklist", ""));
+                    } else {
+                        moduleMatch = !!fsType || title.startsWith("FoodSafety_");
+                    }
+                } else if (moduleKey === "MIXING_BAKING") {
+                    moduleMatch = title.startsWith("MixingBaking_");
+                } else if (moduleKey === "ALC") {
+                    moduleMatch = !paramType && !pkgOpsType && !fsType && !title.startsWith("MixingBaking_");
+                }
+
+                if (!moduleMatch) return false;
+
+                // Date match (must be from today)
+                const tourDate = s.cr3ea_tourstartdate || s.createdon;
+                const sDateStr = (typeof moment !== "undefined" && tourDate)
+                    ? moment(tourDate).local().format("YYYY-MM-DD")
+                    : (tourDate ? new Date(tourDate).toISOString().split("T")[0] : "");
+                if (sDateStr !== todayStr) return false;
+
+                // Status match (must not be terminal)
+                const st1 = (s.cr3ea_status || "").trim().toLowerCase();
+                const st2 = (s.cr3ea_processstatus || "").trim().toLowerCase();
+                const isTerminal = st1 === "completed" || st1 === "closed" || st1 === "closed - expired" ||
+                                   st1 === "failed - expired" || st1 === "success" || st1 === "success - expired" ||
+                                   st1 === "submitted" || st1 === "cancelled" || st1.includes("expired") ||
+                                   st2 === "completed" || st2 === "closed" || st2 === "closed - expired" ||
+                                   st2 === "failed - expired" || st2 === "success" || st2 === "success - expired" ||
+                                   st2 === "submitted" || st2 === "cancelled" || st2.includes("expired");
+
+                if (isTerminal) return false;
+
+                // For ALC, check if line was already cleared
+                const isClearedVal = s.cr3ea_islineclear;
+                const isCleared = isClearedVal === true || isClearedVal === 1 || isClearedVal === "1" ||
+                                  (typeof isClearedVal === "string" && isClearedVal.toLowerCase().trim() === "yes");
+                if (moduleKey === "ALC" && isCleared) return false;
+
+                return true;
+            });
+
+            if (activeSession) {
+                if (typeof HideLoader === "function") HideLoader();
+                const tourDate = activeSession.cr3ea_tourstartdate || activeSession.createdon;
+                const tourTimeStr = (typeof moment !== "undefined" && tourDate)
+                    ? moment(tourDate).format("hh:mm A")
+                    : "earlier today";
+                const moduleNameDisplay = subType || (moduleKey === "CCP" ? "CCP & OPRP" : moduleKey === "PKGOPS" ? "Packaging Operations" : moduleKey === "FOOD_SAFETY" ? "Food Safety" : moduleKey === "MIXING_BAKING" ? "Mixing & Baking" : "Quality");
+                const override = confirm(`${line} already has an active ${moduleNameDisplay} tour started at ${tourTimeStr}. Do you want to override and start a new tour?`);
+                if (!override) {
+                    return false;
+                }
+                if (typeof ShowLoader === "function") ShowLoader();
+                const cancelId = this.getTourId(activeSession);
+                if (cancelId) {
+                    await this.cancelTourSession(cancelId, token);
+                    console.log(`Cancelled previous active session ${cancelId} for ${line}`);
+                }
+            }
+        } catch (err) {
+            console.warn("checkAndPromptLineOverride check failed, proceeding anyway:", err);
+        }
+
+        return true;
     }
 };
 
 // Export globally for standard script tags
 window.QualityRajpura_Config = QualityRajpura_Config;
+
+// Automatically sync environmentUrl for Dataverse operations across all quality modules
+if (typeof window !== "undefined") {
+    try {
+        Object.defineProperty(window, "environmentUrl", {
+            get: function () {
+                return (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.DATAVERSE_URL)
+                    ? QualityRajpura_Config.DATAVERSE_URL
+                    : "https://orgea61b289.crm8.dynamics.com";
+            },
+            set: function () {},
+            configurable: true
+        });
+    } catch (e) {
+        window.environmentUrl = QualityRajpura_Config.DATAVERSE_URL;
+    }
+}
+
+
 
 // Example: function to handle date formatting
 function formatRajpuraDate(dateString) {
@@ -91,4 +664,82 @@ window.ShowProgressLoader = function (percentage, text = "Submitting data...") {
             </div>
         </div>
     `;
+};
+
+/**
+ * Compresses an image file on the client-side using Canvas to optimize upload speeds.
+ * @param {File} file - The file selected from input or camera.
+ * @param {Object} options - Custom options (maxWidth, maxHeight, quality).
+ * @returns {Promise<File>} - Resolves to the compressed File object.
+ */
+window.compressImageFile = function (file, options = {}) {
+    return new Promise((resolve) => {
+        if (!file || !file.type.startsWith("image/")) {
+            return resolve(file);
+        }
+
+        const maxWidth = options.maxWidth || 1024;
+        const maxHeight = options.maxHeight || 1024;
+        const quality = options.quality !== undefined ? options.quality : 0.7;
+
+        const reader = new FileReader();
+        reader.onload = function (event) {
+            const img = new Image();
+            img.onload = function () {
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width = Math.round((width * maxHeight) / height);
+                        height = maxHeight;
+                    }
+                }
+
+                const canvas = document.createElement("canvas");
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob(
+                    (blob) => {
+                        if (blob) {
+                            let newName = file.name;
+                            const lastDot = newName.lastIndexOf(".");
+                            if (lastDot !== -1) {
+                                newName = newName.substring(0, lastDot) + ".jpg";
+                            } else {
+                                newName = newName + ".jpg";
+                            }
+                            const compressedFile = new File([blob], newName, {
+                                type: "image/jpeg",
+                                lastModified: Date.now()
+                            });
+                            console.log(`Image compressed: ${file.name} (${Math.round(file.size / 1024)} KB -> ${Math.round(compressedFile.size / 1024)} KB)`);
+                            resolve(compressedFile);
+                        } else {
+                            resolve(file);
+                        }
+                    },
+                    "image/jpeg",
+                    quality
+                );
+            };
+            img.onerror = function () {
+                resolve(file);
+            };
+            img.src = event.target.result;
+        };
+        reader.onerror = function () {
+            resolve(file);
+        };
+        reader.readAsDataURL(file);
+    });
 };

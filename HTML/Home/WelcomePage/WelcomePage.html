@@ -1,12 +1,71 @@
-<script type="text/javascript" src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=1.3"></script>
-<script type="text/javascript" src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/Home/WelcomeWebPart/WelcomeDAL.js?v=1.2"></script>
-<script type="text/javascript" src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/JS/Home/WelcomeWebPart/WelcomeBAL.js?v=1.2"></script>
-<script type="text/javascript" src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/js/custom/shiftpopup.js?v=1.2"></script>
-<script type="text/javascript" src="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/dashboard.js?v=1.4"></script>
- 
-<link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/css/main.min.css">
-<link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/css/home-page.min.css">
-<link rel="stylesheet" href="/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/css/style.css">
+<script type="text/javascript">
+    (function () {
+        // Dynamically resolve base site URL based on current environment (DEV, UAT, PROD)
+        var siteBaseUrl = "/sites/Mrs_Bectors_PTMS";
+        if (typeof _spPageContextInfo !== "undefined" && _spPageContextInfo.webServerRelativeUrl) {
+            siteBaseUrl = _spPageContextInfo.webServerRelativeUrl.replace(/\/+$/, "");
+        } else {
+            var currentUrl = window.location.href.toLowerCase();
+            if (currentUrl.indexOf("ptms_uat") !== -1) {
+                siteBaseUrl = "/sites/PTMS_UAT";
+            } else if (currentUrl.indexOf("ptms_prd") !== -1) {
+                siteBaseUrl = "/sites/PTMS_PRD";
+            } else {
+                siteBaseUrl = "/sites/Mrs_Bectors_PTMS";
+            }
+        }
+
+        var cssLinks = [
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/main.min.css?v=2.0",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/home-page.min.css?v=4.2",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/css/style.css?v=2.0",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css?v=6.1",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/admin.css?v=6.0"
+        ];
+
+        var jsScripts = [
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/utils.js?v=6.5",
+            siteBaseUrl + "/BectorsSourceCode/JS/Home/WelcomeWebPart/WelcomeDAL.js?v=2.0",
+            siteBaseUrl + "/BectorsSourceCode/JS/Home/WelcomeWebPart/WelcomeBAL.js?v=3.0",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/js/custom/shiftpopup.js?v=2.0",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/pkg-products-seed.js?v=5.8",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/mb-recipes-seed.js?v=7.3",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/dashboard.js?v=7.5",
+            siteBaseUrl + "/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/admin.js?v=9.6"
+        ];
+
+        // Dynamically load CSS stylesheets (href)
+        for (var i = 0; i < cssLinks.length; i++) {
+            if (document.readyState === "loading") {
+                document.write('<link rel="stylesheet" href="' + cssLinks[i] + '">');
+            } else {
+                var link = document.createElement("link");
+                link.rel = "stylesheet";
+                link.href = cssLinks[i];
+                document.head.appendChild(link);
+            }
+        }
+
+        // Dynamically load JS scripts (src) in synchronous execution order
+        if (document.readyState === "loading") {
+            for (var j = 0; j < jsScripts.length; j++) {
+                document.write('<script type="text/javascript" src="' + jsScripts[j] + '"><\/script>');
+            }
+        } else {
+            var loadScriptIndex = function (idx) {
+                if (idx >= jsScripts.length) return;
+                var script = document.createElement("script");
+                script.type = "text/javascript";
+                script.src = jsScripts[idx];
+                script.onload = function () {
+                    loadScriptIndex(idx + 1);
+                };
+                document.body.appendChild(script);
+            };
+            loadScriptIndex(0);
+        }
+    })();
+</script>
  
 <input type="hidden" id="hdnPlantId" />
  
@@ -41,9 +100,9 @@
  
 <div id="shiftPopup" class="main-popup shift-popup">
 <div class="popup-bg"></div>
-<div class="popup-content">
-<div class="popup-common-box">
-<div class="popup-header">
+<div class="popup-content" style="min-height: 100vh !important; height: 100vh !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; overflow: hidden !important;">
+<div class="popup-common-box" style="display: flex !important; flex-direction: column !important; width: 440px !important; min-width: 0 !important; max-width: 90vw !important; height: auto !important; min-height: 0 !important; max-height: 90vh !important; flex: 0 0 auto !important; -ms-flex: 0 0 auto !important; padding: 20px !important; margin: 0 auto !important; border-radius: 12px !important; background: #ffffff !important; box-sizing: border-box !important;">
+<div class="popup-header" style="display: flex !important; align-items: center !important; justify-content: space-between !important; margin-bottom: 12px !important; padding-bottom: 0 !important; background: transparent !important; flex: 0 0 auto !important;">
 <h4 class="popup-header-title">Start Plant Tour</h4>
 <button type="button" class="bs-btn popup-close-btn" onclick="tourPopupclose()">
 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -53,27 +112,20 @@
 </svg>
 </button>
 </div>
-<div class="popup-body">
+<div class="popup-body" style="display: block !important; height: auto !important; min-height: 0 !important; flex: 0 0 auto !important; -ms-flex: 0 0 auto !important; overflow: visible !important; padding: 0 !important; margin: 0 !important;">
 <div class="tour-popup-content-wrapper">
 <label class="form-label">Select Tour</label>
 <div class="select2-parent">
 <select id="tourSelect" class="form-select" name="tour-dropdown">
-<option value="Area Line Clearance Checklist">Area Line Clearance Checklist</option>
-<option value="Baking Process Record">Baking Process Record</option>
-<option value="Code Verification Record">Code Verification Record</option>
-<option value="Cream Percentage Checklist">Cream Percentage Checklist</option>
-<option value="OPRP And CCP Record">OPRP And CCP Record</option>
-<option value="Mixing Parameter">Mixing Parameter</option>
-<option value="Product Monitoring Record">Product Monitoring Record</option>
-<option value="Product Quality Index">Product Quality Index</option>
-<option value="Quality Wall Record">Quality Wall Record</option>
-<option value="Seal Integrity Test">Seal Integrity Test</option>
-<option value="Sieves And Magnets New Plant">Sieves And Magnets New Plant</option>
-<option value="Sieves And Magnets Old Plant">Sieves And Magnets Old Plant</option>
+<option value="ALC">ALC</option>
+<option value="Mixing And Baking">Mixing And Baking</option>
+<option value="Packaging Operations">Packaging Operations</option>
+<option value="CCP, OPRP, Sieves & Magnets">CCP, OPRP, Sieves & Magnets</option>
+<option value="Food Safety">Food Safety</option>
 </select>
 </div>
 </div>
-<div class="shift-popup-content-wrapper">
+<div class="shift-popup-content-wrapper" style="display: none;">
 <label class="form-label">Select Shift</label>
 <div class="select2-parent">
 <select id="shiftSelect" class="form-select" name="shift-dropdown">
@@ -84,7 +136,7 @@
 </div>
 </div>
 </div>
-<div class="popup-footer">
+<div class="popup-footer" style="display: flex !important; align-items: center !important; justify-content: flex-end !important; gap: 12px !important; margin-top: 16px !important; padding: 0 !important; border-top: none !important; background: transparent !important; flex: 0 0 auto !important;">
 <button type="button" class="bs-btn bs-btn-outline-primary" onclick="tourPopupclose()">Cancel</button>
 <button id="shiftPopupDone" type="button" class="bs-btn bs-btn-primary" onclick="SaveQualityDataItem()">Done</button>
 </div>
@@ -92,18 +144,365 @@
 </div>
 </div>
 
-<!-- Common Rajpura Quality Dashboard Section (Initially Hidden) -->
-<div id="rajpuraQualityDashboard" style="display: none; margin-top: 30px; padding: 15px;">
-    <div class="bs-card" style="margin-bottom: 25px; padding: 20px; border-radius: 8px; border: 1px solid #ccc;">
+<style>
+/* ==========================================================================
+   Rajpura Quality Dashboard & Table Overrides
+   ========================================================================== */
+
+#s4-workspace {
+    overflow-x: hidden !important;
+}
+
+html, body {
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+}
+
+#shiftPopup,
+.main-popup {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+}
+
+/* Modal Compact Height & Select2 Arrow styling */
+#shiftPopup .popup-content {
+    min-height: 100vh !important;
+    max-height: 100vh !important;
+    height: 100vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+}
+
+#shiftPopup .popup-common-box {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 440px !important;
+    min-width: 0 !important;
+    max-width: 90vw !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: 90vh !important;
+    flex: 0 0 auto !important;
+    -ms-flex: 0 0 auto !important;
+    padding: 20px !important;
+    margin: 0 auto !important;
+    border-radius: 12px !important;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+    background: #ffffff !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+}
+
+#shiftPopup .popup-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin-bottom: 12px !important;
+    padding-bottom: 0 !important;
+    background: transparent !important;
+    flex: 0 0 auto !important;
+    -ms-flex: 0 0 auto !important;
+}
+
+#shiftPopup .popup-body {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    flex: 0 0 auto !important;
+    -ms-flex: 0 0 auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+#shiftPopup .tour-popup-content-wrapper {
+    margin-bottom: 0 !important;
+}
+
+#shiftPopup .popup-footer {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 12px !important;
+    margin-top: 16px !important;
+    padding: 0 !important;
+    border-top: none !important;
+    background: transparent !important;
+    flex: 0 0 auto !important;
+    -ms-flex: 0 0 auto !important;
+}
+
+#shiftPopup .select2-parent {
+    position: relative !important;
+    width: 100% !important;
+    display: block !important;
+}
+
+#shiftPopup .select2-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+}
+
+#shiftPopup .select2-container .select2-selection--single {
+    height: 42px !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    background-color: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 0 36px 0 12px !important;
+    position: relative !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%2364748b'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 14px center !important;
+    background-size: 12px 10px !important;
+}
+
+#shiftPopup .select2-container--default .select2-selection--single .select2-selection__arrow {
+    display: none !important;
+}
+
+#shiftPopup .select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: #0f172a !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    line-height: 40px !important;
+    padding-left: 0 !important;
+    width: 100% !important;
+    text-align: left !important;
+}
+
+#shiftPopup .select2-dropdown {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+    background: #ffffff !important;
+    z-index: 99999 !important;
+}
+
+#rajpuraQualityDashboard {
+    font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+}
+
+#rajpuraQualityDashboard * {
+    box-sizing: border-box !important;
+}
+
+#rajpuraQualityDashboard .row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+#rajpuraQualityDashboard .bs-card {
+    border: 1px solid #e2e8f0 !important;
+    background: #ffffff !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04) !important;
+    border-radius: 8px !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+#rajpuraQualityDashboard .bs-card-header {
+    background-color: #f8fafc !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    padding: 14px 20px !important;
+    box-sizing: border-box !important;
+}
+
+#rajpuraQualityDashboard .bs-card-body {
+    padding: 20px !important;
+    box-sizing: border-box !important;
+}
+
+/* Specificity booster for table styling */
+#rajpuraQualityDashboard table.bs-table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border: 1px solid #e2e8f0 !important;
+    margin-top: 15px !important;
+    background-color: #ffffff !important;
+}
+
+#rajpuraQualityDashboard table.bs-table th {
+    background-color: #f8fafc !important;
+    color: #475569 !important;
+    font-weight: 600 !important;
+    font-size: 13px !important;
+    letter-spacing: 0.02em !important;
+    padding: 12px 16px !important;
+    border: 1px solid #e2e8f0 !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+}
+
+#rajpuraQualityDashboard table.bs-table td {
+    padding: 12px 16px !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #1e293b !important;
+    font-size: 13.5px !important;
+    vertical-align: middle !important;
+    background-color: #ffffff !important;
+    text-align: center !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+}
+
+#rajpuraQualityDashboard .table-responsive,
+#rajpuraQualityDashboard .bs-table-responsive {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    display: block !important;
+    margin-bottom: 15px !important;
+}
+
+#rajpuraQualityDashboard table.bs-table tbody tr:hover td {
+    background-color: #f1f5f9 !important;
+}
+
+/* Badges styling */
+#rajpuraQualityDashboard .badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 5px 12px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    line-height: 1.2 !important;
+    border-radius: 9999px !important;
+    text-transform: capitalize !important;
+    border: 1px solid transparent !important;
+}
+
+#rajpuraQualityDashboard .badge-primary {
+    background-color: #dbeafe !important;
+    color: #1e40af !important;
+    border-color: #bfdbfe !important;
+}
+
+#rajpuraQualityDashboard .badge-warning {
+    background-color: #fef3c7 !important;
+    color: #92400e !important;
+    border-color: #fde68a !important;
+}
+
+#rajpuraQualityDashboard .badge-error,
+#rajpuraQualityDashboard .badge-danger {
+    background-color: #fee2e2 !important;
+    color: #991b1b !important;
+    border-color: #fecaca !important;
+}
+
+#rajpuraQualityDashboard .badge-success {
+    background-color: #dcfce7 !important;
+    color: #166534 !important;
+    border-color: #bbf7d0 !important;
+}
+
+/* Headers style overrides */
+#rajpuraQualityDashboard h3, 
+#rajpuraQualityDashboard h4 {
+    margin: 0 !important;
+    font-family: 'Outfit', 'Inter', sans-serif !important;
+}
+
+/* Highlight rows for logged-in user tasks */
+#rajpuraQualityDashboard table.bs-table tr.my-task-row td {
+    background-color: #fffbeb !important;
+    border-color: #fde68a !important;
+    font-weight: 500 !important;
+}
+
+#rajpuraQualityDashboard table.bs-table tr.my-task-row:hover td {
+    background-color: #fef3c7 !important;
+}
+
+/* Highlight rows for escalated tasks */
+#rajpuraQualityDashboard table.bs-table tr.escalated-task-row td {
+    background-color: #fee2e2 !important;
+    border-color: #fecaca !important;
+    color: #991b1b !important;
+    font-weight: 500 !important;
+}
+
+#rajpuraQualityDashboard table.bs-table tr.escalated-task-row:hover td {
+    background-color: #fca5a5 !important;
+}
+
+/* Pager Buttons Styling */
+#rajpura-closed-pager .bs-btn,
+#rajpura-closed-pager button {
+    padding: 6px 14px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    border-radius: 6px !important;
+    border: 1px solid #cbd5e1 !important;
+    background-color: #ffffff !important;
+    color: #334155 !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease-in-out !important;
+}
+
+#rajpura-closed-pager .bs-btn:hover:not(:disabled),
+#rajpura-closed-pager button:hover:not(:disabled) {
+    background-color: #f1f5f9 !important;
+    border-color: #94a3b8 !important;
+    color: #0f172a !important;
+}
+
+#rajpura-closed-pager .bs-btn:disabled,
+#rajpura-closed-pager button:disabled {
+    background-color: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+    color: #94a3b8 !important;
+    cursor: not-allowed !important;
+    opacity: 0.7 !important;
+}
+
+/* Refresh Button */
+#btn-refresh-dashboard:hover {
+    background-color: #f1f5f9 !important;
+    border-color: #94a3b8 !important;
+    color: #0f172a !important;
+}
+</style>
+
+<!-- Common Rajpura Quality Section (Initially Hidden - Governed by Plant & Dept Authorization) -->
+<div id="rajpuraQualityDashboard" style="display: none; margin-top: 30px; padding: 15px; max-width: 100%; box-sizing: border-box;">
+    
+    <!-- View 1: Quality Analytics & Tour Tracking Dashboard View -->
+    <div id="rajpuraDashboardView" class="bs-card" style="margin-bottom: 25px; padding: 20px; border-radius: 8px; border: 1px solid #ccc; max-width: 100%; box-sizing: border-box;">
         <div class="bs-card-header d-flex justify-content-between align-items-center mb-3" style="background: #f8f9fa; padding: 10px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
             <h3 class="bec-fs-lg text-primary" style="font-weight: bold; margin: 0; color: #1a73e8;">Rajpura Quality Dashboard</h3>
             <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <label style="font-weight: 600; margin-bottom: 0; color: #475569; font-size: 13px; white-space: nowrap;">Checklist Type:</label>
-                    <select id="dashboardCategorySelect" class="form-select" style="width: 220px; height: 35px; padding: 5px 10px; font-size: 13px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; cursor: pointer; background-color: #ffffff; color: #1e293b;">
+                    <select id="dashboardCategorySelect" class="form-select" onchange="if(typeof ALC_Dashboard !== 'undefined' && typeof ALC_Dashboard.handleCategoryChange === 'function') { ALC_Dashboard.handleCategoryChange(this.value); }" style="width: 220px; height: 35px; padding: 5px 10px; font-size: 13px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; cursor: pointer; background-color: #ffffff; color: #1e293b;">
                         <option value="ALC">Area Line Clearance (ALC)</option>
                         <option value="FoodSafety">Food Safety Checklist</option>
                         <option value="CCP_OPRP_Sieves">CCP, OPRP & Sieves</option>
+                        <option value="MixingAndBaking">Mixing & Baking Checklist</option>
+                        <option value="PackagingOperations">Packaging Operations</option>
                     </select>
                 </div>
                 <span class="badge badge-fill badge-primary" style="background-color: #1a73e8; color: #fff; padding: 5px 10px; border-radius: 4px;">Rajpura Plant</span>
@@ -112,7 +511,7 @@
         <div class="bs-card-body">
             
             <!-- KPI Cards Row -->
-            <div class="row d-flex gap-3 mb-4" style="display: flex; gap: 15px; margin-bottom: 25px;">
+            <div class="row d-flex gap-3 mb-4" style="display: flex; gap: 15px; margin-left: 0; margin-right: 0; margin-bottom: 25px;">
                 <div class="bs-card" style="flex: 1; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; text-align: center; background: #f8fafc; margin-bottom: 0 !important;">
                     <div style="font-size: 14px; color: #64748b; font-weight: 500;">Total Tours</div>
                     <div id="kpi-total-tours" style="font-size: 28px; font-weight: bold; color: #1e293b; margin-top: 5px;">0</div>
@@ -130,6 +529,54 @@
                     <div id="kpi-pending-reverify" style="font-size: 28px; font-weight: bold; color: #2563eb; margin-top: 5px;">0</div>
                 </div>
             </div>
+
+            <!-- Interactive Filters Bar (Line & Date Filters) -->
+            <div id="dashboardFilterPanel" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 22px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);">
+                <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 15px;">
+                    <!-- Line Filter -->
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label for="dashboardLineSelect" style="font-size: 13px; font-weight: 600; color: #475569; margin: 0; white-space: nowrap;">Line:</label>
+                        <select id="dashboardLineSelect" style="height: 36px; padding: 6px 12px; font-size: 13px; font-weight: 500; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #1e293b; cursor: pointer; min-width: 140px;">
+                            <option value="All">All Lines</option>
+                        </select>
+                    </div>
+
+                    <!-- Date Range Preset -->
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label for="dashboardDatePreset" style="font-size: 13px; font-weight: 600; color: #475569; margin: 0; white-space: nowrap;"> Date:</label>
+                        <select id="dashboardDatePreset" style="height: 36px; padding: 6px 12px; font-size: 13px; font-weight: 500; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #1e293b; cursor: pointer; min-width: 130px;">
+                            <option value="All">All Dates</option>
+                            <option value="Today">Today</option>
+                            <option value="Yesterday">Yesterday</option>
+                            <option value="Last7Days">Last 7 Days</option>
+                            <option value="Last30Days">Last 30 Days</option>
+                            <option value="Custom">Custom Range</option>
+                        </select>
+                    </div>
+
+                    <!-- Custom Date Range Inputs (From & To) -->
+                    <div id="dashboardCustomDateRange" style="display: none; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                            <span style="font-size: 12px; color: #64748b; font-weight: 500;">From:</span>
+                            <input type="date" id="dashboardFromDate" style="height: 36px; padding: 4px 8px; font-size: 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #1e293b; cursor: pointer;" />
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                            <span style="font-size: 12px; color: #64748b; font-weight: 500;">To:</span>
+                            <input type="date" id="dashboardToDate" style="height: 36px; padding: 4px 8px; font-size: 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #1e293b; cursor: pointer;" />
+                        </div>
+                    </div>
+
+                    <!-- Reset Filters Button -->
+                    <button type="button" id="btn-reset-filters" onclick="ALC_Dashboard.resetFilters()" style="display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; font-size: 13px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #475569; cursor: pointer; transition: all 0.15s ease;" title="Reset all filters">
+                        Reset
+                    </button>
+                </div>
+
+                <!-- Active Filter Result Count Badge -->
+                <div id="dashboardFilterCountBadge" style="font-size: 12px; font-weight: 600; color: #0369a1; background: #e0f2fe; padding: 5px 12px; border-radius: 12px; border: 1px solid #bae6fd; white-space: nowrap;">
+                    Showing all tours
+                </div>
+            </div>
             
             <!-- Ongoing Clearances & Action Tracking Panel -->
             <div class="mb-4" style="margin-bottom: 25px;">
@@ -139,19 +586,19 @@
                         🔄 Refresh
                     </button>
                 </div>
-                <div class="table-responsive" style="overflow-x: auto;">
-                    <table class="bs-table" border="1" style="border-collapse: collapse; width: 100%; min-width: 800px; text-align: center; font-size: 14px;">
+                <div class="table-responsive bs-table-responsive" style="overflow-x: auto; width: 100%; max-width: 100%; display: block;">
+                    <table class="bs-table" border="1" style="border-collapse: collapse; width: 100%; max-width: 100%; text-align: center; font-size: 14px;">
                         <thead>
                             <tr style="background: #f8f9fa;">
-                                <th style="width: 15%;">Date & Time</th>
-                                <th style="width: 15%;">Checklist Form</th>
+                                <th style="width: 14%;">Date & Time</th>
+                                <th style="width: 14%;">Checklist Form</th>
                                 <th style="width: 8%;">Line</th>
                                 <th style="width: 8%;">Shift</th>
-                                <th style="width: 15%;">Executive Details</th>
-                                <th style="width: 10%;">Score</th>
+                                <th style="width: 16%;">Executive Details</th>
+                                <th style="width: 8%;">Score</th>
                                 <th style="width: 10%;">Is Line Clear</th>
-                                <th style="width: 12%;">Status</th>
-                                <th style="width: 12%;">Pending With</th>
+                                <th style="width: 11%;">Status</th>
+                                <th style="width: 11%;">Pending With</th>
                             </tr>
                         </thead>
                         <tbody id="rajpura-ongoing-tbody">
@@ -164,8 +611,8 @@
             <!-- Cycle & Summary History Panel -->
             <div>
                 <h4 class="bec-fs-md mb-2" style="font-weight: bold; border-left: 4px solid #137333; padding-left: 8px; color: #137333; margin-bottom: 15px;">Closed, Completed & Expired Archives</h4>
-                <div class="table-responsive" style="overflow-x: auto;">
-                    <table class="bs-table" border="1" style="border-collapse: collapse; width: 100%; min-width: 800px; text-align: center; font-size: 14px;">
+                <div class="table-responsive bs-table-responsive" style="overflow-x: auto; width: 100%; max-width: 100%; display: block;">
+                    <table class="bs-table" border="1" style="border-collapse: collapse; width: 100%; max-width: 100%; text-align: center; font-size: 14px;">
                         <thead>
                             <tr style="background: #f8f9fa;">
                                 <th style="width: 15%;">Date & Time</th>
@@ -187,8 +634,8 @@
 
         </div>
     </div>
+
+    <!-- View 2: Rajpura Quality Admin Panel (User Assignment) -->
+    <div id="rajpuraAdminPanel" style="display: none; max-width: 100%; box-sizing: border-box;"></div>
+
 </div>
- 
- 
- 
- 

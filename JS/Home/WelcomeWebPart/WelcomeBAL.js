@@ -20,6 +20,75 @@ var LeftNaviDept = "";
 var LeftNaviCriteria = "";
 var ShiftVal = "";
 
+function getWelcomePageBaseUrl() {
+  if (typeof QualityRajpura_Config !== 'undefined' && typeof QualityRajpura_Config.getSiteBaseUrl === 'function') {
+    return QualityRajpura_Config.getSiteBaseUrl();
+  }
+  if (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webServerRelativeUrl) {
+    return _spPageContextInfo.webServerRelativeUrl.replace(/\/+$/, '');
+  }
+  var url = window.location.href.toLowerCase();
+  if (url.indexOf("ptms_uat") !== -1) return "/sites/PTMS_UAT";
+  if (url.indexOf("ptms_prd") !== -1) return "/sites/PTMS_PRD";
+  return "/sites/Mrs_Bectors_PTMS";
+}
+
+function isRajpuraPlant() {
+  if (typeof QualityRajpura_Config !== 'undefined') {
+    if (typeof Plantid !== 'undefined' && Plantid == QualityRajpura_Config.PLANT_ID) return true;
+    if (typeof PlantId !== 'undefined' && PlantId == QualityRajpura_Config.PLANT_ID) return true;
+  }
+  if (typeof Plantid !== 'undefined' && (Plantid == '14' || Plantid == '2')) return true;
+  if (typeof userPlantId === 'string' && userPlantId.toLowerCase().indexOf('rajpura') !== -1) return true;
+  if (typeof PlantId === 'string' && PlantId.toLowerCase().indexOf('rajpura') !== -1) return true;
+  var hdnPlant = typeof $ !== 'undefined' ? $('#hdnPlantId').val() : '';
+  if (hdnPlant == '14' || hdnPlant == '2') return true;
+  if (typeof QualityRajpura_Config !== 'undefined' && hdnPlant == QualityRajpura_Config.PLANT_ID) return true;
+
+  if (typeof $ !== 'undefined') {
+    var deptText = $('#DepartmentDropDownId option:selected').text() || '';
+    if (deptText.toLowerCase().indexOf('rajpura') !== -1) return true;
+  }
+
+  return false;
+}
+
+function isQualityDepartment() {
+  if (userDepratmentId == 79 || userDepratmentId == 82) return false;
+
+  var deptText = (typeof $ !== 'undefined' ? $('#DepartmentDropDownId option:selected').text() : '') || '';
+  var leftNaviDept = (typeof DepartmentNameLeftNavi === 'string') ? DepartmentNameLeftNavi : '';
+  var combinedText = (deptText + ' ' + leftNaviDept).toLowerCase();
+
+  // 1. Explicit non-quality departments (Stores, Warehouse, Baking) are never Quality
+  if (combinedText.indexOf('store') !== -1 || combinedText.indexOf('warehouse') !== -1 || combinedText.indexOf('baking') !== -1) {
+    return false;
+  }
+
+  // 2. If department name contains 'quality', it is Quality (applies across all plants)
+  if (combinedText.indexOf('quality') !== -1) {
+    return true;
+  }
+
+  // 3. For Rajpura Plant: check BOTH Plant ID AND Department ID together
+  if (isRajpuraPlant()) {
+    var selectedDept = typeof $ !== 'undefined' ? $('#DepartmentDropDownId').val() : '';
+    var qDepts = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.QUALITY_DEPT_IDS)
+      ? QualityRajpura_Config.QUALITY_DEPT_IDS
+      : ['39', '80', '81', '135', '18'];
+
+    if (selectedDept && selectedDept !== 'All' && selectedDept != 79 && selectedDept != 82) {
+      if (qDepts.indexOf(String(selectedDept)) !== -1) return true;
+    }
+
+    if (qDepts.indexOf(String(userDepratmentId)) !== -1) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 /* =========================================================
    ✅ UPDATED: Select2 Init (Safe + Popup-aware)
    - avoids double init
@@ -36,13 +105,16 @@ function initSelect2(scope) {
     // avoid double init
     if ($sel.hasClass("select2-hidden-accessible")) return;
 
+    // Skip selects inside #shiftPopup on document ready (tourPopup initializes them cleanly when modal opens)
+    if ($sel.closest("#shiftPopup").length) return;
+
     // If the select is inside #shiftPopup -> force dropdownParent to that popup-body
     const $shiftPopup = $sel.closest("#shiftPopup");
     const $popupBody = $shiftPopup.length ? $shiftPopup.find(".popup-body") : $sel.closest(".popup-body");
 
     $sel.select2({
       minimumResultsForSearch: -1,
-      dropdownAutoWidth: true,
+      dropdownAutoWidth: false,
       width: "100%",
       dropdownParent: $popupBody.length ? $popupBody : $(document.body)
     });
@@ -153,6 +225,7 @@ function getHomeEmployeeDetailsSuccess(collEmployee) {
       }
 
       getDepartments(getDepartmentsSuccess, getDepartmentsFailure);
+      toggleMenuItemsByDepartment(userDepratmentId);
     }
     else {
       alert('You are not authorized to access this page!');
@@ -169,8 +242,11 @@ function EmployeeDetailsFailure() {
 }
 /*Get Employee Details ends*/
 
-var itemsToToggle = ['My Tours', 'Department Scores', 'Plant Scores'];
-toggleHomeMenuItems($('.sidebar'), itemsToToggle, userDepratmentId);
+function toggleHomeMenuItems($sidebar, items, deptId) {
+  if (typeof toggleMenuItemsByDepartment === "function") {
+    toggleMenuItemsByDepartment(deptId);
+  }
+}
 
 function getDepartmentsSuccess(collDepartment) {
   if (collDepartment.length > 0) {
@@ -235,15 +311,23 @@ function AddDepartmentTourOnClick() {
   ShowLoader();
 
   if (userRoleSequence == 20) {
-    if (userDepratmentId == 135 || userDepratmentId == 80 || userDepratmentId == 81) {
+    // 1. Rajpura Quality -> new Rajpura Quality forms
+    if (isQualityDepartment() && isRajpuraPlant()) {
       tourPopup();
     }
-    else if (userDepratmentId == 79) {
+    // 2. Earlier Quality department IDs (Biscuit plant: 39, 80, 81) -> earlier quality tour popup
+    else if (userDepratmentId == 39 || userDepratmentId == 80 || userDepratmentId == 81) {
+      tourPopup();
+    }
+    // 3. Warehouse (Dept 79) -> warehouse tour
+    else if (userDepratmentId == 79 || SelectedDepartmentValue == 79) {
       SaveWarehouseItem();
     }
+    // 4. Bakery (Dept 82) -> bakery tour popup
     else if (userDepratmentId == 82) {
       tourPopup();
     }
+    // 5. All other plants and departments (including Bangalore Quality) -> standard Department Tour
     else {
       SaveDepartmentDataItem();
     }
@@ -267,10 +351,15 @@ function tourPopup() {
   localStorage.setItem("shiftValue", '');
 
   const shiftPopup = document.querySelector("#shiftPopup");
-  shiftPopup.classList.add("is-popup-active");
+  if (shiftPopup) {
+    shiftPopup.classList.add("is-popup-active");
+  }
   $('#shiftPopup').addClass('is-popup-active');
 
+  const isRajpuraQuality = isQualityDepartment() && isRajpuraPlant();
+
   if (userDepratmentId == 82) {
+    // Custom logic for Bakery Plant (earlier code)
     $('#tourSelect').empty().append(
       '<option value="Baking & Cooling">Baking & Cooling</option>' +
       '<option value="Coding">Coding</option>' +
@@ -281,33 +370,42 @@ function tourPopup() {
       '<option value="Sieves and magnets">Sieves and magnets</option>'
     );
     $('#shiftPopupDone').attr("onclick", "SaveBakeryDataItem()");
-  } else if (userDepratmentId == 135 || userDepratmentId == 80 || userDepratmentId == 81) {
-    if (userPlantId === 'Rajpura' || Plantid == '14') {
-      $('#tourSelect').empty().append(
-        '<option value="ALC">ALC</option>' +
-        '<option value="Mixing And Baking">Mixing And Baking</option>' +
-        '<option value="Packaging Operations">Packaging Operations</option>' +
-        '<option value="CCP, OPRP, Sieves & Magnets">CCP, OPRP, Sieves & Magnets</option>' +
-        '<option value="Food Safety">Food Safety</option>'
-      );
-      $('#shiftPopupDone').attr("onclick", "SaveQualityDataItem()");
-    } else {
-      $('#tourSelect').empty().append(
-        '<option value="Area Line Clearance Checklist">Area Line Clearance Checklist</option>' +
-        '<option value="Baking Process Record">Baking Process Record</option>' +
-        '<option value="Code Verification Record">Code Verification Record</option>' +
-        '<option value="Cream Percentage Checklist">Cream Percentage Checklist</option>' +
-        '<option value="OPRP And CCP Record">OPRP And CCP Record</option>' +
-        '<option value="Mixing Parameter">Mixing Parameter</option>' +
-        '<option value="Product Monitoring Record">Product Monitoring Record</option>' +
-        '<option value="Product Quality Index">Product Quality Index</option>' +
-        '<option value="Quality Wall Record">Quality Wall Record</option>' +
-        '<option value="Seal Integrity Test">Seal Integrity Test</option>' +
-        '<option value="Sieves And Magnets New Plant">Sieves And Magnets New Plant</option>' +
-        '<option value="Sieves And Magnets Old Plant">Sieves And Magnets Old Plant</option>'
-      );
-      $('#shiftPopupDone').attr("onclick", "SaveQualityDataItem()");
-    }
+    $('#shiftPopup .shift-popup-content-wrapper').show();
+  } else if (isRajpuraQuality) {
+    // Quality - Rajpura: show ONLY the 5 Rajpura Quality forms
+    $('#tourSelect').empty().append(
+      '<option value="ALC">ALC</option>' +
+      '<option value="Mixing And Baking">Mixing And Baking</option>' +
+      '<option value="Packaging Operations">Packaging Operations</option>' +
+      '<option value="CCP, OPRP, Sieves & Magnets">CCP, OPRP, Sieves & Magnets</option>' +
+      '<option value="Food Safety">Food Safety</option>'
+    );
+    $('#shiftPopupDone').attr("onclick", "SaveQualityDataItem()");
+    // Quality - Rajpura: hide shift selection, only template selection is required
+    $('#shiftPopup .shift-popup-content-wrapper').hide();
+  } else if (userDepratmentId == 39 || userDepratmentId == 80 || userDepratmentId == 81) {
+    // Earlier checklist logic from earlier code (for departments 39, 80, 81)
+    $('#tourSelect').empty().append(
+      '<option value="Area Line Clearance Checklist">Area Line Clearance Checklist</option>' +
+      '<option value="Baking Process Record">Baking Process Record</option>' +
+      '<option value="Code Verification Record">Code Verification Record</option>' +
+      '<option value="Cream Percentage Checklist">Cream Percentage Checklist</option>' +
+      '<option value="OPRP And CCP Record">OPRP And CCP Record</option>' +
+      '<option value="Mixing Parameter">Mixing Parameter</option>' +
+      '<option value="Product Monitoring Record">Product Monitoring Record</option>' +
+      '<option value="Product Quality Index">Product Quality Index</option>' +
+      '<option value="Quality Wall Record">Quality Wall Record</option>' +
+      '<option value="Seal Integrity Test">Seal Integrity Test</option>' +
+      '<option value="Sieves And Magnets New Plant">Sieves And Magnets New Plant</option>' +
+      '<option value="Sieves And Magnets Old Plant">Sieves And Magnets Old Plant</option>'
+    );
+    $('#shiftPopupDone').attr("onclick", "SaveQualityDataItem()");
+    $('#shiftPopup .shift-popup-content-wrapper').show();
+  } else {
+    // Any other department/plant should not open tourPopup; fallback to standard department tour
+    tourPopupclose();
+    SaveDepartmentDataItem();
+    return;
   }
 
   const $popupBody = $('#shiftPopup .popup-body');
@@ -320,21 +418,66 @@ function tourPopup() {
     $('#shiftSelect').select2('destroy');
   }
 
-  // init after popup is visible so select2 can calculate width correctly
   setTimeout(function () {
-    $('#tourSelect').select2({
-      minimumResultsForSearch: -1,
-      dropdownAutoWidth: true,
-      width: "100%",
-      dropdownParent: $popupBody
+    // Enforce compact modal styling for #shiftPopup
+    $('#shiftPopup .popup-common-box').css({
+      'display': 'flex',
+      'flex-direction': 'column',
+      'width': '440px',
+      'min-width': '0',
+      'max-width': '90vw',
+      'height': 'auto',
+      'min-height': '0',
+      'max-height': '90vh',
+      'flex': '0 0 auto',
+      'padding': '20px',
+      'margin': '0 auto',
+      'border-radius': '12px',
+      'background': '#ffffff',
+      'box-sizing': 'border-box',
+      'overflow': 'visible'
+    });
+    $('#shiftPopup .popup-body').css({
+      'display': 'block',
+      'height': 'auto',
+      'min-height': '0',
+      'flex': '0 0 auto',
+      'overflow': 'visible',
+      'padding': '0',
+      'margin': '0'
+    });
+    $('#shiftPopup .popup-footer').css({
+      'display': 'flex',
+      'align-items': 'center',
+      'justify-content': 'flex-end',
+      'gap': '12px',
+      'margin-top': '16px',
+      'padding': '0',
+      'border-top': 'none',
+      'background': 'transparent',
+      'flex': '0 0 auto'
     });
 
-    $('#shiftSelect').select2({
+    const $tourParent = $('#tourSelect').closest('.select2-parent');
+    $('#tourSelect').select2({
       minimumResultsForSearch: -1,
-      dropdownAutoWidth: true,
+      dropdownAutoWidth: false,
       width: "100%",
-      dropdownParent: $popupBody
+      dropdownParent: $tourParent.length ? $tourParent : $popupBody
     });
+
+    const isCurrentRajpuraQuality = isRajpuraQuality || (isQualityDepartment() && isRajpuraPlant()) || ($('#tourSelect option[value="ALC"]').length > 0 && userDepratmentId != 82);
+    if (isCurrentRajpuraQuality) {
+      $('#shiftPopup .shift-popup-content-wrapper').hide();
+    } else {
+      $('#shiftPopup .shift-popup-content-wrapper').show();
+      $('#shiftSelect').select2({
+        minimumResultsForSearch: -1,
+        dropdownAutoWidth: false,
+        width: "100%",
+        dropdownParent: $popupBody
+      });
+    }
   }, 50);
 
   HideLoader();
@@ -439,11 +582,13 @@ function BindUrlforDepartmentTour() {
         isWelcomeTourInitiated = true;
         $('#LinkPlantTour').css('opacity', '.5');
         $('#LinkPlantTour').removeAttr('onclick');
-        if (Plantid == '11') {
-          window.location.href = WebAbsoluteUrl + "/Pages/WCMS.aspx?TourId=" + departmentTourId;
+        var siteBase = getWelcomePageBaseUrl();
+        var targetBase = (typeof WebAbsoluteUrl !== 'undefined' && WebAbsoluteUrl) ? WebAbsoluteUrl : siteBase;
+        if (Plantid == '11' || userDepratmentId == 79 || SelectedDepartmentValue == 79) {
+          window.location.href = targetBase + "/Pages/WCMS.aspx?TourId=" + departmentTourId;
         }
         else {
-          window.location.href = WebAbsoluteUrl + "/Pages/DepartmentTour.aspx?TourId=" + departmentTourId;
+          window.location.href = targetBase + "/Pages/DepartmentTour.aspx?TourId=" + departmentTourId;
         }
         $('#LinkPlantTour').removeAttr('href');
       }
@@ -454,7 +599,11 @@ function BindUrlforDepartmentTour() {
         isWelcomeTourInitiated = true;
         $('#LinkPlantTour').removeAttr('onclick');
         $('#LinkPlantTour').css('opacity', '.5');
-        SaveDepartmentTItem();
+        if (userDepratmentId == 79) {
+          SaveWarehouseItem();
+        } else {
+          SaveDepartmentTItem();
+        }
       }
     }
   }
@@ -521,28 +670,28 @@ async function SaveDepartmentDataItem() {
 async function SaveQualityDataItem() {
   const tourSelect = document.getElementById("tourSelect");
   const ProductValue = tourSelect ? tourSelect.value : "";
-  if ((ProductValue === 'Area Line Clearance Checklist' || 
-       ProductValue === 'ALC' || 
+  if ((ProductValue === 'ALC' || 
        ProductValue === 'Mixing And Baking' || 
        ProductValue === 'Packaging Operations' || 
        ProductValue === 'Food Safety' || 
        ProductValue === 'CCP, OPRP, Sieves & Magnets') && 
-      (typeof Plantid !== 'undefined' && Plantid == QualityRajpura_Config.PLANT_ID)) {
+      isRajpuraPlant()) {
     const shiftSelect = document.getElementById("shiftSelect");
     if (shiftSelect) {
       localStorage.setItem("shiftValue", shiftSelect.options[shiftSelect.selectedIndex].text);
     }
-    let newUrl = "/sites/Mrs_Bectors_PTMS/Pages/ALC.aspx?action=new";
+    var siteBase = getWelcomePageBaseUrl();
+    let newUrl = siteBase + "/Pages/ALC.aspx?action=new";
     if (ProductValue === 'ALC') {
-      newUrl = "/sites/Mrs_Bectors_PTMS/Pages/AreaLine.aspx?action=new";
+      newUrl = siteBase + "/Pages/AreaLine.aspx?action=new";
     } else if (ProductValue === 'Mixing And Baking') {
-      newUrl = "/sites/Mrs_Bectors_PTMS/Pages/MixingAndBaking.aspx?action=new";
+      newUrl = siteBase + "/Pages/MixingAndBaking.aspx?action=new";
     } else if (ProductValue === 'Packaging Operations') {
-      newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Product-Operation.aspx?action=new";
+      newUrl = siteBase + "/Pages/Product-Operation.aspx?action=new";
     } else if (ProductValue === 'CCP, OPRP, Sieves & Magnets') {
-      newUrl = "/sites/Mrs_Bectors_PTMS/Pages/CCP-OPRP.aspx?action=new";
+      newUrl = siteBase + "/Pages/CCP-OPRP.aspx?action=new";
     } else if (ProductValue === 'Food Safety') {
-      newUrl = "/sites/Mrs_Bectors_PTMS/Pages/FoodSafety.aspx?action=new";
+      newUrl = siteBase + "/Pages/FoodSafety.aspx?action=new";
     }
     window.location.href = newUrl;
     return;
@@ -555,60 +704,97 @@ async function SaveQualityDataItem() {
 
   var TourStartDateDTour = moment().format('M/D/YYYY h:mm A');
   var TourByDTour = _spPageContextInfo.userId.toString();
-  var TitleDTour = RoleName + '_' + moment().format('MM-DD-YYYY');
+  var prefix = "";
+  if (ProductValue === 'Area Line Clearance Checklist' || ProductValue === 'ALC') {
+    prefix = "ALC_";
+  } else if (ProductValue === 'Mixing And Baking') {
+    prefix = "MixingBaking_";
+  } else if (ProductValue === 'Packaging Operations') {
+    prefix = "Packaging_";
+  } else if (ProductValue === 'CCP, OPRP, Sieves & Magnets') {
+    prefix = "CCP_";
+  } else if (ProductValue === 'Food Safety') {
+    prefix = "FoodSafety_";
+  }
+  var TitleDTour = prefix + RoleName + '_' + moment().format('MM-DD-YYYY');
   var AccessToken = await getAccessToken();
-  var tableName = (ProductValue === 'Area Line Clearance Checklist' || ProductValue === 'ALC') && 
-      (typeof Plantid !== 'undefined' && Plantid == QualityRajpura_Config.PLANT_ID) ? QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR : "cr3ea_prod_qualitytours";
+  const isRajpuraChecklist = (
+      ProductValue === 'ALC' || 
+      ProductValue === 'Mixing And Baking' || 
+      ProductValue === 'Packaging Operations' || 
+      ProductValue === 'CCP, OPRP, Sieves & Magnets' || 
+      ProductValue === 'Food Safety'
+  );
+  var tableName = (isRajpuraChecklist && isRajpuraPlant()) 
+      ? QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR 
+      : "cr3ea_prod_qualitytours";
   var apiVersion = "9.2";
   var apiUrl = environmentUrl + "/api/data/v" + apiVersion + "/" + tableName;
 
-  if (AccessToken != '' && AccessToken != undefined && AccessToken != null) {
-    var header = {
-      "Accept": "application/json",
-      "Content-Type": "application/json; charset=utf-8",
-      "OData-MaxVersion": "4.0",
-      "OData-Version": "4.0",
-      "Prefer": "return=representation",
-      "Authorization": "Bearer " + AccessToken
-    };
+  try {
+    if (AccessToken != '' && AccessToken != undefined && AccessToken != null) {
+      var header = {
+        "Accept": "application/json",
+        "Content-Type": "application/json; charset=utf-8",
+        "OData-MaxVersion": "4.0",
+        "OData-Version": "4.0",
+        "Prefer": "return=representation",
+        "Authorization": "Bearer " + AccessToken
+      };
 
-    const actualUserName = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : EmployeeName;
+      const actualUserName = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : EmployeeName;
 
-    const dataToSave = {
-      cr3ea_departmentid: userDepratmentId,
-      cr3ea_tourstartdate: TourStartDateDTour,
-      cr3ea_tourby: actualUserName,
-      cr3ea_status: 'In Progress',
-      cr3ea_plantid: Plantid,
-      cr3ea_observedby: actualUserName,
-      cr3ea_roleid: userRoleID,
-      cr3ea_title: TitleDTour
-    };
+      const dataToSave = {
+        cr3ea_departmentid: userDepratmentId,
+        cr3ea_tourstartdate: TourStartDateDTour,
+        cr3ea_tourby: actualUserName,
+        cr3ea_status: 'In Progress',
+        cr3ea_plantid: Plantid,
+        cr3ea_observedby: actualUserName,
+        cr3ea_roleid: userRoleID,
+        cr3ea_title: TitleDTour
+      };
 
-    const isPlantTourExist = await fetch(
-      apiUrl + "?$filter=cr3ea_status eq 'In Progress' and cr3ea_departmentid eq '" + userDepratmentId + "'&$top=1",
-      { method: "GET", headers: header }
-    );
+      const isPlantTourExist = await fetch(
+        apiUrl + "?$filter=cr3ea_status eq 'In Progress' and cr3ea_departmentid eq '" + userDepratmentId + "'&$top=1",
+        { method: "GET", headers: header }
+      );
 
-    let plant_tour_res = await isPlantTourExist.json();
+      if (!isPlantTourExist.ok) {
+        throw new Error(`Dataverse fetch existing tour failed: ${isPlantTourExist.status} - ${isPlantTourExist.statusText}`);
+      }
 
-    if (plant_tour_res.value.length == 0) {
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: header,
-        body: JSON.stringify(dataToSave)
-      });
+      let plant_tour_res = await isPlantTourExist.json();
 
-      let data = await response.json();
-      var UniqueValID = data.cr3ea_prod_qualitytourid;
-      SaveQTourItemSuccess(UniqueValID);
+      if (plant_tour_res.value.length == 0) {
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          headers: header,
+          body: JSON.stringify(dataToSave)
+        });
 
-      if (!response.ok) {
-        throw new Error(`Error: ${response.statusText}`);
+        if (!response.ok) {
+          throw new Error(`Dataverse create tour failed: ${response.status} - ${response.statusText}`);
+        }
+
+        let data = await response.json();
+        var UniqueValID = (tableName === QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR)
+            ? ((typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId) ? QualityRajpura_Config.getTourId(data) : (data.cr3ea_prod_rajpura_quality_tourid || data.cr3ea_rajpura_quality_tourid))
+            : data.cr3ea_prod_qualitytourid;
+        SaveQTourItemSuccess(UniqueValID);
+      } else {
+        const existingId = (tableName === QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR)
+            ? ((typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId) ? QualityRajpura_Config.getTourId(plant_tour_res.value[0]) : (plant_tour_res.value[0].cr3ea_prod_rajpura_quality_tourid || plant_tour_res.value[0].cr3ea_rajpura_quality_tourid))
+            : plant_tour_res.value[0].cr3ea_prod_qualitytourid;
+        SaveQTourItemSuccess(existingId);
       }
     } else {
-      SaveQTourItemSuccess(plant_tour_res.value[0].cr3ea_prod_qualitytourid);
+      alert("Dataverse Connection Failed: Unable to acquire authentication token. Please check your credentials or refresh the page.");
     }
+  } catch (err) {
+    if (typeof HideLoader === 'function') HideLoader();
+    console.error("Dataverse connection error in SaveQualityDataItem:", err);
+    alert("Dataverse Connection Failed: Unable to start plant tour.\n\n" + (err.message || "Please check network or login session."));
   }
 }
 
@@ -616,71 +802,94 @@ async function SaveQualityDataItem() {
 async function SaveBakeryDataItem() {
   const shiftSelect = document.getElementById("shiftSelect");
   const selectedText = shiftSelect.options[shiftSelect.selectedIndex].text;
+  var ProductValue = $('#tourSelect').val() || "";
 
   localStorage.setItem("shiftValue", selectedText);
 
   var TourStartDateDTour = moment().format('M/D/YYYY h:mm A');
   var TourByDTour = _spPageContextInfo.userId.toString();
-  var TitleDTour = RoleName + '_' + moment().format('MM-DD-YYYY');
+  var isMixingTour = (ProductValue === 'Mixing' || ProductValue === 'Mixing And Baking' || ProductValue === 'MixingAndBaking' || ProductValue.toLowerCase().includes('mixing'));
+  var prefix = isMixingTour ? "MixingBaking_" : "";
+  var TitleDTour = prefix + RoleName + '_' + moment().format('MM-DD-YYYY');
   var AccessToken = await getAccessToken();
-  var tableName = "cr3ea_prod_qualitytours";
+  var tableName = (isMixingTour && isRajpuraPlant())
+      ? QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR 
+      : "cr3ea_prod_qualitytours";
   var apiVersion = "9.2";
   var apiUrl = environmentUrl + "/api/data/v" + apiVersion + "/" + tableName;
 
-  if (AccessToken != '' && AccessToken != undefined && AccessToken != null) {
-    var header = {
-      "Accept": "application/json",
-      "Content-Type": "application/json; charset=utf-8",
-      "OData-MaxVersion": "4.0",
-      "OData-Version": "4.0",
-      "Prefer": "return=representation",
-      "Authorization": "Bearer " + AccessToken
-    };
+  try {
+    if (AccessToken != '' && AccessToken != undefined && AccessToken != null) {
+      var header = {
+        "Accept": "application/json",
+        "Content-Type": "application/json; charset=utf-8",
+        "OData-MaxVersion": "4.0",
+        "OData-Version": "4.0",
+        "Prefer": "return=representation",
+        "Authorization": "Bearer " + AccessToken
+      };
 
-    const dataToSave = {
-      cr3ea_departmentid: userDepratmentId,
-      cr3ea_tourstartdate: TourStartDateDTour,
-      cr3ea_tourby: EmployeeName,
-      cr3ea_status: 'In Progress',
-      cr3ea_plantid: Plantid,
-      cr3ea_observedby: EmployeeName,
-      cr3ea_roleid: userRoleID,
-      cr3ea_title: TitleDTour
-    };
+      const dataToSave = {
+        cr3ea_departmentid: userDepratmentId,
+        cr3ea_tourstartdate: TourStartDateDTour,
+        cr3ea_tourby: EmployeeName,
+        cr3ea_status: 'In Progress',
+        cr3ea_plantid: Plantid,
+        cr3ea_observedby: EmployeeName,
+        cr3ea_roleid: userRoleID,
+        cr3ea_title: TitleDTour
+      };
 
-    const isPlantTourExist = await fetch(
-      apiUrl + "?$filter=cr3ea_status eq 'In Progress' and cr3ea_departmentid eq '" + userDepratmentId + "'&$top=1",
-      { method: "GET", headers: header }
-    );
+      const isPlantTourExist = await fetch(
+        apiUrl + "?$filter=cr3ea_status eq 'In Progress' and cr3ea_departmentid eq '" + userDepratmentId + "'&$top=1",
+        { method: "GET", headers: header }
+      );
 
-    let plant_tour_res = await isPlantTourExist.json();
+      if (!isPlantTourExist.ok) {
+        throw new Error(`Dataverse fetch existing tour failed: ${isPlantTourExist.status} - ${isPlantTourExist.statusText}`);
+      }
 
-    if (plant_tour_res.value.length == 0) {
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: header,
-        body: JSON.stringify(dataToSave)
-      });
+      let plant_tour_res = await isPlantTourExist.json();
 
-      let data = await response.json();
-      var UniqueValID = data.cr3ea_prod_qualitytourid;
-      SaveBTourItemSuccess(UniqueValID);
+      if (plant_tour_res.value.length == 0) {
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          headers: header,
+          body: JSON.stringify(dataToSave)
+        });
 
-      if (!response.ok) {
-        throw new Error(`Error: ${response.statusText}`);
+        if (!response.ok) {
+          throw new Error(`Dataverse create tour failed: ${response.status} - ${response.statusText}`);
+        }
+
+        let data = await response.json();
+        var UniqueValID = (tableName === QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR)
+            ? ((typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId) ? QualityRajpura_Config.getTourId(data) : (data.cr3ea_prod_rajpura_quality_tourid || data.cr3ea_rajpura_quality_tourid))
+            : data.cr3ea_prod_qualitytourid;
+        SaveBTourItemSuccess(UniqueValID);
+      } else {
+        const existingId = (tableName === QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR)
+            ? ((typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId) ? QualityRajpura_Config.getTourId(plant_tour_res.value[0]) : (plant_tour_res.value[0].cr3ea_prod_rajpura_quality_tourid || plant_tour_res.value[0].cr3ea_rajpura_quality_tourid))
+            : plant_tour_res.value[0].cr3ea_prod_qualitytourid;
+        SaveBTourItemSuccess(existingId);
       }
     } else {
-      SaveBTourItemSuccess(plant_tour_res.value[0].cr3ea_prod_qualitytourid);
+      alert("Dataverse Connection Failed: Unable to acquire authentication token. Please check your credentials or refresh the page.");
     }
+  } catch (err) {
+    if (typeof HideLoader === 'function') HideLoader();
+    console.error("Dataverse connection error in SaveBakeryDataItem:", err);
+    alert("Dataverse Connection Failed: Unable to start plant tour.\n\n" + (err.message || "Please check network or login session."));
   }
 }
 
 function SaveDTourItemSuccess(ID) {
   var DepartTourId = ID;
-  if (Plantid == '11') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/WCMS.aspx?TourId=" + DepartTourId;
+  var siteBase = getWelcomePageBaseUrl();
+  if (Plantid == '11' || userDepratmentId == 79 || SelectedDepartmentValue == 79) {
+    newUrl = siteBase + "/Pages/WCMS.aspx?TourId=" + DepartTourId;
   } else {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/DepartmentTour.aspx?TourId=" + DepartTourId;
+    newUrl = siteBase + "/Pages/DepartmentTour.aspx?TourId=" + DepartTourId;
   }
   window.location.href = newUrl;
 }
@@ -688,57 +897,58 @@ function SaveDTourItemSuccess(ID) {
 function SaveQTourItemSuccess(ID) {
   var QualityTourId = ID;
   var ProductValue = $('#tourSelect').val();
+  var siteBase = getWelcomePageBaseUrl();
 
   if (ProductValue == 'Product Quality Index') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/QualityTour.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/QualityTour.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Cream Percentage Checklist') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Cream.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/Cream.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Sieves And Magnets Old Plant') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/SievesAndMagnetsOldPlant.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/SievesAndMagnetsOldPlant.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Sieves And Magnets New Plant') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/SievesAndMagnetsNewPlant.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/SievesAndMagnetsNewPlant.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Product Monitoring Record') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/ProductMonitoring.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/ProductMonitoring.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Code Verification Record') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/CodeVerification.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/CodeVerification.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'OPRP And CCP Record') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/OPRP&CCP.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/OPRP&CCP.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Baking Process Record') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Baking.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/Baking.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Seal Integrity Test') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/VLT.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/VLT.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Quality Wall Record') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Qualitywall.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/Qualitywall.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Mixing Parameter') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Processparamater.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/Processparamater.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Area Line Clearance Checklist') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/ALC.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/ALC.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'ALC') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/AreaLine.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/AreaLine.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Mixing And Baking') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/MixingAndBaking.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/MixingAndBaking.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Packaging Operations') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Product-Operation.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/Product-Operation.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'CCP, OPRP, Sieves & Magnets') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/CCP-OPRP.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/CCP-OPRP.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Food Safety') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/FoodSafety.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/FoodSafety.aspx?TourId=" + QualityTourId;
   }
 
   window.location.href = newUrl;
@@ -747,27 +957,32 @@ function SaveQTourItemSuccess(ID) {
 function SaveBTourItemSuccess(ID) {
   var QualityTourId = ID;
   var ProductValue = $('#tourSelect').val();
+  var siteBase = getWelcomePageBaseUrl();
 
   if (ProductValue == 'Baking & Cooling') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Bakingandcooling.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/Bakingandcooling.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Coding') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Coding.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/Coding.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Mixing') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Mixing.aspx?TourId=" + QualityTourId;
+    if (isRajpuraPlant()) {
+      newUrl = siteBase + "/Pages/MixingAndBaking.aspx?TourId=" + QualityTourId;
+    } else {
+      newUrl = siteBase + "/Pages/Mixing.aspx?TourId=" + QualityTourId;
+    }
   }
   else if (ProductValue == 'Process Format') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/Processformat.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/Processformat.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'PQI') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/PQIBakery.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/PQIBakery.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Proofing') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/ProofingBakery.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/ProofingBakery.aspx?TourId=" + QualityTourId;
   }
   else if (ProductValue == 'Sieves and magnets') {
-    newUrl = "/sites/Mrs_Bectors_PTMS/Pages/SievesAndMagnetsBakery.aspx?TourId=" + QualityTourId;
+    newUrl = siteBase + "/Pages/SievesAndMagnetsBakery.aspx?TourId=" + QualityTourId;
   }
 
   window.location.href = newUrl;
@@ -852,7 +1067,7 @@ function SavePlanTItem() {
 
 function SavePTourItemSuccess(data) {
   var PlantTourId = data.d.Id;
-  newUrl = "/sites/Mrs_Bectors_PTMS/Pages/PlantTour.aspx?PTourId=" + PlantTourId;
+  newUrl = getWelcomePageBaseUrl() + "/Pages/PlantTour.aspx?PTourId=" + PlantTourId;
   window.location.href = newUrl;
 }
 /*Get Plant Tour ends*/
@@ -937,7 +1152,7 @@ function ObservationReportData(collObservationReport) {
         var Categorytitle = (collObservationReport.value[i].cr3ea_categoryid == null) ? '' : collObservationReport.value[i].cr3ea_categorytitle;
 
         tempObservationReportHtml += '<tr>' +
-          '<td><a href="/sites/Mrs_Bectors_PTMS/Pages/ObservationClosure.aspx?ReqId=' + collObservationReport.value[i].cr3ea_prod_observationsid + '">' + (i + 1) + '</a></td>' +
+          '<td><a href="' + getWelcomePageBaseUrl() + '/Pages/ObservationClosure.aspx?ReqId=' + collObservationReport.value[i].cr3ea_prod_observationsid + '">' + (i + 1) + '</a></td>' +
           '<td>' + (collObservationReport.value[i].cr3ea_observation ?? '') + '</td>' +
           '<td>' + moment(collObservationReport.value[i].cr3ea_observeddate).format('DD-MMM-YY') + '</td>' +
           '<td>' + Categorytitle + '</td>' +
@@ -1030,9 +1245,13 @@ async function SaveWarehouseItem() {
       { method: "GET", headers }
     );
 
+    if (!isPlantTourExist.ok) {
+      throw new Error(`Fetch existing warehouse tour failed: ${isPlantTourExist.status} ${isPlantTourExist.statusText}`);
+    }
+
     const plant_tour_res = await isPlantTourExist.json();
 
-    if (plant_tour_res.value.length === 0) {
+    if (!plant_tour_res.value || plant_tour_res.value.length === 0) {
       const response = await fetch(apiUrl, {
         method: "POST",
         headers,
@@ -1047,7 +1266,9 @@ async function SaveWarehouseItem() {
       SaveDTourItemSuccess(plant_tour_res.value[0].cr3ea_prod_warehousetourid);
     }
   } catch (error) {
+    if (typeof HideLoader === 'function') HideLoader();
     console.error("WarehouseItem failed:", error);
+    alert("Failed to start Warehouse Tour: " + (error.message || "Please check network connection."));
   }
 }
 
@@ -1143,7 +1364,7 @@ function WcmsObservationReportData(collObservationReport) {
         var Categorytitle = (collObservationReport.value[i].cr3ea_categoryid == null) ? '' : collObservationReport.value[i].cr3ea_categorytitle;
 
         tempObservationReportHtml += '<tr>' +
-          '<td><a href="/sites/Mrs_Bectors_PTMS/Pages/ObservationClosure.aspx?ReqId=' + collObservationReport.value[i].cr3ea_prod_wobservationsid + '">' + (i + 1) + '</a></td>' +
+          '<td><a href="' + getWelcomePageBaseUrl() + '/Pages/ObservationClosure.aspx?ReqId=' + collObservationReport.value[i].cr3ea_prod_wobservationsid + '">' + (i + 1) + '</a></td>' +
           '<td>' + collObservationReport.value[i].cr3ea_defectremarks + '</td>' +
           '<td>' + moment(collObservationReport.value[i].cr3ea_tourstartdate).format('DD-MMM-YY') + '</td>' +
           '<td>' + collObservationReport.value[i].cr3ea_observedby + '</td>' +

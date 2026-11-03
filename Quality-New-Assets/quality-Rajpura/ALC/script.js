@@ -26,7 +26,8 @@ async function handleALCSubmit() {
             execProd: document.getElementById("header-exec-prod")?.value || "",
             prevProduct: document.getElementById("header-prev-product")?.value || "",
             newProduct: document.getElementById("header-new-product")?.value || "",
-            execQual: document.getElementById("header-exec-qual")?.value || ""
+            execQual: document.getElementById("header-exec-qual")?.value || "",
+            qaShiftExec: (window.jQuery && $("#header-qa-shift-exec").length) ? ($("#header-qa-shift-exec").val() || "") : (document.getElementById("header-qa-shift-exec")?.value || "")
         };
 
         // Dynamically fetch UserName from SharePoint context if the custom global is missing
@@ -78,7 +79,7 @@ async function handleALCSubmit() {
 
                     // 3. Map to Dataverse Schema
                     collectedData.push({
-                        "cr3ea_qualitytourid": tourId,
+                        "cr3ea_qualitytourid@odata.bind": tourId && tourId !== "N/A" ? `/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${String(tourId).replace(/[{}]/g, "").trim().toLowerCase()})` : null,
                         "cr3ea_title": `ALC_${tourStartDate}`,
                         "cr3ea_cycle": `Cycle-1`, // Hardcoded to Cycle 1 as per new UI
                         "cr3ea_shift": headerData.shift,
@@ -97,7 +98,7 @@ async function handleALCSubmit() {
                         "cr3ea_time": headerData.time,
                         "cr3ea_plant": headerData.plant,
                         "cr3ea_shiftexecutiveproduction": headerData.execProd,
-                        "cr3ea_shiftexecutivequality": headerData.execQual
+                        "cr3ea_executivename": headerData.qaShiftExec || headerData.execQual || ""
                     });
                 }
             });
@@ -132,7 +133,7 @@ async function handleALCSubmit() {
         };
 
         const apiVersion = "9.2";
-        const tableName = "cr3ea_rajpura_alcses"; // Dataverse Web API expects the plural entity set name
+        const tableName = QualityRajpura_Config.DATAVERSE_TABLES.ALC.CHILD;
         const apiUrl = `${typeof environmentUrl !== 'undefined' ? environmentUrl : ''}/api/data/v${apiVersion}/${tableName}`;
 
         const total = collectedData.length;

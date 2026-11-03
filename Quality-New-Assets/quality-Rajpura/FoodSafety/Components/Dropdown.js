@@ -50,3 +50,52 @@ const DropdownComponent = {
         }
     }
 };
+
+// Global Food Safety Form Validator & Notification Helper
+const FoodSafety_Validator = {
+    highlight: function (element, isInvalid) {
+        if (!element) return;
+        const $el = $(element);
+        if (isInvalid) {
+            $el.addClass("fs-input-error");
+            if ($el.hasClass("select2-hidden-accessible")) {
+                $el.next(".select2-container").addClass("fs-input-error");
+            }
+        } else {
+            $el.removeClass("fs-input-error");
+            if ($el.hasClass("select2-hidden-accessible")) {
+                $el.next(".select2-container").removeClass("fs-input-error");
+            }
+        }
+    },
+    showBanner: function (bannerId, message) {
+        const banner = document.getElementById(bannerId);
+        if (banner) {
+            banner.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 10px; text-align: left;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    <span>${message}</span>
+                </div>
+            `;
+            banner.classList.add("is-visible");
+            banner.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+    },
+    hideBanner: function (bannerId) {
+        const banner = document.getElementById(bannerId);
+        if (banner) {
+            banner.classList.remove("is-visible");
+            banner.innerHTML = "";
+        }
+    },
+    clearAll: function (containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        const inputs = container.querySelectorAll("input, select, textarea");
+        inputs.forEach(el => this.highlight(el, false));
+    }
+};

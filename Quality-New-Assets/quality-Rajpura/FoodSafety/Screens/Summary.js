@@ -32,6 +32,48 @@ const FoodSafety_Summary = {
         "Mondelez Packing", "Line 8 Packing", "Line 8 Mixing", "FG Main Warehouse"
     ],
 
+    resolveUserName: function(emailOrName) {
+        if (!emailOrName) return "";
+        if (!emailOrName.includes("@")) return emailOrName;
+        const clean = emailOrName.split("@")[0].trim();
+        return clean.split(".").map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+    },
+
+    renderRemarksWithProof: function (rawRemarks) {
+        if (!rawRemarks || rawRemarks === "--" || rawRemarks === "N/A" || (typeof rawRemarks === "string" && rawRemarks.trim() === "")) {
+            return `<span style="color: #94a3b8;">--</span>`;
+        }
+        const parsed = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.parseRemarksAndProof)
+            ? QualityRajpura_Config.parseRemarksAndProof(rawRemarks)
+            : { remarks: "", proofUrl: "" };
+
+        let remarksText = parsed.remarks;
+        let proofUrl = parsed.proofUrl;
+
+        let html = "";
+        if (remarksText) {
+            html += `<span>${remarksText}</span>`;
+        }
+        if (proofUrl) {
+            const urls = proofUrl.split(/[;,]/).map(u => u.trim()).filter(Boolean);
+            if (urls.length > 0) {
+                const badgeMargin = remarksText ? "margin-left: 8px;" : "";
+                html += `<span class="food-safety-proof-badges-wrapper" style="${badgeMargin}">`;
+                urls.forEach((u, uIdx) => {
+                    const label = urls.length > 1 ? `Proof ${uIdx + 1}` : `View Proof`;
+                    html += `
+                        <a href="${u}" target="_blank" class="badge food-safety-proof-badge" 
+                           style="display: inline-flex !important; align-items: center !important; gap: 4px !important; padding: 4px 10px !important; font-size: 11px !important; background-color: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; border-radius: 4px !important; text-decoration: none !important; font-weight: 600 !important; margin-right: 4px;">
+                            <span style="color: #ffffff !important;"><i class="fa fa-file" style="font-size: 10px;"></i> ${label}</span>
+                        </a>
+                    `;
+                });
+                html += `</span>`;
+            }
+        }
+        return html || `<span style="color: #94a3b8;">--</span>`;
+    },
+
     init: async function (tourId) {
         console.log("Initializing Checklist Summary Screen for Tour ID:", tourId);
         
@@ -44,7 +86,12 @@ const FoodSafety_Summary = {
             
             // 1. Fetch Tour History to find parent record details
             const tours = await FoodSafety_DAL.getTourHistory();
-            const parent = tours.find(t => String(t.cr3ea_prod_rajpura_quality_tourid).replace(/[{}]/g, "").trim().toLowerCase() === cleanTourId);
+            const parent = tours.find(t => {
+                const tid = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId)
+                    ? QualityRajpura_Config.getTourId(t)
+                    : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                return tid && String(tid).replace(/[{}]/g, "").trim().toLowerCase() === cleanTourId;
+            });
             
             if (!parent) {
                 throw new Error(`Tour session with ID ${tourId} not found in quality tours log.`);
@@ -55,16 +102,35 @@ const FoodSafety_Summary = {
             console.log(`Loaded ${childItems.length} child items for summary.`);
             
             // 3. Render Metadata Info Cards
-            const checklistType = parent.cr3ea_food_safety_checklisttype || "";
-            document.getElementById("sum-checklist-type").innerText = checklistType;
+            let checklistType = parent.cr3ea_food_safety_checklisttype || "";
+            if (!checklistType && parent.cr3ea_title) {
+                let cleanTitle = parent.cr3ea_title.split("||")[0].trim();
+                if (cleanTitle.startsWith("FoodSafety_")) cleanTitle = cleanTitle.replace("FoodSafety_", "");
+                if (cleanTitle.startsWith("Food_Safety_")) cleanTitle = cleanTitle.replace("Food_Safety_", "");
+                
+                if (cleanTitle.startsWith("PPE_") || cleanTitle.includes("PPE")) checklistType = "PPE Checklist";
+                else if (cleanTitle.startsWith("GMP_") || cleanTitle.includes("GMP")) checklistType = "GMP Checklist";
+                else if (cleanTitle.startsWith("PCI_") || cleanTitle.includes("PCI")) checklistType = "PCI Checklist";
+            }
+            if (checklistType) {
+                const upper = String(checklistType).toUpperCase().trim();
+                if (upper.includes("PPE")) checklistType = "PPE Checklist";
+                else if (upper.includes("GMP")) checklistType = "GMP Checklist";
+                else if (upper.includes("PCI")) checklistType = "PCI Checklist";
+            }
+            document.getElementById("sum-checklist-type").innerText = checklistType || "--";
             // Resolve manufacturing site and line
             const siteVal = parent.cr3ea_plantid || "--";
             const lineVal = parent.cr3ea_lineno || "--";
             document.getElementById("sum-site-line").innerText = `${siteVal} / ${lineVal}`;
             
-            // Resolve QA and Production executive
-            document.getElementById("sum-qa-exec").innerText = parent.cr3ea_assigned_qa || "--";
-            document.getElementById("sum-prod-incharge").innerText = parent.cr3ea_shiftexecutiveproduction || "--";
+            // Resolve QA, Production and Shift executive
+            document.getElementById("sum-qa-exec").innerText = FoodSafety_Summary.resolveUserName(parent.cr3ea_assigned_qa) || "--";
+            document.getElementById("sum-prod-incharge").innerText = FoodSafety_Summary.resolveUserName(parent.cr3ea_shiftexecutiveproduction) || "--";
+            const sumShiftExec = document.getElementById("sum-shift-exec");
+            if (sumShiftExec) {
+                sumShiftExec.innerText = FoodSafety_Summary.resolveUserName(parent.cr3ea_observedby || parent.cr3ea_shiftexecutive) || "--";
+            }
             
             // Resolve shift and cycle
             const shiftVal = parent.cr3ea_shift || "--";
@@ -92,34 +158,135 @@ const FoodSafety_Summary = {
             }
             
             const pciAreaWrapper = document.getElementById("sum-pci-area-wrapper");
-            if (checklistType === "PCI Checklist" && parent.cr3ea_food_safety_area) {
-                document.getElementById("sum-pci-area").innerText = parent.cr3ea_food_safety_area;
+            const resolvedPciArea = parent.cr3ea_food_safety_area || (parent.cr3ea_lineno && (parent.cr3ea_lineno.includes("5") || parent.cr3ea_lineno.includes("6") || parent.cr3ea_lineno.includes("7")) ? "New Block" : "Old Block");
+            if (checklistType === "PCI Checklist" && resolvedPciArea) {
+                const areaDisplay = resolvedPciArea === "New Block" 
+                    ? "New Block (Line 5, 6, 7)" 
+                    : "Old Block (Line 1, 2, 3, 4, 8)";
+                document.getElementById("sum-pci-area").innerText = areaDisplay;
                 pciAreaWrapper.style.display = "block";
             } else {
                 pciAreaWrapper.style.display = "none";
             }
             
-            // 4. Render Score Box & Result status
-            const rawScore = parent.cr3ea_overall_score || "100%";
-            document.getElementById("sum-score-circle").innerText = rawScore;
+            // 4. Calculate dynamic score and result based on checklist type & child items
+            const status = parent.cr3ea_status || parent.cr3ea_processstatus || "";
+            const isExpired = status === "Closed - Expired" || status.includes("Expired");
             
-            const resultStatus = parent.cr3ea_checklist_result || "Pass";
-            document.getElementById("sum-score-status").innerText = `Audit Result: ${resultStatus}`;
+            let calculatedScore = null;
+            let calculatedResult = null;
+
+            if (checklistType === "PPE Checklist") {
+                let totalDefects = 0;
+                let sampleSize = parseInt(parent.cr3ea_food_safety_samplesize) || 0;
+                childItems.forEach(c => {
+                    const dCount = parseInt(c.cr3ea_food_safety_defectcount !== undefined ? c.cr3ea_food_safety_defectcount : c.cr953_food_safety_defectcount) || 0;
+                    totalDefects += dCount;
+                    if (!sampleSize) {
+                        sampleSize = parseInt(c.cr3ea_food_safety_samplesize || c.cr953_food_safety_samplesize) || 0;
+                    }
+                });
+                if (sampleSize > 0) {
+                    const comp = Math.max(0, Math.min(100, ((sampleSize - totalDefects) / sampleSize) * 100));
+                    calculatedScore = `${comp.toFixed(2)}%`;
+                } else if (childItems.length > 0) {
+                    calculatedScore = totalDefects === 0 ? "100.00%" : "0.00%";
+                }
+                calculatedResult = totalDefects === 0 ? "Pass" : "Fail";
+            } else if (checklistType === "GMP Checklist") {
+                const totalItems = 46;
+                let okayCount = 0;
+                let notOkayCount = 0;
+                childItems.forEach(c => {
+                    const st = c.cr3ea_food_safety_status || c.cr953_food_safety_status || "";
+                    if (st === "Okay") okayCount++;
+                    else if (st === "Not Okay") notOkayCount++;
+                });
+                if (childItems.length > 0) {
+                    const comp = (okayCount / totalItems) * 100;
+                    calculatedScore = `${comp.toFixed(2)}%`;
+                    calculatedResult = (notOkayCount === 0 && okayCount === totalItems) ? "Pass" : "Fail";
+                }
+            } else if (checklistType === "PCI Checklist") {
+                const area = resolvedPciArea;
+                const locations = area === "New Block" ? this.newBlockLocations : this.oldBlockLocations;
+                const totalLocs = locations.length;
+                let okayCount = 0;
+                let notOkayCount = 0;
+
+                locations.forEach(locName => {
+                    const matches = childItems.filter(c => (c.cr3ea_food_safety_location === locName || c.cr953_food_safety_location === locName));
+                    if (matches.length > 0) {
+                        const isLocOkay = matches.every(m => (m.cr3ea_food_safety_status || m.cr953_food_safety_status) === "Okay");
+                        if (isLocOkay) {
+                            okayCount++;
+                        } else {
+                            notOkayCount++;
+                        }
+                    }
+                });
+
+                if (childItems.length > 0 && totalLocs > 0) {
+                    const comp = ((okayCount / totalLocs) * 100);
+                    calculatedScore = `${comp.toFixed(2)}%`;
+                    calculatedResult = (notOkayCount === 0 && okayCount === totalLocs) ? "Pass" : "Fail";
+                }
+            }
+
+            const rawScore = calculatedScore || parent.cr3ea_overall_score;
+            const hasNoScore = !rawScore || rawScore === "0%" || rawScore === "0" || childItems.length === 0;
+            const resultStatus = isExpired ? "Expired" : (calculatedResult || parent.cr3ea_checklist_result || (rawScore === "100.00%" || rawScore === "100%" ? "Pass" : "Fail"));
             
             const scoreBox = document.getElementById("sum-score-box");
             const scoreCircle = document.getElementById("sum-score-circle");
-            if (resultStatus === "Pass") {
-                scoreBox.style.borderColor = "#bbf7d0";
-                scoreBox.style.backgroundColor = "#f0fdf4";
-                scoreCircle.style.backgroundColor = "#10b981";
-                document.getElementById("sum-score-title").style.color = "#065f46";
-                document.getElementById("sum-score-status").style.color = "#047857";
+            
+            if (isExpired && hasNoScore) {
+                document.getElementById("sum-score-circle").innerText = "Expired";
+                if (scoreCircle) {
+                    scoreCircle.style.fontSize = "16px";
+                    scoreCircle.style.backgroundColor = "#ef4444";
+                }
+                document.getElementById("sum-score-status").innerText = "Expired while In Progress";
+                if (scoreBox) {
+                    scoreBox.style.borderColor = "#fecaca";
+                    scoreBox.style.backgroundColor = "#fee2e2";
+                    document.getElementById("sum-score-title").style.color = "#991b1b";
+                    document.getElementById("sum-score-status").style.color = "#b91c1c";
+                }
             } else {
-                scoreBox.style.borderColor = "#fecaca";
-                scoreBox.style.backgroundColor = "#fee2e2";
-                scoreCircle.style.backgroundColor = "#ef4444";
-                document.getElementById("sum-score-title").style.color = "#991b1b";
-                document.getElementById("sum-score-status").style.color = "#b91c1c";
+                let formattedScore = rawScore || "100.00%";
+                if (formattedScore && typeof formattedScore === "string" && formattedScore.includes("%")) {
+                    const num = parseFloat(formattedScore.replace("%", "").trim());
+                    if (!isNaN(num)) {
+                        formattedScore = `${num.toFixed(2)}%`;
+                    }
+                } else if (typeof formattedScore === "number" || !isNaN(parseFloat(formattedScore))) {
+                    formattedScore = `${parseFloat(formattedScore).toFixed(2)}%`;
+                }
+                document.getElementById("sum-score-circle").innerText = formattedScore;
+                document.getElementById("sum-score-status").innerText = `Audit Result: ${resultStatus}`;
+                
+                if (resultStatus === "Pass") {
+                    if (scoreBox) {
+                        scoreBox.style.borderColor = "#bbf7d0";
+                        scoreBox.style.backgroundColor = "#f0fdf4";
+                    }
+                    if (scoreCircle) {
+                        scoreCircle.style.backgroundColor = "#10b981";
+                    }
+                    document.getElementById("sum-score-title").style.color = "#065f46";
+                    document.getElementById("sum-score-status").style.color = "#047857";
+                } else {
+                    if (scoreBox) {
+                        scoreBox.style.borderColor = "#fecaca";
+                        scoreBox.style.backgroundColor = "#fee2e2";
+                    }
+                    if (scoreCircle) {
+                        scoreCircle.style.backgroundColor = "#ef4444";
+                    }
+                    document.getElementById("sum-score-title").style.color = "#991b1b";
+                    document.getElementById("sum-score-status").style.color = "#b91c1c";
+                }
             }
             
             // 5. Render checkpoints observations table
@@ -128,21 +295,21 @@ const FoodSafety_Summary = {
             
             if (checklistType === "PPE Checklist") {
                 this.ppeItems.forEach((itemText, idx) => {
-                    const match = childItems.find(c => c.cr953_food_safety_criteria === itemText);
-                    const defectCount = match ? (parseInt(match.cr953_food_safety_defectcount) || 0) : 0;
-                    const remarks = match ? (match.cr953_food_safety_defectremarks || "--") : "--";
+                    const match = childItems.find(c => (c.cr3ea_food_safety_criteria === itemText || c.cr953_food_safety_criteria === itemText));
+                    const defectCount = match ? (parseInt(match.cr3ea_food_safety_defectcount !== undefined ? match.cr3ea_food_safety_defectcount : match.cr953_food_safety_defectcount) || 0) : 0;
+                    const remarks = match ? (match.cr3ea_food_safety_defectremarks || match.cr953_food_safety_defectremarks || "--") : "--";
                     
                     const tr = document.createElement("tr");
                     tr.style.borderBottom = "1px solid #cbd5e1";
                     tr.innerHTML = `
                         <td style="padding: 10px; font-weight: bold;">${idx + 1}</td>
-                        <td style="padding: 10px; text-align: left;">${itemText}</td>
+                        <td style="padding: 10px; text-align: left; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${itemText}</td>
                         <td style="padding: 10px;">
                             <span class="badge" style="padding: 5px 10px; font-size: 12px; background-color: ${defectCount > 0 ? '#fee2e2' : '#dcfce7'}; color: ${defectCount > 0 ? '#b91c1c' : '#15803d'}; border: 1px solid ${defectCount > 0 ? '#fecaca' : '#bbf7d0'}; border-radius: 9999px; font-weight: 700; text-transform: uppercase;">
                                 ${defectCount} Defects
                             </span>
                         </td>
-                        <td style="padding: 10px; text-align: left;">${remarks}</td>
+                        <td style="padding: 10px; text-align: left; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${this.renderRemarksWithProof(remarks)}</td>
                     `;
                     tbody.appendChild(tr);
                 });
@@ -205,9 +372,9 @@ const FoodSafety_Summary = {
                 
                 Object.keys(sections).forEach(secName => {
                     sections[secName].forEach(item => {
-                        const match = childItems.find(c => c.cr953_food_safety_criteria === item.text);
-                        const status = match ? (match.cr953_food_safety_status || "Pending") : "Pending";
-                        const remarks = match ? (match.cr953_food_safety_defectremarks || "--") : "--";
+                        const match = childItems.find(c => (c.cr3ea_food_safety_criteria === item.text || c.cr953_food_safety_criteria === item.text));
+                        const status = match ? (match.cr3ea_food_safety_status || match.cr953_food_safety_status || "Pending") : "Pending";
+                        const remarks = match ? (match.cr3ea_food_safety_defectremarks || match.cr953_food_safety_defectremarks || "--") : "--";
                         
                         let statusHtml = "";
                         if (status === "Okay") {
@@ -222,29 +389,29 @@ const FoodSafety_Summary = {
                         tr.style.borderBottom = "1px solid #cbd5e1";
                         tr.innerHTML = `
                             <td style="padding: 8px; font-weight: bold;">${item.id}</td>
-                            <td style="padding: 8px; text-align: left;">
+                            <td style="padding: 8px; text-align: left; word-break: break-word; overflow-wrap: break-word; white-space: normal;">
                                 <span style="font-size: 11px; font-weight: 700; color: #0284c7; text-transform: uppercase; display: block; margin-bottom: 2px;">${secName}</span>
                                 ${item.text}
                             </td>
                             <td style="padding: 8px;">${statusHtml}</td>
-                            <td style="padding: 8px; text-align: left;">${remarks}</td>
+                            <td style="padding: 8px; text-align: left; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${this.renderRemarksWithProof(remarks)}</td>
                         `;
                         tbody.appendChild(tr);
                     });
                 });
             } else if (checklistType === "PCI Checklist") {
-                const area = parent.cr3ea_food_safety_area || "Old Block";
+                const area = resolvedPciArea;
                 const locations = area === "New Block" ? this.newBlockLocations : this.oldBlockLocations;
                 
                 locations.forEach((locName, idx) => {
                     // Match child items by location name
-                    const matches = childItems.filter(c => c.cr953_food_safety_location === locName);
+                    const matches = childItems.filter(c => (c.cr3ea_food_safety_location === locName || c.cr953_food_safety_location === locName));
                     
                     let statusHtml = "";
-                    let obsText = "--";
+                    let obsHtml = "--";
                     
                     if (matches.length > 0) {
-                        const isOkay = matches.every(m => m.cr953_food_safety_status === "Okay");
+                        const isOkay = matches.every(m => (m.cr3ea_food_safety_status || m.cr953_food_safety_status) === "Okay");
                         
                         if (isOkay) {
                             statusHtml = `<span class="badge" style="padding: 5px 10px; font-size: 11px; background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; border-radius: 9999px; font-weight: 700; text-transform: uppercase;">Okay</span>`;
@@ -253,11 +420,19 @@ const FoodSafety_Summary = {
                             
                             // Map all non-okay defects (observation types and counts)
                             const obsItems = matches
-                                .filter(m => m.cr953_food_safety_status === "Not Okay")
-                                .map(m => `${m.cr953_food_safety_observationtype || m.cr953_food_safety_criteria || 'Observation'} (${m.cr953_food_safety_defectcount || 1})`);
+                                .filter(m => (m.cr3ea_food_safety_status || m.cr953_food_safety_status) === "Not Okay")
+                                .map(m => `${m.cr3ea_food_safety_observationtype || m.cr953_food_safety_observationtype || m.cr3ea_food_safety_criteria || m.cr953_food_safety_criteria || 'Observation'} (${m.cr3ea_food_safety_defectcount || m.cr953_food_safety_defectcount || 1})`);
                             
-                            if (obsItems.length > 0) {
-                                obsText = obsItems.join(", ");
+                            const obsText = obsItems.length > 0 ? obsItems.join(", ") : "--";
+                            
+                            // Check for proof attachment
+                            const proofMatch = matches.find(m => (m.cr3ea_food_safety_defectremarks || m.cr953_food_safety_defectremarks));
+                            const proofRemarks = proofMatch ? (proofMatch.cr3ea_food_safety_defectremarks || proofMatch.cr953_food_safety_defectremarks) : "";
+                            
+                            if (proofRemarks) {
+                                obsHtml = `${obsText} ${this.renderRemarksWithProof(proofRemarks)}`;
+                            } else {
+                                obsHtml = obsText;
                             }
                         }
                     } else {
@@ -268,9 +443,9 @@ const FoodSafety_Summary = {
                     tr.style.borderBottom = "1px solid #cbd5e1";
                     tr.innerHTML = `
                         <td style="padding: 8px; font-weight: bold;">${idx + 1}</td>
-                        <td style="padding: 8px; text-align: left;">${locName}</td>
+                        <td style="padding: 8px; text-align: left; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${locName}</td>
                         <td style="padding: 8px;">${statusHtml}</td>
-                        <td style="padding: 8px; text-align: left;">${obsText}</td>
+                        <td style="padding: 8px; text-align: left; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${obsHtml}</td>
                     `;
                     tbody.appendChild(tr);
                 });
@@ -278,8 +453,14 @@ const FoodSafety_Summary = {
             
         } catch (error) {
             console.error("Failed loading checklist summary screen:", error);
-            alert(`Error loading summary details: ${error.message}`);
-            FoodSafety_Main.navigateTo("screen-checklist-info");
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "load summary details")
+                : `Error loading summary details: ${error.message}`;
+            alert(msg);
+            const welcomeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
+            window.location.href = welcomeUrl;
         } finally {
             HideLoader();
         }
@@ -292,7 +473,7 @@ const FoodSafety_Summary = {
         // Redirect back to SharePoint Welcome page
         const welcomeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
             ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
-            : "/sites/Mrs_Bectors_PTMS/Pages/Home.aspx";
+            : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
             
         window.location.href = welcomeUrl;
     }

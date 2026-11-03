@@ -40,37 +40,85 @@ const ALC_Main = {
 
     // Identify user role from SharePoint config list Quality-Rajpura
     identifyUserRole: async function () {
-        const currentUserName = typeof currentUser !== "undefined" ? currentUser : "";
-        const currentUserLogin = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : "";
+        const currentUserName = (typeof currentUser !== "undefined" && currentUser) ? String(currentUser).trim() : "";
+        const currentUserLogin = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? String(_spPageContextInfo.userDisplayName).trim() : "";
+        const currentUserEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? String(_spPageContextInfo.userEmail).trim() : "";
 
         try {
             const configs = await ALC_DAL.getConfig();
 
+            const cleanMyEmail = (currentUserEmail || "").toLowerCase().trim();
+            const myEmailUserPart = cleanMyEmail.includes("@") ? cleanMyEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : cleanMyEmail.replace(/[^a-z0-9]/g, "");
+            const cleanName1 = (currentUserName || "").toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+            const cleanName2 = (currentUserLogin || "").toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+
+            const isUserMatch = (u) => {
+                if (!u) return false;
+                const uTitle = (u.Title || "").toLowerCase().trim();
+                const uEmail = (u.EMail || "").toLowerCase().trim();
+                const uTitleClean = uTitle.replace(/[^a-z0-9]/g, "");
+                const uEmailUserPart = uEmail.includes("@") ? uEmail.split("@")[0].replace(/[^a-z0-9]/g, "") : uEmail.replace(/[^a-z0-9]/g, "");
+
+                return (uTitle && (uTitle === (currentUserName || "").toLowerCase() || uTitle === (currentUserLogin || "").toLowerCase())) ||
+                       (uTitleClean && (uTitleClean === cleanName1 || uTitleClean === cleanName2)) ||
+                       (uEmail && cleanMyEmail && uEmail === cleanMyEmail) ||
+                       (uEmailUserPart && myEmailUserPart && uEmailUserPart === myEmailUserPart && myEmailUserPart.length > 0);
+            };
+
             // Check if current user is listed under QA User config
             const isQaUser = configs.some(c =>
-                c.ConfigType === "QA User" &&
+                (c.ConfigType === "QA User" || c.Title === "QA User" || c.ConfigType === "QA HOD" || c.Title === "QA HOD" || c.ConfigType === "QA Assignment") &&
                 c.AssignedUser &&
                 c.AssignedUser.results &&
-                c.AssignedUser.results.some(u => u.Title === currentUserName || u.Title === currentUserLogin)
+                c.AssignedUser.results.some(isUserMatch)
             );
 
-            // Check if current user is listed under Product Incharge config
+            // Check if current user is listed under Area Inspector / Product Incharge config
+            const isAreaConfig = (c) => {
+                const ct = (c.ConfigType || "").toLowerCase().trim();
+                const t = (c.Title || "").toLowerCase().trim();
+                return ct === "area inspector" || ct === "product user" || ct === "product incharge" || ct === "production user" ||
+                       t.startsWith("product incharge") || t.startsWith("area-");
+            };
+
             const isProductIncharge = configs.some(c =>
-                c.ConfigType === "Product User" &&
+                isAreaConfig(c) &&
                 c.AssignedUser &&
                 c.AssignedUser.results &&
-                c.AssignedUser.results.some(u => u.Title === currentUserName || u.Title === currentUserLogin)
+                c.AssignedUser.results.some(isUserMatch)
             );
+
+            const userAreas = configs
+                .filter(c =>
+                    isAreaConfig(c) &&
+                    c.AssignedUser &&
+                    c.AssignedUser.results &&
+                    c.AssignedUser.results.some(isUserMatch)
+                )
+                .map(c => {
+                    if (c.Area && c.Area.trim() !== "") return c.Area.trim();
+                    const title = (c.Title || "").trim();
+                    if (title.includes(" - ")) return title.split(" - ")[1].trim();
+                    return title.replace(/^AREA-\d+\s*[-:\u2022]?\s*/i, "").trim();
+                })
+                .filter(Boolean);
+
+            ALC_StateMachine.userAreas = [...new Set(userAreas)];
 
             if (isQaUser) {
                 this.userRole = ALC_ROLES.QUALITY;
-            } else if (isProductIncharge) {
+            } else if (isProductIncharge || ALC_StateMachine.userAreas.length > 0) {
                 this.userRole = ALC_ROLES.PRODUCT;
             } else {
                 this.userRole = ALC_ROLES.PRODUCTION;
             }
 
-            console.log(`Current User Role Resolved to: ${this.userRole}`);
+            ALC_StateMachine.isQaUser = (this.userRole === ALC_ROLES.QUALITY);
+            ALC_StateMachine.isGeneralQaUser = isQaUser;
+            ALC_StateMachine.isProductUser = (ALC_StateMachine.userAreas.length > 0);
+            ALC_StateMachine.isProductionUser = (!isQaUser && ALC_StateMachine.userAreas.length === 0);
+
+            console.log(`Current User Role Resolved to: ${this.userRole}, Areas: ${JSON.stringify(ALC_StateMachine.userAreas)}`);
         } catch (error) {
             console.error("Error identifying user role, defaulting to Production:", error);
             this.userRole = ALC_ROLES.PRODUCTION;
@@ -81,7 +129,7 @@ const ALC_Main = {
     resumeSessionState: async function () {
         const AccessToken = await ALC_DAL.getAccessToken();
         const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
-        const url = `${baseApiUrl}/api/data/v9.2/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`;
+        const url = `${baseApiUrl}/api/data/v9.2/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`;
 
         const headers = { "Accept": "application/json" };
         if (AccessToken) headers["Authorization"] = `Bearer ${AccessToken}`;
@@ -104,29 +152,15 @@ const ALC_Main = {
             // Execute transition
             await this.transitionByStatus(status, session);
         } catch (error) {
-            console.warn("Failed to fetch session from Dataverse. Loading mock session fallback for testing/offline use:", error);
-
-            // Populate mock session for visual testing/offline execution
-            const urlParams = new URLSearchParams(window.location.search);
-            const mockStatus = urlParams.get('status') || "QA In Progress";
-
-            const mockSession = {
-                cr3ea_prod_rajpura_quality_toursid: this.currentTourId,
-                cr3ea_shiftexecutivename: urlParams.get('exec') || "Mishab Muhammad",
-                cr3ea_lineno: urlParams.get('line') || "Line 1",
-                cr3ea_shift: urlParams.get('shift') || "Shift 1",
-                cr3ea_previousrunningvariety: "Bectors Original",
-                cr3ea_runningvariety: "Marie Delight",
-                cr3ea_status: mockStatus,
-                cr3ea_title: "ALC_" + moment().format("MM-DD-YYYY_HH:mm"),
-                cr3ea_request_time: new Date(Date.now() - 3 * 60 * 1000).toISOString() // 3 minutes ago
-            };
-
-            // Store globally
-            ALC_StateMachine.currentSession = mockSession;
-
-            this.populateHeaderFields(mockSession);
-            await this.transitionByStatus(mockSession.cr3ea_status, mockSession);
+            console.error("Failed to fetch session from Dataverse:", error);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "load ALC tour session")
+                : `Dataverse Connection Failed: Tour session not found in database or failed to load.\n\n${(!navigator.onLine ? "No internet connection detected. Please reconnect and try again.\n\n" : "")}${error.message || ""}`;
+            alert(msg);
+            const welcomeUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl)
+                ? `${_spPageContextInfo.webAbsoluteUrl}/Pages/Home.aspx`
+                : (typeof QualityRajpura_Config !== 'undefined' ? QualityRajpura_Config.getSiteBaseUrl() : "/sites/Mrs_Bectors_PTMS") + "/Pages/Home.aspx";
+            window.location.href = welcomeUrl;
         }
     },
 
@@ -135,7 +169,7 @@ const ALC_Main = {
         if (status === "Pending QA") {
             ALC_StateMachine.init(this.userRole, ALC_STATES.PENDING_QA_ACCEPTANCE, this.currentTourId);
             ALC_QARequest.startTimer(ALC_QARequest.requestTimeResolved || session.cr3ea_tourstartdate || session.cr3ea_request_time, session.cr3ea_tourby);
-        } else if (status === "QA In Progress") {
+        } else if (status === "QA In Progress" || status.startsWith("QA In Progress")) {
             ALC_StateMachine.init(this.userRole, ALC_STATES.QA_CHECKLIST, this.currentTourId);
             ALC_Checklist.renderChecklist();
         } else if (status === "Completed") {

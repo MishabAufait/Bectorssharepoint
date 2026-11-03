@@ -195,8 +195,11 @@ body:has(.is-popup-active) {
     position: fixed;
     top: 0;
     left: 0;
-    min-width: 100vw;
-    min-height: 100svh;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: 100%;
+    min-height: 100%;
     opacity: 0;
     visibility: hidden;
     pointer-events: none;

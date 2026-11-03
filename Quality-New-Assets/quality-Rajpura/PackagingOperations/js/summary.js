@@ -1,0 +1,1352 @@
+// Summary viewer for Mrs Bector's Packaging Operations (Rajpura)
+console.log("Packaging Operations Summary script loaded");
+
+const PKGOPS_Summary = {
+    currentTourId: null,
+    pkgopsType: null,
+    activeSubChecklistKey: null,
+    pendingMessage: "",
+
+    formatPercentage: function (val) {
+        if (val === null || val === undefined || val === "" || val === "-") return "-";
+        const clean = String(val).replace("%", "").trim();
+        const num = parseFloat(clean);
+        if (isNaN(num)) return val;
+        return `${num.toFixed(2)}%`;
+    },
+
+    formatNumber2Dec: function (val) {
+        if (val === null || val === undefined || val === "" || val === "-") return "-";
+        const num = parseFloat(val);
+        if (isNaN(num)) return val;
+        return num.toFixed(2);
+    },
+
+    parseSampleNum: function (row, fallbackIdx) {
+        if (!row) return fallbackIdx !== undefined ? fallbackIdx + 1 : 1;
+        if (typeof row === "string" || typeof row === "number") {
+            const m = String(row).match(/\d+/);
+            return m ? parseInt(m[0], 10) : (fallbackIdx !== undefined ? fallbackIdx + 1 : 1);
+        }
+        if (row.cr3ea_samplenumber) {
+            const m = String(row.cr3ea_samplenumber).match(/\d+/);
+            if (m) return parseInt(m[0], 10);
+        }
+        if (row.cr3ea_name) {
+            const m = String(row.cr3ea_name).match(/Sample[_\s-]*(\d+)/i);
+            if (m) return parseInt(m[1], 10);
+        }
+        return fallbackIdx !== undefined ? fallbackIdx + 1 : 999;
+    },
+
+    extractPackWeight: function (title) {
+        if (!title) return null;
+        let t = String(title).trim().replace(/\[[^\]]*\]/g, ' ').replace(/^\s*\d{5,}\s*[-:]?\s*/, ' ');
+        const promo = t.match(/(\d+(?:\.\d+)?)\s*(?:g|gm|gms)?\s*\+\s*(\d+(?:\.\d+)?)\s*(?:gm|gms|g)\b/i);
+        if (promo) return parseFloat(promo[1]) + parseFloat(promo[2]);
+        const multi = t.match(/(\d+(?:\.\d+)?)\s*(?:gm|gms|g)\s*[*xX]\s*(\d+)/i);
+        if (multi) return parseFloat(multi[1]) * parseFloat(multi[2]);
+        const gMatch = t.match(/(?:^|[^\d.])(\d+(?:\.\d+)?)\s*(?:gm|gms|g)\b/i);
+        if (gMatch) return parseFloat(gMatch[1]);
+        const kgMatch = t.match(/(?:^|[^\d.])(\d+(?:\.\d+)?)\s*(?:kg|kgs)\b/i);
+        if (kgMatch) return parseFloat(kgMatch[1]) * 1000;
+        const mlMatch = t.match(/(?:^|[^\d.])(\d+(?:\.\d+)?)\s*(?:ml)\b/i);
+        if (mlMatch) return parseFloat(mlMatch[1]);
+        const preBracket = title.match(/(\d+(?:\.\d+)?)\s*\[/);
+        if (preBracket) return parseFloat(preBracket[1]);
+        const endNum = t.match(/\b(\d+(?:\.\d+)?)\s*$/);
+        if (endNum) return parseFloat(endNum[1]);
+        return null;
+    },
+
+    formatProofLinks: function (proofString, label = "Proof") {
+        if (!proofString) return "";
+        const urls = Array.from(new Set(String(proofString).split(",").map(u => u.trim()).filter(Boolean)));
+        if (urls.length === 0) return "";
+        return urls.map((u, i) => {
+            const text = urls.length > 1 ? `${label} ${i + 1}` : `View ${label}`;
+            return ` <a href="${u}" target="_blank" class="badge bg-info text-decoration-none" style="font-size: 10px; font-weight: 600; margin: 1px;"><i class="fa fa-image"></i> ${text}</a>`;
+        }).join("");
+    },
+
+    escapeHtml: function (str) {
+        if (str === null || str === undefined) return "";
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    },
+
+    init: async function (tourId, pkgopsType, pendingMessage) {
+        this.currentTourId = tourId;
+        this.pkgopsType = pkgopsType;
+        this.pendingMessage = pendingMessage || "";
+        
+        switch (this.pkgopsType) {
+            case "Temperatures & Humidity": this.activeSubChecklistKey = "CHILD_TEMP_HUMIDITY"; break;
+            case "Code Verification": this.activeSubChecklistKey = "CHILD_CODE_VERIFICATION"; break;
+            case "PAPA":
+            case "PAPA's": this.activeSubChecklistKey = "CHILD_PAPA"; break;
+            case "PQI": this.activeSubChecklistKey = "CHILD_PQI_EVALUATION"; break;
+            case "Seal Integrity": this.activeSubChecklistKey = "CHILD_SEAL_INTEGRITY"; break;
+            case "Quality Wall Records": this.activeSubChecklistKey = "CHILD_QUALITY_WALL"; break;
+            case "Cream Percentage": this.activeSubChecklistKey = "CHILD_CREAM_PERCENTAGE"; break;
+        }
+
+        console.log(`Initializing Summary: Key=${this.activeSubChecklistKey}`);
+        await this.loadSummaryDetails();
+    },
+
+    loadSummaryDetails: async function () {
+        const container = document.getElementById("summary-form-area");
+        if (!container) return;
+
+        container.innerHTML = `<div class="text-center py-3"><div class="spinner-border text-primary" role="status"></div><p>Generating summary...</p></div>`;
+
+        try {
+            const session = PKGOPS_Main.currentSession || {};
+            const status = session.cr3ea_status || session.cr3ea_processstatus || "";
+            const isExpired = status === "Closed - Expired" || status.includes("Expired");
+            let detailHtml = "";
+
+            if (this.activeSubChecklistKey) {
+                const rows = await PKGOPS_DAL.getSubChecklistRows(this.activeSubChecklistKey, this.currentTourId);
+                let netWeightRows = [];
+                if (this.pkgopsType === "PQI") {
+                    try {
+                        netWeightRows = await PKGOPS_DAL.getSubChecklistRows("CHILD_PQI_NET_WEIGHT", this.currentTourId);
+                    } catch (errNw) {
+                        console.warn("Failed to fetch net weight rows for PQI summary:", errNw);
+                    }
+                }
+                
+                if (isExpired && rows.length === 0 && netWeightRows.length === 0) {
+                    detailHtml = `
+                        <div class="alert alert-danger text-center p-4 mt-3" style="border-radius: 8px; border: 1px solid #fecaca; background-color: #fee2e2; color: #b91c1c; font-family: sans-serif;">
+                            <h4 style="font-weight: 700; margin-bottom: 8px;">Expired while In Progress / QA Process</h4>
+                            <p style="margin: 0; font-size: 14px;">This checklist session was closed automatically because it expired before completion.</p>
+                        </div>
+                    `;
+                } else if (rows.length === 0 && netWeightRows.length === 0) {
+                    detailHtml = `<div class="alert alert-info">No detail records found for this checklist session.</div>`;
+                } else {
+                    detailHtml = await this.buildChecklistSummaryHtml(rows, netWeightRows);
+                }
+            }
+
+            let badgeColor = isExpired ? "bg-danger" : "bg-success";
+            let badgeText = isExpired ? "Checklist Session Expired" : "Checklist Session Closed";
+
+            let pendingBannerHtml = "";
+            if (this.pendingMessage) {
+                badgeColor = "bg-warning text-dark";
+                badgeText = status || "In Progress";
+                pendingBannerHtml = `
+                    <div class="alert alert-warning text-center fw-bold mt-3 mb-3" style="font-size: 15px; border-radius: 8px; border: 1px solid #fde68a; background-color: #fef3c7; color: #92400e;">
+                        <i class="fa fa-clock-o me-2"></i> ${this.pendingMessage}
+                    </div>
+                `;
+            }
+
+            container.innerHTML = `
+                <div class="row">
+                    <div class="col-md-12 text-center">
+                        <span class="badge ${badgeColor} px-4 py-2" style="font-size: 16px; border-radius: 9999px; text-transform: uppercase;">${badgeText}</span>
+                        <h2 class="mt-2" style="color: #1e293b; font-weight: 700;">${this.pkgopsType === "PAPA" ? "PAPA's" : this.pkgopsType} Audit Summary</h2>
+                    </div>
+                </div>
+                ${pendingBannerHtml}
+                ${detailHtml}
+            `;
+        } catch (error) {
+            console.error("Failed to build summary: ", error);
+            container.innerHTML = `<div class="alert alert-danger">Failed to generate summary page.</div>`;
+        }
+    },
+
+    buildChecklistSummaryHtml: async function (rows, netWeightRows) {
+        let html = "";
+
+        if (this.pkgopsType === "Temperatures & Humidity") {
+            const r = rows[0] || {};
+            html = `
+                <div class="row mt-3 g-3">
+                    ${this.createSummaryCard("th-line-temp", "Packaging Line Temp", `${r.cr3ea_pkglinetemp || "-"} &deg;C`)}
+                    ${this.createSummaryCard("th-line-hum", "Packaging Line Humidity", `${r.cr3ea_pkglinehumidity || "-"} %`)}
+                    ${this.createSummaryCard("th-tunnel-temp", "Cooling Tunnel Temp", `${r.cr3ea_coolingtunneltemp || "-"} &deg;C`)}
+                    ${this.createSummaryCard("th-cream-temp", "Cream Room Temp", `${r.cr3ea_creamroomtemp || "-"} &deg;C`)}
+                    ${this.createSummaryCard("th-cold1-temp", "Cold Storage 1 Temp", `${r.cr3ea_coldstorage1nbtemp || "-"} &deg;C`)}
+                    ${this.createSummaryCard("th-cold2-temp", "Cold Storage 2 Temp", `${r.cr3ea_coldstorage2nbtemp || "-"} &deg;C`)}
+                    ${this.createSummaryCard("th-flav-temp", "Flavour Room Temp", `${r.cr3ea_flavourroomtemp || "-"} &deg;C`)}
+                    ${this.createSummaryCard("th-dh-hum", "DH Room Humidity", `${r.cr3ea_dhroomhumidity || "-"} %`)}
+                    ${this.createSummaryCard("th-cr1-temp", "Cold Room 1 Temp", `${r.cr3ea_coldroom1obtemp || "-"} &deg;C`)}
+                    ${this.createSummaryCard("th-cr2-temp", "Cold Room 2 Temp", `${r.cr3ea_coldroom2obtemp || "-"} &deg;C`)}
+                    ${this.createSummaryCard("th-cr3-temp", "Cold Room 3 Temp", `${r.cr3ea_coldroom3obtemp || "-"} &deg;C`)}
+                    ${this.createSummaryCard("th-yeast-temp", "Deep Freezer for Yeast", `${r.cr3ea_deepfreezeryeasttemp || "-"} &deg;C`)}
+                </div>
+            `;
+        } 
+        else if (this.pkgopsType === "Code Verification") {
+            const sortedCvRows = rows.slice().sort((a, b) => PKGOPS_Summary.parseSampleNum(a) - PKGOPS_Summary.parseSampleNum(b));
+            html = `
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="table-responsive shadow-sm rounded border bg-white" style="overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch;">
+                            <table class="table table-hover align-middle mb-0" style="border-collapse: collapse; width: 100%; min-width: 900px; table-layout: fixed;">
+                                <thead style="background-color: #1e3a8a; color: #ffffff; border-bottom: 2px solid #1d4ed8;">
+                                    <tr>
+                                        <th style="padding: 12px 16px; font-weight: 700; width: 10%;">Sample No</th>
+                                        <th style="padding: 12px 16px; font-weight: 700; width: 14%;">Batch / PKD</th>
+                                        <th style="padding: 12px 16px; font-weight: 700; width: 14%;">Observed Defect</th>
+                                        <th style="padding: 12px 16px; font-weight: 700; width: 9%;">Defect Count</th>
+                                        <th style="padding: 12px 16px; font-weight: 700; text-align: left; width: 23%;">Corrective Action Taken</th>
+                                        <th style="padding: 12px 16px; font-weight: 700; text-align: left; width: 22%;">Re-verify Remarks</th>
+                                        <th style="padding: 12px 16px; font-weight: 700; width: 8%;">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${sortedCvRows.map((row, idx) => {
+                                         const sampleNo = PKGOPS_Summary.parseSampleNum(row, idx);
+                                         const hasDefect = row.cr3ea_defecttype && row.cr3ea_defecttype !== "None" && row.cr3ea_defecttype !== "Okay";
+                                         const isResolved = row.cr3ea_deviationstatus === "Closed";
+                                         const badge = (hasDefect && !isResolved)
+                                             ? `<span class="badge" style="background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 11px; display: inline-block;">DEFECTIVE</span>`
+                                             : `<span class="badge" style="background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 11px; display: inline-block;">OKAY</span>`;
+
+                                         const actionRaw = row.cr3ea_actiontaken || "";
+                                         const prodPart = actionRaw.split(" | QA: ")[0] || "";
+                                         const qaPart = actionRaw.split(" | QA: ")[1] || "";
+
+                                         const prodRemarks = prodPart.split(" | Proof: ")[0] || "-";
+                                         const prodProof = prodPart.split(" | Proof: ")[1] || "";
+                                         const qaRemarks = qaPart.split(" | Proof: ")[0] || "-";
+                                         const qaProof = qaPart.split(" | Proof: ")[1] || "";
+
+                                         const defectLinkHtml = row.cr3ea_codepictureurl ? `<br>${PKGOPS_Summary.formatProofLinks(row.cr3ea_codepictureurl, "Defect Photo")}` : "";
+                                         const prodLinkHtml = prodProof ? PKGOPS_Summary.formatProofLinks(prodProof, "Proof") : "";
+                                         const qaLinkHtml = qaProof ? PKGOPS_Summary.formatProofLinks(qaProof, "QA Proof") : "";
+
+                                         let rowStyle = "";
+                                         if (hasDefect && isResolved) {
+                                             rowStyle = `background-color: #f0fdf4; color: #15803d;`; // soft green for resolved
+                                         } else if (hasDefect) {
+                                             rowStyle = `background-color: #fef2f2; color: #b91c1c;`; // soft red for pending defect
+                                         }
+
+                                         const defectTokens = hasDefect ? (row.cr3ea_defecttype || "").split(/,\s*(?![^()]*\))/).map(t => t.trim()).filter(Boolean) : [];
+                                         const defectDisplay = hasDefect
+                                             ? (defectTokens.length > 1
+                                                 ? `<div class="d-flex flex-wrap gap-1">${defectTokens.map(d => `<span class="badge" style="background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; font-size: 11px; font-weight: 600; white-space: normal; text-align: left;">${d}</span>`).join("")}</div>`
+                                                 : `<span class="text-danger" style="font-weight: 700;">${row.cr3ea_defecttype || "-"}</span>`)
+                                             : `<span class="text-secondary">-</span>`;
+
+                                         return `
+                                             <tr style="${rowStyle} border-bottom: 1px solid #e2e8f0;">
+                                                 <td style="padding: 12px 16px; font-weight: 600;"><span class="badge bg-light text-primary border" style="font-size: 12px; padding: 4px 8px;">Sample ${sampleNo}</span></td>
+                                                 <td style="padding: 12px 16px;">Batch: ${row.cr3ea_batchno || "-"} <br> <small class="text-secondary">PKD: ${row.cr3ea_pkd || "-"}</small></td>
+                                                 <td style="padding: 12px 16px;">${defectDisplay}${defectLinkHtml}</td>
+                                                 <td style="padding: 12px 16px; font-weight: 600;">${row.cr3ea_defectcount || "0"}</td>
+                                                 <td style="padding: 12px 16px; text-align: left; font-size: 13px; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${prodRemarks}${prodLinkHtml}</td>
+                                                 <td style="padding: 12px 16px; text-align: left; font-size: 13px; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${qaRemarks}${qaLinkHtml}</td>
+                                                 <td style="padding: 12px 16px;">${badge}</td>
+                                             </tr>
+                                         `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } 
+        else if (this.pkgopsType === "PAPA" || this.pkgopsType === "PAPA's") {
+            const firstRow = rows.find(r => r.cr3ea_defecttype === "Overall Summary") || rows[0] || {};
+            const productName = firstRow.cr3ea_productname || "-";
+            const sku = firstRow.cr3ea_sku || "-";
+            const sampleSize = parseInt(firstRow.cr3ea_noofsamples || "100") || 100;
+
+            // Separate overall summary row from actual defect rows
+            const overallRow = rows.find(r => r.cr3ea_defecttype === "Overall Summary");
+            const defectRows = rows.filter(r => r.cr3ea_defecttype && r.cr3ea_defecttype !== "Overall Summary").sort((a, b) => {
+                const getCatWeight = (t) => {
+                    if (!t) return 4;
+                    if (t.includes("(A -") || t.includes("(A)") || t.includes("Category A")) return 1;
+                    if (t.includes("(B -") || t.includes("(B)") || t.includes("Category B")) return 2;
+                    if (t.includes("(C -") || t.includes("(C)") || t.includes("Category C")) return 3;
+                    return 4;
+                };
+                const diff = getCatWeight(a.cr3ea_defecttype) - getCatWeight(b.cr3ea_defecttype);
+                if (diff !== 0) return diff;
+                return (a.cr3ea_defecttype || "").localeCompare(b.cr3ea_defecttype || "");
+            });
+
+            // Calculate totals
+            let totalDefectCount = defectRows.reduce((sum, r) => sum + (parseInt(r.cr3ea_defectcount) || 0), 0);
+            if (totalDefectCount === 0 && overallRow && parseInt(overallRow.cr3ea_defectcount) > 0) {
+                totalDefectCount = parseInt(overallRow.cr3ea_defectcount);
+            }
+            const overallDefectPct = ((totalDefectCount / sampleSize) * 100).toFixed(2);
+            const conformingCount = Math.max(0, sampleSize - totalDefectCount);
+            const conformancePct = ((conformingCount / sampleSize) * 100).toFixed(2);
+
+            // Classification & Severity counts
+            let catACount = 0;
+            let catBCount = 0;
+            let catCCount = 0;
+            let prodDefectCount = 0;
+            let packDefectCount = 0;
+
+            defectRows.forEach(r => {
+                const count = parseInt(r.cr3ea_defectcount) || 0;
+                const dType = r.cr3ea_defecttype || "";
+                if (dType.includes("(A -") || dType.includes("(A)")) catACount += count;
+                else if (dType.includes("(B -") || dType.includes("(B)")) catBCount += count;
+                else if (dType.includes("(C -") || dType.includes("(C)")) catCCount += count;
+
+                if (dType.includes("- Product")) prodDefectCount += count;
+                else if (dType.includes("- Pack")) packDefectCount += count;
+            });
+
+            // Helper to parse defect display
+            const parseDefectInfo = (rawStr) => {
+                if (!rawStr) return { name: "-", badge: "" };
+                const match = rawStr.match(/^(.*?)\s*\(([A-C])\s*-\s*(Product|Pack)\)$/i);
+                if (match) {
+                    const name = match[1].trim();
+                    const cat = match[2].toUpperCase();
+                    const scope = match[3];
+                    let badgeClass = "bg-danger";
+                    let catLabel = "Critical";
+                    if (cat === "B") { badgeClass = "bg-warning text-dark"; catLabel = "Major"; }
+                    else if (cat === "C") { badgeClass = "bg-secondary"; catLabel = "Minor"; }
+                    return {
+                        name: name,
+                        badge: `<span class="badge ${badgeClass} ms-1" style="font-size: 11px; padding: 3px 6px;">Cat ${cat} (${scope} - ${catLabel})</span>`
+                    };
+                }
+                return { name: rawStr, badge: "" };
+            };
+
+            html = `
+                <!-- Executive KPI Cards -->
+                <div class="row mt-3 g-3">
+                    <div class="col-md-3">
+                        <div class="card border-0 shadow-sm rounded bg-white h-100">
+                            <div class="card-body p-3">
+                                <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Audited Product</span>
+                                <h5 class="mt-1 mb-0 text-dark fw-bold text-truncate" title="${productName}">${productName}</h5>
+                                <small class="text-muted">SKU: <strong>${sku}</strong></small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card border-0 shadow-sm rounded bg-white h-100">
+                            <div class="card-body p-3">
+                                <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Total Samples Audited</span>
+                                <h4 class="mt-1 mb-0 text-dark fw-bold">${sampleSize} <span style="font-size: 13px; font-weight: 500; color: #64748b;">Units</span></h4>
+                                <small class="text-muted">PAPA's Sample Base</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card border-0 shadow-sm rounded bg-white h-100">
+                            <div class="card-body p-3">
+                                <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Conformance Rate</span>
+                                <h4 class="mt-1 mb-0 text-success fw-bold">${conformancePct}%</h4>
+                                <div class="progress mt-2" style="height: 6px; background-color: #f1f5f9; border-radius: 3px; overflow: hidden;">
+                                    <div class="progress-bar bg-success" style="width: ${Math.min(conformancePct, 100)}%;"></div>
+                                </div>
+                                <small class="text-success fw-semibold mt-1 d-block">${conformingCount} / ${sampleSize} Units Pass</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card border-0 shadow-sm rounded bg-white h-100">
+                            <div class="card-body p-3">
+                                <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Overall Defect Rate</span>
+                                <h4 class="mt-1 mb-0 ${totalDefectCount > 0 ? 'text-danger' : 'text-success'} fw-bold">${overallDefectPct}%</h4>
+                                <div class="progress mt-2" style="height: 6px; background-color: #f1f5f9; border-radius: 3px; overflow: hidden;">
+                                    <div class="progress-bar ${totalDefectCount > 0 ? 'bg-danger' : 'bg-success'}" style="width: ${Math.min(overallDefectPct, 100)}%;"></div>
+                                </div>
+                                <small class="${totalDefectCount > 0 ? 'text-danger' : 'text-success'} fw-semibold mt-1 d-block">${totalDefectCount} Total Defect Units</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Severity & Classification Cards with Category Progress Bars -->
+                <div class="row mt-3 g-3">
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm rounded bg-white h-100">
+                            <div class="card-body p-3">
+                                <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Category A (Critical)</span>
+                                <h4 class="mt-1 mb-0 ${catACount > 0 ? 'text-danger' : 'text-dark'} fw-bold">${catACount} <span style="font-size: 13px; font-weight: 500; color: #64748b;">(${((catACount/sampleSize)*100).toFixed(2)}%)</span></h4>
+                                <div class="progress mt-2" style="height: 6px; background-color: #fee2e2; border-radius: 3px; overflow: hidden;">
+                                    <div class="progress-bar bg-danger" style="width: ${Math.min((catACount/sampleSize)*100, 100)}%;"></div>
+                                </div>
+                                <small class="${catACount > 0 ? 'text-danger fw-semibold' : 'text-muted'} mt-1 d-block">${catACount > 0 ? 'Critical Deviations' : 'Zero Critical Defects'}</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm rounded bg-white h-100">
+                            <div class="card-body p-3">
+                                <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Category B (Major)</span>
+                                <h4 class="mt-1 mb-0 ${catBCount > 0 ? 'text-warning text-dark' : 'text-dark'} fw-bold">${catBCount} <span style="font-size: 13px; font-weight: 500; color: #64748b;">(${((catBCount/sampleSize)*100).toFixed(2)}%)</span></h4>
+                                <div class="progress mt-2" style="height: 6px; background-color: #fef3c7; border-radius: 3px; overflow: hidden;">
+                                    <div class="progress-bar bg-warning text-dark" style="width: ${Math.min((catBCount/sampleSize)*100, 100)}%;"></div>
+                                </div>
+                                <small class="${catBCount > 0 ? 'text-warning text-dark fw-semibold' : 'text-muted'} mt-1 d-block">${catBCount > 0 ? 'Major Deviations' : 'Zero Major Defects'}</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm rounded bg-white h-100">
+                            <div class="card-body p-3">
+                                <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Category C (Minor)</span>
+                                <h4 class="mt-1 mb-0 ${catCCount > 0 ? 'text-secondary' : 'text-dark'} fw-bold">${catCCount} <span style="font-size: 13px; font-weight: 500; color: #64748b;">(${((catCCount/sampleSize)*100).toFixed(2)}%)</span></h4>
+                                <div class="progress mt-2" style="height: 6px; background-color: #f1f5f9; border-radius: 3px; overflow: hidden;">
+                                    <div class="progress-bar bg-secondary" style="width: ${Math.min((catCCount/sampleSize)*100, 100)}%;"></div>
+                                </div>
+                                <small class="text-muted mt-1 d-block">${catCCount > 0 ? 'Minor Deviations' : 'Zero Minor Defects'}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Observations & Corrective Actions -->
+                ${defectRows.length > 0 ? `
+                    <div class="row mt-4">
+                        <div class="col-md-12">
+                            <div class="card border-0 shadow-sm rounded bg-white" style="overflow: hidden; border-radius: 8px;">
+                                <div class="card-header py-3 px-4 bg-white border-bottom d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0 fw-bold" style="color: #1e3a8a; font-size: 15px;">
+                                        <i class="fa fa-list-ul text-primary me-2"></i> Observed Defect Details & Resolution
+                                    </h5>
+                                    <span class="badge bg-secondary">${defectRows.length} Defect Type(s) Observed</span>
+                                </div>
+                                <div class="table-responsive" style="overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch;">
+                                    <table class="table table-hover align-middle mb-0" style="border-collapse: collapse; width: 100%; min-width: 900px; table-layout: fixed;">
+                                        <thead style="background-color: #1e3a8a; color: #ffffff;">
+                                            <tr>
+                                                <th style="padding: 12px 16px; font-weight: 700; text-align: left; width: 26%;">Defect Observation</th>
+                                                <th style="padding: 12px 16px; font-weight: 700; width: 10%;">Defect Count</th>
+                                                <th style="padding: 12px 16px; font-weight: 700; width: 11%;">Defect %</th>
+                                                <th style="padding: 12px 16px; font-weight: 700; text-align: left; width: 22%;">Corrective Action Taken</th>
+                                                <th style="padding: 12px 16px; font-weight: 700; text-align: left; width: 21%;">Re-verify Remarks</th>
+                                                <th style="padding: 12px 16px; font-weight: 700; width: 10%;">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${defectRows.map(row => {
+                                                const defectInfo = parseDefectInfo(row.cr3ea_defecttype);
+                                                const isResolved = row.cr3ea_deviationstatus === "Closed";
+
+                                                const actionRaw = row.cr3ea_actiontaken || "";
+                                                const prodPart = actionRaw.split(" | QA: ")[0] || "";
+                                                const qaPart = actionRaw.split(" | QA: ")[1] || "";
+
+                                                const prodRemarks = prodPart.split(" | Proof: ")[0] || "-";
+                                                const prodProof = prodPart.split(" | Proof: ")[1] || "";
+                                                const qaRemarks = qaPart.split(" | Proof: ")[0] || "-";
+                                                const qaProof = qaPart.split(" | Proof: ")[1] || "";
+
+                                                const prodLinkHtml = prodProof ? PKGOPS_Summary.formatProofLinks(prodProof, "Proof") : "";
+                                                const qaLinkHtml = qaProof ? PKGOPS_Summary.formatProofLinks(qaProof, "QA Proof") : "";
+
+                                                const badge = isResolved
+                                                    ? `<span class="badge" style="background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 11px; display: inline-block;">OKAY</span>`
+                                                    : `<span class="badge" style="background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 11px; display: inline-block;">DEFECTIVE</span>`;
+
+                                                const rowStyle = isResolved
+                                                    ? `background-color: #f0fdf4; color: #15803d;`
+                                                    : `background-color: #fef2f2; color: #b91c1c;`;
+
+                                                const rawPct = row.cr3ea_defectwisepercentage || ((parseInt(row.cr3ea_defectcount) || 0) / sampleSize * 100);
+                                                const formattedPct = PKGOPS_Summary.formatPercentage(rawPct);
+
+                                                return `
+                                                    <tr style="${rowStyle} border-bottom: 1px solid #e2e8f0;">
+                                                        <td style="padding: 12px 16px; text-align: left; font-weight: 600;">
+                                                             <div>${defectInfo.name}</div>
+                                                             <div class="mt-1">${defectInfo.badge}</div>
+                                                        </td>
+                                                        <td style="padding: 12px 16px; font-weight: 700; font-size: 15px;">${row.cr3ea_defectcount || "0"}</td>
+                                                        <td style="padding: 12px 16px; font-weight: 600;">${formattedPct}</td>
+                                                        <td style="padding: 12px 16px; text-align: left; font-size: 13px; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${prodRemarks}${prodLinkHtml}</td>
+                                                        <td style="padding: 12px 16px; text-align: left; font-size: 13px; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${qaRemarks}${qaLinkHtml}</td>
+                                                        <td style="padding: 12px 16px;">${badge}</td>
+                                                    </tr>
+                                                `;
+                                            }).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ` : `
+                    <div class="row mt-4">
+                        <div class="col-md-12">
+                            <div class="card border-0 shadow-sm rounded p-4 text-center" style="border: 1px solid #bbf7d0 !important; background-color: #f0fdf4 !important;">
+                                <div class="text-success mb-2" style="font-size: 36px;"><i class="fa fa-check-circle"></i></div>
+                                <h5 class="fw-bold text-success mb-1">100.00% Quality Conformance</h5>
+                                <p class="text-secondary mb-0" style="font-size: 14px;">All sampled units (${sampleSize} units) conformed to specifications. Zero product or packaging defects were observed during this PAPA's audit.</p>
+                            </div>
+                        </div>
+                    </div>
+                `}
+            `;
+        } 
+        else if (this.pkgopsType === "PQI") {
+            let netWeightCardHtml = "";
+            const nwList = netWeightRows || [];
+            if (nwList.length > 0) {
+                const nw = nwList[0];
+                let std = nw.cr3ea_standardweight;
+                if (!std && nw.cr3ea_name) {
+                    const match = nw.cr3ea_name.match(/Std:([0-9.]+)/i);
+                    if (match) std = parseFloat(match[1]);
+                }
+                if (!std) {
+                    const skuOrProd = nw.cr3ea_sku || nw.cr3ea_productname || "";
+                    std = this.extractPackWeight(skuOrProd);
+                }
+                if (!std && parseFloat(nw.cr3ea_averageweight) > 0 && nw.cr3ea_giveaway !== undefined) {
+                    std = Number((parseFloat(nw.cr3ea_averageweight) - (parseFloat(nw.cr3ea_giveaway) || 0)).toFixed(2));
+                }
+
+                const avg = parseFloat(nw.cr3ea_averageweight) || 0;
+                const diff = (std && std > 0) ? (avg - std) : (parseFloat(nw.cr3ea_giveaway) || 0);
+                const gaPct = (std && std > 0) ? ((diff / std) * 100).toFixed(2) : "0.00";
+                const isUnder = (std && std > 0 && avg < std);
+
+                // Collect 15 samples
+                const sampleChips = [];
+                for (let i = 1; i <= 15; i++) {
+                    const sw = nw[`cr3ea_sampleweight${i}`];
+                    if (sw !== undefined && sw !== null && sw !== "" && sw !== 0) {
+                        const swNum = parseFloat(sw);
+                        const isSampleUnder = (std && std > 0 && !isNaN(swNum) && swNum < std);
+                        const chipCls = isSampleUnder ? "badge bg-danger text-white" : "badge bg-light text-dark border";
+                        sampleChips.push(`
+                            <span class="${chipCls}" style="font-size: 11px; padding: 5px 8px; font-weight: 500;">
+                                S${i}: <strong>${sw}g</strong>
+                            </span>
+                        `);
+                    }
+                }
+
+                netWeightCardHtml = `
+                    <div class="card mb-4 shadow-sm rounded border bg-white" style="overflow: hidden; border-radius: 8px;">
+                        <div class="card-header py-3 px-4" style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                            <h5 class="mb-0 fw-bold" style="color: #1e3a8a; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                <i class="fa fa-balance-scale text-primary me-2"></i> 1. Net Weight Evaluation
+                            </h5>
+                            <div>
+                                <span class="badge ${isUnder ? 'bg-danger' : 'bg-success'}" style="font-size: 12px; padding: 5px 10px;">
+                                    ${isUnder ? 'Underweight Alert' : 'Weight Conformance: OK'}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="card-body p-3">
+                            <div class="row g-3 text-center">
+                                <div class="col-md-4 col-sm-6">
+                                    <div class="p-2 border rounded bg-light">
+                                        <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Standard Weight</span>
+                                        <h4 class="mb-0 fw-bold text-dark mt-1">${std ? std + ' g' : '-'}</h4>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 col-sm-6">
+                                    <div class="p-2 border rounded bg-light">
+                                        <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Average Weight</span>
+                                        <h4 class="mb-0 fw-bold text-primary mt-1">${avg ? avg.toFixed(2) + ' g' : '-'}</h4>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 col-sm-12">
+                                    <div class="p-2 border rounded bg-light">
+                                        <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Give-Away</span>
+                                        <h4 class="mb-0 fw-bold ${isUnder ? 'text-danger' : 'text-success'} mt-1">
+                                            ${diff >= 0 ? '+' : ''}${diff.toFixed(2)} g <span style="font-size: 13px;">(${diff >= 0 ? '+' : ''}${gaPct}%)</span>
+                                        </h4>
+                                    </div>
+                                </div>
+                            </div>
+
+                            ${sampleChips.length > 0 ? `
+                                <div class="mt-3 pt-2 border-top">
+                                    <span class="text-secondary font-weight-bold d-block mb-2" style="font-size: 11px; text-transform: uppercase;">15 Sample Weight Readings:</span>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        ${sampleChips.join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Group rows by evaluation type
+            const groups = {};
+            rows.forEach(row => {
+                const evalType = row.cr3ea_evaluationtype || "Other";
+                if (!groups[evalType]) {
+                    groups[evalType] = [];
+                }
+                groups[evalType].push(row);
+            });
+
+            const evalCategories = ["Product", "Primary", "Secondary", "CBB"];
+            const catDisplayNames = {
+                "Product": "Product Defects",
+                "Primary": "Primary Pack Defects",
+                "Secondary": "Secondary Pack Defects",
+                "CBB": "CBB Defects"
+            };
+
+            let totalPQIEvaluated = 0;
+            let totalPQIDefective = 0;
+            const catStats = {};
+
+            evalCategories.forEach(cat => {
+                const subRows = groups[cat] || [];
+                const total = subRows.length;
+                const defective = subRows.filter(r => r.cr3ea_sampleresult === "Not Okay").length;
+                const pct = total > 0 ? ((defective / total) * 100).toFixed(2) : "0.00";
+                catStats[cat] = { total, defective, pct };
+                if (total > 0) {
+                    totalPQIEvaluated += total;
+                    totalPQIDefective += defective;
+                }
+            });
+
+            const overallPQIDefectPct = totalPQIEvaluated > 0 
+                ? ((totalPQIDefective / totalPQIEvaluated) * 100).toFixed(2) 
+                : "0.00";
+            const firstRow = rows[0] || (nwList && nwList[0]) || {};
+            const productName = firstRow.cr3ea_productname || "-";
+            const sku = firstRow.cr3ea_sku || "-";
+
+            let groupsHtml = "";
+            const evalOrder = ["Product", "Primary", "Secondary", "CBB"];
+            const groupKeys = Object.keys(groups).sort((a, b) => {
+                const idxA = evalOrder.indexOf(a);
+                const idxB = evalOrder.indexOf(b);
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                return a.localeCompare(b);
+            });
+
+            groupKeys.forEach(evalType => {
+                const groupRows = (groups[evalType] || []).slice().sort((a, b) => {
+                    const numA = PKGOPS_Summary.parseSampleNum(a);
+                    const numB = PKGOPS_Summary.parseSampleNum(b);
+                    if (numA !== numB) return numA - numB;
+                    return (a.cr3ea_samplenumber || "").localeCompare(b.cr3ea_samplenumber || "", undefined, { numeric: true });
+                });
+                const st = catStats[evalType] || { total: groupRows.length, defective: groupRows.filter(r => r.cr3ea_sampleresult === "Not Okay").length, pct: ((groupRows.filter(r => r.cr3ea_sampleresult === "Not Okay").length / (groupRows.length || 1)) * 100).toFixed(2) };
+                const isDefective = st.defective > 0;
+                const badgeCls = isDefective ? 'bg-danger' : 'bg-success';
+
+                groupsHtml += `
+                    <div class="card mb-4 shadow-sm rounded border bg-white" style="overflow: hidden; border-radius: 8px;">
+                        <div class="card-header py-3 px-4" style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                            <h5 class="mb-0 fw-bold" style="color: #1e3a8a; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                <i class="fa fa-folder text-primary me-2"></i> ${evalType} Evaluation
+                            </h5>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge ${badgeCls}" style="font-size: 11px; font-weight: 600; padding: 4px 8px;">
+                                    ${st.defective} / ${st.total} Defective (${st.pct}%)
+                                </span>
+                                <div class="progress" style="height: 8px; width: 110px; background-color: #e2e8f0; border-radius: 4px; overflow: hidden;">
+                                    <div class="progress-bar ${isDefective ? 'bg-danger' : 'bg-success'}" style="width: ${Math.min(parseFloat(st.pct) || 0, 100)}%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="table-responsive" style="overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch;">
+                            <table class="table table-hover align-middle mb-0" style="border-collapse: collapse; width: 100%; min-width: 850px; table-layout: fixed;">
+                                <thead style="background-color: #1e3a8a; color: #ffffff;">
+                                    <tr>
+                                        <th style="padding: 12px 16px; font-weight: 700; width: 14%;">Sample Number</th>
+                                        <th style="padding: 12px 16px; font-weight: 700; width: 12%;">Result Status</th>
+                                        <th style="padding: 12px 16px; font-weight: 700; text-align: left; width: 26%;">Defect Category / Detail</th>
+                                        <th style="padding: 12px 16px; font-weight: 700; text-align: left; width: 24%;">Corrective Action</th>
+                                        <th style="padding: 12px 16px; font-weight: 700; text-align: left; width: 24%;">Re-verify Remarks</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${groupRows.map(row => {
+                                         const isNotOk = row.cr3ea_sampleresult === "Not Okay";
+                                         const isResolved = row.cr3ea_deviationstatus === "Closed";
+                                         const badge = (isNotOk && !isResolved)
+                                             ? `<span class="badge" style="background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 11px; display: inline-block;">Not Okay</span>`
+                                             : `<span class="badge" style="background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 11px; display: inline-block;">Okay</span>`;
+
+                                         const actionRaw = row.cr3ea_actiontaken || "";
+                                         const prodPart = actionRaw.split(" | QA: ")[0] || "";
+                                         const qaPart = actionRaw.split(" | QA: ")[1] || "";
+
+                                         const prodRemarks = prodPart.split(" | Proof: ")[0] || "-";
+                                         const prodProof = prodPart.split(" | Proof: ")[1] || "";
+                                         const qaRemarks = qaPart.split(" | Proof: ")[0] || "-";
+                                         const qaProof = qaPart.split(" | Proof: ")[1] || "";
+
+                                         const defectLinkHtml = (isNotOk && row.cr3ea_batchcodepictureurl) ? `<br>${PKGOPS_Summary.formatProofLinks(row.cr3ea_batchcodepictureurl, "Defect Photo")}` : "";
+                                         const defectDesc = isNotOk 
+                                             ? `<span class="text-danger fw-bold">${row.cr3ea_defectcategory || "Defect"}</span>: ${row.cr3ea_defectdetail || "Unspecified"}${defectLinkHtml}`
+                                             : `<span class="text-success"><i class="fa fa-check-circle me-1"></i> No Defects (Okay)</span>`;
+                                         const prodLinkHtml = prodProof ? PKGOPS_Summary.formatProofLinks(prodProof, "Proof") : "";
+                                         const qaLinkHtml = qaProof ? PKGOPS_Summary.formatProofLinks(qaProof, "QA Proof") : "";
+
+                                         let rowStyle = "";
+                                         if (isNotOk && isResolved) {
+                                             rowStyle = `background-color: #f0fdf4; color: #15803d;`; // soft green for resolved
+                                         } else if (isNotOk) {
+                                             rowStyle = `background-color: #fef2f2; color: #b91c1c;`; // soft red for pending defect
+                                         }
+
+                                         return `
+                                             <tr style="${rowStyle} border-bottom: 1px solid #e2e8f0;">
+                                                 <td style="padding: 12px 16px; font-weight: 600;">${row.cr3ea_samplenumber || "-"}</td>
+                                                 <td style="padding: 12px 16px;">${badge}</td>
+                                                 <td style="padding: 12px 16px; text-align: left; font-weight: 500;">${defectDesc}</td>
+                                                 <td style="padding: 12px 16px; text-align: left; font-size: 13px; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${prodRemarks}${prodLinkHtml}</td>
+                                                 <td style="padding: 12px 16px; text-align: left; font-size: 13px; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${qaRemarks}${qaLinkHtml}</td>
+                                             </tr>
+                                         `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html = `
+                <!-- PQI Executive Category-wise Defect Rate KPI Cards with Progress Bars -->
+                <div class="row mt-3 g-3">
+                    ${evalCategories.map(catKey => {
+                        const st = catStats[catKey] || { total: 10, defective: 0, pct: "0.00" };
+                        const isDef = st.defective > 0;
+                        const dispName = catDisplayNames[catKey] || `${catKey} Defects`;
+                        return `
+                            <div class="col-md-3">
+                                <div class="card border-0 shadow-sm rounded bg-white h-100">
+                                    <div class="card-body p-3">
+                                        <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">${dispName}</span>
+                                        <h4 class="mt-1 mb-0 ${isDef ? 'text-danger' : 'text-success'} fw-bold">
+                                            ${st.defective} <span style="font-size: 13px; font-weight: 500; color: #64748b;">/ ${st.total || 10}</span>
+                                            <span style="font-size: 13px; font-weight: 600;">(${st.pct}%)</span>
+                                        </h4>
+                                        <div class="progress mt-2" style="height: 6px; background-color: #f1f5f9; border-radius: 3px; overflow: hidden;">
+                                            <div class="progress-bar ${isDef ? 'bg-danger' : 'bg-success'}" style="width: ${Math.min(parseFloat(st.pct) || 0, 100)}%;"></div>
+                                        </div>
+                                        <small class="${isDef ? 'text-danger fw-semibold' : 'text-success'} mt-1 d-block">${isDef ? st.defective + ' Defective Sample(s)' : '100% Quality Conformance'}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <!-- Overall PQI Evaluation Summary Card -->
+                <div class="card my-3 shadow-sm border rounded bg-white" style="border-radius: 8px; border: 1px solid #cbd5e1 !important;">
+                    <div class="card-body p-3 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <div>
+                            <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Overall PQI Evaluation Status</span>
+                            <h5 class="mb-0 fw-bold text-dark mt-1">
+                                Product: <strong>${productName}</strong> <span class="text-muted fw-normal ms-2">| SKU: <strong>${sku}</strong></span>
+                            </h5>
+                        </div>
+                        <div class="d-flex align-items-center gap-4 flex-wrap">
+                            <div>
+                                <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Total Evaluated</span>
+                                <h5 class="mb-0 fw-bold text-dark">${totalPQIEvaluated} Samples</h5>
+                            </div>
+                            <div style="min-width: 200px;">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">Overall Defect Rate</span>
+                                    <span class="badge ${totalPQIDefective > 0 ? 'bg-danger' : 'bg-success'}" style="font-size: 11px;">${overallPQIDefectPct}%</span>
+                                </div>
+                                <div class="progress" style="height: 8px; background-color: #f1f5f9; border-radius: 4px; overflow: hidden;">
+                                    <div class="progress-bar ${totalPQIDefective > 0 ? 'bg-danger' : 'bg-success'}" style="width: ${Math.min(parseFloat(overallPQIDefectPct) || 0, 100)}%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        ${netWeightCardHtml}
+                        ${groupsHtml}
+                    </div>
+                </div>
+            `;
+        } 
+        else if (this.pkgopsType === "Seal Integrity") {
+            const r = rows[0] || {};
+            const qty = parseInt(r.cr3ea_samplequantity, 10) || 0;
+            const leakCount = parseInt(r.cr3ea_noofleakage, 10) || 0;
+            const hasLeak = leakCount > 0;
+            const passCount = Math.max(0, qty - leakCount);
+            const passPctVal = qty > 0 ? ((passCount / qty) * 100) : 100;
+            const passPctStr = passPctVal.toFixed(2) + "%";
+
+            const passBadgeClass = passPctVal === 100 ? "text-success" : (passPctVal >= 80 ? "text-warning" : "text-danger");
+            const passCardContent = `
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="${passBadgeClass} fw-bold" style="font-size: 1.25rem;">${passPctStr}</span>
+                    <span class="badge ${passPctVal === 100 ? 'bg-success' : (passPctVal >= 80 ? 'bg-warning text-dark' : 'bg-danger')}" style="font-size: 11px;">
+                        ${passCount}/${qty} Passed
+                    </span>
+                </div>
+            `;
+
+            const rawDefects = (r.cr3ea_leakagetype || "None").trim();
+            const parsedDefects = [];
+            if (hasLeak && rawDefects && rawDefects !== "None") {
+                const parts = rawDefects.split(",").map(p => p.trim()).filter(Boolean);
+                parts.forEach(p => {
+                    let text = p;
+                    let count = 1;
+                    let notes = "";
+                    let custom = "";
+
+                    const notesMatch = text.match(/\[(.*?)\]/);
+                    if (notesMatch) {
+                        notes = notesMatch[1];
+                        text = text.replace(/\[(.*?)\]/, "").trim();
+                    }
+
+                    const countMatch = text.match(/:\s*(\d+)$/);
+                    if (countMatch) {
+                        count = parseInt(countMatch[1], 10) || 1;
+                        text = text.replace(/:\s*\d+$/, "").trim();
+                    }
+
+                    const customMatch = text.match(/^(.*?)\s*\((.*?)\)$/);
+                    if (customMatch) {
+                        text = customMatch[1].trim();
+                        custom = customMatch[2].trim();
+                    }
+
+                    parsedDefects.push({ type: text, custom, notes, count });
+                });
+            }
+
+            html = `
+                <div class="row mt-3 g-3">
+                    ${this.createSummaryCard("seal-machine", "Machine Number", r.cr3ea_machineno || "-")}
+                    ${this.createSummaryCard("seal-qty", "Sample Quantity", r.cr3ea_samplequantity || "-")}
+                    ${this.createSummaryCard("seal-leaks", "Total Leakage Count", r.cr3ea_noofleakage || "0")}
+                    ${this.createSummaryCard("seal-pass-pct", "Pass Test %", passCardContent)}
+                </div>
+                <div class="row mt-3 g-3">
+                    <div class="col-md-12">
+                        <div class="card border rounded p-3 bg-white shadow-sm">
+                            <h6 class="fw-bold text-dark mb-2" style="font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                <i class="fa fa-list-check text-primary me-2"></i>Leakage Defect Breakdown
+                            </h6>
+                            ${hasLeak && parsedDefects.length > 0 ? `
+                                <div class="d-flex flex-column gap-2 p-2 rounded bg-light border">
+                                    ${parsedDefects.map(d => `
+                                        <div class="d-flex align-items-center justify-content-between p-2 px-3 rounded bg-white border" style="border: 1px solid #fee2e2 !important;">
+                                            <div>
+                                                <strong class="text-danger" style="font-size: 13px;">${d.type}</strong>
+                                                ${d.custom ? `<span class="text-dark ms-1">&bull; <em>${d.custom}</em></span>` : ''}
+                                                ${d.notes ? `<span class="text-muted ms-2" style="font-size: 11px;">[Location/Note: ${d.notes}]</span>` : ''}
+                                            </div>
+                                            <span class="badge bg-danger" style="font-size: 12px; font-weight: 700; padding: 4px 10px;">${d.count} ${d.count > 1 ? 'packs' : 'pack'}</span>
+                                        </div>
+                                    `).join("")}
+                                </div>
+                            ` : `
+                                <div class="alert alert-success mb-0 py-2" style="font-size: 13px;">
+                                    <i class="fa fa-check-circle me-1"></i> 100% Passed - No leakage defects observed.
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                </div>
+                ${hasLeak ? (() => {
+                    const actionRaw = r.cr3ea_actiontaken || "";
+                    const prodPart = actionRaw.split(" | QA: ")[0] || "";
+                    const qaPart = actionRaw.split(" | QA: ")[1] || "";
+
+                    const prodRemarks = prodPart.split(" | Proof: ")[0] || "-";
+                    const prodProof = prodPart.split(" | Proof: ")[1] || "";
+                    const qaRemarks = qaPart.split(" | Proof: ")[0] || "-";
+                    const qaProof = qaPart.split(" | Proof: ")[1] || "";
+
+                    const prodLinkHtml = prodProof ? PKGOPS_Summary.formatProofLinks(prodProof, "Proof") : "";
+                    const qaLinkHtml = qaProof ? PKGOPS_Summary.formatProofLinks(qaProof, "QA Proof") : "";
+
+                    return `
+                        <div class="row mt-3">
+                            <div class="col-md-12">
+                                <div class="p-3 border rounded bg-white">
+                                    <h5 class="text-danger fw-bold">Deviation Summary</h5>
+                                    <p style="word-break: break-word; overflow-wrap: break-word; white-space: normal;"><strong>Corrective Action Taken:</strong> ${prodRemarks}${prodLinkHtml}</p>
+                                    <p style="word-break: break-word; overflow-wrap: break-word; white-space: normal;"><strong>Re-verification Remarks:</strong> ${qaRemarks}${qaLinkHtml}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                })() : ''}
+            `;
+        } 
+        else if (this.pkgopsType === "Quality Wall Records") {
+            const r = rows[0] || {};
+            const facDisplayName = await PKGOPS_DAL.resolveUserDisplayNames(r.cr3ea_facilitator);
+
+            let rawRemarks = r.cr3ea_remarks || "";
+            let meta = null;
+            try {
+                if (rawRemarks && rawRemarks.trim().startsWith("{")) {
+                    meta = JSON.parse(rawRemarks);
+                }
+            } catch (e) {
+                console.warn("Could not parse wall JSON remarks in summary:", e);
+            }
+
+            // Extract member scores
+            let memberScores = [];
+            if (meta && Array.isArray(meta.memberScores) && meta.memberScores.length > 0) {
+                memberScores = meta.memberScores;
+            } else if (r.cr3ea_memberspresent) {
+                const names = r.cr3ea_memberspresent.split(/[,;]+/).map(n => n.trim()).filter(Boolean);
+                memberScores = names.map((n, idx) => ({
+                    id: "mem_" + idx,
+                    name: n,
+                    role: "Panelist",
+                    score: 0,
+                    status: "Green Wall (Sustain)",
+                    notes: ""
+                }));
+            }
+
+            const getScoreStatusInfo = (score) => {
+                const s = parseInt(score, 10);
+                if (s === 4) {
+                    return {
+                        status: "Hot Wall (Abort)",
+                        badgeClass: "bg-danger",
+                        alertClass: "alert-danger",
+                        icon: "fa-times-circle",
+                        badgeHtml: `<span class="badge bg-danger wall-score-badge"><i class="fa fa-times-circle me-1"></i> Hot Wall (Abort)</span>`
+                    };
+                } else if (s === 2 || s === 3) {
+                    return {
+                        status: "Yellow Wall (Action Taken)",
+                        badgeClass: "bg-warning text-dark",
+                        alertClass: "alert-warning",
+                        icon: "fa-exclamation-triangle",
+                        badgeHtml: `<span class="badge bg-warning text-dark wall-score-badge"><i class="fa fa-exclamation-triangle me-1"></i> Yellow Wall (Action Taken)</span>`
+                    };
+                } else {
+                    return {
+                        status: "Green Wall (Sustain)",
+                        badgeClass: "bg-success",
+                        alertClass: "alert-success",
+                        icon: "fa-check-circle",
+                        badgeHtml: `<span class="badge bg-success wall-score-badge"><i class="fa fa-check-circle me-1"></i> Green Wall (Sustain)</span>`
+                    };
+                }
+            };
+
+            const scoresList = memberScores.map(m => parseInt(m.score, 10) || 0);
+            const panelAvg = scoresList.length > 0 ? (scoresList.reduce((a, b) => a + b, 0) / scoresList.length) : (parseFloat(r.cr3ea_overallrating) || 0);
+            const countHot = scoresList.filter(s => s === 4).length;
+            const countYellow = scoresList.filter(s => s === 2 || s === 3).length;
+            const countGreen = scoresList.filter(s => s === 0 || s === 1).length;
+
+            let overallWallStatus = (meta && meta.overallWallStatus) || r.cr3ea_typeofqualitywall || "Green Wall (Sustain)";
+            if (!meta) {
+                if (countHot > 0 || String(r.cr3ea_typeofqualitywall).toLowerCase().includes("hot")) overallWallStatus = "Hot Wall (Abort)";
+                else if (countYellow > 0 || String(r.cr3ea_typeofqualitywall).toLowerCase().includes("yellow")) overallWallStatus = "Yellow Wall (Action Taken)";
+                else overallWallStatus = "Green Wall (Sustain)";
+            }
+
+            let wallAlertClass = "alert-success";
+            let wallAlertIcon = "fa-check-circle";
+            let wallAlertText = `All ${memberScores.length} team members recorded scores 0-1 (Sustain). Optimal quality sustained.`;
+            if (overallWallStatus.includes("Hot") || countHot > 0) {
+                wallAlertClass = "alert-danger";
+                wallAlertIcon = "fa-times-circle";
+                wallAlertText = `CRITICAL ALERT: Hot Wall (Abort) triggered! ${countHot} member(s) gave a score of 4. Immediate line halt or containment action recommended.`;
+            } else if (overallWallStatus.includes("Yellow") || countYellow > 0) {
+                wallAlertClass = "alert-warning";
+                wallAlertIcon = "fa-exclamation-triangle";
+                wallAlertText = `ACTION REQUIRED: Yellow Wall (Action Taken)! ${countYellow} member(s) scored 2-3. Corrective actions required.`;
+            }
+
+            // Ratings
+            let prodRatings = { appearance: 0, colour: 0, texture: 0, flavour: 0, taste: 0 };
+            let packRatings = {
+                appearance: parseFloat(r.cr3ea_packappearancerating) || 0,
+                sealing: parseFloat(r.cr3ea_sealingqualityrating) || 0,
+                coding: parseFloat(r.cr3ea_codingrating) || 0
+            };
+            let userRemarksText = rawRemarks;
+
+            if (meta) {
+                if (meta.prodRatings) prodRatings = meta.prodRatings;
+                if (meta.packRatings) packRatings = meta.packRatings;
+                userRemarksText = meta.userRemarks || "";
+            } else {
+                const prodMatch = rawRemarks.match(/\[Product Quality\s*\|\s*Appearance:\s*(\d+(?:\.\d+)?),\s*Colour:\s*(\d+(?:\.\d+)?),\s*Texture:\s*(\d+(?:\.\d+)?),\s*Flavour:\s*(\d+(?:\.\d+)?),\s*Taste:\s*(\d+(?:\.\d+)?)\]/i);
+                if (prodMatch) {
+                    prodRatings.appearance = parseFloat(prodMatch[1]) || 0;
+                    prodRatings.colour = parseFloat(prodMatch[2]) || 0;
+                    prodRatings.texture = parseFloat(prodMatch[3]) || 0;
+                    prodRatings.flavour = parseFloat(prodMatch[4]) || 0;
+                    prodRatings.taste = parseFloat(prodMatch[5]) || 0;
+                    userRemarksText = rawRemarks.replace(prodMatch[0], "").trim();
+                }
+            }
+
+            const pApp = parseFloat(prodRatings.appearance) || 0;
+            const pCol = parseFloat(prodRatings.colour) || 0;
+            const pTex = parseFloat(prodRatings.texture) || 0;
+            const pFlv = parseFloat(prodRatings.flavour) || 0;
+            const pTas = parseFloat(prodRatings.taste) || 0;
+
+            const pkApp = parseFloat(packRatings.appearance) || 0;
+            const pkSeal = parseFloat(packRatings.sealing) || 0;
+            const pkCod = parseFloat(packRatings.coding) || 0;
+
+            const prodAvg = (pApp + pCol + pTex + pFlv + pTas) / 5;
+            const packAvg = (pkApp + pkSeal + pkCod) / 3;
+
+            let wallBadgeClass = "bg-success";
+            if (overallWallStatus.includes("Hot")) wallBadgeClass = "bg-danger";
+            else if (overallWallStatus.includes("Yellow")) wallBadgeClass = "bg-warning text-dark";
+
+            html = `
+                <!-- 1. Sensory Setup & Header Info Card -->
+                <div class="row mt-3 g-3">
+                    ${this.createSummaryCard("wall-product", "Product Name & SKU", `${r.cr3ea_productname || "-"} <br><span class="text-muted fw-normal" style="font-size: 11px;">SKU: ${r.cr3ea_sku || "-"}</span>`)}
+                    ${this.createSummaryCard("wall-type", "Type of Quality Wall", `<span class="badge ${wallBadgeClass} px-2 py-1" style="font-size: 12px;">${overallWallStatus}</span>`)}
+                    ${this.createSummaryCard("wall-line-pkd", "Line No & PKD/Batch", `${r.cr3ea_lineno || "-"} <br><span class="text-muted fw-normal" style="font-size: 11px;">${r.cr3ea_pkdbatchno || "Batch: -"}</span>`)}
+                    ${this.createSummaryCard("wall-fac", "Facilitator", facDisplayName || "-")}
+                </div>
+
+                <!-- 2. Overall Wall Status Decision Banner -->
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="alert ${wallAlertClass} d-flex align-items-center justify-content-between p-3 mb-0 shadow-sm" style="border-radius: 8px;">
+                            <div class="d-flex align-items-center">
+                                <i class="fa ${wallAlertIcon} fs-4 me-3"></i>
+                                <div>
+                                    <h6 class="mb-0 fw-bold">${overallWallStatus}</h6>
+                                    <div style="font-size: 13px;" class="mt-0.5">${wallAlertText}</div>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2 ms-3">
+                                <span class="badge bg-success" style="font-size: 12px; padding: 6px 10px;">Green (0-1): ${countGreen}</span>
+                                <span class="badge bg-warning text-dark" style="font-size: 12px; padding: 6px 10px;">Yellow (2-3): ${countYellow}</span>
+                                <span class="badge bg-danger" style="font-size: 12px; padding: 6px 10px;">Hot (4): ${countHot}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Individual Team Member Scores Table (Scale 0-4) -->
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="card border rounded p-3 bg-white shadow-sm" style="border: 1px solid #cbd5e1 !important;">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                                <div>
+                                    <span class="text-secondary fw-bold" style="font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                        <i class="fa fa-users text-primary me-1"></i> Individual Team Member Scores (Scale 0-4)
+                                    </span>
+                                    <div class="text-muted small mt-0.5" style="font-size: 11px;">
+                                        Recorded sensory evaluations per panel member:
+                                        <span class="badge bg-success ms-1">0-1 Sustain</span>
+                                        <span class="badge bg-warning text-dark ms-1">2-3 Action Taken</span>
+                                        <span class="badge bg-danger ms-1">4 Abort</span>
+                                    </div>
+                                </div>
+                                <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 12px;">
+                                    Panel Size: <strong>${memberScores.length}</strong> | Avg: <strong>${panelAvg.toFixed(2)} / 4</strong>
+                                </span>
+                            </div>
+
+                            <div class="table-responsive mt-2">
+                                <table class="table table-bordered table-sm align-middle mb-0" style="font-size: 12.5px;">
+                                    <thead class="table-light">
+                                        <tr style="font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.4px;">
+                                            <th style="width: 40px;" class="text-center">#</th>
+                                            <th>Team Member / Panelist</th>
+                                            <th style="width: 140px;">Role / Dept</th>
+                                            <th style="width: 130px;" class="text-center">Score (0-4)</th>
+                                            <th style="width: 200px;" class="text-center">Wall Status</th>
+                                            <th>Sensory Observations / Notes</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${memberScores.length > 0 ? memberScores.map((m, idx) => {
+                                            const statusInfo = getScoreStatusInfo(m.score);
+                                            return `
+                                                <tr>
+                                                    <td class="text-center fw-bold text-muted">${idx + 1}</td>
+                                                    <td class="fw-semibold text-dark">${this.escapeHtml(m.name || "Panelist")}</td>
+                                                    <td><span class="badge bg-light text-secondary border">${this.escapeHtml(m.role || "Panelist")}</span></td>
+                                                    <td class="text-center">
+                                                        <span class="badge ${statusInfo.badgeClass} fs-6 px-2 py-1 fw-bold">${m.score ?? 0}</span>
+                                                    </td>
+                                                    <td class="text-center">${statusInfo.badgeHtml}</td>
+                                                    <td class="text-muted fst-italic">${this.escapeHtml(m.notes || "-")}</td>
+                                                </tr>
+                                            `;
+                                        }).join("") : `<tr><td colspan="6" class="text-center text-muted py-3">No individual panel scores recorded.</td></tr>`}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Sensory Parameter Ratings (Product & Pack Quality: Scale 0-4) -->
+                <div class="row mt-3 g-3">
+                    <div class="col-md-6">
+                        <div class="card border rounded h-100 bg-white shadow-sm" style="border: 1px solid #bfdbfe !important;">
+                            <div class="card-header bg-light d-flex justify-content-between align-items-center py-2 px-3">
+                                <span class="fw-bold text-dark" style="font-size: 13px;">
+                                    <i class="fa fa-cookie-bite text-primary me-1"></i> Product Quality Sensory Ratings
+                                </span>
+                                <span class="badge bg-primary px-2 py-1" style="font-size: 12px;">Avg: ${prodAvg.toFixed(2)} / 4</span>
+                            </div>
+                            <div class="card-body p-3">
+                                <div class="d-flex flex-column gap-2">
+                                    <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
+                                        <span class="text-muted" style="font-size: 12.5px;">Appearance</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pApp.toFixed(1)} / 4</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
+                                        <span class="text-muted" style="font-size: 12.5px;">Colour</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pCol.toFixed(1)} / 4</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
+                                        <span class="text-muted" style="font-size: 12.5px;">Texture</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pTex.toFixed(1)} / 4</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
+                                        <span class="text-muted" style="font-size: 12.5px;">Flavour</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pFlv.toFixed(1)} / 4</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="text-muted" style="font-size: 12.5px;">Taste</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pTas.toFixed(1)} / 4</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card border rounded h-100 bg-white shadow-sm" style="border: 1px solid #bbf7d0 !important;">
+                            <div class="card-header bg-light d-flex justify-content-between align-items-center py-2 px-3">
+                                <span class="fw-bold text-dark" style="font-size: 13px;">
+                                    <i class="fa fa-box-open text-success me-1"></i> Pack Quality Ratings
+                                </span>
+                                <span class="badge bg-success px-2 py-1" style="font-size: 12px;">Avg: ${packAvg.toFixed(2)} / 4</span>
+                            </div>
+                            <div class="card-body p-3">
+                                <div class="d-flex flex-column gap-2">
+                                    <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
+                                        <span class="text-muted" style="font-size: 12.5px;">Pack Appearance</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pkApp.toFixed(1)} / 4</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
+                                        <span class="text-muted" style="font-size: 12.5px;">Sealing Quality</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pkSeal.toFixed(1)} / 4</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="text-muted" style="font-size: 12.5px;">Coding Quality</span>
+                                        <span class="badge bg-secondary fw-bold" style="font-size: 12px;">${pkCod.toFixed(1)} / 4</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. Overall Quality Wall KPI Card -->
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="card border rounded p-3 bg-white shadow-sm text-center" style="border: 1px solid #cbd5e1 !important;">
+                            <span class="text-secondary fw-bold" style="font-size: 11px; text-transform: uppercase;">Overall Quality Wall Score</span>
+                            <h3 class="mt-1 mb-1 fw-bold ${countHot > 0 ? 'text-danger' : (countYellow > 0 ? 'text-warning' : 'text-success')}">
+                                ${panelAvg.toFixed(2)} / 4.00
+                            </h3>
+                            <div class="d-flex justify-content-center gap-3 mt-1" style="font-size: 12px;">
+                                <span class="text-muted">Panel Status: <strong>${overallWallStatus}</strong></span>
+                                <span class="text-muted">&bull;</span>
+                                <span class="text-muted">Product Avg: <strong>${prodAvg.toFixed(2)} / 4</strong></span>
+                                <span class="text-muted">&bull;</span>
+                                <span class="text-muted">Pack Avg: <strong>${packAvg.toFixed(2)} / 4</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. Evaluation Remarks Card -->
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="card border rounded p-3 bg-light shadow-sm">
+                            <h6 class="fw-bold text-dark mb-1" style="font-size: 13px;">Evaluation & Sensory Remarks</h6>
+                            <p class="mb-0 text-secondary" style="font-style: italic; word-break: break-word; overflow-wrap: break-word; white-space: normal; font-size: 13px;">
+                                ${userRemarksText || "No remarks entered"}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                ${(() => {
+                    const actionRaw = (meta && meta.actionTaken) || r.cr3ea_actiontaken || "";
+                    if (!actionRaw) return "";
+                    const prodPart = actionRaw.split(" | QA: ")[0] || "";
+                    const qaPart = actionRaw.split(" | QA: ")[1] || "";
+
+                    const prodRemarks = prodPart.split(" | Proof: ")[0] || "-";
+                    const prodProof = prodPart.split(" | Proof: ")[1] || "";
+                    const qaRemarks = qaPart.split(" | Proof: ")[0] || "-";
+                    const qaProof = qaPart.split(" | Proof: ")[1] || "";
+
+                    const prodLinkHtml = prodProof ? PKGOPS_Summary.formatProofLinks(prodProof, "Proof") : "";
+                    const qaLinkHtml = qaProof ? PKGOPS_Summary.formatProofLinks(qaProof, "QA Proof") : "";
+
+                    return `
+                        <div class="row mt-3">
+                            <div class="col-md-12">
+                                <div class="p-3 border rounded bg-white shadow-sm">
+                                    <h5 class="text-danger fw-bold"><i class="fa fa-wrench me-1"></i> Deviation & Corrective Action Summary</h5>
+                                    <p style="word-break: break-word; overflow-wrap: break-word; white-space: normal;"><strong>Corrective Action Taken:</strong> ${prodRemarks}${prodLinkHtml}</p>
+                                    <p style="word-break: break-word; overflow-wrap: break-word; white-space: normal;"><strong>Re-verification Remarks:</strong> ${qaRemarks}${qaLinkHtml}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                })()}
+            `;
+        }
+        else if (this.pkgopsType === "Cream Percentage") {
+            const r = rows[0] || {};
+            const reading = parseFloat(r.cr3ea_creamreading) || 0;
+            const min = parseFloat(r.cr3ea_standardmin) || 0;
+            const max = parseFloat(r.cr3ea_standardmax) || 0;
+            const status = r.cr3ea_status || (reading >= min && reading <= max ? "Pass" : "Fail");
+            const isPass = status === "Pass";
+
+            let meta = {};
+            if (r.cr3ea_remarks) {
+                try {
+                    if (r.cr3ea_remarks.startsWith("{")) meta = JSON.parse(r.cr3ea_remarks);
+                } catch (e) {}
+            }
+            const machine = meta.machine || "-";
+            const wtSandwich = meta.wtSandwich ? `${meta.wtSandwich} g` : "-";
+            const wtShells = meta.wtShells ? `${meta.wtShells} g` : "-";
+            const netCream = meta.calculatedCreamWt ? `${meta.calculatedCreamWt} g` : (meta.wtSandwich && meta.wtShells ? `${(parseFloat(meta.wtSandwich) - parseFloat(meta.wtShells)).toFixed(2)} g` : "-");
+            const targetVal = meta.standardTarget ? `${meta.standardTarget}%` : `${((min + max) / 2).toFixed(1)}%`;
+
+            html = `
+                <div class="row mt-3 g-3">
+                    ${this.createSummaryCard("cream-sum-prod", "Product & Machine", `${r.cr3ea_productname || "-"} <br><span class="text-muted fw-normal" style="font-size: 11px;">Machine: <strong>${machine}</strong> | SKU: ${r.cr3ea_sku || "-"}</span>`)}
+                    ${this.createSummaryCard("cream-sum-weights", "Sample & Weights", `Sample: <strong>${r.cr3ea_samplesize || "10"} pcs</strong><br><span style="font-size: 11px;">Sandwich: <strong>${wtSandwich}</strong> | Shells: <strong>${wtShells}</strong></span>`)}
+                    ${this.createSummaryCard("cream-sum-specs", "Standard Specs", `Target: <strong>${targetVal}</strong><br><span style="font-size: 11px;">Tolerance: <strong>${r.cr3ea_standardmin || "-"}%</strong> - <strong>${r.cr3ea_standardmax || "-"}%</strong></span>`)}
+                    ${this.createSummaryCard("cream-sum-reading", "Cream Reading", `<span class="fw-bold ${isPass ? 'text-success' : 'text-danger'}" style="font-size: 1.25rem;">${r.cr3ea_creamreading || "-"}%</span><br><span style="font-size: 11px; color: #475569;">Cream Wt: <strong>${netCream}</strong></span>`)}
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="card border rounded p-3 bg-white shadow-sm">
+                            <h6 class="fw-bold text-dark mb-2" style="font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                <i class="fa fa-percent text-primary me-2"></i>Cream Percentage Result
+                            </h6>
+                            <div class="table-responsive">
+                                <table class="table table-bordered text-center align-middle bg-white mb-0">
+                                    <thead style="background-color: #1e3a8a; color: #ffffff;">
+                                        <tr>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Product Category</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Product Name & SKU</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Machine</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Sample Size</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Sandwich Wt (g)</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Shells Wt (g)</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Cream Wt (g)</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Target (%)</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Tolerance Range (%)</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Observed Reading (%)</th>
+                                            <th style="padding: 10px 14px; font-weight: 700;">Result Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>${r.cr3ea_productcategory || "Cream"}</td>
+                                            <td class="fw-semibold text-start">${r.cr3ea_productname || "-"} <span class="text-muted">(${r.cr3ea_sku || "-"})</span></td>
+                                            <td><span class="badge bg-light text-dark border">${machine}</span></td>
+                                            <td>${r.cr3ea_samplesize || "-"}</td>
+                                            <td>${wtSandwich}</td>
+                                            <td>${wtShells}</td>
+                                            <td class="fw-semibold text-primary">${netCream}</td>
+                                            <td class="fw-bold">${targetVal}</td>
+                                            <td>${r.cr3ea_standardmin || "-"}% - ${r.cr3ea_standardmax || "-"}%</td>
+                                            <td class="fw-bold ${isPass ? 'text-success' : 'text-danger'}" style="font-size: 1.05rem;">${r.cr3ea_creamreading || "-"}%</td>
+                                            <td><span class="badge ${isPass ? 'bg-success' : 'bg-danger'} px-3 py-1" style="font-size: 12px;">${status.toUpperCase()}</span></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                ${!isPass ? (() => {
+                    const actionRaw = r.cr3ea_actiontaken || "";
+                    const prodPart = actionRaw.split(" | QA: ")[0] || "";
+                    const qaPart = actionRaw.split(" | QA: ")[1] || "";
+
+                    const prodRemarks = prodPart.split(" | Proof: ")[0] || "-";
+                    const prodProof = prodPart.split(" | Proof: ")[1] || "";
+                    const qaRemarks = qaPart.split(" | Proof: ")[0] || "-";
+                    const qaProof = qaPart.split(" | Proof: ")[1] || "";
+
+                    const prodLinkHtml = prodProof ? PKGOPS_Summary.formatProofLinks(prodProof, "Proof") : "";
+                    const qaLinkHtml = qaProof ? PKGOPS_Summary.formatProofLinks(qaProof, "QA Proof") : "";
+
+                    return `
+                        <div class="row mt-3">
+                            <div class="col-md-12">
+                                <div class="p-3 border rounded bg-white">
+                                    <h5 class="text-danger fw-bold">Deviation Summary</h5>
+                                    <p style="word-break: break-word; overflow-wrap: break-word; white-space: normal;"><strong>Corrective Action Taken:</strong> ${prodRemarks}${prodLinkHtml}</p>
+                                    <p style="word-break: break-word; overflow-wrap: break-word; white-space: normal;"><strong>Re-verification Remarks:</strong> ${qaRemarks}${qaLinkHtml}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                })() : ''}
+            `;
+        }
+
+        return html;
+    },
+
+    // Helper for rendering details cards
+    createSummaryCard: function (id, label, value) {
+        return `
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm rounded bg-white h-100">
+                    <div class="card-body p-3">
+                        <span class="text-secondary font-weight-bold" style="font-size: 11px; text-transform: uppercase;">${label}</span>
+                        <h4 class="mt-1 mb-0 text-dark" style="font-weight: 700;">${value}</h4>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+};

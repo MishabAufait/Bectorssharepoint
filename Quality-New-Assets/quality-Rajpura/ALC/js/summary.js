@@ -21,7 +21,10 @@ const ALC_Summary = {
             await this.renderSummary();
         } catch (error) {
             console.error("Error generating ALC Summary:", error);
-            alert("Error loading summary report: " + error.message);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "load summary report")
+                : ("Error loading summary report: " + error.message);
+            alert(msg);
         } finally {
             HideLoader();
         }
@@ -31,14 +34,17 @@ const ALC_Summary = {
     loadSummaryData: async function () {
         // 1. Fetch current session details
         const AccessToken = await ALC_DAL.getAccessToken();
-        const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
-        const url = `${baseApiUrl}/api/data/v9.2/cr3ea_prod_rajpura_quality_tours(${this.currentTourId})`;
+        const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
+        const url = `${baseApiUrl}/api/data/v9.2/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${this.currentTourId})`;
         const headers = { "Accept": "application/json" };
         if (AccessToken) headers["Authorization"] = `Bearer ${AccessToken}`;
 
         const response = await fetch(url, { headers: headers });
         if (!response.ok) throw new Error(`Failed to retrieve tour session metadata: ${response.status}`);
-        this.session = await response.json();
+        const rawSession = await response.json();
+        this.session = (typeof QualityRajpura_Config !== 'undefined' && typeof QualityRajpura_Config.normalizeTourRecord === 'function')
+            ? QualityRajpura_Config.normalizeTourRecord(rawSession)
+            : (typeof normalizeTourRecord === 'function' ? normalizeTourRecord(rawSession) : rawSession);
 
         // 2. Fetch all checkpoints for the current tour
         this.checkpoints = await ALC_DAL.getCheckpoints(this.currentTourId);
@@ -59,6 +65,8 @@ const ALC_Summary = {
         // 1. Basic Metadata
         const dateStr = this.session.cr3ea_tourstartdate ? moment(this.session.cr3ea_tourstartdate).format("DD-MM-YYYY hh:mm A") : "N/A";
         document.getElementById("sum-exec-prod").innerText = this.session.cr3ea_shiftexecutiveproduction || "N/A";
+        const sumQaShiftEl = document.getElementById("sum-exec-qa-shift");
+        if (sumQaShiftEl) sumQaShiftEl.innerText = this.session.cr3ea_executivename || this.session.cr3ea_shiftexecutivequality || "—";
         document.getElementById("sum-exec-qa").innerText = this.session.cr3ea_tourby || this.session.cr3ea_observedby || "N/A";
         document.getElementById("sum-date-time").innerText = dateStr;
         document.getElementById("sum-line-shift").innerText = `${this.session.cr3ea_lineno || "N/A"} / ${this.session.cr3ea_shift || "N/A"}`;
@@ -66,12 +74,15 @@ const ALC_Summary = {
         document.getElementById("sum-prev-variety").innerText = this.session.cr3ea_previousrunningvariety || "N/A";
         document.getElementById("sum-run-variety").innerText = this.session.cr3ea_runningvariety || "N/A";
 
+        // Render Escalation & Delay Timing Audit
+        this.renderEscalationAudit();
+
         // 2. Resolve Area Incharge names dynamically from configs
         const tourAreas = [...new Set(this.checkpoints.map(cp => cp.cr3ea_area).filter(Boolean))];
         const areaInchargeMap = [];
         tourAreas.forEach(areaName => {
             const configRow = this.configs.find(c =>
-                c.ConfigType === "Product User" &&
+                (c.ConfigType === "Area Inspector" || c.ConfigType === "Product User" || c.ConfigType === "Product Incharge") &&
                 c.Area &&
                 (c.Area.toLowerCase().includes(areaName.toLowerCase().trim()) ||
                     areaName.toLowerCase().trim().includes(c.Area.toLowerCase()))
@@ -120,12 +131,17 @@ const ALC_Summary = {
         }
         document.getElementById("sum-tours-count").innerText = toursCountToday;
 
-        // 4. Calculate Scores
+        // 4. Calculate Scores & Critical Gate Evaluation
         let totalMaxPoints = this.checkpoints.length * 2;
         let totalObtainedPoints = 0;
+        let hasCriticalFailure = false;
+        const failedCriticalQuestions = [];
 
         // Mapped area scoring objects
         const areaStats = {};
+
+        // Question config lookup for criticality
+        const questionConfigs = (this.configs || []).filter(c => c.ConfigType === "Checklist Question");
 
         this.checkpoints.forEach(cp => {
             const area = cp.cr3ea_area || "General";
@@ -144,28 +160,87 @@ const ALC_Summary = {
                 numericScore = 1;
             }
 
+            // Check if this checkpoint is a critical item
+            let isCritical = false;
+            const criteriaText = (cp.cr3ea_criteria || "").toLowerCase().trim();
+            const matchedCfg = questionConfigs.find(q => {
+                const qTitle = (q.Title || "").toLowerCase().trim();
+                const qRemarks = (q.Remarks || "").toLowerCase().trim();
+                return (qTitle && (criteriaText.includes(qTitle) || qTitle.includes(criteriaText))) ||
+                       (qRemarks && (criteriaText.includes(qRemarks) || qRemarks.includes(criteriaText)));
+            });
+
+            if (matchedCfg) {
+                isCritical = !!(matchedCfg.isCritical ||
+                    matchedCfg.IsCritical === true ||
+                    matchedCfg.ProductCategory === "Critical" ||
+                    matchedCfg.Remarks === "Critical");
+            } else if (typeof ALC_CHECKLIST_SEED_DATA !== 'undefined' && Array.isArray(ALC_CHECKLIST_SEED_DATA)) {
+                const seedItem = ALC_CHECKLIST_SEED_DATA.find(s => {
+                    const sText = (s.description || s.title || "").toLowerCase().trim();
+                    return sText && (criteriaText.includes(sText) || sText.includes(criteriaText));
+                });
+                if (seedItem) {
+                    isCritical = !!seedItem.isCritical;
+                }
+            }
+
+            // Store critical flag for rendering
+            cp._isCritical = isCritical;
+
+            if (isCritical && (numericScore === 0 || numericScore === 1)) {
+                hasCriticalFailure = true;
+                failedCriticalQuestions.push({
+                    criteria: cp.cr3ea_criteria || "Critical Item",
+                    area: area,
+                    scoreText: scoreText || (numericScore === 0 ? "Non-Compliant (0)" : "Partial (1)")
+                });
+            }
+
             totalObtainedPoints += numericScore;
             areaStats[area].obtained += numericScore;
         });
 
-        const overallPercentRaw = totalMaxPoints > 0 ? (totalObtainedPoints / totalMaxPoints) * 100 : 0;
-        const overallPercent = overallPercentRaw.toFixed(2);
+        const checkpointPercentRaw = totalMaxPoints > 0 ? (totalObtainedPoints / totalMaxPoints) * 100 : 0;
+        const checkpointPercent = checkpointPercentRaw.toFixed(2);
+
+        // Final score reflects the first time score given only (from session.cr3ea_overall_score or initial checkpoints)
+        const hasSessionScore = (this.session && this.session.cr3ea_overall_score !== undefined && this.session.cr3ea_overall_score !== null && String(this.session.cr3ea_overall_score).trim() !== "");
+        const overallPercent = hasSessionScore
+            ? parseFloat(String(this.session.cr3ea_overall_score).replace("%", "")).toFixed(2)
+            : checkpointPercent;
+
         const scoreCircle = document.getElementById("sum-score-circle");
         const scoreCard = scoreCircle ? scoreCircle.parentElement : null;
-        const isPassingScore = (parseFloat(overallPercent) >= 80);
+        const isPassingScore = (parseFloat(overallPercent) >= 80) && !hasCriticalFailure;
+
+        const status = this.session.cr3ea_processstatus || this.session.cr3ea_status || "";
+        const isExpired = status === "Closed - Expired" || status.includes("Expired");
+        const hasNoScore = (totalMaxPoints === 0 || totalObtainedPoints === 0) && !hasSessionScore;
+
         if (scoreCircle) {
-            scoreCircle.innerText = `${overallPercent}%`;
-            if (isPassingScore) {
-                scoreCircle.style.backgroundColor = "#10b981";
-                scoreCircle.style.boxShadow = "0 4px 6px -1px rgba(16, 185, 129, 0.3)";
-            } else {
+            if (isExpired && hasNoScore) {
+                scoreCircle.innerText = "Expired";
+                scoreCircle.style.fontSize = "16px";
                 scoreCircle.style.backgroundColor = "#ef4444";
                 scoreCircle.style.boxShadow = "0 4px 6px -1px rgba(239, 68, 68, 0.3)";
+            } else {
+                scoreCircle.innerText = `${overallPercent}%`;
+                if (isPassingScore) {
+                    scoreCircle.style.backgroundColor = "#10b981";
+                    scoreCircle.style.boxShadow = "0 4px 6px -1px rgba(16, 185, 129, 0.3)";
+                } else {
+                    scoreCircle.style.backgroundColor = "#ef4444";
+                    scoreCircle.style.boxShadow = "0 4px 6px -1px rgba(239, 68, 68, 0.3)";
+                }
             }
         }
 
         if (scoreCard) {
-            if (isPassingScore) {
+            if (isExpired && hasNoScore) {
+                scoreCard.style.borderColor = "#fecaca";
+                scoreCard.style.backgroundColor = "#fef2f2";
+            } else if (isPassingScore) {
                 scoreCard.style.borderColor = "#bbf7d0";
                 scoreCard.style.backgroundColor = "#f0fdf4";
             } else {
@@ -176,18 +251,26 @@ const ALC_Summary = {
 
         const scoreDesc = document.getElementById("sum-score-desc");
         if (scoreDesc) {
-            const status = this.session.cr3ea_processstatus || this.session.cr3ea_status || "";
-            if (status === "Closed - Expired") {
+            if (isExpired && hasNoScore) {
+                scoreDesc.innerText = "Expired while in QA process / In Progress";
+                scoreDesc.style.color = "#b91c1c";
+            } else if (hasCriticalFailure) {
+                const critCount = failedCriticalQuestions.length;
+                scoreDesc.innerHTML = `<strong style="color: #b91c1c;">Failed - Critical Gate Violation:</strong> ${critCount} Critical checkpoint${critCount > 1 ? 's' : ''} failed (Score: ${overallPercent}%). Tour cannot pass clearance.`;
+                scoreDesc.style.color = "#b91c1c";
+            } else if (status === "Closed - Expired") {
                 scoreDesc.innerText = `${isPassingScore ? "Success" : "Failed"} - Expired with ${overallPercent}% compliance score.`;
                 scoreDesc.style.color = isPassingScore ? "#047857" : "#b91c1c";
             } else if (status.includes("Pending Production")) {
-                scoreDesc.innerText = `Pending Production Corrective Actions. Current Score: ${overallPercent}%`;
+                scoreDesc.innerText = `Pending Production Corrective Actions. Initial Score: ${overallPercent}%`;
                 scoreDesc.style.color = isPassingScore ? "#047857" : "#b91c1c";
             } else if (status.includes("Pending Re-Verification")) {
-                scoreDesc.innerText = `Pending QA Re-Verification. Current Score: ${overallPercent}%`;
+                scoreDesc.innerText = `Pending QA Re-Verification. Initial Score: ${overallPercent}%`;
                 scoreDesc.style.color = isPassingScore ? "#047857" : "#b91c1c";
             } else if (status === "Completed") {
-                scoreDesc.innerText = `Excellent! 100% compliance cleared successfully.`;
+                scoreDesc.innerText = (parseFloat(overallPercent) >= 100)
+                    ? `Excellent! 100% compliance cleared successfully.`
+                    : `Completed with ${overallPercent}% initial compliance score.`;
                 scoreDesc.style.color = "#047857";
             } else {
                 scoreDesc.innerText = `Completed with ${overallPercent}% compliance score.`;
@@ -260,7 +343,7 @@ const ALC_Summary = {
                 const inchargeNames = areaIncharges[areaName] || "N/A";
 
                 const card = document.createElement("div");
-                card.style.cssText = "margin-bottom: 25px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);";
+                card.style.cssText = "margin-bottom: 25px; border: 1px solid #e2e8f0; border-radius: 8px; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);";
 
                 // Card Header (Flex Layout with Title and Team Name)
                 const header = document.createElement("div");
@@ -275,12 +358,12 @@ const ALC_Summary = {
 
                 // Card Body
                 const body = document.createElement("div");
-                body.style.cssText = "overflow-x: auto;";
+                body.style.cssText = "overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch;";
 
                 const table = document.createElement("table");
                 table.className = "bs-table";
                 table.border = "1";
-                table.style.cssText = "width: 100%; border-collapse: collapse; text-align: center; font-size: 13px; border: none;";
+                table.style.cssText = "width: 100%; min-width: 850px; table-layout: fixed; border-collapse: collapse; text-align: center; font-size: 13px; border: none;";
 
                 table.innerHTML = `
                     <thead>
@@ -342,8 +425,23 @@ const ALC_Summary = {
 
                         if (fileName) {
                             const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-                            const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${fileName}`;
-                            actionsTakenHtml = `${textPart} <br> <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #1a73e8; font-weight: bold; font-size: 11px;">View Proof</a>`;
+                            let prodFiles = fileName.split(",").map(f => f.trim()).filter(Boolean);
+                            const qaRemarkText = cp.cr3ea_defectremarks || "";
+                            if (qaRemarkText && qaRemarkText.includes("File:")) {
+                                const qaFilePart = qaRemarkText.split(/file:/i)[1] || "";
+                                const qaFiles = qaFilePart.split(",").map(f => f.trim()).filter(Boolean);
+                                if (qaFiles.length > 0) {
+                                    const filteredProd = prodFiles.filter(f => !qaFiles.includes(f));
+                                    if (filteredProd.length > 0) {
+                                        prodFiles = filteredProd;
+                                    }
+                                }
+                            }
+                            const fileLinks = prodFiles.map((f, fIdx) => {
+                                const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${f}`;
+                                return `<a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #1a73e8; font-weight: bold; font-size: 11px; margin-right: 6px;" title="${f}">View Proof${prodFiles.length > 1 ? ' (' + (fIdx + 1) + ')' : ''}</a>`;
+                            }).join("");
+                            actionsTakenHtml = `${textPart} <br> ${fileLinks}`;
                         } else {
                             actionsTakenHtml = textPart;
                         }
@@ -377,8 +475,11 @@ const ALC_Summary = {
 
                     if (qaFileName) {
                         const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-                        const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${qaFileName}`;
-                        qaFileBadge = ` <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #1a73e8; font-weight: bold; font-size: 11px; margin-left: 5px;">View QA Proof</a>`;
+                        const qaFiles = qaFileName.split(",").map(f => f.trim()).filter(Boolean);
+                        qaFileBadge = qaFiles.map((f, fIdx) => {
+                            const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${f}`;
+                            return ` <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #1a73e8; font-weight: bold; font-size: 11px; margin-left: 5px;" title="${f}">View QA Proof${qaFiles.length > 1 ? ' (' + (fIdx + 1) + ')' : ''}</a>`;
+                        }).join("");
                     }
 
                     let reverifyDisplayText = "";
@@ -404,8 +505,11 @@ const ALC_Summary = {
                             let badgeHtml = "";
                             if (reverifyFileName) {
                                 const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-                                const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${reverifyFileName}`;
-                                badgeHtml = ` <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #2e7d32; font-weight: bold; font-size: 11px; margin-left: 5px;">View Re-verify Proof</a>`;
+                                const revFiles = reverifyFileName.split(",").map(f => f.trim()).filter(Boolean);
+                                badgeHtml = revFiles.map((f, fIdx) => {
+                                    const fileUrl = `${webUrl}/ALC_CorrectiveActions_Docs/${f}`;
+                                    return ` <a href="${fileUrl}" target="_blank" class="no-print" style="text-decoration: underline; color: #1a73e8; font-weight: bold; font-size: 11px; margin-left: 5px;" title="${f}">View Re-verify Proof${revFiles.length > 1 ? ' (' + (fIdx + 1) + ')' : ''}</a>`;
+                                }).join("");
                             }
 
                             return `<small class="text-success" style="font-weight: bold; display: block; margin-top: 4px;">Re-verified: ${cleanReverify}${badgeHtml}</small>`;
@@ -427,12 +531,16 @@ const ALC_Summary = {
                         qaRemarksHtml = `<span>${qaDisplayText}</span>`;
                     }
 
+                    const critBadge = cp._isCritical
+                        ? `<span style="background-color: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-right: 6px; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block;">Critical Gate</span>`
+                        : '';
+
                     tr.innerHTML = `
                         <td style="padding: 10px;">${idx + 1}</td>
-                        <td style="padding: 10px; text-align: left;">${cp.cr3ea_criteria}</td>
+                        <td style="padding: 10px; text-align: left; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${critBadge}${cp.cr3ea_criteria}</td>
                         <td style="padding: 10px;">${initialBadge}</td>
-                        <td style="padding: 10px; text-align: left; font-size: 12px;">${actionsTakenHtml}</td>
-                        <td style="padding: 10px; text-align: left; font-size: 12px;">${qaRemarksHtml}</td>
+                        <td style="padding: 10px; text-align: left; font-size: 12px; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${actionsTakenHtml}</td>
+                        <td style="padding: 10px; text-align: left; font-size: 12px; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${qaRemarksHtml}</td>
                     `;
                     tbody.appendChild(tr);
                 });
@@ -442,6 +550,77 @@ const ALC_Summary = {
                 blocksContainer.appendChild(card);
             });
         }
+    },
+
+    // Renders the Escalation and Acceptance Timing Audit details
+    renderEscalationAudit: function () {
+        const auditContainerId = "sum-escalation-audit-panel";
+        let auditEl = document.getElementById(auditContainerId);
+        
+        const session = this.session || {};
+        const audit = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.parseEscalationAudit)
+            ? QualityRajpura_Config.parseEscalationAudit(session)
+            : null;
+
+        const procStatus = (session.cr3ea_processstatus || "").trim();
+        const isDelayed = (audit && audit.isPostEscalation) || procStatus.includes("Delayed") || procStatus.includes("Escalated");
+
+        // If no audit info and tour was never delayed, hide panel if it exists
+        if (!audit && !isDelayed) {
+            if (auditEl) auditEl.style.display = "none";
+            return;
+        }
+
+        if (!auditEl) {
+            auditEl = document.createElement("div");
+            auditEl.id = auditContainerId;
+            auditEl.className = "bs-card mb-4";
+            auditEl.style.cssText = "padding: 18px 20px; border-radius: 8px; border: 1px solid #fed7aa; background: #fffaf5; margin-bottom: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);";
+            
+            const topCard = document.querySelector("#section-tour-summary .bs-card");
+            if (topCard && topCard.parentNode) {
+                topCard.parentNode.insertBefore(auditEl, topCard.nextSibling);
+            }
+        }
+
+        const delayMins = audit ? audit.delayMinutes : (procStatus.match(/Delayed:\s*(\d+)m/i) ? procStatus.match(/Delayed:\s*(\d+)m/i)[1] : "N/A");
+        const reqTimeFormatted = audit && audit.tourStartTime ? moment(audit.tourStartTime).format("DD-MM-YYYY hh:mm A") : (session.cr3ea_tourstartdate ? moment(session.cr3ea_tourstartdate).format("DD-MM-YYYY hh:mm A") : "N/A");
+        const acceptedTimeFormatted = audit && audit.acceptedTime ? moment(audit.acceptedTime).format("DD-MM-YYYY hh:mm A") : "N/A";
+        const acceptedBy = (audit && (audit.acceptedByName || audit.acceptedByEmail)) ? (audit.acceptedByName || audit.acceptedByEmail) : (session.cr3ea_tourby || "QA Executive");
+
+        auditEl.style.display = "block";
+        auditEl.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; border-bottom: 1px solid #ffedd5; padding-bottom: 10px;">
+                <h5 style="margin: 0; font-weight: 700; color: #9a3412; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa fa-history" style="color: #ea580c;"></i> Acceptance &amp; Escalation Timing Audit
+                </h5>
+                <span class="badge" style="background-color: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; font-weight: 700; padding: 4px 10px; font-size: 12px; border-radius: 9999px;">
+                    <i class="fa fa-clock-o"></i> ${delayMins !== "N/A" ? `${delayMins} Min Acceptance Delay` : 'Post-Escalation Accepted'}
+                </span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; font-size: 13px;">
+                <div style="background: #ffffff; border: 1px solid #fed7aa; padding: 10px 14px; border-radius: 6px;">
+                    <span style="font-size: 10px; text-transform: uppercase; color: #7c2d12; font-weight: 700; display: block;">Request Raised At</span>
+                    <strong style="color: #1e293b; font-size: 13px;">${reqTimeFormatted}</strong>
+                </div>
+                <div style="background: #ffffff; border: 1px solid #fed7aa; padding: 10px 14px; border-radius: 6px;">
+                    <span style="font-size: 10px; text-transform: uppercase; color: #7c2d12; font-weight: 700; display: block;">Escalation Threshold (5m)</span>
+                    <strong style="color: #dc2626; font-size: 13px;">Expired (Escalated)</strong>
+                </div>
+                <div style="background: #ffffff; border: 1px solid #fed7aa; padding: 10px 14px; border-radius: 6px;">
+                    <span style="font-size: 10px; text-transform: uppercase; color: #7c2d12; font-weight: 700; display: block;">QA Accepted At</span>
+                    <strong style="color: #166534; font-size: 13px;">${acceptedTimeFormatted}</strong>
+                </div>
+                <div style="background: #ffffff; border: 1px solid #fed7aa; padding: 10px 14px; border-radius: 6px;">
+                    <span style="font-size: 10px; text-transform: uppercase; color: #7c2d12; font-weight: 700; display: block;">Delay Duration</span>
+                    <strong style="color: #c2410c; font-size: 13px;">${delayMins !== "N/A" ? `${delayMins} Minutes` : 'Delayed'}</strong>
+                </div>
+                <div style="background: #ffffff; border: 1px solid #fed7aa; padding: 10px 14px; border-radius: 6px;">
+                    <span style="font-size: 10px; text-transform: uppercase; color: #7c2d12; font-weight: 700; display: block;">Accepted By (QA)</span>
+                    <strong style="color: #1e293b; font-size: 13px;">${acceptedBy}</strong>
+                </div>
+            </div>
+        `;
     },
 
     // Checks last 5 tours on this line for recurring failures in checkpoints
@@ -465,23 +644,26 @@ const ALC_Summary = {
             // Retrieve recent sessions on this line
             const AccessToken = await ALC_DAL.getAccessToken();
             const apiVersion = "9.2";
-            const tableName = "cr3ea_prod_rajpura_quality_tours";
-            const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+            const tableName = QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR;
+            const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
             const headers = { "Accept": "application/json" };
             if (AccessToken) headers["Authorization"] = `Bearer ${AccessToken}`;
 
             // Fetch last 15 tours to make sure we find at least 5 matching this line
-            const filter = `?$filter=cr3ea_plantid eq '${QualityRajpura_Config.PLANT_ID}'&$orderby=cr3ea_tourstartdate desc&$top=15`;
+            const filter = `?$filter=(cr3ea_plantid eq '${QualityRajpura_Config.PLANT_ID}' or cr3ea_plantid eq 'Rajpura')&$orderby=cr3ea_tourstartdate desc&$top=15`;
             const response = await fetch(`${baseApiUrl}/api/data/v${apiVersion}/${tableName}${filter}`, { headers: headers });
             if (!response.ok) return;
 
             const data = await response.json();
-            const tours = data.value || [];
+            const normalizeFn = (typeof QualityRajpura_Config !== 'undefined' && typeof QualityRajpura_Config.normalizeTourRecord === 'function')
+                ? QualityRajpura_Config.normalizeTourRecord.bind(QualityRajpura_Config)
+                : (typeof normalizeTourRecord === 'function' ? normalizeTourRecord : (x => x));
+            const tours = (data.value || []).map(t => normalizeFn(t));
 
             // Filter tours matching current line (excluding current session)
             const lineName = this.session.cr3ea_lineno;
             const pastLineTours = tours
-                .filter(t => t.cr3ea_lineno === lineName && t.cr3ea_prod_rajpura_quality_tourid !== this.currentTourId)
+                .filter(t => t.cr3ea_lineno === lineName && QualityRajpura_Config.getTourId(t) !== this.currentTourId)
                 .sort((a, b) => {
                     const valA = a.cr3ea_tourstartdate || a.createdon || "";
                     const valB = b.cr3ea_tourstartdate || b.createdon || "";
@@ -514,7 +696,7 @@ const ALC_Summary = {
             if (pastLineTours.length === 0) return;
 
             // Fetch checkpoints for these past tours in parallel
-            const fetchPromises = pastLineTours.map(t => ALC_DAL.getCheckpoints(t.cr3ea_prod_rajpura_quality_tourid));
+            const fetchPromises = pastLineTours.map(t => ALC_DAL.getCheckpoints(QualityRajpura_Config.getTourId(t)));
             const pastCheckpointsLists = await Promise.all(fetchPromises);
 
             const recurringDeviations = [];

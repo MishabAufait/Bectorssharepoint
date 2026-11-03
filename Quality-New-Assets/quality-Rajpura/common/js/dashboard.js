@@ -7,24 +7,117 @@ $(document).ready(function () {
     if (!document.getElementById(linkId)) {
         const link = document.createElement("link");
         link.id = linkId;
-        link.rel = "stylesheet";
-        link.href = "/sites/Mrs_Bectors_PTMS/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css";
+        const webUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webServerRelativeUrl)
+            ? _spPageContextInfo.webServerRelativeUrl.replace(/\/+$/, '')
+            : (window.location.href.toLowerCase().indexOf("ptms_uat") !== -1 ? "/sites/PTMS_UAT" :
+              (window.location.href.toLowerCase().indexOf("ptms_prd") !== -1 ? "/sites/PTMS_PRD" : "/sites/Mrs_Bectors_PTMS"));
+        link.href = `${webUrl}/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/css/global.css`;
         document.head.appendChild(link);
+    }
+
+    // Dynamically inject common/js/admin.js & alc-checklist-seed.js if not yet loaded
+    const adminScriptId = "rajpura-quality-admin-js";
+    if (!document.getElementById(adminScriptId) && typeof window.Rajpura_Admin === 'undefined') {
+        const webUrl = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webServerRelativeUrl)
+            ? _spPageContextInfo.webServerRelativeUrl.replace(/\/+$/, '')
+            : (window.location.href.toLowerCase().indexOf("ptms_uat") !== -1 ? "/sites/PTMS_UAT" :
+              (window.location.href.toLowerCase().indexOf("ptms_prd") !== -1 ? "/sites/PTMS_PRD" : "/sites/Mrs_Bectors_PTMS"));
+
+        if (!document.getElementById("rajpura-quality-alc-seed-js") && typeof window.ALC_CHECKLIST_SEED_DATA === 'undefined') {
+            const seedScript = document.createElement("script");
+            seedScript.id = "rajpura-quality-alc-seed-js";
+            seedScript.src = `${webUrl}/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/alc-checklist-seed.js?v=2.6`;
+            document.body.appendChild(seedScript);
+        }
+
+        const script = document.createElement("script");
+        script.id = adminScriptId;
+        script.src = `${webUrl}/BectorsSourceCode/Quality-New-Assets/quality-Rajpura/common/js/admin.js?v=9.8`;
+        document.body.appendChild(script);
     }
     ALC_Dashboard.init();
 });
 
 const ALC_Dashboard = {
     qaList: [],
-    selectedCategory: localStorage.getItem("lastVisitedDashboard") || "ALC",
+    selectedCategory: (() => {
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const rawParam = urlParams.get("ChecklistName") || 
+                             urlParams.get("checklistname") || 
+                             urlParams.get("ChecklistType") || 
+                             urlParams.get("checklisttype") || 
+                             urlParams.get("ParentChecklistType") || 
+                             urlParams.get("parentchecklisttype") || 
+                             urlParams.get("Checklist") || 
+                             urlParams.get("checklist") || 
+                             urlParams.get("category") || 
+                             urlParams.get("cat");
+            if (rawParam) {
+                const norm = rawParam.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+                if (norm.includes("foodsafety") || norm === "foodsafety" || norm.includes("food")) return "FoodSafety";
+                if (norm.includes("arealineclearance") || norm === "alc" || norm.includes("lineclearance")) return "ALC";
+                if (norm.includes("ccp") || norm.includes("oprp") || norm.includes("sieve") || norm.includes("magnet")) return "CCP_OPRP_Sieves";
+                if (norm.includes("mixing") || norm.includes("baking")) return "MixingAndBaking";
+                if (norm.includes("packaging") || norm.includes("pkgops") || norm.includes("packagingoperations")) return "PackagingOperations";
+            }
+        } catch (e) {}
+
+        const val = localStorage.getItem("lastVisitedDashboard");
+        const valid = ["ALC", "FoodSafety", "CCP_OPRP_Sieves", "MixingAndBaking", "PackagingOperations"];
+        return valid.includes(val) ? val : "ALC";
+    })(),
     allToursRaw: [],
+    selectedLine: "All",
+    selectedDatePreset: "All",
+    fromDate: "",
+    toDate: "",
+
+    resolveCategoryFromUrl: function () {
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const rawParam = urlParams.get("ChecklistName") || 
+                             urlParams.get("checklistname") || 
+                             urlParams.get("ChecklistType") || 
+                             urlParams.get("checklisttype") || 
+                             urlParams.get("ParentChecklistType") || 
+                             urlParams.get("parentchecklisttype") || 
+                             urlParams.get("Checklist") || 
+                             urlParams.get("checklist") || 
+                             urlParams.get("category") || 
+                             urlParams.get("cat");
+                             
+            if (!rawParam) return null;
+
+            const normalized = rawParam.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+            
+            if (normalized.includes("foodsafety") || normalized === "foodsafety" || normalized.includes("food")) {
+                return "FoodSafety";
+            }
+            if (normalized.includes("arealineclearance") || normalized === "alc" || normalized.includes("lineclearance")) {
+                return "ALC";
+            }
+            if (normalized.includes("ccp") || normalized.includes("oprp") || normalized.includes("sieve") || normalized.includes("magnet")) {
+                return "CCP_OPRP_Sieves";
+            }
+            if (normalized.includes("mixing") || normalized.includes("baking")) {
+                return "MixingAndBaking";
+            }
+            if (normalized.includes("packaging") || normalized.includes("pkgops") || normalized.includes("packagingoperations")) {
+                return "PackagingOperations";
+            }
+        } catch (e) {
+            console.warn("Error parsing checklist category from URL:", e);
+        }
+        return null;
+    },
 
     loadConfig: async function () {
         try {
             const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-            const listName = "Quality-Rajpura";
+            const listName = QualityRajpura_Config.SHAREPOINT_LISTS.CONFIG;
 
-            let query = "?$select=Id,Title,AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id,EscalationManager/Title,EscalationManager/EMail,EscalationManager/Id&$expand=AssignedUser,EscalationManager&$filter=Plant eq 'Rajpura'";
+            let query = `?$select=Id,Title,ConfigType,AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id,EscalationManager/Title,EscalationManager/EMail,EscalationManager/Id&$expand=AssignedUser,EscalationManager&$filter=Plant eq '${QualityRajpura_Config.PLANT_NAME}'`;
             let url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
             let response;
             let isFallback = false;
@@ -34,7 +127,7 @@ const ALC_Dashboard = {
                 if (!response.ok) throw new Error();
             } catch (e) {
                 isFallback = true;
-                query = "?$select=Id,Title,Assigned_x0020_User/Title,Assigned_x0020_User/EMail,Assigned_x0020_User/Id,Escalation_x0020_Manager/Title,Escalation_x0020_Manager/EMail,Escalation_x0020_Manager/Id&$expand=Assigned_x0020_User,Escalation_x0020_Manager&$filter=Plant eq 'Rajpura'";
+                query = `?$select=Id,Title,Config_x0020_Type,Assigned_x0020_User/Title,Assigned_x0020_User/EMail,Assigned_x0020_User/Id,Escalation_x0020_Manager/Title,Escalation_x0020_Manager/EMail,Escalation_x0020_Manager/Id&$expand=Assigned_x0020_User,Escalation_x0020_Manager&$filter=Plant eq '${QualityRajpura_Config.PLANT_NAME}'`;
                 url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
                 response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
             }
@@ -63,8 +156,10 @@ const ALC_Dashboard = {
                         }
                     }
 
+                    const configType = isFallback ? item.Config_x0020_Type : item.ConfigType;
+
                     return {
-                        Title: item.Title,
+                        Title: configType || item.Title,
                         AssignedUser: assignedUserNormalized,
                         EscalationManager: escalationManagerNormalized
                     };
@@ -130,12 +225,22 @@ const ALC_Dashboard = {
                 if (categoryDropdown) {
                     $(categoryDropdown).off("change.cat").on("change.cat", () => {
                         console.log("Dashboard category changed to: " + categoryDropdown.value);
-                        ALC_Dashboard.selectedCategory = categoryDropdown.value;
-                        ALC_Dashboard.applyCategoryFilter();
+                        ALC_Dashboard.handleCategoryChange(categoryDropdown.value);
                     });
                 }
             }
         }, 100);
+    },
+
+    handleCategoryChange: function (category) {
+        const cat = category || (document.getElementById("dashboardCategorySelect") ? document.getElementById("dashboardCategorySelect").value : "ALC");
+        console.log("Handling dashboard category change to: " + cat);
+        this.selectedCategory = cat;
+        try {
+            localStorage.setItem("lastVisitedDashboard", cat);
+        } catch (e) {}
+        this.populateLineDropdown();
+        this.applyCategoryFilter();
     },
 
     evaluateDashboardState: async function () {
@@ -147,13 +252,55 @@ const ALC_Dashboard = {
             const dropdownEl = document.getElementById("DepartmentDropDownId");
             const deptId = (dropdownEl && dropdownEl.value !== "All") ? dropdownEl.value.toString() : (typeof userDepratmentId !== 'undefined' ? userDepratmentId.toString() : "");
 
-            const isQualityDept = QualityRajpura_Config.QUALITY_DEPT_IDS.includes(deptId);
-            const isRajpura = (plant === QualityRajpura_Config.PLANT_NAME || pId === QualityRajpura_Config.PLANT_ID || isQualityDept);
+            // 1. Check if department is Quality
+            const isQualityDept = (typeof isQualityDepartment === 'function' && isQualityDepartment()) ||
+                QualityRajpura_Config.QUALITY_DEPT_IDS.includes(deptId) ||
+                (typeof DepartmentNameLeftNavi === "string" && DepartmentNameLeftNavi.toLowerCase().includes("quality"));
 
-            console.log(`Evaluating Dashboard: Plant=${plant}, SelectedDept=${deptId}, isRajpura=${isRajpura}, isQualityDept=${isQualityDept}`);
+            // 2. Check if department is Production (authorized for line tour tracking only)
+            const isProdDept = (typeof DepartmentNameLeftNavi === "string" && (DepartmentNameLeftNavi.toLowerCase().includes("prod") || DepartmentNameLeftNavi.toLowerCase().includes("baking") || DepartmentNameLeftNavi.toLowerCase().includes("mixing"))) ||
+                (typeof RoleName === "string" && RoleName.toLowerCase().includes("prod")) ||
+                deptId === "82";
 
-            if (isRajpura && isQualityDept) {
-                await ALC_Dashboard.activateDashboard();
+            // 3. Check if plant is strictly Rajpura
+            const isPlantRajpura = (typeof isRajpuraPlant === 'function' && isRajpuraPlant()) ||
+                (typeof plant === 'string' && plant.toLowerCase().indexOf('rajpura') !== -1) ||
+                pId === QualityRajpura_Config.PLANT_ID ||
+                pId === "14" ||
+                pId === "2" ||
+                (plant === "" && pId === ""); // Local / offline fallback when not initialized
+
+            // 4. Strict Rajpura Quality qualification
+            const isRajpuraQuality = isPlantRajpura && isQualityDept;
+            let isRajpuraAuthorized = isPlantRajpura && (isQualityDept || isProdDept);
+
+            // If a specific checklist category was requested via URL query param (e.g. from email notification), authorize dashboard activation
+            const urlCategory = ALC_Dashboard.resolveCategoryFromUrl();
+            if (urlCategory) {
+                isRajpuraAuthorized = true;
+            }
+
+            console.log(`Evaluating Dashboard: Plant=${plant}, SelectedDept=${deptId}, isPlantRajpura=${isPlantRajpura}, isRajpuraQuality=${isRajpuraQuality}, isRajpuraAuthorized=${isRajpuraAuthorized}`);
+
+            if (isRajpuraAuthorized) {
+                // Admin Panel is strictly available under Rajpura Quality section only for authorized Admins
+                if (isRajpuraQuality && typeof Rajpura_Admin !== 'undefined' && Rajpura_Admin.detectAdminUrl && Rajpura_Admin.detectAdminUrl()) {
+                    const isAdmin = (typeof Rajpura_Admin.checkAdminAccess === "function") ? await Rajpura_Admin.checkAdminAccess() : false;
+                    if (isAdmin) {
+                        await Rajpura_Admin.activateAdminPanel();
+                    } else {
+                        console.warn("User attempted Admin view without AdminPanel list authorization. Redirecting to Quality Dashboard.");
+                        try {
+                            const url = new URL(window.location.href);
+                            url.searchParams.delete("view");
+                            url.searchParams.delete("admin");
+                            window.history.replaceState({}, "", url.toString());
+                        } catch (e) {}
+                        await ALC_Dashboard.activateDashboard(isRajpuraQuality);
+                    }
+                } else {
+                    await ALC_Dashboard.activateDashboard(isRajpuraQuality);
+                }
             } else {
                 ALC_Dashboard.deactivateDashboard();
             }
@@ -162,9 +309,35 @@ const ALC_Dashboard = {
         }
     },
 
-    activateDashboard: async function () {
+    activateDashboard: async function (isRajpuraQualityParam) {
         try {
             console.log("Activating Rajpura Common Quality Dashboard");
+
+            const plant = typeof userPlantId !== 'undefined' ? userPlantId : "";
+            const pId = typeof Plantid !== 'undefined' ? Plantid.toString() : "";
+            const dropdownEl = document.getElementById("DepartmentDropDownId");
+            const deptId = (dropdownEl && dropdownEl.value !== "All") ? dropdownEl.value.toString() : (typeof userDepratmentId !== 'undefined' ? userDepratmentId.toString() : "");
+
+            const isRajpuraQuality = (typeof isRajpuraQualityParam === 'boolean') ? isRajpuraQualityParam : (
+                ((typeof isRajpuraPlant === 'function' && isRajpuraPlant()) || (typeof plant === 'string' && plant.toLowerCase().indexOf('rajpura') !== -1) || pId === QualityRajpura_Config.PLANT_ID || pId === "14" || pId === "2" || (plant === "" && pId === "")) &&
+                ((typeof isQualityDepartment === 'function' && isQualityDepartment()) || QualityRajpura_Config.QUALITY_DEPT_IDS.includes(deptId) || (typeof DepartmentNameLeftNavi === "string" && DepartmentNameLeftNavi.toLowerCase().includes("quality")))
+            );
+
+            // Safeguard: if URL requests admin panel AND is strictly Rajpura Quality, render admin panel instead if authorized
+            if (isRajpuraQuality && typeof Rajpura_Admin !== 'undefined' && Rajpura_Admin.detectAdminUrl && Rajpura_Admin.detectAdminUrl()) {
+                const isAdmin = (typeof Rajpura_Admin.checkAdminAccess === "function") ? await Rajpura_Admin.checkAdminAccess() : false;
+                if (isAdmin) {
+                    await Rajpura_Admin.activateAdminPanel();
+                    return;
+                } else {
+                    try {
+                        const url = new URL(window.location.href);
+                        url.searchParams.delete("view");
+                        url.searchParams.delete("admin");
+                        window.history.replaceState({}, "", url.toString());
+                    } catch (e) {}
+                }
+            }
 
             const dashboardEl = document.getElementById("rajpuraQualityDashboard");
             if (!dashboardEl) {
@@ -172,29 +345,91 @@ const ALC_Dashboard = {
                 return;
             }
 
-            // 1. Hide generic default dashboards
+            // If URL specified a checklist category, ensure it is active
+            const urlCategory = ALC_Dashboard.resolveCategoryFromUrl();
+            if (urlCategory) {
+                ALC_Dashboard.selectedCategory = urlCategory;
+                localStorage.setItem("lastVisitedDashboard", urlCategory);
+            }
+
+            // 1. Hide generic default dashboards and prevent horizontal overflow
             $('#ShowObservation').hide();
-            $('#tblTourScores').hide();
+            $('#tblTourScores, #tblOpenObservationInner, #divtblDepartmentScores, .tblTourScores').hide();
+            $('#tblOpenObservationInner').closest('.container-fluid').hide();
             $('#ShowCategory').hide();
             $('#ShowGraph').hide();
 
-            // 2. Show the Rajpura Dashboard wrapper
+            // Prevent horizontal scrolling on SharePoint layout wrappers & allow flex child to shrink
+            $('#s4-workspace, #s4-bodyContainer, #contentRow, #contentBox, .body-wrapper, .ptms-dashboard-section').css({
+                'overflow-x': 'hidden',
+                'max-width': '100vw'
+            });
+            $('.ptms-dashboard-section').css({
+                'min-width': '0',
+                'flex': '1 1 0%',
+                'max-width': '100%'
+            });
+
+            // 2. Hide Admin Panel container when viewing standard Quality Dashboard
+            $('#rajpuraAdminPanel').hide();
+
+            // 3. Show the Rajpura Dashboard wrapper and Dashboard view
             $(dashboardEl).show();
+            $('#rajpuraDashboardView').show();
+
+            // 4. Inject Admin Panel button into header ONLY for Rajpura Quality section AND if user is in AdminPanel list
+            if (isRajpuraQuality) {
+                const isAdmin = (typeof Rajpura_Admin !== 'undefined' && typeof Rajpura_Admin.checkAdminAccess === 'function') 
+                    ? await Rajpura_Admin.checkAdminAccess() 
+                    : false;
+
+                if (isAdmin) {
+                    if (!document.getElementById("btn-goto-admin-panel")) {
+                        const headerRight = $(dashboardEl).find(".bs-card-header > div").first();
+                        if (headerRight.length) {
+                            const adminBtnHtml = `
+                                <button type="button" id="btn-goto-admin-panel" onclick="Rajpura_Admin.switchToAdmin()" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; font-size: 13px; font-weight: 600; border-radius: 6px; background-color: #1e40af; color: #ffffff; border: none; cursor: pointer; box-shadow: 0 2px 4px rgba(30, 64, 175, 0.2); transition: all 0.15s ease;">
+                                    Admin Panel
+                                </button>
+                            `;
+                            headerRight.append(adminBtnHtml);
+                        }
+                    }
+                } else {
+                    $('#btn-goto-admin-panel').remove();
+                }
+            } else {
+                $('#btn-goto-admin-panel').remove();
+            }
 
             // Bind category selector if present in DOM
             const categoryDropdown = document.getElementById("dashboardCategorySelect");
             if (categoryDropdown) {
                 $(categoryDropdown).off("change.cat").on("change.cat", () => {
-                    console.log("Dashboard category changed to: " + categoryDropdown.value);
-                    ALC_Dashboard.selectedCategory = categoryDropdown.value;
-                    ALC_Dashboard.applyCategoryFilter();
+                    ALC_Dashboard.handleCategoryChange(categoryDropdown.value);
                 });
-                // Sync select state with category (triggers Select2 UI update)
-                $(categoryDropdown).val(ALC_Dashboard.selectedCategory).trigger("change");
+                // Sync select state with category
+                if (categoryDropdown.value !== ALC_Dashboard.selectedCategory) {
+                    $(categoryDropdown).val(ALC_Dashboard.selectedCategory);
+                }
             }
 
-            // 3. Load all tours and split them
+            // Ensure filter panel is present and events are bound
+            ALC_Dashboard.ensureFilterPanel();
+            ALC_Dashboard.bindFilterEvents();
+
+            // 5. Load all tours and split them
             await ALC_Dashboard.loadAllTours();
+
+            // Smooth scroll to dashboard if opened via URL query parameter
+            if (urlCategory) {
+                setTimeout(() => {
+                    const dashboardEl = document.getElementById("rajpuraQualityDashboard");
+                    if (dashboardEl) {
+                        dashboardEl.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }
+                }, 300);
+            }
         } catch (e) {
             console.error("Error in activateDashboard: ", e);
         }
@@ -203,12 +438,16 @@ const ALC_Dashboard = {
     deactivateDashboard: function () {
         console.log("Deactivating Rajpura Common Quality Dashboard");
 
-        // 1. Hide the Rajpura Dashboard wrapper
+        // 1. Hide the Rajpura Dashboard, Admin Panel wrappers and button
         $('#rajpuraQualityDashboard').hide();
+        $('#rajpuraDashboardView').hide();
+        $('#rajpuraAdminPanel').hide();
+        $('#btn-goto-admin-panel').remove();
 
         // 2. Restore visibility of default SharePoint dashboards
         $('#ShowObservation').show();
-        $('#tblTourScores').show();
+        $('#tblTourScores, #tblOpenObservationInner, #divtblDepartmentScores, .tblTourScores').show();
+        $('#tblOpenObservationInner').closest('.container-fluid').show();
         $('#ShowCategory').show();
         $('#ShowGraph').show();
     },
@@ -223,12 +462,13 @@ const ALC_Dashboard = {
             }
 
             const apiVersion = "9.2";
-            const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+            const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
             const url = `${baseApiUrl}/api/data/v${apiVersion}/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}(${tourId})`;
 
             const body = {
                 cr3ea_status: "Closed - Expired",
-                cr3ea_processstatus: "Closed - Expired"
+                cr3ea_processstatus: "Closed - Expired",
+                cr3ea_islineclear: true
             };
 
             let response = await fetch(url, {
@@ -265,11 +505,14 @@ const ALC_Dashboard = {
             if (!response.ok) {
                 const text = await response.text();
                 console.error(`Failed to patch tour expiration in Dataverse: ${text}`);
+                return false;
             } else {
                 console.log(`Successfully patched tour expiration for GUID: ${tourId}`);
+                return true;
             }
         } catch (e) {
             console.error(`Exception during auto-expiring tour: `, e);
+            return false;
         }
     },
 
@@ -278,14 +521,14 @@ const ALC_Dashboard = {
         const refreshBtn = document.getElementById("btn-refresh-dashboard");
         if (refreshBtn) {
             refreshBtn.disabled = true;
-            refreshBtn.innerHTML = "⌛ Refreshing...";
+            refreshBtn.innerHTML = "Refreshing...";
         }
         try {
             const token = typeof getAccessToken === "function" ? await getAccessToken() : null;
             if (!token) throw new Error("No token");
 
             const apiVersion = "9.2";
-            const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+            const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
 
             const filter = `?$filter=(cr3ea_plantid eq '${QualityRajpura_Config.PLANT_ID}' or cr3ea_plantid eq 'Rajpura')&$orderby=cr3ea_tourstartdate desc&$top=100`;
             const url = `${baseApiUrl}/api/data/v${apiVersion}/${QualityRajpura_Config.DATAVERSE_TABLES.PARENT_TOUR}${filter}`;
@@ -321,7 +564,51 @@ const ALC_Dashboard = {
 
             if (!response.ok) throw new Error("OData fetch failed");
             const data = await response.json();
-            const list = data.value || [];
+            const rawList = data.value || [];
+            const list = rawList.map(item => {
+                return (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.normalizeTourRecord)
+                    ? QualityRajpura_Config.normalizeTourRecord(item)
+                    : item;
+            });
+
+            // Auto-expire previous day's active tours
+            const todayLocal = moment().format("YYYY-MM-DD");
+            const expirePromises = [];
+            for (const t of list) {
+                let status = t.cr3ea_processstatus || t.cr3ea_status || "In Progress";
+                const isTerminal = status === "Completed" || status === "Closed" || status === "Closed - Expired" || status === "Success" || status === "Success - Expired" || status === "Submitted";
+                
+                if (!isTerminal) {
+                    const creationTime = t.cr3ea_tourstartdate || t.createdon;
+                    if (creationTime) {
+                        const parsedDate = ALC_Dashboard.parseDateMoment(creationTime);
+                        if (parsedDate && parsedDate.isValid()) {
+                            const tourDateLocal = parsedDate.local().format("YYYY-MM-DD");
+                            if (tourDateLocal !== todayLocal) {
+                                const tourId = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId)
+                                    ? QualityRajpura_Config.getTourId(t)
+                                    : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                                console.log(`Auto-expiring tour from previous day in dashboard: ${tourId} (Started: ${tourDateLocal})`);
+                                if (tourId) {
+                                    expirePromises.push(
+                                        ALC_Dashboard.expireTour(tourId)
+                                            .then((success) => {
+                                                if (success) {
+                                                    t.cr3ea_status = "Closed - Expired";
+                                                    t.cr3ea_processstatus = "Closed - Expired";
+                                                    t.cr3ea_islineclear = true;
+                                                }
+                                            })
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (expirePromises.length > 0) {
+                await Promise.all(expirePromises);
+            }
 
             // Sort all tours by start date/time (latest first)
             list.sort((a, b) => {
@@ -339,39 +626,47 @@ const ALC_Dashboard = {
 
             ALC_Dashboard.allToursRaw = list;
 
-            // Trigger category filtering and rendering
+            // Populate line dropdown dynamically from tour records
+            ALC_Dashboard.populateLineDropdown();
+
+            // Trigger category and interactive filtering and rendering
             await ALC_Dashboard.applyCategoryFilter();
 
         } catch (error) {
-            console.warn("Failed to load Dataverse tours, loading mock data fallback:", error);
-
-            // Mock Fallback (contains both ALC and FoodSafety tours)
-            ALC_Dashboard.allToursRaw = [
-                { cr3ea_prod_rajpura_quality_tourid: "mock-1", cr3ea_tourstartdate: new Date().toISOString(), cr3ea_title: "Area Line Clearance", cr3ea_lineno: "Line 1", cr3ea_shift: "Shift 2", cr3ea_shiftexecutiveproduction: "John Doe", cr3ea_tourby: "David QA", cr3ea_status: "Pending QA", cr3ea_processstatus: "Pending QA" },
-                { cr3ea_prod_rajpura_quality_tourid: "mock-2", cr3ea_tourstartdate: new Date().toISOString(), cr3ea_title: "Area Line Clearance", cr3ea_lineno: "Line 2", cr3ea_shift: "Shift 1", cr3ea_shiftexecutiveproduction: "Alice Production", cr3ea_tourby: "Emily QA", cr3ea_status: "Failed - Pending Production", cr3ea_processstatus: "Failed - Pending Production" },
-                { cr3ea_prod_rajpura_quality_tourid: "mock-3", cr3ea_tourstartdate: new Date(Date.now() - 86400000).toISOString(), cr3ea_title: "Area Line Clearance", cr3ea_lineno: "Line 1", cr3ea_shift: "Shift 3", cr3ea_shiftexecutiveproduction: "John Doe", cr3ea_tourby: "David QA", cr3ea_overall_score: 100, cr3ea_checklist_result: "Pass", cr3ea_status: "Completed", cr3ea_processstatus: "Completed" },
-                // Mock Food Safety tours
-                { cr3ea_prod_rajpura_quality_tourid: "mock-fs-1", cr3ea_tourstartdate: new Date().toISOString(), cr3ea_title: "PPE_Rajpura_Line 1_13082026", cr3ea_food_safety_checklisttype: "PPE Checklist", cr3ea_lineno: "Line 1", cr3ea_shift: "Shift 2", cr3ea_shiftexecutiveproduction: "John Prod", cr3ea_assigned_qa: "David QA", cr3ea_status: "In Progress", cr3ea_processstatus: "In Progress", cr3ea_food_safety_cycle: "Cycle-1" },
-                { cr3ea_prod_rajpura_quality_tourid: "mock-fs-2", cr3ea_tourstartdate: new Date(Date.now() - 3600000).toISOString(), cr3ea_title: "GMP_Rajpura_Line 2_13082026", cr3ea_food_safety_checklisttype: "GMP Checklist", cr3ea_lineno: "Line 2", cr3ea_shift: "Shift 1", cr3ea_shiftexecutiveproduction: "Alice Incharge", cr3ea_assigned_qa: "David QA", cr3ea_overall_score: "85%", cr3ea_checklist_result: "Pass", cr3ea_status: "Submitted", cr3ea_processstatus: "Submitted", cr3ea_food_safety_cycle: "Cycle-2" }
-            ];
-            
+            console.error("Failed to load Dataverse tours:", error);
+            const msg = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.formatDataverseError)
+                ? QualityRajpura_Config.formatDataverseError(error, "retrieve tour history from Dataverse")
+                : `Dataverse Connection Failed: Unable to retrieve tour history from Dataverse.\n\n${(!navigator.onLine ? "No internet connection detected. Please reconnect and try again.\n\n" : "")}${error.message || "Please verify your login session or network connection."}`;
+            alert(msg);
+            ALC_Dashboard.allToursRaw = [];
             await ALC_Dashboard.applyCategoryFilter();
         } finally {
             if (refreshBtn) {
                 refreshBtn.disabled = false;
-                refreshBtn.innerHTML = "🔄 Refresh";
+                refreshBtn.innerHTML = "Refresh";
             }
         }
     },
 
     applyCategoryFilter: async function () {
+        // Ensure line dropdown matches the active category
+        if (this._lastPopulatedCategory !== this.selectedCategory) {
+            this.populateLineDropdown();
+        }
+
         const isFS = this.selectedCategory === "FoodSafety";
         const isCCP = this.selectedCategory === "CCP_OPRP_Sieves";
+        const isMB = this.selectedCategory === "MixingAndBaking";
+        const isPkgOps = this.selectedCategory === "PackagingOperations";
         
-        // Filter raw list
-        const filteredList = this.allToursRaw.filter(t => {
+        // 1. Filter raw list by Category
+        const categoryFiltered = this.allToursRaw.filter(t => {
             const titleVal = String(t.cr3ea_title || "");
             let cleanTitle = titleVal.split("||")[0].trim();
+            
+            const isMBTitle = cleanTitle.startsWith("MixingBaking_") || cleanTitle.toLowerCase().includes("mixingbaking");
+            const isMBItem = isMBTitle;
+
             const isFSPrefix = cleanTitle.startsWith("FoodSafety_") || cleanTitle.startsWith("Food_Safety_");
             if (isFSPrefix) {
                 cleanTitle = cleanTitle.replace("FoodSafety_", "").replace("Food_Safety_", "");
@@ -384,14 +679,41 @@ const ALC_Dashboard = {
             const isCCPTitle = cleanTitle.startsWith("CCP_") || cleanTitle.startsWith("Sieves_") || cleanTitle.toLowerCase().includes("ccp") || cleanTitle.toLowerCase().includes("sieves");
             const isCCPItem = !!hasCCPField || isCCPTitle;
 
+            const isPkgOpsTitle = cleanTitle.startsWith("PkgOps_") || cleanTitle.startsWith("PackagingOperations_") || cleanTitle.toLowerCase().includes("pkgops");
+            const hasPkgOpsField = t.cr3ea_pkgops_type;
+            const isPkgOpsItem = !!hasPkgOpsField || isPkgOpsTitle;
+
             if (isFS) {
                 return isFSItem;
             } else if (isCCP) {
                 return isCCPItem;
+            } else if (isMB) {
+                return isMBItem;
+            } else if (isPkgOps) {
+                return isPkgOpsItem;
             } else {
-                return !isFSItem && !isCCPItem;
+                return !isFSItem && !isCCPItem && !isMBItem && !isPkgOpsItem;
             }
         });
+
+        // 2. Filter by Line & Date
+        const filteredList = categoryFiltered.filter(t => {
+            const matchesLine = this.matchesLine(t, this.selectedLine);
+            const matchesDate = this.matchesDate(t, this.selectedDatePreset, this.fromDate, this.toDate);
+            return matchesLine && matchesDate;
+        });
+
+        // 3. Update active filter count badge
+        const badge = document.getElementById("dashboardFilterCountBadge");
+        if (badge) {
+            const isFiltered = (this.selectedLine && this.selectedLine !== "All") || 
+                               (this.selectedDatePreset && this.selectedDatePreset !== "All");
+            if (isFiltered) {
+                badge.innerText = `Showing ${filteredList.length} of ${categoryFiltered.length} tours`;
+            } else {
+                badge.innerText = `Showing all ${filteredList.length} tours`;
+            }
+        }
 
         // Update headers & labels
         this.updateKpiLabels();
@@ -409,11 +731,14 @@ const ALC_Dashboard = {
 
         for (const t of filteredList) {
             let status = t.cr3ea_processstatus || t.cr3ea_status || "In Progress";
-            const isTerminal = status === "Completed" || status === "Closed" || status === "Closed - Expired" || status === "Success" || status === "Success - Expired" || status === "Submitted";
+            const isCancelled = String(status).toLowerCase().includes("cancel");
+            const isTerminal = isCancelled || status === "Completed" || status === "Closed" || status === "Closed - Expired" || status === "Success" || status === "Success - Expired" || status === "Submitted";
             
             if (isTerminal) {
                 closedList.push(t);
-                if (isFS) {
+                if (isCancelled) {
+                    // Cancelled tours are archived, do not count towards success/pass metrics
+                } else if (isFS) {
                     if (t.cr3ea_checklist_result === "Pass") {
                         metric4++;
                     } else if (t.cr3ea_checklist_result === "Fail") {
@@ -421,6 +746,10 @@ const ALC_Dashboard = {
                     }
                 } else if (isCCP) {
                     metric4++; // Completed
+                } else if (isMB) {
+                    metric4++; // Submitted/Completed
+                } else if (isPkgOps) {
+                    metric4++; // Completed/Success
                 }
             } else {
                 ongoingList.push(t);
@@ -431,18 +760,27 @@ const ALC_Dashboard = {
                     if (t.cr3ea_escalated === "Yes" || t.cr3ea_status === "Escalated") {
                         metric2++; // Overdue / Escalated
                     }
+                } else if (isMB) {
+                    metric3++; // In Progress
+                } else if (isPkgOps) {
+                    metric3++; // In Progress
                 }
             }
         }
 
-        if (!isFS && !isCCP) {
-            // ALC KPIs calculations
+        if (!isFS && !isCCP && !isMB) {
+            // ALC and Packaging Operations KPIs calculations
             metric2 = filteredList.filter(t => {
                 const titleVal = t.cr3ea_title || "";
                 const cleanTitle = titleVal.split("||")[0].trim();
                 const form = cleanTitle.split('_')[0] || "Area Line Clearance";
-                const isAlc = form.toLowerCase().includes("line") || form.toLowerCase().includes("alc") || form.toLowerCase().includes("clearance");
-                if (!isAlc) return false;
+                const isAlcOrPkg = form.toLowerCase().includes("line") || 
+                                   form.toLowerCase().includes("alc") || 
+                                   form.toLowerCase().includes("clearance") ||
+                                   form.toLowerCase().includes("pkg") ||
+                                   form.toLowerCase().includes("packaging") ||
+                                   t.cr3ea_pkgops_type;
+                if (!isAlcOrPkg) return false;
 
                 const status = t.cr3ea_processstatus || t.cr3ea_status || "In Progress";
                 const isTerminal = status === "Completed" || status === "Closed" || status === "Closed - Expired" || status === "Success" || status === "Success - Expired";
@@ -495,7 +833,7 @@ const ALC_Dashboard = {
             if (toursNeedCheckpoints.length > 0) {
                 const token = typeof getAccessToken === "function" ? await getAccessToken() : null;
                 const apiVersion = "9.2";
-                const baseApiUrl = typeof environmentUrl !== 'undefined' ? environmentUrl : '';
+                const baseApiUrl = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.DATAVERSE_URL) || (typeof environmentUrl !== 'undefined' ? environmentUrl : '');
                 
                 let configs = [];
                 try {
@@ -506,11 +844,14 @@ const ALC_Dashboard = {
                 ALC_Dashboard.configs = configs;
 
                 const fetchCheckpointsPromises = toursNeedCheckpoints.map(async t => {
+                    const tourId = (typeof QualityRajpura_Config !== 'undefined' && QualityRajpura_Config.getTourId)
+                        ? QualityRajpura_Config.getTourId(t)
+                        : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
                     try {
-                        const checkpoints = await ALC_Dashboard.fetchCheckpointsDirect(t.cr3ea_prod_rajpura_quality_tourid, token, baseApiUrl, apiVersion);
+                        const checkpoints = await ALC_Dashboard.fetchCheckpointsDirect(tourId, token, baseApiUrl, apiVersion);
                         t.checkpoints = checkpoints || [];
                     } catch (e) {
-                        console.warn(`Failed to fetch checkpoints for tour ${t.cr3ea_prod_rajpura_quality_tourid}:`, e);
+                        console.warn(`Failed to fetch checkpoints for tour ${tourId}:`, e);
                         t.checkpoints = [];
                     }
                 });
@@ -525,6 +866,7 @@ const ALC_Dashboard = {
     updateKpiLabels: function () {
         const isFS = this.selectedCategory === "FoodSafety";
         const isCCP = this.selectedCategory === "CCP_OPRP_Sieves";
+        const isMB = this.selectedCategory === "MixingAndBaking";
         
         const label2 = document.getElementById("kpi-success-rate") ? document.getElementById("kpi-success-rate").previousElementSibling : null;
         const label3 = document.getElementById("kpi-open-deviations") ? document.getElementById("kpi-open-deviations").previousElementSibling : null;
@@ -538,6 +880,10 @@ const ALC_Dashboard = {
             if (label2) label2.innerText = "Overdue Tours";
             if (label3) label3.innerText = "In Progress";
             if (label4) label4.innerText = "Completed Tours";
+        } else if (isMB) {
+            if (label2) label2.innerText = "Failed Batches";
+            if (label3) label3.innerText = "In Progress";
+            if (label4) label4.innerText = "Submitted Tours";
         } else {
             if (label2) label2.innerText = "Lines On Hold";
             if (label3) label3.innerText = "Open Observations";
@@ -548,8 +894,25 @@ const ALC_Dashboard = {
     updateTableHeaders: function () {
         const isFS = this.selectedCategory === "FoodSafety";
         const isCCP = this.selectedCategory === "CCP_OPRP_Sieves";
+        const isMB = this.selectedCategory === "MixingAndBaking";
+        const isPkgOps = this.selectedCategory === "PackagingOperations";
+        const isALC = this.selectedCategory === "ALC";
         const ongoingTable = document.getElementById("rajpura-ongoing-tbody") ? document.getElementById("rajpura-ongoing-tbody").closest("table") : null;
         const closedTable = document.getElementById("rajpura-cycles-tbody") ? document.getElementById("rajpura-cycles-tbody").closest("table") : null;
+
+        // Show/hide Score column dynamically (only visible for ALC)
+        if (ongoingTable) {
+            const headers = ongoingTable.querySelectorAll("thead th");
+            if (headers.length >= 9) {
+                headers[5].style.display = isALC ? "" : "none";
+            }
+        }
+        if (closedTable) {
+            const headers = closedTable.querySelectorAll("thead th");
+            if (headers.length >= 8) {
+                headers[5].style.display = isALC ? "" : "none";
+            }
+        }
 
         if (isFS) {
             if (ongoingTable) {
@@ -584,6 +947,24 @@ const ALC_Dashboard = {
                 if (headers.length >= 8) {
                     headers[1].innerText = "Verification Type";
                     headers[6].innerText = "Frequency / Product";
+                    headers[7].innerText = "Result";
+                }
+            }
+        } else if (isMB) {
+            if (ongoingTable) {
+                const headers = ongoingTable.querySelectorAll("thead th");
+                if (headers.length >= 9) {
+                    headers[1].innerText = "Checklist Form";
+                    headers[6].innerText = "Product / Batch";
+                    headers[7].innerText = "Status";
+                    headers[8].innerText = "QA / Incharge";
+                }
+            }
+            if (closedTable) {
+                const headers = closedTable.querySelectorAll("thead th");
+                if (headers.length >= 8) {
+                    headers[1].innerText = "Checklist Form";
+                    headers[6].innerText = "Product / Batch";
                     headers[7].innerText = "Result";
                 }
             }
@@ -611,7 +992,8 @@ const ALC_Dashboard = {
     // Resolve Pending With Name dynamically based on status
     getPendingWith: function (t) {
         let status = t.cr3ea_processstatus || t.cr3ea_status || "Pending QA";
-        const prodName = t.cr3ea_shiftexecutiveproduction || "Production Team";
+        const prodNameRaw = t.cr3ea_shiftexecutiveproduction || t.cr3ea_observedby || "Production Team";
+        const prodName = prodNameRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(prodNameRaw) : prodNameRaw;
         const qaNameRaw = t.cr3ea_tourby || "QA Team";
         const qaName = qaNameRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaNameRaw) : qaNameRaw;
 
@@ -629,31 +1011,27 @@ const ALC_Dashboard = {
             }
         }
 
-        switch (status) {
-            case "Escalated":
-                return `Escalation Manager`;
-            case "Pending QA":
-                return `QA Incharge (${qaName})`;
-            case "QA In Progress":
-                return `QA Executive (${qaName})`;
-            case "Failed - Pending Production":
-            case "Success - Pending Production":
-                // Resolve area-wise pending production assignees
-                const assignees = ALC_Dashboard.getAreaAssigneesForFailedCheckpoints(t);
-                if (assignees && assignees.length > 0) {
-                    return `Production Exec (${assignees.join(", ")})`;
-                }
-                return `Production Exec (${prodName})`;
-            case "Pending Re-Verification":
-            case "Success - Pending Re-Verification":
-            case "Failed - Pending Re-Verification":
-                const pendingProds = ALC_Dashboard.getAreaAssigneesForFailedCheckpoints(t);
-                if (pendingProds && pendingProds.length > 0) {
-                    return `QA Executive (${qaName}) & Production Exec (${pendingProds.join(", ")})`;
-                }
-                return `QA Executive (${qaName})`;
-            default:
-                return "Production Team";
+        if (status === "Escalated") {
+            return `Shift Executive (${prodName})`;
+        } else if (status === "Pending QA") {
+            return `QA Incharge (${qaName})`;
+        } else if (status.startsWith("QA In Progress") || status === "In Progress" || status === "InProgress-paused") {
+            return `QA Executive (${qaName})`;
+        } else if (status.includes("Pending Production") || status === "Pending Production") {
+            // Resolve area-wise pending production assignees
+            const assignees = ALC_Dashboard.getAreaAssigneesForFailedCheckpoints(t);
+            if (assignees && assignees.length > 0) {
+                return `Production Exec (${assignees.join(", ")})`;
+            }
+            return `Production Exec (${prodName})`;
+        } else if (status.includes("Pending Re-Verification") || status === "Pending Re-Verification") {
+            const pendingProds = ALC_Dashboard.getAreaAssigneesForFailedCheckpoints(t);
+            if (pendingProds && pendingProds.length > 0) {
+                return `QA Executive (${qaName}) & Production Exec (${pendingProds.join(", ")})`;
+            }
+            return `QA Executive (${qaName})`;
+        } else {
+            return "Production Team";
         }
     },
 
@@ -721,6 +1099,22 @@ const ALC_Dashboard = {
         const tbody = document.getElementById("rajpura-ongoing-tbody");
         if (!tbody) return;
 
+        // Clean up any toggle or card remnants from DOM
+        const oldToggle = document.getElementById("rajpura-view-toggle-wrap");
+        if (oldToggle) oldToggle.remove();
+        const oldOngoingCards = document.getElementById("rajpura-ongoing-cards");
+        if (oldOngoingCards) oldOngoingCards.remove();
+        const oldClosedCards = document.getElementById("rajpura-cycles-cards");
+        if (oldClosedCards) oldClosedCards.remove();
+        const hints = document.querySelectorAll(".rajpura-scroll-indicator");
+        hints.forEach(h => h.remove());
+
+        const dashboardEl = document.getElementById("rajpuraQualityDashboard");
+        if (dashboardEl) {
+            dashboardEl.classList.remove("rajpura-view-mode-cards");
+            dashboardEl.classList.remove("rajpura-view-mode-table");
+        }
+
         tbody.innerHTML = "";
         if (list.length === 0) {
             tbody.innerHTML = `<tr><td colspan="9" class="text-center py-3 text-secondary">No ongoing clearance tours at the moment.</td></tr>`;
@@ -729,9 +1123,52 @@ const ALC_Dashboard = {
 
         const isFS = this.selectedCategory === "FoodSafety";
         const isCCP = this.selectedCategory === "CCP_OPRP_Sieves";
-        const currentUserEmail = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? _spPageContextInfo.userEmail.toLowerCase().trim() : "";
-        const currentUserName = (typeof EmployeeName !== 'undefined' && EmployeeName) ? EmployeeName.toLowerCase().trim() :
-            ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? _spPageContextInfo.userDisplayName.toLowerCase().trim() : "");
+        const isMB = this.selectedCategory === "MixingAndBaking";
+        const isPkgOps = this.selectedCategory === "PackagingOperations";
+
+        const myUserNames = [
+            (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userDisplayName) ? _spPageContextInfo.userDisplayName : "",
+            (typeof currentUser !== 'undefined' && currentUser) ? currentUser : "",
+            (typeof UserName !== 'undefined' && UserName) ? UserName : "",
+            (typeof EmployeeName !== 'undefined' && EmployeeName) ? EmployeeName : "",
+            (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userLoginName) ? _spPageContextInfo.userLoginName : ""
+        ].map(s => String(s || "").toLowerCase().trim()).filter(Boolean);
+
+        const myUserEmails = [
+            (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.userEmail) ? _spPageContextInfo.userEmail : "",
+            (typeof userEmail !== 'undefined' && userEmail) ? userEmail : "",
+            (typeof UserEmail !== 'undefined' && UserEmail) ? UserEmail : ""
+        ].map(s => String(s || "").toLowerCase().trim()).filter(Boolean);
+
+        const currentUserEmail = myUserEmails[0] || "";
+        const currentUserName = myUserNames[0] || "";
+
+        const isMatchUser = (val) => {
+            if (!val) return false;
+            const raw = String(val).toLowerCase().trim();
+            if (!raw || raw === "n/a" || raw === "none" || raw === "production team" || raw === "qa team") return false;
+            const resolved = raw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(raw).toLowerCase().trim() : raw;
+            
+            for (const em of myUserEmails) {
+                if (!em) continue;
+                if (raw === em || em.includes(raw) || raw.includes(em)) return true;
+                const strippedEm = em.split("@")[0].replace(/[^a-z0-9]/g, "");
+                const cleanRaw = raw.replace(/[^a-z0-9]/g, "");
+                if (strippedEm && cleanRaw && (cleanRaw === strippedEm || (cleanRaw.length >= 3 && strippedEm.length >= 3 && (cleanRaw.includes(strippedEm) || strippedEm.includes(cleanRaw))))) return true;
+            }
+            
+            for (const nm of myUserNames) {
+                if (!nm) continue;
+                if (raw === nm || nm.includes(raw) || raw.includes(nm)) return true;
+                if (resolved === nm || nm.includes(resolved) || resolved.includes(nm)) return true;
+                const cleanNm = nm.replace(/[^a-z0-9]/g, "");
+                const cleanRaw = raw.replace(/[^a-z0-9]/g, "");
+                const cleanRes = resolved.replace(/[^a-z0-9]/g, "");
+                if (cleanNm && cleanRaw && (cleanRaw === cleanNm || (cleanRaw.length >= 3 && cleanNm.length >= 3 && (cleanRaw.includes(cleanNm) || cleanNm.includes(cleanRaw))))) return true;
+                if (cleanNm && cleanRes && (cleanRes === cleanNm || (cleanRes.length >= 3 && cleanNm.length >= 3 && (cleanRes.includes(cleanNm) || cleanNm.includes(cleanRes))))) return true;
+            }
+            return false;
+        };
 
         list.forEach(t => {
             try {
@@ -778,30 +1215,29 @@ const ALC_Dashboard = {
                         <td>${line}</td>
                         <td>${shift}</td>
                         <td style="text-align: left;">${execs}</td>
-                        <td>${scoreDisplay}</td>
+                        <td style="display: none;">${scoreDisplay}</td>
                         <td>${clearBadgeHtml}</td>
                         <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
                         <td style="font-weight: 500; color: #1e293b;">${pendingWith}</td>
                     `;
                     
                     let isMyTask = false;
-                    const isQaStatus = (status === "Pending QA" || status === "QA In Progress" || status === "In Progress" || status === "InProgress-paused" || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
-                    if (isQaStatus) {
-                        const qaEmail = (t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
-                        const qaResolvedName = qaEmail.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaEmail).toLowerCase().trim() : qaEmail;
-                        if ((currentUserEmail && qaEmail && (currentUserEmail === qaEmail || currentUserEmail.includes(qaEmail))) ||
-                            (currentUserName && qaEmail && (currentUserName === qaEmail || currentUserName.includes(qaEmail) || qaEmail.includes(currentUserName))) ||
-                            (currentUserName && qaResolvedName && (currentUserName === qaResolvedName || currentUserName.includes(qaResolvedName) || qaResolvedName.includes(currentUserName)))) {
-                            isMyTask = true;
-                        }
+                    const isQaStatus = (status === "Pending QA" || status === "QA In Progress" || status.startsWith("QA In Progress") || status === "In Progress" || status === "InProgress-paused" || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
+                    const qaValues = [t.cr3ea_assigned_qa, t.cr3ea_tourby, t.cr3ea_qaexecutive].filter(Boolean);
+                    const isAssignedQA = qaValues.some(isMatchUser);
+                    if (isQaStatus && isAssignedQA) {
+                        isMyTask = true;
                     }
  
                     if (isMyTask) {
                         tr.classList.add("my-task-row");
                     }
  
+                    const isFsCancelled = String(status).toLowerCase().includes("cancel") || String(t.cr3ea_processstatus || "").toLowerCase().includes("cancel");
                     let isClickable = true;
-                    if ((status === "In Progress" || status === "InProgress-paused") && !isMyTask) {
+                    if (isFsCancelled) {
+                        isClickable = false;
+                    } else if ((status === "In Progress" || status === "InProgress-paused") && !isMyTask) {
                         isClickable = false;
                     }
  
@@ -809,12 +1245,103 @@ const ALC_Dashboard = {
                         tr.style.cursor = "pointer";
                         tr.title = "Click to open Food Safety checklist";
                         tr.onclick = function () {
-                            window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/FoodSafety.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                            const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                                ? QualityRajpura_Config.getTourId(t)
+                                : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                            const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                                ? QualityRajpura_Config.getSiteBaseUrl()
+                                : "/sites/Mrs_Bectors_PTMS";
+                            window.location.href = `${siteBase}/Pages/FoodSafety.aspx?TourId=${tourId}`;
                         };
                     } else {
                         tr.style.cursor = "default";
-                        tr.title = "This tour is in progress by another QA and is only accessible to the assigned QA Executive.";
-                        tr.onclick = null;
+                        tr.title = isFsCancelled 
+                            ? "This observation has been cancelled and cannot be accessed." 
+                            : "This tour is in progress by another QA and is only accessible to the assigned QA Executive.";
+                        tr.onclick = function (e) {
+                            if (e) e.stopPropagation();
+                            if (isFsCancelled) {
+                                alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                            } else {
+                                alert("Access Denied: This tour is currently in progress by QA. Only the assigned QA Executive can enter.");
+                            }
+                        };
+                    }
+                } else if (isMB) {
+                    const form = "Mixing & Baking";
+                    const qaName = t.cr3ea_assigned_qa || t.cr3ea_tourby || "N/A";
+                    const qaExec = qaName.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaName) : qaName;
+                    const prodInchargeRaw = t.cr3ea_shiftexecutiveproduction || "N/A";
+                    const prodIncharge = prodInchargeRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(prodInchargeRaw) : prodInchargeRaw;
+                    const execs = `QA: ${qaExec} | Prod: ${prodIncharge}`;
+                    
+                    const scoreDisplay = "-";
+                    const clearBadgeHtml = `<span class="badge badge-warning" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Mixing & Baking</span>`;
+                    
+                    let status = t.cr3ea_status || "In Progress";
+                    let badgeClass = "badge-warning";
+                    if (status === "Submitted" || status === "Completed") badgeClass = "badge-success";
+                    
+                    const isProgress = (String(status).toLowerCase() === "in-progress" || String(status).toLowerCase() === "in progress" || String(status).toLowerCase() === "inprogress-paused");
+                    const pendingWith = isProgress ? `QA Executive (${qaExec})` : "Completed";
+
+                    tr.innerHTML = `
+                        <td>${date}</td>
+                        <td><strong>${form}</strong></td>
+                        <td>${line}</td>
+                        <td>${shift}</td>
+                        <td style="text-align: left;">${execs}</td>
+                        <td style="display: none;">${scoreDisplay}</td>
+                        <td>${clearBadgeHtml}</td>
+                        <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
+                        <td style="font-weight: 500; color: #1e293b;">${pendingWith}</td>
+                    `;
+                    
+                    let isMyTask = false;
+                    const isQaStatus = (status === "In Progress" || status === "InProgress-paused" || status === "Pending QA");
+                    const qaValues = [t.cr3ea_assigned_qa, t.cr3ea_tourby, t.cr3ea_qaexecutive].filter(Boolean);
+                    const isAssignedQA = qaValues.some(isMatchUser);
+                    if (isQaStatus && isAssignedQA) {
+                        isMyTask = true;
+                    }
+
+                    if (isMyTask) {
+                        tr.classList.add("my-task-row");
+                    }
+
+                    const isMbCancelled = String(status).toLowerCase().includes("cancel") || String(t.cr3ea_processstatus || "").toLowerCase().includes("cancel");
+                    let isClickable = true;
+                    if (isMbCancelled) {
+                        isClickable = false;
+                    } else if (isQaStatus && !isMyTask) {
+                        isClickable = false;
+                    }
+
+                    if (isClickable) {
+                        tr.style.cursor = "pointer";
+                        tr.title = "Click to open Mixing & Baking checklist";
+                        tr.onclick = function () {
+                            const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                                ? QualityRajpura_Config.getTourId(t)
+                                : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                            const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                                ? QualityRajpura_Config.getSiteBaseUrl()
+                                : "/sites/Mrs_Bectors_PTMS";
+                            window.location.href = `${siteBase}/Pages/MixingAndBaking.aspx?TourId=${tourId}`;
+                        };
+                    } else {
+                        tr.style.cursor = "default";
+                        tr.title = isMbCancelled 
+                            ? "This observation has been cancelled and cannot be accessed." 
+                            : "This tour is currently in progress by QA and is only accessible to the assigned QA Executive.";
+                        tr.onclick = function (e) {
+                            if (e) e.stopPropagation();
+                            if (isMbCancelled) {
+                                alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                            } else {
+                                alert("Access Denied: This tour is currently in progress by QA. Only the assigned QA Executive can enter.");
+                            }
+                        };
                     }
                 } else if (isCCP) {
                     let form = t.cr3ea_ccp_oprp_sieves_parametertype;
@@ -839,13 +1366,20 @@ const ALC_Dashboard = {
                     const freqText = t.cr3ea_ccp_oprp_sieves_frequency || t.cr3ea_ccp_oprp_sieves_productvariety || "2-Hour Check";
                     const clearBadgeHtml = `<span class="badge badge-warning" style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">${freqText}</span>`;
                     
-                    let status = t.cr3ea_status || "In Progress";
+                    let status = t.cr3ea_processstatus || t.cr3ea_status || "In Progress";
                     let badgeClass = "badge-warning";
-                    if (status === "Submitted" || status === "Completed") badgeClass = "badge-success";
+                    if (status === "Submitted" || status === "Completed" || status === "Success") badgeClass = "badge-success";
                     else if (status === "Escalated") badgeClass = "badge-error";
+                    else if (status === "Pending Production Action" || status.includes("Pending Production") || status.includes("Pending Observation")) badgeClass = "badge-error";
+                    else if (status === "Pending QA Re-Verification" || status.includes("Re-Verification")) badgeClass = "badge-primary";
                     
                     const isProgress = (String(status).toLowerCase() === "in-progress" || String(status).toLowerCase() === "in progress" || String(status).toLowerCase() === "inprogress-paused");
-                    const pendingWith = isProgress ? `QA Executive (${qaExec})` : status;
+                    let pendingWith = isProgress ? `QA Executive (${qaExec})` : status;
+                    if (status === "Pending Production Action" || status.includes("Pending Production")) {
+                        pendingWith = `Production Incharge (${prodIncharge})`;
+                    } else if (status === "Pending QA Re-Verification" || status.includes("Re-Verification")) {
+                        pendingWith = `QA Executive (${qaExec})`;
+                    }
 
                     tr.innerHTML = `
                         <td>${date}</td>
@@ -853,22 +1387,34 @@ const ALC_Dashboard = {
                         <td>${line}</td>
                         <td>${shift}</td>
                         <td style="text-align: left;">${execs}</td>
-                        <td>${scoreDisplay}</td>
+                        <td style="display: none;">${scoreDisplay}</td>
                         <td>${clearBadgeHtml}</td>
                         <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
                         <td style="font-weight: 500; color: #1e293b;">${pendingWith}</td>
                     `;
                     
                     let isMyTask = false;
-                    const isQaStatus = (status === "In Progress" || status === "InProgress-paused" || status === "Escalated");
-                    if (isQaStatus) {
-                        const qaEmail = String(t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
-                        const qaResolvedName = (typeof qaEmail === "string" && qaEmail.includes("@")) ? ALC_Dashboard.resolveQaNameFromEmail(qaEmail).toLowerCase().trim() : qaEmail;
-                        if ((currentUserEmail && qaEmail && (currentUserEmail === qaEmail || currentUserEmail.includes(qaEmail))) ||
-                            (currentUserName && qaEmail && (currentUserName === qaEmail || currentUserName.includes(qaEmail) || qaEmail.includes(currentUserName))) ||
-                            (currentUserName && qaResolvedName && (currentUserName === qaResolvedName || currentUserName.includes(qaResolvedName) || qaResolvedName.includes(currentUserName)))) {
-                            isMyTask = true;
-                        }
+                    const isQaStatus = (status === "In Progress" || status === "InProgress-paused" || status === "Escalated" || status === "Pending QA Re-Verification" || status === "Pending QA");
+                    const qaValues = [t.cr3ea_assigned_qa, t.cr3ea_tourby, t.cr3ea_qaexecutive].filter(Boolean);
+                    const isAssignedQA = qaValues.some(isMatchUser);
+                    if (isQaStatus && isAssignedQA) {
+                        isMyTask = true;
+                    }
+
+                    // Also check if current user is Production team for this tour or in general
+                    const prodValues = [t.cr3ea_shiftexecutiveproduction, t.cr3ea_production_incharge, t.cr3ea_observedby, t.cr3ea_shiftexecutive].filter(Boolean);
+                    const isUserProdExec = prodValues.some(isMatchUser) ||
+                        (typeof DepartmentNameLeftNavi === "string" && (DepartmentNameLeftNavi.toLowerCase().includes("prod") || DepartmentNameLeftNavi.toLowerCase().includes("baking") || DepartmentNameLeftNavi.toLowerCase().includes("mixing"))) ||
+                        (typeof RoleName === "string" && RoleName.toLowerCase().includes("prod"));
+
+                    const isProdPending = (status === "Pending Production Action" || status.includes("Pending Production") || status.includes("Pending Observation") || status === "Escalated");
+                    const isReverifyStatus = (status === "Pending QA Re-Verification" || status.includes("Re-Verification") || status.includes("Re-verify"));
+
+                    const isCcpCancelled = String(status).toLowerCase().includes("cancel") || String(t.cr3ea_processstatus || "").toLowerCase().includes("cancel");
+
+                    // Re-verification, In Progress, and Cancelled are strictly QA's responsibility / terminal. Production person does NOT have pending task!
+                    if (!isReverifyStatus && !isProgress && !isCcpCancelled && isUserProdExec && isProdPending) {
+                        isMyTask = true;
                     }
 
                     if (isMyTask) {
@@ -876,7 +1422,13 @@ const ALC_Dashboard = {
                     }
 
                     let isClickable = true;
-                    if ((status === "In Progress" || status === "InProgress-paused") && !isMyTask) {
+                    if (isCcpCancelled) {
+                        isClickable = false;
+                    } else if (isProgress && !isMyTask) {
+                        isClickable = false;
+                    } else if (isReverifyStatus && isUserProdExec && !isMyTask) {
+                        isClickable = false;
+                    } else if (isProdPending && !isUserProdExec) {
                         isClickable = false;
                     }
 
@@ -884,34 +1436,59 @@ const ALC_Dashboard = {
                         tr.style.cursor = "pointer";
                         tr.title = "Click to open CCP/OPRP checklist";
                         tr.onclick = function () {
-                            window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/CCP-OPRP.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                            const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                                ? QualityRajpura_Config.getTourId(t)
+                                : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                            const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                                ? QualityRajpura_Config.getSiteBaseUrl()
+                                : "/sites/Mrs_Bectors_PTMS";
+                            const roleParam = isProdPending ? "&role=PRODUCTION" : (isReverifyStatus || isProgress ? "&role=QA" : "");
+                            window.location.href = `${siteBase}/Pages/CCP-OPRP.aspx?TourId=${tourId}${roleParam}`;
                         };
                     } else {
                         tr.style.cursor = "default";
-                        tr.title = "This tour is in progress by another QA and is only accessible to the assigned QA Executive.";
-                        tr.onclick = null;
+                        tr.title = isCcpCancelled
+                            ? "This observation has been cancelled and cannot be accessed."
+                            : (isProdPending
+                                ? "This tour is in Pending Production Action stage and is accessible only to the assigned Production Incharge."
+                                : (isReverifyStatus 
+                                    ? "This tour is in QA Re-Verification stage and awaiting QA Executive action." 
+                                    : "This tour is currently in progress by QA and is only accessible to the assigned QA Executive."));
+                        tr.onclick = function (e) {
+                            if (e) e.stopPropagation();
+                            if (isCcpCancelled) {
+                                alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                            } else if (isProdPending) {
+                                alert("Access Denied: This tour is currently in Pending Production Action stage. Only the assigned Production Incharge can enter and submit corrective actions.");
+                            } else if (isReverifyStatus) {
+                                alert("Access Denied: This tour is currently in QA Re-Verification stage. Production team cannot enter or take actions at this time.");
+                            } else {
+                                alert("Access Denied: This tour is currently in progress by QA. Only the assigned QA Executive can enter.");
+                            }
+                        };
                     }
-                } else {
-                    const titleVal = t.cr3ea_title || "";
-                    const cleanTitle = titleVal.split("||")[0].trim();
-                    const form = cleanTitle.split('_')[0] || "Area Line Clearance";
-                    const prodExec = t.cr3ea_shiftexecutiveproduction || "N/A";
+                } else if (isPkgOps) {
+                    const rawSubType = t.cr3ea_pkgops_type || "Packaging Operations";
+                    const subType = rawSubType === "PAPA" ? "PAPA's" : rawSubType;
+                    const form = `Packaging - ${subType}`;
+                    const prodExecRaw = t.cr3ea_shiftexecutiveproduction || "N/A";
+                    const prodExec = prodExecRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(prodExecRaw) : prodExecRaw;
                     const qaExecRaw = t.cr3ea_tourby || "N/A";
                     const qaExec = qaExecRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaExecRaw) : qaExecRaw;
                     const execs = `Shift: ${prodExec} | QA: ${qaExec}`;
  
                     const pendingWith = ALC_Dashboard.getPendingWith(t);
  
-                    let scoreDisplay = "-";
+                                        let scoreDisplay = "-";
                     let scoreNum = null;
                     const computedScore = ALC_Dashboard.calculateScoreDynamically(t);
- 
-                    if (computedScore !== null) {
+
+                    if (t.cr3ea_overall_score !== undefined && t.cr3ea_overall_score !== null && String(t.cr3ea_overall_score).trim() !== "") {
+                        scoreNum = parseFloat(String(t.cr3ea_overall_score).replace("%", ""));
+                        scoreDisplay = `<strong style="color: #0f172a; font-size: 15px;">${scoreNum.toFixed(2)}%</strong>`;
+                    } else if (computedScore !== null) {
                         scoreNum = parseFloat(computedScore);
                         scoreDisplay = `<strong style="color: #0f172a; font-size: 15px;">${computedScore}%</strong>`;
-                    } else if (t.cr3ea_overall_score !== undefined && t.cr3ea_overall_score !== null && String(t.cr3ea_overall_score).trim() !== "") {
-                        scoreNum = parseFloat(t.cr3ea_overall_score);
-                        scoreDisplay = `<strong style="color: #0f172a; font-size: 15px;">${scoreNum.toFixed(2)}%</strong>`;
                     }
 
                     let status = t.cr3ea_processstatus || t.cr3ea_status || "Pending QA";
@@ -931,24 +1508,256 @@ const ALC_Dashboard = {
                         }
                     }
 
-                    if (scoreNum !== null) {
-                        const isSuccess = (scoreNum >= 80);
-                        if (status.includes("Pending Production")) {
-                            status = isSuccess ? "Success - Pending Production" : "Failed - Pending Production";
-                        } else if (status.includes("Pending Re-Verification") || status === "Pending Re-Verification") {
-                            status = isSuccess ? "Success - Pending Re-Verification" : "Failed - Pending Re-Verification";
+                    const isLineClearVal = t.cr3ea_islineclear;
+                    const isLineClearExplicitNo = (isLineClearVal === false || isLineClearVal === "false" || isLineClearVal === 0 || isLineClearVal === "0" || isLineClearVal === "No");
+                    const isChecklistResultFail = (t.cr3ea_checklist_result === "Fail" || t.cr3ea_checklist_result === "Expired");
+                    const isExplicitlyFailedStatus = (String(t.cr3ea_processstatus || "").startsWith("Failed") || String(t.cr3ea_status || "").startsWith("Failed"));
+                    const isEvaluationDone = (scoreNum !== null || isChecklistResultFail || isExplicitlyFailedStatus || status.includes("Pending Production") || status.includes("Pending Re-Verification"));
+                    const isTourFailed = isEvaluationDone && (isLineClearExplicitNo || isChecklistResultFail || isExplicitlyFailedStatus || (scoreNum !== null && scoreNum < 80));
+
+                    if (status.includes("Pending Production") || status === "Pending Production") {
+                        const isSuccess = (scoreNum !== null && scoreNum >= 80 && !isTourFailed);
+                        status = isSuccess ? "Success - Pending Production" : "Failed - Pending Production";
+                    } else if (status.includes("Pending Re-Verification") || status === "Pending Re-Verification") {
+                        const isSuccess = (scoreNum !== null && scoreNum >= 80 && !isTourFailed);
+                        status = isSuccess ? "Success - Pending Re-Verification" : "Failed - Pending Re-Verification";
+                    }
+
+                    let badgeClass = "badge-warning";
+                    let isMyTask = false;
+
+                    const qaValues = [t.cr3ea_assigned_qa, t.cr3ea_tourby, t.cr3ea_qaexecutive].filter(Boolean);
+                    const isAssignedQA = qaValues.some(isMatchUser);
+
+                    const isQaStatus = (status === "Pending QA" || status === "QA In Progress" || status.startsWith("QA In Progress") || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification" || status === "In Progress" || status === "InProgress-paused");
+                    if (isQaStatus && isAssignedQA) {
+                        isMyTask = true;
+                    }
+
+                    const prodValues = [t.cr3ea_shiftexecutiveproduction, t.cr3ea_shiftexecutive, t.cr3ea_production_incharge, t.cr3ea_observedby].filter(Boolean);
+                    const isUserProdExec = prodValues.some(isMatchUser);
+
+                    if (status === "Escalated") {
+                        if (isUserProdExec) {
+                            isMyTask = true;
                         }
+                    }
+
+                    const isProdStatus = (status.includes("Pending Production") || status.includes("Pending Observation") || status === "Failed - Pending Production" || status === "Success - Pending Production");
+                    if (isProdStatus && isUserProdExec) {
+                        isMyTask = true;
+                    }
+
+                    if (isMyTask) {
+                        tr.classList.add("my-task-row");
+                    }
+
+                    if (status === "Failed - Pending Production" || status === "Failed - Pending Re-Verification" || status === "Escalated") {
+                        badgeClass = "badge-error";
+                    } else if (status === "Success - Pending Production" || status === "Success - Pending Re-Verification") {
+                        badgeClass = "badge-success";
+                    } else if (status === "QA In Progress" || status.startsWith("QA In Progress") || status === "In Progress") {
+                        badgeClass = "badge-primary";
+                    }
+
+                    if (scoreNum === null) {
+                        if (status === "In Progress") {
+                            scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Request Pending</span>`;
+                        } else if (status === "Pending QA") {
+                            scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Awaiting QA Accept</span>`;
+                        } else if (status === "Escalated") {
+                            scoreDisplay = `<span class="text-danger font-weight-bold" style="font-size: 12px;">DELAYED</span>`;
+                        } else if (status === "QA In Progress" || status.startsWith("QA In Progress")) {
+                            scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Evaluation Pending</span>`;
+                        } else {
+                            scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">N/A</span>`;
+                        }
+                    }
+
+                    let clearBadgeHtml = "-";
+                    const isClearedVal = t.cr3ea_islineclear;
+                    const isCleared = isClearedVal === true ||
+                        isClearedVal === "true" ||
+                        isClearedVal === 1 ||
+                        isClearedVal === "1" ||
+                        isClearedVal === "Yes" ||
+                        status === "Completed" ||
+                        status === "Closed" ||
+                        status === "Closed - Expired" ||
+                        status === "Success";
+
+                    clearBadgeHtml = isCleared
+                        ? '<span class="badge badge-success" style="background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Yes</span>'
+                        : '<span class="badge badge-error" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">No</span>';
+
+                    let displayStatus = status;
+                    if (displayStatus.includes("Pending Production")) {
+                        displayStatus = displayStatus.replace("Pending Production", "Pending Observation");
+                    } else if (displayStatus === "QA In Progress") {
+                        displayStatus = "QA In Progress (Paused)";
+                    } else if (displayStatus === "Escalated") {
+                        displayStatus = "Delayed";
+                    }
+
+                    tr.innerHTML = `
+                        <td>${date}</td>
+                        <td><strong>${form}</strong></td>
+                        <td>${line}</td>
+                        <td>${shift}</td>
+                        <td style="text-align: left;">${execs}</td>
+                        <td style="display: none;">${scoreDisplay}</td>
+                        <td>${clearBadgeHtml}</td>
+                        <td><span class="badge badge-fill ${badgeClass}">${displayStatus}</span></td>
+                        <td style="font-weight: 500; color: #1e293b;">${pendingWith}</td>
+                    `;
+
+                    const isPkgReverify = (status.includes("Pending Re-Verification") || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
+                    const isPkgCancelled = String(status).toLowerCase().includes("cancel") || String(t.cr3ea_processstatus || "").toLowerCase().includes("cancel");
+                    const isPkgInProgress = (status === "QA In Progress" || status.startsWith("QA In Progress") || status === "In Progress" || status === "InProgress-paused" || status === "Pending QA");
+                    const isPkgProdPending = (status.includes("Pending Production") || status.includes("Pending Observation") || status === "Failed - Pending Production" || status === "Success - Pending Production" || status === "Production Action Needed");
+                    let isClickable = true;
+                    if (isPkgCancelled) {
+                        isClickable = false;
+                    } else if (isPkgInProgress && !isAssignedQA) {
+                        isClickable = false;
+                    } else if (isPkgReverify && !isAssignedQA) {
+                        isClickable = false;
+                    } else if (isPkgProdPending && !isUserProdExec) {
+                        isClickable = false;
+                    }
+
+                    if (isClickable) {
+                        tr.style.cursor = "pointer";
+                        if (status === "Escalated" && isUserProdExec) {
+                            tr.title = "Action Required: QA acceptance timed out. Click to reassign QA Executive.";
+                        } else {
+                            tr.title = "Click to open Packaging Operations checklist";
+                        }
+                        tr.onclick = function () {
+                            const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                                ? QualityRajpura_Config.getTourId(t)
+                                : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                            const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                                ? QualityRajpura_Config.getSiteBaseUrl()
+                                : "/sites/Mrs_Bectors_PTMS";
+                            const roleParam = isPkgProdPending ? "&role=PRODUCTION" : (isPkgReverify || isPkgInProgress ? "&role=QA" : "");
+                            window.location.href = `${siteBase}/Pages/Product-Operation.aspx?TourId=${tourId}${roleParam}`;
+                        };
                     } else {
-                        if (status === "Pending Re-Verification") {
-                            status = "Failed - Pending Re-Verification";
+                        tr.style.cursor = "default";
+                        tr.title = isPkgCancelled
+                            ? "This observation has been cancelled and cannot be accessed."
+                            : (isPkgReverify 
+                                ? "This tour is in QA Re-Verification stage and awaiting QA Executive action." 
+                                : (isPkgProdPending 
+                                    ? "This tour is in Pending Observation stage and awaiting Production action." 
+                                    : "This tour is currently in progress by QA and is only accessible to the assigned QA Executive."));
+                        tr.onclick = function (e) {
+                            if (e) e.stopPropagation();
+                            if (isPkgCancelled) {
+                                alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                            } else if (isPkgReverify) {
+                                alert("Access Denied: This tour is currently in QA Re-Verification stage. Only the assigned QA Executive can enter.");
+                            } else if (isPkgProdPending) {
+                                alert("Access Denied: This tour is currently in Pending Observation stage. Only authorized Production personnel can enter.");
+                            } else {
+                                alert("Access Denied: This tour is currently in progress by QA. Only the assigned QA Executive can enter.");
+                            }
+                        };
+                    }
+                } else {
+                    const titleVal = t.cr3ea_title || "";
+                    const cleanTitle = titleVal.split("||")[0].trim();
+                    const form = cleanTitle.split('_')[0] || "Area Line Clearance";
+                    const prodExecRaw = t.cr3ea_shiftexecutiveproduction || "N/A";
+                    const prodExec = prodExecRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(prodExecRaw) : prodExecRaw;
+                    const qaExecRaw = t.cr3ea_tourby || "N/A";
+                    const qaExec = qaExecRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaExecRaw) : qaExecRaw;
+                    const execs = `Shift: ${prodExec} | QA: ${qaExec}`;
+ 
+                    const pendingWith = ALC_Dashboard.getPendingWith(t);
+ 
+                    let scoreDisplay = "-";
+                    let scoreNum = null;
+                    const computedScore = ALC_Dashboard.calculateScoreDynamically(t);
+ 
+                    if (t.cr3ea_overall_score !== undefined && t.cr3ea_overall_score !== null && String(t.cr3ea_overall_score).trim() !== "") {
+                        scoreNum = parseFloat(String(t.cr3ea_overall_score).replace("%", ""));
+                        scoreDisplay = `<strong style="color: #0f172a; font-size: 15px;">${scoreNum.toFixed(2)}%</strong>`;
+                    } else if (computedScore !== null) {
+                        scoreNum = parseFloat(computedScore);
+                        scoreDisplay = `<strong style="color: #0f172a; font-size: 15px;">${computedScore}%</strong>`;
+                    }
+
+                    let status = t.cr3ea_processstatus || t.cr3ea_status || "Pending QA";
+
+                    let isEscalated = false;
+                    const requestTimeString = t.cr3ea_request_time || t.cr3ea_tourstartdate || t.createdon;
+                    if (status === "Pending QA" && requestTimeString) {
+                        const reqTime = new Date(requestTimeString).getTime();
+                        const now = new Date().getTime();
+                        if (!isNaN(reqTime) && (now - reqTime > 5 * 60 * 1000)) {
+                            const tourDateLocal = moment(requestTimeString).local().format("YYYY-MM-DD");
+                            const todayLocal = moment().format("YYYY-MM-DD");
+                            if (tourDateLocal === todayLocal) {
+                                isEscalated = true;
+                                status = "Escalated";
+                            }
                         }
+                    }
+
+                    // Check if critical gate failure occurred in checkpoints or session
+                    let hasCriticalFailure = false;
+                    if (t.checkpoints && Array.isArray(t.checkpoints) && t.checkpoints.length > 0) {
+                        const questionConfigs = (ALC_Dashboard.configs || []).filter(c => c.ConfigType === "Checklist Question");
+                        t.checkpoints.forEach(cp => {
+                            const scoreText = cp.cr3ea_defectcategory || "";
+                            const isFailedScore = (scoreText.includes("(0)") || scoreText === "00" || scoreText.includes("Non-Compliant") || scoreText.includes("(1)") || scoreText === "01" || scoreText.includes("Partial"));
+                            if (isFailedScore) {
+                                let isCritical = false;
+                                const criteriaText = (cp.cr3ea_criteria || "").toLowerCase().trim();
+                                const matchedCfg = questionConfigs.find(q => {
+                                    const qTitle = (q.Title || "").toLowerCase().trim();
+                                    const qRemarks = (q.Remarks || "").toLowerCase().trim();
+                                    return (qTitle && (criteriaText.includes(qTitle) || qTitle.includes(criteriaText))) ||
+                                           (qRemarks && (criteriaText.includes(qRemarks) || qRemarks.includes(criteriaText)));
+                                });
+                                if (matchedCfg) {
+                                    isCritical = !!(matchedCfg.isCritical || matchedCfg.IsCritical === true || matchedCfg.ProductCategory === "Critical" || matchedCfg.Remarks === "Critical");
+                                } else if (typeof ALC_CHECKLIST_SEED_DATA !== 'undefined' && Array.isArray(ALC_CHECKLIST_SEED_DATA)) {
+                                    const seedItem = ALC_CHECKLIST_SEED_DATA.find(s => {
+                                        const sText = (s.description || s.title || "").toLowerCase().trim();
+                                        return sText && (criteriaText.includes(sText) || sText.includes(criteriaText));
+                                    });
+                                    if (seedItem) isCritical = !!seedItem.isCritical;
+                                }
+                                if (isCritical) {
+                                    hasCriticalFailure = true;
+                                }
+                            }
+                        });
+                    }
+
+                    const isLineClearVal = t.cr3ea_islineclear;
+                    const isLineClearExplicitNo = (isLineClearVal === false || isLineClearVal === "false" || isLineClearVal === 0 || isLineClearVal === "0" || isLineClearVal === "No");
+                    const isChecklistResultFail = (t.cr3ea_checklist_result === "Fail" || t.cr3ea_checklist_result === "Expired");
+                    const isExplicitlyFailedStatus = (String(t.cr3ea_processstatus || "").startsWith("Failed") || String(t.cr3ea_status || "").startsWith("Failed"));
+                    const isEvaluationDone = (scoreNum !== null || isChecklistResultFail || isExplicitlyFailedStatus || status.includes("Pending Production") || status.includes("Pending Re-Verification"));
+                    const isTourFailed = hasCriticalFailure || (isEvaluationDone && (isLineClearExplicitNo || isChecklistResultFail || isExplicitlyFailedStatus || (scoreNum !== null && scoreNum < 80)));
+
+                    if (status.includes("Pending Production") || status === "Pending Production") {
+                        const isSuccess = (scoreNum !== null && scoreNum >= 80 && !isTourFailed);
+                        status = isSuccess ? "Success - Pending Production" : "Failed - Pending Production";
+                    } else if (status.includes("Pending Re-Verification") || status === "Pending Re-Verification") {
+                        const isSuccess = (scoreNum !== null && scoreNum >= 80 && !isTourFailed);
+                        status = isSuccess ? "Success - Pending Re-Verification" : "Failed - Pending Re-Verification";
                     }
 
                     let badgeClass = "badge-warning";
 
                     let isMyTask = false;
 
-                    const isQaStatus = (status === "Pending QA" || status === "QA In Progress" || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
+                    const isQaStatus = (status === "Pending QA" || status === "QA In Progress" || status.startsWith("QA In Progress") || status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
                     if (isQaStatus) {
                         const qaEmail = (t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
                         const qaResolvedName = qaEmail.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaEmail).toLowerCase().trim() : qaEmail;
@@ -959,8 +1768,8 @@ const ALC_Dashboard = {
                         }
                     }
 
-                    const escalationContactsStr = t.cr3ea_escalation_contacts || "";
-                    const escalationEmails = escalationContactsStr.toLowerCase().split(",").map(e => e.trim());
+                    const escalationContactsStr = (t.cr3ea_escalation_contacts || "").split("||")[0].trim();
+                    const escalationEmails = escalationContactsStr.toLowerCase().split(",").map(e => e.trim()).filter(e => e.includes("@"));
 
                     const qaEmailVal = (t.cr3ea_assigned_qa || t.cr3ea_tourby || "").toLowerCase().trim();
                     if (qaEmailVal && ALC_Dashboard.qaList) {
@@ -980,22 +1789,28 @@ const ALC_Dashboard = {
                         }
                     }
 
-                    const isUserEscalationManager = currentUserEmail && escalationEmails.includes(currentUserEmail);
-                    const isUserEscalationManagerByName = currentUserName && escalationEmails.some(email => email.includes(currentUserName));
+                    const isUserEscalationManager = Boolean(currentUserEmail && escalationEmails.includes(currentUserEmail));
+                    const isUserEscalationManagerByName = Boolean(currentUserName && escalationEmails.some(email => email.includes(currentUserName)));
 
                     const isEscalatedForMe = isEscalated && (isUserEscalationManager || isUserEscalationManagerByName);
 
+                    const prodValues = [t.cr3ea_shiftexecutiveproduction, t.cr3ea_observedby, t.cr3ea_shiftexecutive, t.cr3ea_production_incharge].filter(Boolean);
+                    const isUserProdExec = prodValues.some(isMatchUser);
+
+                    if (status === "Escalated") {
+                        if (isUserProdExec) {
+                            isMyTask = true;
+                        }
+                    }
+
                     const isProdStatus = (status === "Failed - Pending Production" || status === "Success - Pending Production");
                     const isReverifyStatus = (status === "Pending Re-Verification" || status === "Success - Pending Re-Verification" || status === "Failed - Pending Re-Verification");
+                    let isAlcAssigneeMatch = false;
 
                     if (isProdStatus || isReverifyStatus) {
-                        const prodExecName = (t.cr3ea_shiftexecutiveproduction || "").toLowerCase().trim();
                         const assignees = ALC_Dashboard.getAreaAssigneesForFailedCheckpoints(t);
 
-                        const isUserProdExec = (currentUserName && prodExecName && (prodExecName === currentUserName || prodExecName.includes(currentUserName) || currentUserName.includes(prodExecName))) ||
-                            (currentUserEmail && prodExecName && currentUserEmail.includes(prodExecName.replace(/\s+/g, ".")));
-
-                        const isAssigneeMatch = assignees && assignees.some(name => {
+                        isAlcAssigneeMatch = assignees && assignees.some(name => {
                             const cleanName = name.toLowerCase().trim();
                             return cleanName === currentUserName ||
                                 (currentUserName && (cleanName.includes(currentUserName) || currentUserName.includes(cleanName))) ||
@@ -1003,15 +1818,12 @@ const ALC_Dashboard = {
                         });
 
                         if (isProdStatus) {
-                            const hasNoPendingForThisAreaOwner = assignees && assignees.length > 0 && !isAssigneeMatch;
+                            const hasNoPendingForThisAreaOwner = assignees && assignees.length > 0 && !isAlcAssigneeMatch;
                             if (isUserProdExec || !hasNoPendingForThisAreaOwner) {
                                 isMyTask = true;
                             }
                         } else if (isReverifyStatus) {
-                            const hasPendingProdCheckpoints = assignees && assignees.length > 0;
-                            if (hasPendingProdCheckpoints && (isUserProdExec || isAssigneeMatch)) {
-                                isMyTask = true;
-                            }
+                            // Re-verification is strictly QA's responsibility. Production person does NOT have pending task during re-verification!
                         }
                     }
 
@@ -1019,16 +1831,20 @@ const ALC_Dashboard = {
                         tr.classList.add("my-task-row");
                     }
 
-                    if (isEscalatedForMe) {
+                    if (isEscalatedForMe && !isMyTask) {
                         tr.classList.add("escalated-task-row");
-                        tr.title = "CRITICAL: This tour has escalated! Click to view details.";
+                        tr.title = "This tour acceptance is delayed. Click to view details.";
                     }
 
-                    if (status === "Failed - Pending Production" || status === "Failed - Pending Re-Verification" || status === "Escalated") {
+                    if (status === "Failed - Pending Production" || status === "Failed - Pending Re-Verification" || (isTourFailed && !["Pending QA", "QA In Progress", "In Progress", "InProgress-paused", "Escalated", "Draft"].some(s => status.startsWith(s)))) {
                         badgeClass = "badge-error";
                     } else if (status === "Success - Pending Production" || status === "Success - Pending Re-Verification") {
                         badgeClass = "badge-success";
-                    } else if (status === "QA In Progress") {
+                    } else if (status === "QA In Progress" || status.startsWith("QA In Progress") || status === "In Progress") {
+                        badgeClass = "badge-primary";
+                    } else if (status === "Escalated") {
+                        badgeClass = "badge-danger";
+                    } else {
                         badgeClass = "badge-warning";
                     }
 
@@ -1038,8 +1854,8 @@ const ALC_Dashboard = {
                         } else if (status === "Pending QA") {
                             scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Awaiting QA Accept</span>`;
                         } else if (status === "Escalated") {
-                            scoreDisplay = `<span class="text-danger font-weight-bold" style="font-size: 12px;">ESCALATED</span>`;
-                        } else if (status === "QA In Progress") {
+                            scoreDisplay = `<span class="text-danger font-weight-bold" style="font-size: 12px;">DELAYED</span>`;
+                        } else if (status === "QA In Progress" || status.startsWith("QA In Progress")) {
                             scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">Evaluation Pending</span>`;
                         } else {
                             scoreDisplay = `<span class="text-secondary" style="font-size: 12px; font-style: italic;">N/A</span>`;
@@ -1049,16 +1865,17 @@ const ALC_Dashboard = {
                     let clearBadgeHtml = "-";
                     const isAlcTour = (form.toLowerCase().includes("line") || form.toLowerCase().includes("alc") || form.toLowerCase().includes("clearance"));
                     if (isAlcTour) {
-                        const isClearedVal = t.cr3ea_islineclear;
-                        const isCleared = isClearedVal === true ||
-                            isClearedVal === "true" ||
-                            isClearedVal === 1 ||
-                            isClearedVal === "1" ||
-                            isClearedVal === "Yes" ||
+                        const isCleared = !isTourFailed && (
+                            isLineClearVal === true ||
+                            isLineClearVal === "true" ||
+                            isLineClearVal === 1 ||
+                            isLineClearVal === "1" ||
+                            isLineClearVal === "Yes" ||
                             status === "Completed" ||
                             status === "Closed" ||
                             status === "Closed - Expired" ||
-                            status === "Success";
+                            status === "Success"
+                        );
 
                         clearBadgeHtml = isCleared
                             ? '<span class="badge badge-success" style="background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Yes</span>'
@@ -1070,6 +1887,8 @@ const ALC_Dashboard = {
                         displayStatus = displayStatus.replace("Pending Production", "Pending Observation");
                     } else if (displayStatus === "QA In Progress") {
                         displayStatus = "QA In Progress (Paused)";
+                    } else if (displayStatus === "Escalated") {
+                        displayStatus = "Delayed";
                     }
 
                     tr.innerHTML = `
@@ -1084,21 +1903,49 @@ const ALC_Dashboard = {
                         <td style="font-weight: 500; color: #1e293b;">${pendingWith}</td>
                     `;
 
+                    const isAlcCancelled = String(status).toLowerCase().includes("cancel") || String(t.cr3ea_processstatus || "").toLowerCase().includes("cancel");
                     let isClickable = true;
-                    if (status === "QA In Progress" && !isMyTask) {
+                    if (isAlcCancelled) {
+                        isClickable = false;
+                    } else if ((status === "QA In Progress" || status.startsWith("QA In Progress")) && !isMyTask) {
+                        isClickable = false;
+                    } else if (isReverifyStatus && (isUserProdExec || isAlcAssigneeMatch) && !isMyTask) {
                         isClickable = false;
                     }
 
                     if (isClickable) {
                         tr.style.cursor = "pointer";
-                        tr.title = "Click to open tour clearance form";
+                        if (status === "Escalated" && isUserProdExec) {
+                            tr.title = "Action Required: QA acceptance timed out. Click to reassign QA Executive.";
+                        } else if (isEscalatedForMe) {
+                            tr.title = "This tour acceptance is delayed. Click to view details.";
+                        } else {
+                            tr.title = "Click to open tour clearance form";
+                        }
                         tr.onclick = function () {
-                            window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/AreaLine.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
+                            const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                                ? QualityRajpura_Config.getTourId(t)
+                                : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                            const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                                ? QualityRajpura_Config.getSiteBaseUrl()
+                                : "/sites/Mrs_Bectors_PTMS";
+                            window.location.href = `${siteBase}/Pages/AreaLine.aspx?TourId=${tourId}`;
                         };
                     } else {
                         tr.style.cursor = "default";
-                        tr.title = "This tour is paused by QA and is only accessible to the assigned QA Executive.";
-                        tr.onclick = null;
+                        tr.title = isAlcCancelled
+                            ? "This observation has been cancelled and cannot be accessed."
+                            : (isReverifyStatus ? "This tour is in QA Re-Verification stage and awaiting QA Executive action." : "This tour is currently in progress by QA and is only accessible to the assigned QA Executive.");
+                        tr.onclick = function (e) {
+                            if (e) e.stopPropagation();
+                            if (isAlcCancelled) {
+                                alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                            } else if (isReverifyStatus) {
+                                alert("Access Denied: This tour is currently in QA Re-Verification stage. Production team cannot enter or take actions at this time.");
+                            } else {
+                                alert("Access Denied: This tour is currently in progress by QA. Only the assigned QA Executive can enter.");
+                            }
+                        };
                     }
                 }
 
@@ -1129,6 +1976,9 @@ const ALC_Dashboard = {
         const tbody = document.getElementById("rajpura-cycles-tbody");
         if (!tbody) return;
 
+        const oldClosedCards = document.getElementById("rajpura-cycles-cards");
+        if (oldClosedCards) oldClosedCards.remove();
+
         tbody.innerHTML = "";
         if (this.closedList.length === 0) {
             tbody.innerHTML = `<tr><td colspan="8" class="text-center py-3 text-secondary">No closed/completed tour archives.</td></tr>`;
@@ -1141,6 +1991,8 @@ const ALC_Dashboard = {
 
         const isFS = this.selectedCategory === "FoodSafety";
         const isCCP = this.selectedCategory === "CCP_OPRP_Sieves";
+        const isMB = this.selectedCategory === "MixingAndBaking";
+        const isPkgOps = this.selectedCategory === "PackagingOperations";
 
         pageItems.forEach(t => {
             try {
@@ -1174,9 +2026,17 @@ const ALC_Dashboard = {
                     
                     const clearBadgeHtml = `<span class="badge badge-warning" style="background-color: #fef3c7; color: #d97706; border: 1px solid #fde68a; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">${t.cr3ea_food_safety_cycle || "Cycle-1"}</span>`;
                     
-                    const status = t.cr3ea_checklist_result || t.cr3ea_status || "Completed";
+                    const rawStatus = t.cr3ea_processstatus || t.cr3ea_status || t.cr3ea_checklist_result || "";
+                    const isCancelled = String(rawStatus).toLowerCase().includes("cancel");
+
+                    let status = t.cr3ea_checklist_result || t.cr3ea_status || "Completed";
                     let badgeClass = "badge-success";
-                    if (status === "Fail") badgeClass = "badge-error";
+                    if (isCancelled) {
+                        status = "Cancelled";
+                        badgeClass = "badge-error";
+                    } else if (status === "Fail") {
+                        badgeClass = "badge-error";
+                    }
 
                     tr.innerHTML = `
                         <td>${date}</td>
@@ -1184,16 +2044,79 @@ const ALC_Dashboard = {
                         <td>${line}</td>
                         <td>${shift}</td>
                         <td style="text-align: left;">${execs}</td>
-                        <td><strong>${score}</strong></td>
+                        <td style="display: none;"><strong>${score}</strong></td>
                         <td>${clearBadgeHtml}</td>
                         <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
                     `;
                     
-                    tr.style.cursor = "pointer";
-                    tr.title = "Click to open Food Safety checklist";
-                    tr.onclick = function () {
-                        window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/FoodSafety.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
-                    };
+                    if (isCancelled) {
+                        tr.style.cursor = "default";
+                        tr.title = "This observation has been cancelled and cannot be accessed.";
+                        tr.onclick = function () {
+                            alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                        };
+                    } else {
+                        tr.style.cursor = "pointer";
+                        tr.title = "Click to open Food Safety checklist";
+                        tr.onclick = function () {
+                            const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                                ? QualityRajpura_Config.getTourId(t)
+                                : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                            const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                                ? QualityRajpura_Config.getSiteBaseUrl()
+                                : "/sites/Mrs_Bectors_PTMS";
+                            window.location.href = `${siteBase}/Pages/FoodSafety.aspx?TourId=${tourId}`;
+                        };
+                    }
+                } else if (isMB) {
+                    const form = "Mixing & Baking";
+                    const qaName = t.cr3ea_assigned_qa || t.cr3ea_tourby || "N/A";
+                    const qaExec = qaName.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaName) : qaName;
+                    const prodInchargeRaw = t.cr3ea_shiftexecutiveproduction || "N/A";
+                    const prodIncharge = prodInchargeRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(prodInchargeRaw) : prodInchargeRaw;
+                    const execs = `QA: ${qaExec} | Prod: ${prodIncharge}`;
+                    
+                    const score = "-";
+                    const clearBadgeHtml = `<span class="badge badge-warning" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Mixing & Baking</span>`;
+                    
+                    const isCancelled = String(t.cr3ea_processstatus || t.cr3ea_status || "").toLowerCase().includes("cancel");
+                    let status = t.cr3ea_status || "Completed";
+                    let badgeClass = "badge-success";
+                    if (isCancelled) {
+                        status = "Cancelled";
+                        badgeClass = "badge-error";
+                    }
+
+                    tr.innerHTML = `
+                        <td>${date}</td>
+                        <td><strong>${form}</strong></td>
+                        <td>${line}</td>
+                        <td>${shift}</td>
+                        <td style="text-align: left;">${execs}</td>
+                        <td style="display: none;"><strong>${score}</strong></td>
+                        <td>${clearBadgeHtml}</td>
+                        <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
+                    `;
+                    
+                    if (isCancelled) {
+                        tr.style.cursor = "default";
+                        tr.title = "This observation has been cancelled and cannot be accessed.";
+                        tr.onclick = function () {
+                            alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                        };
+                    } else {
+                        tr.style.cursor = "pointer";
+                        tr.title = "Click to open Mixing & Baking checklist";
+                        tr.onclick = function () {
+                            const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                                ? QualityRajpura_Config.getTourId(t)
+                                : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                            const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                                ? QualityRajpura_Config.getSiteBaseUrl()
+                                : "/sites/Mrs_Bectors_PTMS";
+                            window.location.href = `${siteBase}/Pages/MixingAndBaking.aspx?TourId=${tourId}`;
+                        };
+                    }
                 } else if (isCCP) {
                     let form = t.cr3ea_ccp_oprp_sieves_parametertype;
                     if (!form && t.cr3ea_title) {
@@ -1217,8 +2140,13 @@ const ALC_Dashboard = {
                     const freqText = t.cr3ea_ccp_oprp_sieves_frequency || t.cr3ea_ccp_oprp_sieves_productvariety || "2-Hour Check";
                     const clearBadgeHtml = `<span class="badge badge-warning" style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">${freqText}</span>`;
                     
-                    const status = t.cr3ea_status || "Completed";
+                    const isCancelled = String(t.cr3ea_processstatus || t.cr3ea_status || "").toLowerCase().includes("cancel");
+                    let status = t.cr3ea_status || "Completed";
                     let badgeClass = "badge-success";
+                    if (isCancelled) {
+                        status = "Cancelled";
+                        badgeClass = "badge-error";
+                    }
 
                     tr.innerHTML = `
                         <td>${date}</td>
@@ -1226,16 +2154,95 @@ const ALC_Dashboard = {
                         <td>${line}</td>
                         <td>${shift}</td>
                         <td style="text-align: left;">${execs}</td>
-                        <td><strong>${score}</strong></td>
+                        <td style="display: none;"><strong>${score}</strong></td>
                         <td>${clearBadgeHtml}</td>
                         <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
                     `;
                     
-                    tr.style.cursor = "pointer";
-                    tr.title = "Click to open CCP/OPRP checklist";
-                    tr.onclick = function () {
-                        window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/CCP-OPRP.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
-                    };
+                    if (isCancelled) {
+                        tr.style.cursor = "default";
+                        tr.title = "This observation has been cancelled and cannot be accessed.";
+                        tr.onclick = function () {
+                            alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                        };
+                    } else {
+                        tr.style.cursor = "pointer";
+                        tr.title = "Click to open CCP/OPRP checklist";
+                        tr.onclick = function () {
+                            const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                                ? QualityRajpura_Config.getTourId(t)
+                                : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                            const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                                ? QualityRajpura_Config.getSiteBaseUrl()
+                                : "/sites/Mrs_Bectors_PTMS";
+                            window.location.href = `${siteBase}/Pages/CCP-OPRP.aspx?TourId=${tourId}`;
+                        };
+                    }
+                } else if (isPkgOps) {
+                    const rawSubType = t.cr3ea_pkgops_type || "Packaging Operations";
+                    const subType = rawSubType === "PAPA" ? "PAPA's" : rawSubType;
+                    const form = `Packaging - ${subType}`;
+                    const qaName = t.cr3ea_assigned_qa || t.cr3ea_tourby || "N/A";
+                    const qaExec = qaName.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(qaName) : qaName;
+                    const prodInchargeRaw = t.cr3ea_shiftexecutiveproduction || "N/A";
+                    const prodIncharge = prodInchargeRaw.includes("@") ? ALC_Dashboard.resolveQaNameFromEmail(prodInchargeRaw) : prodInchargeRaw;
+                    const execs = `QA: ${qaExec} | Prod: ${prodIncharge}`;
+                    
+                    let score = "-";
+                    if (t.cr3ea_overall_score !== undefined && t.cr3ea_overall_score !== null && String(t.cr3ea_overall_score).trim() !== "") {
+                        score = `${parseFloat(t.cr3ea_overall_score).toFixed(2)}%`;
+                    }
+                    
+                    let clearBadgeHtml = "-";
+                    const isClearedVal = t.cr3ea_islineclear;
+                    const isCleared = isClearedVal === true ||
+                        isClearedVal === "true" ||
+                        isClearedVal === 1 ||
+                        isClearedVal === "1" ||
+                        isClearedVal === "Yes";
+
+                    clearBadgeHtml = isCleared
+                        ? '<span class="badge badge-success" style="background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Yes</span>'
+                        : '<span class="badge badge-error" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase;">No</span>';
+                    
+                    const isCancelled = String(t.cr3ea_processstatus || t.cr3ea_status || "").toLowerCase().includes("cancel");
+                    let status = t.cr3ea_status || "Completed";
+                    let badgeClass = "badge-success";
+                    if (isCancelled) {
+                        status = "Cancelled";
+                        badgeClass = "badge-error";
+                    }
+
+                    tr.innerHTML = `
+                        <td>${date}</td>
+                        <td><strong>${form}</strong></td>
+                        <td>${line}</td>
+                        <td>${shift}</td>
+                        <td style="text-align: left;">${execs}</td>
+                        <td style="display: none;"><strong>${score}</strong></td>
+                        <td>${clearBadgeHtml}</td>
+                        <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
+                    `;
+                    
+                    if (isCancelled) {
+                        tr.style.cursor = "default";
+                        tr.title = "This observation has been cancelled and cannot be accessed.";
+                        tr.onclick = function () {
+                            alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                        };
+                    } else {
+                        tr.style.cursor = "pointer";
+                        tr.title = "Click to open Packaging Operations checklist";
+                        tr.onclick = function () {
+                            const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                                ? QualityRajpura_Config.getTourId(t)
+                                : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                            const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                                ? QualityRajpura_Config.getSiteBaseUrl()
+                                : "/sites/Mrs_Bectors_PTMS";
+                            window.location.href = `${siteBase}/Pages/Product-Operation.aspx?TourId=${tourId}`;
+                        };
+                    }
                 } else {
                     const titleVal = t.cr3ea_title || "";
                     const cleanTitle = titleVal.split("||")[0].trim();
@@ -1263,12 +2270,16 @@ const ALC_Dashboard = {
                         result = resultPart || result;
                     }
 
+                    const isCancelled = String(t.cr3ea_processstatus || t.cr3ea_status || "").toLowerCase().includes("cancel");
                     let status = t.cr3ea_processstatus || t.cr3ea_status || "Completed";
                     if (status === "Completed") {
                         status = "Success";
                     }
                     let badgeClass = "badge-success";
-                    if (status === "Closed - Expired") {
+                    if (isCancelled) {
+                        status = "Cancelled";
+                        badgeClass = "badge-error";
+                    } else if (status === "Closed - Expired") {
                         const scoreVal = t.cr3ea_overall_score ? parseFloat(t.cr3ea_overall_score) : 0;
                         if (scoreVal >= 80) {
                             status = "Success - Expired";
@@ -1314,11 +2325,25 @@ const ALC_Dashboard = {
                         <td><span class="badge badge-fill ${badgeClass}">${status}</span></td>
                     `;
                     
-                    tr.style.cursor = "pointer";
-                    tr.title = "Click to open tour clearance form";
-                    tr.onclick = function () {
-                        window.location.href = `/sites/Mrs_Bectors_PTMS/Pages/AreaLine.aspx?TourId=${t.cr3ea_prod_rajpura_quality_tourid}`;
-                    };
+                    if (isCancelled) {
+                        tr.style.cursor = "default";
+                        tr.title = "This observation has been cancelled and cannot be accessed.";
+                        tr.onclick = function () {
+                            alert("Access Denied: This observation has been cancelled and cannot be accessed.");
+                        };
+                    } else {
+                        tr.style.cursor = "pointer";
+                        tr.title = "Click to open tour clearance form";
+                        tr.onclick = function () {
+                            const tourId = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getTourId)
+                                ? QualityRajpura_Config.getTourId(t)
+                                : (t.cr3ea_prod_rajpura_quality_tourid || t.cr3ea_rajpura_quality_tourid);
+                            const siteBase = (typeof QualityRajpura_Config !== "undefined" && QualityRajpura_Config.getSiteBaseUrl)
+                                ? QualityRajpura_Config.getSiteBaseUrl()
+                                : "/sites/Mrs_Bectors_PTMS";
+                            window.location.href = `${siteBase}/Pages/AreaLine.aspx?TourId=${tourId}`;
+                        };
+                    }
                 }
 
                 tbody.appendChild(tr);
@@ -1359,8 +2384,14 @@ const ALC_Dashboard = {
         const prevBtn = document.createElement("button");
         prevBtn.type = "button";
         prevBtn.className = "bs-btn bs-btn-secondary";
-        prevBtn.style.padding = "6px 12px";
+        prevBtn.style.padding = "6px 14px";
         prevBtn.style.fontSize = "13px";
+        prevBtn.style.fontWeight = "600";
+        prevBtn.style.borderRadius = "6px";
+        prevBtn.style.border = "1px solid #cbd5e1";
+        prevBtn.style.backgroundColor = this.currentPage === 1 ? "#f8fafc" : "#ffffff";
+        prevBtn.style.color = this.currentPage === 1 ? "#94a3b8" : "#334155";
+        prevBtn.style.cursor = this.currentPage === 1 ? "not-allowed" : "pointer";
         prevBtn.innerText = "Previous";
         prevBtn.disabled = this.currentPage === 1;
         prevBtn.onclick = () => {
@@ -1382,8 +2413,14 @@ const ALC_Dashboard = {
         const nextBtn = document.createElement("button");
         nextBtn.type = "button";
         nextBtn.className = "bs-btn bs-btn-secondary";
-        nextBtn.style.padding = "6px 12px";
+        nextBtn.style.padding = "6px 14px";
         nextBtn.style.fontSize = "13px";
+        nextBtn.style.fontWeight = "600";
+        nextBtn.style.borderRadius = "6px";
+        nextBtn.style.border = "1px solid #cbd5e1";
+        nextBtn.style.backgroundColor = this.currentPage === totalPages ? "#f8fafc" : "#ffffff";
+        nextBtn.style.color = this.currentPage === totalPages ? "#94a3b8" : "#334155";
+        nextBtn.style.cursor = this.currentPage === totalPages ? "not-allowed" : "pointer";
         nextBtn.innerText = "Next";
         nextBtn.disabled = this.currentPage === totalPages;
         nextBtn.onclick = () => {
@@ -1398,12 +2435,12 @@ const ALC_Dashboard = {
     // Fetch SharePoint configurations for the plant
     fetchSharePointConfigs: async function () {
         const webUrl = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.webAbsoluteUrl : "";
-        const listName = "Quality-Rajpura";
+        const listName = QualityRajpura_Config.SHAREPOINT_LISTS.CONFIG;
 
         let query = "?$select=Id,Title,ConfigType,Region,Plant,Area," +
             "AssignedUser/Title,AssignedUser/EMail,AssignedUser/Id" +
             "&$expand=AssignedUser" +
-            "&$filter=Plant eq 'Rajpura'";
+            `&$filter=Plant eq '${QualityRajpura_Config.PLANT_NAME}'`;
 
         let url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
         let response;
@@ -1417,7 +2454,7 @@ const ALC_Dashboard = {
             query = "?$select=Id,Title,Config_x0020_Type,Region,Plant,Area," +
                 "Assigned_x0020_User/Title,Assigned_x0020_User/EMail,Assigned_x0020_User/Id" +
                 "&$expand=Assigned_x0020_User" +
-                "&$filter=Plant eq 'Rajpura'";
+                `&$filter=Plant eq '${QualityRajpura_Config.PLANT_NAME}'`;
             url = `${webUrl}/_api/web/lists/getByTitle('${listName}')/items${query}`;
             response = await fetch(url, { headers: { "Accept": "application/json; odata=verbose" } });
         }
@@ -1458,8 +2495,9 @@ const ALC_Dashboard = {
         };
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
+        const tableName = QualityRajpura_Config.DATAVERSE_TABLES.ALC.CHILD;
         const filter = `?$filter=_cr3ea_qualitytourid_value eq '${tourId}'`;
-        const url = `${baseApiUrl}/api/data/v${apiVersion}/cr3ea_rajpura_alcses${filter}`;
+        const url = `${baseApiUrl}/api/data/v${apiVersion}/${tableName}${filter}`;
 
         const response = await fetch(url, { headers: headers });
         if (!response.ok) {
@@ -1518,7 +2556,7 @@ const ALC_Dashboard = {
     // Dynamically calculate score from fetched checkpoints (identical to Summary page logic)
     calculateScoreDynamically: function (t) {
         const status = t.cr3ea_processstatus || t.cr3ea_status || "";
-        if (status === "QA In Progress" || status === "Pending QA" || status === "In Progress" || status === "Escalated") {
+        if (status.startsWith("QA In Progress") || status === "Pending QA" || status === "In Progress" || status === "Escalated") {
             return null;
         }
 
@@ -1547,5 +2585,424 @@ const ALC_Dashboard = {
         if (totalMaxPoints === 0) return null;
         const percentRaw = (totalObtainedPoints / totalMaxPoints) * 100;
         return percentRaw.toFixed(2);
+    },
+
+    // Helper to filter tours strictly by category/template
+    getToursForCategory: function (category) {
+        const cat = category || this.selectedCategory || "ALC";
+        const isFS = cat === "FoodSafety";
+        const isCCP = cat === "CCP_OPRP_Sieves";
+        const isMB = cat === "MixingAndBaking";
+        const isPkgOps = cat === "PackagingOperations";
+
+        return (this.allToursRaw || []).filter(t => {
+            const titleVal = String(t.cr3ea_title || "");
+            let cleanTitle = titleVal.split("||")[0].trim();
+            
+            const isMBTitle = cleanTitle.startsWith("MixingBaking_") || cleanTitle.toLowerCase().includes("mixingbaking");
+            const isMBItem = isMBTitle;
+
+            const isFSPrefix = cleanTitle.startsWith("FoodSafety_") || cleanTitle.startsWith("Food_Safety_");
+            if (isFSPrefix) {
+                cleanTitle = cleanTitle.replace("FoodSafety_", "").replace("Food_Safety_", "");
+            }
+            const isFSTitle = isFSPrefix || cleanTitle.startsWith("PPE_") || cleanTitle.startsWith("GMP_") || cleanTitle.startsWith("PCI_") || cleanTitle.toLowerCase().includes("checklist");
+            const hasFSField = t.cr3ea_food_safety_checklisttype;
+            const isFSItem = !!hasFSField || isFSTitle;
+            
+            const hasCCPField = t.cr3ea_ccp_oprp_sieves_parametertype;
+            const isCCPTitle = cleanTitle.startsWith("CCP_") || cleanTitle.startsWith("Sieves_") || cleanTitle.toLowerCase().includes("ccp") || cleanTitle.toLowerCase().includes("sieves");
+            const isCCPItem = !!hasCCPField || isCCPTitle;
+
+            const isPkgOpsTitle = cleanTitle.startsWith("PkgOps_") || cleanTitle.startsWith("PackagingOperations_") || cleanTitle.toLowerCase().includes("pkgops");
+            const hasPkgOpsField = t.cr3ea_pkgops_type;
+            const isPkgOpsItem = !!hasPkgOpsField || isPkgOpsTitle;
+
+            if (isFS) return isFSItem;
+            if (isCCP) return isCCPItem;
+            if (isMB) return isMBItem;
+            if (isPkgOps) return isPkgOpsItem;
+            return !isFSItem && !isCCPItem && !isMBItem && !isPkgOpsItem;
+        });
+    },
+
+    // Helper to extract individual line numbers or names from single or multi-line strings (e.g. "Line 1,2,3,4,8", "Line 1-4", "Line No. 2 - IMAFORNI")
+    parseLineTokens: function (lineStr) {
+        if (!lineStr) return [];
+        const clean = String(lineStr).trim();
+        if (!clean || clean.toLowerCase() === "all" || clean.toLowerCase() === "n/a" || clean.toLowerCase() === "none" || clean.toLowerCase() === "all lines") {
+            return [];
+        }
+
+        const tokens = new Set();
+
+        // 1. Check for range expressions like "Line 1-5", "1-4", "1 to 5"
+        const rangeMatch = clean.match(/(\d+)\s*(?:-|to)\s*(\d+)/i);
+        if (rangeMatch) {
+            const start = parseInt(rangeMatch[1], 10);
+            const end = parseInt(rangeMatch[2], 10);
+            if (!isNaN(start) && !isNaN(end) && start <= end && end - start <= 30) {
+                for (let i = start; i <= end; i++) {
+                    tokens.add(String(i));
+                }
+            }
+        }
+
+        // 2. Split multi-line strings by comma, semicolon, slash, &, +, or 'and'
+        const parts = clean.split(/[,;\/&+]|\band\b/i);
+        parts.forEach(p => {
+            const pTrim = p.trim();
+            if (!pTrim) return;
+
+            // Extract all distinct numeric digits
+            const digitMatches = pTrim.match(/\d+/g);
+            if (digitMatches) {
+                digitMatches.forEach(d => tokens.add(String(parseInt(d, 10))));
+            }
+
+            // Also keep cleaned textual name if non-numeric
+            const textOnly = pTrim.replace(/^line\s*(no\.?)?\s*/i, "").trim().toLowerCase();
+            if (textOnly && isNaN(textOnly)) {
+                tokens.add(textOnly);
+            }
+        });
+
+        return Array.from(tokens);
+    },
+
+    // Populate line dropdown dynamically based strictly on the selected template dashboard
+    populateLineDropdown: function () {
+        const lineSelect = document.getElementById("dashboardLineSelect");
+        if (!lineSelect) return;
+
+        const currentCategory = this.selectedCategory || "ALC";
+        this._lastPopulatedCategory = currentCategory;
+        const categoryTours = this.getToursForCategory(currentCategory);
+        let templateLines = [];
+
+        if (currentCategory === "ALC") {
+            // Check if ALC configs have Line Master rows
+            const alcConfigs = (typeof Rajpura_Admin !== "undefined" && Rajpura_Admin.configs && Rajpura_Admin.configs.ALC)
+                ? Rajpura_Admin.configs.ALC
+                : ((typeof ALC_DAL !== "undefined" && ALC_DAL.configs) ? ALC_DAL.configs : []);
+            const lineMasterRows = alcConfigs.filter(r => (r.configType === "Line Master" || r.ConfigType === "Line Master") && r.isActive !== false);
+
+            if (lineMasterRows.length > 0) {
+                templateLines = lineMasterRows.map(r => {
+                    const title = r.title || r.Title || "Line";
+                    const lineName = r.lineName || r.LineName || "";
+                    return lineName ? `${title} - ${lineName}` : title;
+                });
+            } else {
+                templateLines = [
+                    "Line No. 1 - HAAS",
+                    "Line No. 2 - IMAFORNI",
+                    "Line No. 3 - HAAS",
+                    "Line No. 4 - AZAAN",
+                    "Line No. 5 - AZAAN",
+                    "Line No. 6 - AZAAN",
+                    "Line No. 7 - AZAAN",
+                    "Line No. 8 - HAAS"
+                ];
+            }
+        } else if (currentCategory === "MixingAndBaking") {
+            // Mixing & Baking uses standard lines: Line 1 through Line 8
+            templateLines = [
+                "Line 1", "Line 2", "Line 3", "Line 4",
+                "Line 5", "Line 6", "Line 7", "Line 8"
+            ];
+        } else if (currentCategory === "PackagingOperations") {
+            templateLines = [
+                "Line 1", "Line 2", "Line 3", "Line 4",
+                "Line 5", "Line 6", "Line 7", "Line 8"
+            ];
+        } else if (currentCategory === "FoodSafety") {
+            templateLines = [
+                "Line 1", "Line 2", "Line 3", "Line 4",
+                "Line 5", "Line 6", "Line 7", "Line 8"
+            ];
+        } else if (currentCategory === "CCP_OPRP_Sieves") {
+            templateLines = [
+                "Line 1", "Line 2", "Line 3", "Line 4",
+                "Line 5", "Line 6", "Line 7", "Line 8"
+            ];
+        } else {
+            templateLines = [
+                "Line 1", "Line 2", "Line 3", "Line 4",
+                "Line 5", "Line 6", "Line 7", "Line 8"
+            ];
+        }
+
+        // Add any additional non-standard line from the active template's tours
+        const seenDigits = new Set(templateLines.map(l => l.replace(/\D/g, "")).filter(Boolean));
+        const extraLines = [];
+
+        categoryTours.forEach(t => {
+            const rawLine = String(t.cr3ea_lineno || t.cr3ea_lineid || "").trim();
+            if (!rawLine || rawLine.toLowerCase() === "all" || rawLine.toLowerCase() === "n/a") return;
+
+            // Extract individual line tokens (e.g. "Line 1,2,3,4,8" -> ["1", "2", "3", "4", "8"])
+            const tokens = ALC_Dashboard.parseLineTokens(rawLine);
+            if (tokens.length > 0) {
+                tokens.forEach(tok => {
+                    if (/^\d+$/.test(tok)) {
+                        if (!seenDigits.has(tok)) {
+                            seenDigits.add(tok);
+                            extraLines.push(currentCategory === "ALC" ? `Line No. ${tok}` : `Line ${tok}`);
+                        }
+                    } else {
+                        if (!templateLines.some(l => l.toLowerCase().includes(tok)) && !extraLines.includes(tok)) {
+                            extraLines.push(tok);
+                        }
+                    }
+                });
+            } else {
+                if (!rawLine.includes(",") && !templateLines.some(l => l.toLowerCase() === rawLine.toLowerCase()) && !extraLines.includes(rawLine)) {
+                    extraLines.push(rawLine);
+                }
+            }
+        });
+
+        // Combine and sort lines numerically
+        const allLines = [...templateLines, ...extraLines];
+        allLines.sort((a, b) => {
+            const numA = parseInt(a.replace(/\D/g, ""), 10);
+            const numB = parseInt(b.replace(/\D/g, ""), 10);
+            if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+            return a.localeCompare(b);
+        });
+
+        // Retain or match existing selection
+        let newSelectedLine = "All";
+        if (this.selectedLine && this.selectedLine !== "All") {
+            const exactMatch = allLines.find(l => l.toLowerCase() === this.selectedLine.toLowerCase());
+            if (exactMatch) {
+                newSelectedLine = exactMatch;
+            } else {
+                const selDigits = this.selectedLine.replace(/\D/g, "");
+                if (selDigits) {
+                    const digitMatch = allLines.find(l => l.replace(/\D/g, "") === selDigits);
+                    if (digitMatch) newSelectedLine = digitMatch;
+                }
+            }
+        }
+        this.selectedLine = newSelectedLine;
+
+        // Render clean HTML options
+        let optionsHtml = `<option value="All">All Lines</option>`;
+        allLines.forEach(l => {
+            const isSel = (l === newSelectedLine) ? " selected" : "";
+            optionsHtml += `<option value="${l}"${isSel}>${l}</option>`;
+        });
+        lineSelect.innerHTML = optionsHtml;
+        lineSelect.value = newSelectedLine;
+
+        // If Select2 is active on the element, trigger update
+        if (typeof jQuery !== "undefined" && $(lineSelect).data("select2")) {
+            $(lineSelect).trigger("change.select2");
+        }
+    },
+
+    // Match tour record against selected line (supports multi-line records like "Line 1,2,3,4,8")
+    matchesLine: function (t, selectedLine) {
+        if (!selectedLine || selectedLine === "All" || selectedLine === "All Lines") return true;
+        const tourLine = String(t.cr3ea_lineno || t.cr3ea_lineid || "").trim();
+        if (!tourLine) return false;
+
+        const lowerTour = tourLine.toLowerCase();
+        const lowerSel = selectedLine.toLowerCase();
+
+        // 1. Direct exact match
+        if (lowerTour === lowerSel) return true;
+
+        // 2. If tour applies to all lines ("All", "All Lines")
+        if (lowerTour === "all" || lowerTour === "all lines") return true;
+
+        // 3. Extract tokens from selection and tour record
+        const selDigits = selectedLine.replace(/\D/g, "");
+        const selTokens = this.parseLineTokens(selectedLine);
+        const tourTokens = this.parseLineTokens(tourLine);
+
+        // If target selection has a specific line number (e.g. "Line 2" -> "2" or "Line No. 2 - IMAFORNI" -> "2")
+        if (selDigits && tourTokens.includes(selDigits)) {
+            return true;
+        }
+
+        // If any token in the selection is present in the tour's tokens
+        if (selTokens.length > 0 && tourTokens.length > 0) {
+            if (selTokens.some(st => tourTokens.includes(st))) {
+                return true;
+            }
+        }
+
+        // Fallback: substring matching
+        if (lowerTour.includes(lowerSel) || lowerSel.includes(lowerTour)) {
+            return true;
+        }
+
+        return false;
+    },
+
+    // Match tour record against selected date preset or custom range
+    matchesDate: function (t, preset, fromDate, toDate) {
+        if (!preset || preset === "All") return true;
+
+        const rawDate = t.cr3ea_tourstartdate || t.createdon;
+        if (!rawDate) return false;
+
+        const m = ALC_Dashboard.parseDateMoment(rawDate);
+        if (!m || !m.isValid()) return false;
+
+        const tourDateStr = m.clone().local().format("YYYY-MM-DD");
+        const todayStr = moment().format("YYYY-MM-DD");
+        const yesterdayStr = moment().subtract(1, "days").format("YYYY-MM-DD");
+        const last7DaysStr = moment().subtract(7, "days").format("YYYY-MM-DD");
+        const last30DaysStr = moment().subtract(30, "days").format("YYYY-MM-DD");
+
+        if (preset === "Today") {
+            return tourDateStr === todayStr;
+        } else if (preset === "Yesterday") {
+            return tourDateStr === yesterdayStr;
+        } else if (preset === "Last7Days") {
+            return tourDateStr >= last7DaysStr && tourDateStr <= todayStr;
+        } else if (preset === "Last30Days") {
+            return tourDateStr >= last30DaysStr && tourDateStr <= todayStr;
+        } else if (preset === "Custom") {
+            if (fromDate && toDate) {
+                return tourDateStr >= fromDate && tourDateStr <= toDate;
+            } else if (fromDate) {
+                return tourDateStr >= fromDate;
+            } else if (toDate) {
+                return tourDateStr <= toDate;
+            }
+            return true;
+        }
+
+        return true;
+    },
+
+    // Bind event listeners for line and date filters
+    bindFilterEvents: function () {
+        const lineSelect = document.getElementById("dashboardLineSelect");
+        if (lineSelect) {
+            $(lineSelect).off("change.linefilter").on("change.linefilter", () => {
+                ALC_Dashboard.selectedLine = lineSelect.value;
+                ALC_Dashboard.applyCategoryFilter();
+            });
+        }
+
+        const datePreset = document.getElementById("dashboardDatePreset");
+        const customDateRange = document.getElementById("dashboardCustomDateRange");
+        if (datePreset) {
+            $(datePreset).off("change.datepreset").on("change.datepreset", () => {
+                ALC_Dashboard.selectedDatePreset = datePreset.value;
+                if (datePreset.value === "Custom") {
+                    if (customDateRange) customDateRange.style.display = "flex";
+                } else {
+                    if (customDateRange) customDateRange.style.display = "none";
+                    ALC_Dashboard.fromDate = "";
+                    ALC_Dashboard.toDate = "";
+                    const fromInput = document.getElementById("dashboardFromDate");
+                    const toInput = document.getElementById("dashboardToDate");
+                    if (fromInput) fromInput.value = "";
+                    if (toInput) toInput.value = "";
+                }
+                ALC_Dashboard.applyCategoryFilter();
+            });
+        }
+
+        const fromDateInput = document.getElementById("dashboardFromDate");
+        if (fromDateInput) {
+            $(fromDateInput).off("change.fromdate").on("change.fromdate", () => {
+                ALC_Dashboard.fromDate = fromDateInput.value;
+                ALC_Dashboard.applyCategoryFilter();
+            });
+        }
+
+        const toDateInput = document.getElementById("dashboardToDate");
+        if (toDateInput) {
+            $(toDateInput).off("change.todate").on("change.todate", () => {
+                ALC_Dashboard.toDate = toDateInput.value;
+                ALC_Dashboard.applyCategoryFilter();
+            });
+        }
+    },
+
+    // Reset all interactive filters back to default
+    resetFilters: function () {
+        this.selectedLine = "All";
+        this.selectedDatePreset = "All";
+        this.fromDate = "";
+        this.toDate = "";
+
+        const lineSelect = document.getElementById("dashboardLineSelect");
+        if (lineSelect) lineSelect.value = "All";
+
+        const datePreset = document.getElementById("dashboardDatePreset");
+        if (datePreset) datePreset.value = "All";
+
+        const customDateRange = document.getElementById("dashboardCustomDateRange");
+        if (customDateRange) customDateRange.style.display = "none";
+
+        const fromDateInput = document.getElementById("dashboardFromDate");
+        if (fromDateInput) fromDateInput.value = "";
+
+        const toDateInput = document.getElementById("dashboardToDate");
+        if (toDateInput) toDateInput.value = "";
+
+        this.applyCategoryFilter();
+    },
+
+    // Defensive fallback: ensure filter panel exists even if cached HTML lacks it
+    ensureFilterPanel: function () {
+        let panel = document.getElementById("dashboardFilterPanel");
+        if (!panel) {
+            const dashboardEl = document.getElementById("rajpuraQualityDashboard");
+            if (!dashboardEl) return;
+
+            const targetSection = dashboardEl.querySelector(".mb-4");
+            const panelHtml = `
+                <div id="dashboardFilterPanel" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 22px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);">
+                    <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 15px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label for="dashboardLineSelect" style="font-size: 13px; font-weight: 600; color: #475569; margin: 0; white-space: nowrap;">🏭 Line:</label>
+                            <select id="dashboardLineSelect" style="height: 36px; padding: 6px 12px; font-size: 13px; font-weight: 500; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #1e293b; cursor: pointer; min-width: 140px;">
+                                <option value="All">All Lines</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label for="dashboardDatePreset" style="font-size: 13px; font-weight: 600; color: #475569; margin: 0; white-space: nowrap;">📅 Date:</label>
+                            <select id="dashboardDatePreset" style="height: 36px; padding: 6px 12px; font-size: 13px; font-weight: 500; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #1e293b; cursor: pointer; min-width: 130px;">
+                                <option value="All">All Dates</option>
+                                <option value="Today">Today</option>
+                                <option value="Yesterday">Yesterday</option>
+                                <option value="Last7Days">Last 7 Days</option>
+                                <option value="Last30Days">Last 30 Days</option>
+                                <option value="Custom">Custom Range</option>
+                            </select>
+                        </div>
+                        <div id="dashboardCustomDateRange" style="display: none; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <span style="font-size: 12px; color: #64748b; font-weight: 500;">From:</span>
+                                <input type="date" id="dashboardFromDate" style="height: 36px; padding: 4px 8px; font-size: 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #1e293b; cursor: pointer;" />
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <span style="font-size: 12px; color: #64748b; font-weight: 500;">To:</span>
+                                <input type="date" id="dashboardToDate" style="height: 36px; padding: 4px 8px; font-size: 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #1e293b; cursor: pointer;" />
+                            </div>
+                        </div>
+                        <button type="button" id="btn-reset-filters" onclick="ALC_Dashboard.resetFilters()" style="display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; font-size: 13px; font-weight: 600; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #475569; cursor: pointer; transition: all 0.15s ease;" title="Reset all filters">
+                            ↺ Reset
+                        </button>
+                    </div>
+                    <div id="dashboardFilterCountBadge" style="font-size: 12px; font-weight: 600; color: #0369a1; background: #e0f2fe; padding: 5px 12px; border-radius: 12px; border: 1px solid #bae6fd; white-space: nowrap;">
+                        Showing all tours
+                    </div>
+                </div>
+            `;
+            if (targetSection) {
+                $(panelHtml).insertBefore(targetSection);
+            }
+        }
     }
 };
